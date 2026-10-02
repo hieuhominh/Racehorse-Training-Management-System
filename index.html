@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mã Trường — Hệ thống Quản lý Huấn luyện Ngựa đua</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body style="background-color: #000000 !important; background: #000000 !important;">
+
+  <!-- Top bar -->
+  <div class="ticker" style="background-color: #000000 !important; background: #000000 !important;">
+    <div class="wrap" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 40px !important; box-sizing: border-box !important;">
+      <div class="meet"><b>Mùa giải 2026</b><span>Vòng loại Đại Nam — còn 12 ngày · 38 chiến mã đang trong giáo án</span></div>
+      <nav>
+        <a href="/ho-tro.html">Hỗ trợ</a>
+        <a href="/tai-lieu.html">Tài liệu</a>
+        <a href="/dang-nhap.html">Đăng nhập</a>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Header Nav -->
+  <header class="nav" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; left: 0; right: 0; opacity: 1 !important; z-index: 99999; border-bottom: 1px solid #222222;">
+    <div class="wrap" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 40px !important; box-sizing: border-box !important;">
+      <a class="brand" href="/">
+        <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+          <path d="M17 3c6 0 10 4.6 10 10.6 0 5-2.6 7.4-2.6 11.2 0 2.6 1.6 3.9 1.6 5.4 0 1.2-1 1.8-2.3 1.8-2.6 0-4.2-2.2-4.2-5.2 0-3.4 2.2-5.6 2.2-9.2 0-2.9-1.8-5-4.7-5s-4.7 2.1-4.7 5c0 3.6 2.2 5.8 2.2 9.2 0 3-1.6 5.2-4.2 5.2-1.3 0-2.3-.6-2.3-1.8 0-1.5 1.6-2.8 1.6-5.4C9.6 21 7 18.6 7 13.6 7 6.6 11 3 17 3Z" fill="#C9A227"/>
+        </svg>
+        <span>
+          <span class="name">MÃ TRƯỜNG</span>
+          <span class="sub">RACEHORSE SYSTEM</span>
+        </span>
+      </a>
+      <nav class="mainnav" id="mainnav" style="background: transparent !important;">
+        <a href="/tong-quan.html">Tổng quan</a>
+
+        <div class="navitem">
+          <button class="navlink" aria-expanded="false" aria-controls="mega-1">Hồ sơ ngựa</button>
+          <div class="mega" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; left: 0; right: 0; z-index: 999999; border-top: 1px solid #C9A227; border-bottom: 1px solid var(--line); box-shadow: 0 24px 48px rgba(0, 0, 0, 0.9);" id="mega-1">
+            <div class="wrap" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 32px 40px 36px !important; box-sizing: border-box !important;">
+              <div class="mega-intro">
+                <div class="fno"><b>1</b><span class="badge req">BẮT BUỘC</span></div>
+                <h3>Hồ sơ &amp; lý lịch ngựa</h3>
+                <div class="vn">Horse Profile &amp; Pedigree</div>
+                <p>Khai sinh hồ sơ một chiến mã và giữ mọi dữ liệu huấn luyện, y tế, thi đấu về sau móc vào đúng một mã định danh.</p>
+                <a class="open-flow" href="/ho-so-ngua.html">Mở danh sách ngựa</a>
+              </div>
+              <div class="mega-links">
+                <h4>TRONG LUỒNG NÀY</h4>
+                <a href="/ho-so-ngua/them-moi.html">Đăng ký ngựa mới<em>Mã định danh, giống, cân nặng, chuồng</em></a>
+                <a href="/ho-so-ngua/pedigree.html">Cây dòng dõi<em>Pedigree ba đời</em></a>
+                <a href="/ho-so-ngua/chu-so-huu.html">Chủ sở hữu<em>Gán ngựa cho chủ và tỉ lệ sở hữu</em></a>
+                <a href="/ho-so-ngua/thanh-tich.html">Lịch sử thành tích<em>Các giải đã dự và kết quả</em></a>
+                <a href="/ho-so-ngua/can-nang.html">Cân nặng &amp; thể trạng<em>Biểu đồ theo thời gian</em></a>
+                <a href="/ho-so-ngua/ho-so-anh.html">Ảnh &amp; giấy tờ<em>Chứng nhận, hộ chiếu ngựa</em></a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="navitem">
+          <button class="navlink" aria-expanded="false" aria-controls="mega-2">Huấn luyện</button>
+          <div class="mega" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; left: 0; right: 0; z-index: 999999; border-top: 1px solid #C9A227; border-bottom: 1px solid var(--line); box-shadow: 0 24px 48px rgba(0, 0, 0, 0.9);" id="mega-2">
+            <div class="wrap" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 32px 40px 36px !important; box-sizing: border-box !important;">
+              <div class="mega-intro">
+                <div class="fno"><b>2</b><span class="badge req">BẮT BUỘC</span></div>
+                <h3>Giáo án huấn luyện</h3>
+                <div class="vn">Training Program</div>
+                <p>Từ mục tiêu giai đoạn của HLV trưởng xuống tới lịch tập hằng ngày của từng người phụ trách.</p>
+                <a class="open-flow" href="/huan-luyen.html">Mở bảng huấn luyện</a>
+              </div>
+              <div class="mega-links">
+                <h4>TRONG LUỒNG NÀY</h4>
+                <a href="/huan-luyen/giao-an.html">Lập giáo án<em>Cự ly, khối lượng, mặt sân theo giai đoạn</em></a>
+                <a href="/huan-luyen/lich-tap.html">Lịch tập hằng ngày<em>Phân công cho đội chăm sóc</em></a>
+                <a href="/huan-luyen/chay-thu.html">Lượt chạy thử<em>Đặt lịch và ghi nhận kết quả</em></a>
+                <a href="/huan-luyen/the-luc.html">Biểu đồ thể lực<em>Nhịp tim, vận tốc theo buổi tập</em></a>
+                <a href="/huan-luyen/canh-bao.html">Cảnh báo vượt ngưỡng<em>Nguy cơ quá tải và chấn thương</em></a>
+                <a href="/huan-luyen/danh-gia.html">Đánh giá phong độ<em>Chỉ số và nhận xét sau buổi tập</em></a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="navitem">
+          <button class="navlink" aria-expanded="false" aria-controls="mega-3">Y tế</button>
+          <div class="mega" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; left: 0; right: 0; z-index: 999999; border-top: 1px solid #C9A227; border-bottom: 1px solid var(--line); box-shadow: 0 24px 48px rgba(0, 0, 0, 0.9);" id="mega-3">
+            <div class="wrap" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 32px 40px 36px !important; box-sizing: border-box !important;">
+              <div class="mega-intro">
+                <div class="fno"><b>3</b><span class="badge req">BẮT BUỘC</span></div>
+                <h3>Y tế &amp; chấn thương</h3>
+                <div class="vn">Medical &amp; Injury</div>
+                <p>Từ ca khám đầu tiên đến ngày ngựa trở lại đường chạy, kèm quyền chặn mọi bài tập nặng khi cần.</p>
+                <a class="open-flow" href="/y-te.html">Mở hồ sơ y tế</a>
+              </div>
+              <div class="mega-links">
+                <h4>TRONG LUỒNG NÀY</h4>
+                <a href="/y-te/so-do-suc-khoe.html">Sơ đồ sức khỏe đàn ngựa<em>Đủ điều kiện · theo dõi · chấn thương · cách ly</em></a>
+                <a href="/y-te/kham-benh.html">Hồ sơ khám &amp; chẩn đoán<em>Ghi nhận từng lần khám</em></a>
+                <a href="/y-te/phac-do.html">Phác đồ &amp; đơn thuốc<em>Liều dùng và lịch điều trị</em></a>
+                <a href="/y-te/mo-hinh-3d.html">Bản đồ chấn thương 3D<em>Đánh dấu cơ — xương, theo dõi phục hồi</em></a>
+                <a href="/y-te/khoa-huan-luyen.html">Khóa huấn luyện<em>Chặn xếp lịch bài tập nặng</em></a>
+                <a href="/y-te/lich-dinh-ky.html">Tiêm phòng &amp; kiểm tra móng<em>Nhắc tự động theo chu kỳ</em></a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="navitem">
+          <button class="navlink" aria-expanded="false" aria-controls="mega-4">Chuồng trại</button>
+          <div class="mega" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; left: 0; right: 0; z-index: 999999; border-top: 1px solid #C9A227; border-bottom: 1px solid var(--line); box-shadow: 0 24px 48px rgba(0, 0, 0, 0.9);" id="mega-4">
+            <div class="wrap" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 32px 40px 36px !important; box-sizing: border-box !important;">
+              <div class="mega-intro">
+                <div class="fno"><b>4</b><span class="badge opt">TÙY CHỌN</span></div>
+                <h3>Chăm sóc &amp; dinh dưỡng</h3>
+                <div class="vn">Daily Care &amp; Nutrition</div>
+                <p>Việc trong ngày của đội chăm sóc: cho ăn, vệ sinh, tắm rửa, và báo sự cố ngay tại chuồng.</p>
+                <a class="open-flow" href="/chuong-trai.html">Mở việc hôm nay</a>
+              </div>
+              <div class="mega-links">
+                <h4>TRONG LUỒNG NÀY</h4>
+                <a href="/chuong-trai/so-do.html">Sơ đồ chuồng<em>Vị trí và lịch sinh hoạt từng con</em></a>
+                <a href="/chuong-trai/khau-phan.html">Khẩu phần ăn<em>Ngũ cốc, cỏ, vitamin theo từng bữa</em></a>
+                <a href="/chuong-trai/checklist.html">Checklist công việc<em>Cho ăn, vệ sinh, tắm, ngâm chân đá</em></a>
+                <a href="/chuong-trai/su-co.html">Báo sự cố<em>Bỏ ăn, đau bụng, sốt, xước móng — kèm ảnh</em></a>
+                <a href="/chuong-trai/vat-tu.html">Vật tư khu vực<em>Tồn kho và đề xuất bổ sung</em></a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="navitem">
+          <button class="navlink" aria-expanded="false" aria-controls="mega-5">Thi đấu</button>
+          <div class="mega" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; left: 0; right: 0; z-index: 999999; border-top: 1px solid #C9A227; border-bottom: 1px solid var(--line); box-shadow: 0 24px 48px rgba(0, 0, 0, 0.9);" id="mega-5">
+            <div class="wrap" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 32px 40px 36px !important; box-sizing: border-box !important;">
+              <div class="mega-intro">
+                <div class="fno"><b>5</b><span class="badge opt">TÙY CHỌN</span></div>
+                <h3>Thi đấu &amp; thành tích</h3>
+                <div class="vn">Race Entry &amp; Results</div>
+                <p>Chọn chiến mã phù hợp với từng giải, nộp hồ sơ đăng ký và tổng hợp tiền thưởng về cho chủ sở hữu.</p>
+                <a class="open-flow" href="/thi-dau.html">Xem giải sắp diễn ra</a>
+              </div>
+              <div class="mega-links">
+                <h4>TRONG LUỒNG NÀY</h4>
+                <a href="/thi-dau/lich-giai.html">Lịch giải đua<em>Điều kiện dự giải và hạn đăng ký</em></a>
+                <a href="/thi-dau/chon-ngua.html">Chọn ngựa dự giải<em>Đối chiếu phong độ và xác nhận thú y</em></a>
+                <a href="/thi-dau/dang-ky.html">Hồ sơ đăng ký<em>Số áo, nài ngựa, lệ phí</em></a>
+                <a href="/thi-dau/ket-qua.html">Kết quả &amp; tiền thưởng<em>Ghi nhận thứ hạng và phân chia</em></a>
+                <a href="/thi-dau/bao-cao.html">Báo cáo cho chủ ngựa<em>Chi phí, y tế, doanh thu định kỳ</em></a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <a href="/quan-tri.html">Quản trị</a>
+      </nav>
+      <div class="nav-cta">
+        <a class="btn btn-ghost" href="/dang-nhap.html#register">Đăng ký</a>
+        <a class="btn btn-solid" href="/dang-nhap.html">Vào hệ thống</a>
+        <button class="burger" id="burger" aria-label="Mở menu" aria-expanded="false" aria-controls="mainnav">≡</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <div class="hero" style="background-color: #000000 !important; background: #000000 !important;">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">Hệ thống Quản lý Huấn luyện Ngựa đua</div>
+          <h1>Mỗi sải chân<em>đều được ghi lại</em></h1>
+          <p class="lede">Giáo án, nhịp tim, bệnh án, khẩu phần và thành tích của cả tàu ngựa nằm trên một nền tảng. Huấn luyện viên, bác sĩ thú y, nhân viên chuồng trại và chủ ngựa cùng nhìn một dữ liệu.</p>
+          <div class="hero-actions">
+            <a class="btn btn-solid" href="/dang-nhap.html">Vào hệ thống</a>
+            <a class="btn btn-ghost" href="#vai-tro">Chọn vai trò của bạn</a>
+          </div>
+        </div>
+
+        <div class="vitals" aria-label="Dữ liệu buổi tập đang diễn ra">
+          <div class="vitals-head">
+            <div class="who">HẮC PHONG <small>Đường chạy số 2 · mặt sân cát</small></div>
+            <div class="live"><span class="dot"></span>Đang chạy</div>
+          </div>
+          <svg class="trace" viewBox="0 0 520 78" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 52 L34 52 L42 30 L50 62 L58 44 L96 44 L104 20 L112 66 L120 44 L160 44 L168 24 L176 64 L184 42 L228 42 L236 14 L244 68 L252 40 L296 40 L304 18 L312 66 L320 38 L364 38 L372 10 L380 70 L388 36 L432 36 L440 16 L448 64 L456 34 L520 34"/>
+          </svg>
+          <div class="readouts">
+            <div><b>186</b><span>NHỊP TIM / PHÚT</span></div>
+            <div><b>58,4</b><span>KM/GIỜ</span></div>
+            <div><b>1200</b><span>MÉT ĐÃ CHẠY</span></div>
+          </div>
+          <div class="vitals-foot"><span class="flag"></span>Nhịp tim vượt ngưỡng an toàn 8 phút liên tục. Hệ thống đề nghị giảm tải và báo bác sĩ thú y trực.</div>
+        </div>
+      </div>
+
+      <div class="strip">
+        <div><b>38</b><span>chiến mã đang quản lý</span></div>
+        <div><b>5</b><span>vai trò với quyền riêng biệt</span></div>
+        <div><b>24/7</b><span>giám sát thể lực và cảnh báo</span></div>
+        <div><b>100%</b><span>thao tác được ghi nhật ký</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Roles Section -->
+  <section class="roles" id="vai-tro" style="background-color: #000000 !important; background: #000000 !important;">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Mỗi người một khung nhìn</h2>
+        <p>Hệ thống mở đúng phần việc của bạn ngay khi đăng nhập. Không ai phải lội qua màn hình của người khác để tìm thông tin mình cần.</p>
+      </div>
+      <div class="role-grid">
+
+        <a class="role" href="/huan-luyen.html">
+          <div class="tag">VAI TRÒ 01</div>
+          <h3>Huấn luyện viên trưởng</h3>
+          <div class="vn">Head Trainer</div>
+          <ul>
+            <li>Bảng tiến độ và biểu đồ thể lực toàn bộ tàu ngựa</li>
+            <li>Lập giáo án theo cự ly, khối lượng, mặt sân từng giai đoạn</li>
+            <li>Phân công lịch tập hằng ngày và quản lý lượt chạy thử</li>
+            <li>Cảnh báo vượt ngưỡng thể lực từ dữ liệu nhịp tim, vận tốc</li>
+            <li>Chấm phong độ và ghi nhận xét sau mỗi buổi tập</li>
+          </ul>
+          <div class="go">Mở bảng huấn luyện</div>
+        </a>
+
+        <a class="role" href="/y-te.html">
+          <div class="tag">VAI TRÒ 02</div>
+          <h3>Bác sĩ thú y</h3>
+          <div class="vn">Veterinarian</div>
+          <ul>
+            <li>Sơ đồ chuồng trại theo trạng thái sức khỏe của cả đàn</li>
+            <li>Hồ sơ khám, chẩn đoán, phác đồ điều trị và đơn thuốc</li>
+            <li>Đánh dấu vị trí chấn thương trên mô hình cơ — xương 3D</li>
+            <li>Khóa huấn luyện khẩn cấp cho ngựa đang chấn thương</li>
+            <li>Nhắc lịch tiêm phòng, tẩy giun, kiểm tra móng định kỳ</li>
+          </ul>
+          <div class="go">Mở hồ sơ y tế</div>
+        </a>
+
+        <a class="role" href="/chuong-trai.html">
+          <div class="tag">VAI TRÒ 03</div>
+          <h3>Nhân viên chăm sóc</h3>
+          <div class="vn">Groom / Stable Hand</div>
+          <ul>
+            <li>Sơ đồ vị trí chuồng và lịch sinh hoạt từng con ngựa</li>
+            <li>Khẩu phần đã duyệt cho từng bữa: ngũ cốc, cỏ, vitamin</li>
+            <li>Xác nhận hoàn thành cho ăn, vệ sinh, tắm, ngâm chân đá</li>
+            <li>Báo sự cố kèm ảnh chụp ngay tại chuồng</li>
+            <li>Theo dõi vật tư khu vực phụ trách và đề xuất bổ sung</li>
+          </ul>
+          <div class="go">Mở việc hôm nay</div>
+        </a>
+
+        <a class="role" href="/chu-so-huu.html">
+          <div class="tag">VAI TRÒ 04</div>
+          <h3>Chủ sở hữu ngựa</h3>
+          <div class="vn">Horse Owner</div>
+          <ul>
+            <li>Lý lịch, dòng dõi và lịch sử thành tích thi đấu</li>
+            <li>Sức khỏe, cân nặng, trạng thái sẵn sàng theo thời gian thực</li>
+            <li>Lịch tập, video đua thử và nhật ký nhận xét của HLV trưởng</li>
+            <li>Báo cáo chi phí nuôi dưỡng, y tế và tiền thưởng định kỳ</li>
+          </ul>
+          <div class="go">Mở ngựa của tôi</div>
+        </a>
+
+        <a class="role" href="/quan-tri.html">
+          <div class="tag">VAI TRÒ 05</div>
+          <h3>Quản lý câu lạc bộ</h3>
+          <div class="vn">Club Manager</div>
+          <ul>
+            <li>Danh mục tổng: ngựa, nhân sự, vật tư y tế và thức ăn</li>
+            <li>Phân quyền truy cập và thao tác theo vai trò (RBAC)</li>
+            <li>Báo cáo hiệu suất huấn luyện, chi phí và doanh thu giải đấu</li>
+            <li>Nhật ký thao tác hệ thống phục vụ đối soát và minh bạch</li>
+          </ul>
+          <div class="go">Mở khu quản trị</div>
+        </a>
+
+        <a class="role" href="/thi-dau.html">
+          <div class="tag">LỊCH GIẢI</div>
+          <h3>Sàn đăng ký thi đấu</h3>
+          <div class="vn">Race Entry</div>
+          <ul>
+            <li>Danh sách giải đua đang mở đăng ký và điều kiện dự giải</li>
+            <li>Đối chiếu ngựa đủ điều kiện với xác nhận của thú y</li>
+            <li>Hồ sơ đăng ký, số áo, nài ngựa và kết quả sau giải</li>
+          </ul>
+          <div class="go">Xem giải sắp diễn ra</div>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Business Flows Section -->
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Năm luồng nghiệp vụ</h2>
+        <p>Ba luồng lõi chạy suốt vòng đời một chiến mã, từ lúc nhập tàu đến ngày ra sân. Hai luồng còn lại mở rộng sang sinh hoạt hằng ngày và thành tích thi đấu.</p>
+      </div>
+
+      <div class="flow">
+        <div class="no">1</div>
+        <div>
+          <h3>Quản lý hồ sơ &amp; lý lịch ngựa</h3>
+          <div class="vn">Horse Profile &amp; Pedigree</div>
+          <p>Khai sinh hồ sơ một chiến mã: mã định danh, giống, dòng dõi ba đời, cân nặng, chủ sở hữu, vị trí chuồng. Mọi dữ liệu huấn luyện và y tế sau này đều móc vào hồ sơ này.</p>
+        </div>
+        <div class="meta"><span class="badge req">BẮT BUỘC</span><a href="/ho-so-ngua.html">Vào hồ sơ ngựa</a></div>
+      </div>
+
+      <div class="flow">
+        <div class="no">2</div>
+        <div>
+          <h3>Lập &amp; thực hiện giáo án huấn luyện</h3>
+          <div class="vn">Training Program</div>
+          <p>HLV trưởng dựng giáo án theo giai đoạn, giao lịch xuống đội chăm sóc, theo dõi buổi tập bằng dữ liệu nhịp tim và vận tốc, rồi chấm phong độ kèm nhận xét chuyên môn.</p>
+        </div>
+        <div class="meta"><span class="badge req">BẮT BUỘC</span><a href="/huan-luyen.html">Vào giáo án</a></div>
+      </div>
+
+      <div class="flow">
+        <div class="no">3</div>
+        <div>
+          <h3>Quản lý y tế &amp; xử lý chấn thương</h3>
+          <div class="vn">Medical &amp; Injury</div>
+          <p>Từ ca khám đầu tiên đến ngày trở lại đường chạy: chẩn đoán, đánh dấu vị trí tổn thương trên mô hình 3D, phác đồ điều trị, và lệnh khóa huấn luyện chặn mọi bài tập nặng.</p>
+        </div>
+        <div class="meta"><span class="badge req">BẮT BUỘC</span><a href="/y-te.html">Vào hồ sơ y tế</a></div>
+      </div>
+
+      <div class="flow">
+        <div class="no">4</div>
+        <div>
+          <h3>Chăm sóc chuồng trại &amp; dinh dưỡng</h3>
+          <div class="vn">Daily Care &amp; Nutrition</div>
+          <p>Lịch sinh hoạt, khẩu phần từng bữa, checklist công việc trong ngày và báo cáo sự cố kèm ảnh từ khu chuồng.</p>
+        </div>
+        <div class="meta"><span class="badge opt">TÙY CHỌN</span><a href="/chuong-trai.html">Vào chuồng trại</a></div>
+      </div>
+
+      <div class="flow">
+        <div class="no">5</div>
+        <div>
+          <h3>Đăng ký thi đấu &amp; báo cáo thành tích</h3>
+          <div class="vn">Race Entry &amp; Results</div>
+          <p>Chọn ngựa phù hợp với từng giải, nộp hồ sơ đăng ký, ghi kết quả và tổng hợp tiền thưởng về cho chủ sở hữu.</p>
+        </div>
+        <div class="meta"><span class="badge opt">TÙY CHỌN</span><a href="/thi-dau.html">Vào lịch giải</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Detailed Features Section -->
+  <section style="background:var(--ink-2);border-block:1px solid var(--line)">
+    <div class="wrap">
+
+      <div class="split">
+        <div class="art">
+          <div class="stalls">
+            <div class="stall"><i></i>A1</div>
+            <div class="stall"><i></i>A2</div>
+            <div class="stall watch"><i></i>A3</div>
+            <div class="stall"><i></i>A4</div>
+            <div class="stall hurt"><i></i>A5</div>
+            <div class="stall"><i></i>A6</div>
+            <div class="stall"><i></i>B1</div>
+            <div class="stall quar"><i></i>B2</div>
+            <div class="stall"><i></i>B3</div>
+            <div class="stall watch"><i></i>B4</div>
+            <div class="stall"><i></i>B5</div>
+            <div class="stall empty"><i></i>B6</div>
+          </div>
+          <div class="legend">
+            <span><i style="background:var(--ok)"></i>Đủ điều kiện</span>
+            <span><i style="background:var(--brass)"></i>Cần theo dõi</span>
+            <span><i style="background:var(--alert)"></i>Chấn thương</span>
+            <span><i style="background:#6F7BA8"></i>Cách ly</span>
+          </div>
+        </div>
+        <div>
+          <h2>Nhìn một lần biết cả tàu ngựa</h2>
+          <p>Sơ đồ chuồng trại đổi màu theo trạng thái sức khỏe do bác sĩ thú y cập nhật. Chạm vào một ô là mở thẳng bệnh án, lịch tiêm phòng và diễn biến phục hồi của con ngựa đó.</p>
+          <ul>
+            <li>Bốn trạng thái chuẩn: đủ điều kiện, cần theo dõi, chấn thương, cách ly</li>
+            <li>Ngựa bị khóa huấn luyện tự động biến mất khỏi danh sách xếp bài tập nặng</li>
+            <li>Vị trí tổn thương đánh dấu trên mô hình cơ — xương 3D, lưu theo từng lần tái khám</li>
+            <li>Nhắc tự động lịch tiêm phòng, tẩy giun và kiểm tra móng</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="split rev">
+        <div class="art">
+          <div class="sched">
+            <div class="row"><span class="t">05:30</span><div class="bar b1">Cho ăn sáng · khẩu phần đã duyệt</div></div>
+            <div class="row"><span class="t">06:15</span><div class="bar b2">Chạy bền 3.000 m · mặt sân cỏ</div></div>
+            <div class="row"><span class="t">08:00</span><div class="bar b3">Tắm rửa · ngâm chân nước đá</div></div>
+            <div class="row"><span class="t">10:30</span><div class="bar b4">Thú y tái khám gân trước trái</div></div>
+            <div class="row"><span class="t">15:00</span><div class="bar b2">Chạy nước rút 800 m · cát</div></div>
+            <div class="row"><span class="t">17:30</span><div class="bar b1">Cho ăn chiều · vệ sinh chuồng</div></div>
+          </div>
+        </div>
+        <div>
+          <h2>Giáo án xuống tới từng bữa ăn</h2>
+          <p>HLV trưởng đặt mục tiêu cho giai đoạn, hệ thống rải thành lịch ngày cho từng người phụ trách. Nhân viên chăm sóc chỉ thấy đúng việc của mình và tích hoàn thành ngay trên điện thoại.</p>
+          <ul>
+            <li>Giáo án theo cự ly, khối lượng và mặt sân cho từng giai đoạn</li>
+            <li>Lịch tập, lượt chạy thử và người phụ trách gắn liền một dòng công việc</li>
+            <li>Cảnh báo vượt ngưỡng thể lực gửi thẳng cho HLV và thú y trực</li>
+            <li>Chủ ngựa xem lại video buổi đua thử và nhận xét sau mỗi buổi</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CTA Banner -->
+  <div class="band">
+    <div class="wrap">
+      <div>
+        <h2>Sẵn sàng cho mùa giải tới</h2>
+        <p>Đưa cả tàu ngựa lên hệ thống trong một buổi. Dữ liệu cũ nhập từ file, phân quyền theo vai trò có sẵn.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-solid" href="/dang-ky.html">Tạo tài khoản câu lạc bộ</a>
+        <a class="btn btn-ghost" href="/lien-he.html">Đặt lịch xem demo</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer style="background-color: #000000 !important; background: #000000 !important;">
+    <div class="wrap">
+      <div class="fgrid">
+        <div>
+          <a class="brand" href="/" style="margin-bottom:14px">
+            <svg width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><path d="M17 3c6 0 10 4.6 10 10.6 0 5-2.6 7.4-2.6 11.2 0 2.6 1.6 3.9 1.6 5.4 0 1.2-1 1.8-2.3 1.8-2.6 0-4.2-2.2-4.2-5.2 0-3.4 2.2-5.6 2.2-9.2 0-2.9-1.8-5-4.7-5s-4.7 2.1-4.7 5c0 3.6 2.2 5.8 2.2 9.2 0 3-1.6 5.2-4.2 5.2-1.3 0-2.3-.6-2.3-1.8 0-1.5 1.6-2.8 1.6-5.4C9.6 21 7 18.6 7 13.6 7 6.6 11 3 17 3Z" fill="#C9A227"/></svg>
+            <span><span class="name">MÃ TRƯỜNG</span><span class="sub">RACEHORSE SYSTEM</span></span>
+          </a>
+          <p style="color:#8F958F;max-width:34ch">Hệ thống quản lý huấn luyện ngựa đua cho câu lạc bộ và trang trại.</p>
+        </div>
+        <div>
+          <h4>HUẤN LUYỆN</h4>
+          <ul>
+            <li><a href="/huan-luyen.html">Giáo án</a></li>
+            <li><a href="/lich-tap.html">Lịch tập hằng ngày</a></li>
+            <li><a href="/chay-thu.html">Lượt chạy thử</a></li>
+            <li><a href="/the-luc.html">Biểu đồ thể lực</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Y TẾ</h4>
+          <ul>
+            <li><a href="/y-te.html">Bệnh án</a></li>
+            <li><a href="/chan-thuong.html">Bản đồ chấn thương</a></li>
+            <li><a href="/tiem-phong.html">Lịch tiêm phòng</a></li>
+            <li><a href="/khoa-huan-luyen.html">Khóa huấn luyện</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>CHUỒNG TRẠI</h4>
+          <ul>
+            <li><a href="/chuong-trai.html">Sơ đồ chuồng</a></li>
+            <li><a href="/khau-phan.html">Khẩu phần ăn</a></li>
+            <li><a href="/su-co.html">Báo sự cố</a></li>
+            <li><a href="/vat-tu.html">Vật tư</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>CÂU LẠC BỘ</h4>
+          <ul>
+            <li><a href="/quan-tri.html">Danh mục &amp; nhân sự</a></li>
+            <li><a href="/phan-quyen.html">Phân quyền RBAC</a></li>
+            <li><a href="/bao-cao.html">Báo cáo &amp; chi phí</a></li>
+            <li><a href="/nhat-ky.html">Nhật ký hệ thống</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="fbot">
+        <span>© 2026 Mã Trường · Racehorse Training &amp; Management System</span>
+        <span><a href="/dieu-khoan.html">Điều khoản</a> · <a href="/bao-mat.html">Bảo mật</a> · <a href="/lien-he.html">Liên hệ</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

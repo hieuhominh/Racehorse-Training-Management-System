@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # -------------------------------------------------------------------------
+  # Microsoft SQL Server 2019
+  # -------------------------------------------------------------------------
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: racehorse-sqlserver
+    restart: always
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Password123@#
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./database:/init-scripts
+    networks:
+      - swp-network
+
+  # -------------------------------------------------------------------------
+  # (Tùy chọn) Apache Tomcat 9 with JDK 17
+  # Nếu nhóm chạy Tomcat trực tiếp trong NetBeans 13 thì không cần bật service này
+  # -------------------------------------------------------------------------
+  # tomcat:
+  #   image: tomcat:9.0-jdk17
+  #   container_name: racehorse-tomcat
+  #   restart: always
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ./backend/target:/usr/local/tomcat/webapps
+  #   networks:
+  #     - swp-network
+  #   depends_on:
+  #     - sqlserver
+
+networks:
+  swp-network:
+    driver: bridge
+
+volumes:
+  mssql_data:
+    driver: local

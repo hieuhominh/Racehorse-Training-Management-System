@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng nhập &amp; Đăng ký — Mã Trường Racehorse System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      background-color: #000000 !important;
+      background: #000000 !important;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .auth-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 20px;
+      position: relative;
+    }
+    .auth-box {
+      width: 100%;
+      max-width: 460px;
+      background: #080808;
+      border: 1px solid rgba(201, 162, 39, 0.3);
+      border-radius: 8px;
+      padding: 36px 32px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.95);
+      position: relative;
+      z-index: 2;
+    }
+    .auth-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .auth-brand .name {
+      font-family: var(--display);
+      font-size: 26px;
+      color: #FFFFFF;
+      letter-spacing: .02em;
+    }
+    .auth-brand .sub {
+      font-size: 10px;
+      letter-spacing: .16em;
+      color: var(--brass);
+      display: block;
+      margin-top: 2px;
+    }
+    .auth-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+    }
+    .auth-tab-btn {
+      flex: 1;
+      text-align: center;
+      padding: 12px 0;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--paper-dim);
+      font-family: var(--body);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .auth-tab-btn.active {
+      color: var(--brass);
+      border-bottom-color: var(--brass);
+    }
+    .auth-google-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #111111;
+      border: 1px solid rgba(232, 227, 215, 0.2);
+      border-radius: 4px;
+      color: #FFFFFF;
+      font-family: var(--body);
+      font-size: 14.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .auth-google-btn:hover {
+      background: #1c1c1c;
+      border-color: var(--brass);
+      transform: translateY(-1px);
+    }
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 22px 0;
+      color: var(--paper-dim);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .auth-divider::before,
+    .auth-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--paper);
+    }
+    .form-group input,
+    .form-group select {
+      padding: 11px 14px;
+      background: #000000;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: #FFFFFF;
+      font-family: var(--body);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--brass);
+    }
+    .form-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--paper-dim);
+    }
+    .form-row a {
+      color: var(--brass);
+      text-decoration: none;
+    }
+    .form-row a:hover {
+      text-decoration: underline;
+    }
+    .auth-submit-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--brass);
+      border: none;
+      border-radius: 4px;
+      color: #14100A;
+      font-family: var(--body);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s ease;
+    }
+    .auth-submit-btn:hover {
+      background: #DCB63B;
+    }
+    .auth-footer-switch {
+      text-align: center;
+      margin-top: 22px;
+      font-size: 13.5px;
+      color: var(--paper-dim);
+    }
+    .auth-footer-switch button,
+    .auth-footer-switch a {
+      color: var(--brass);
+      font-weight: 600;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      font-family: inherit;
+      font-size: inherit;
+      text-decoration: none;
+    }
+    .auth-footer-switch button:hover,
+    .auth-footer-switch a:hover {
+      text-decoration: underline;
+    }
+    .back-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--paper-dim);
+      font-size: 13px;
+      margin-bottom: 20px;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    .back-home:hover {
+      color: var(--brass);
+    }
+    .alert-box {
+      padding: 12px 14px;
+      border-radius: 4px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .alert-success {
+      background: rgba(94, 156, 106, 0.15);
+      border: 1px solid var(--ok);
+      color: #9cd5a5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="ticker" style="background-color: #000000 !important; background: #000000 !important;">
+    <div class="wrap" style="background-color: #000000 !important; background: #000000 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 0 40px !important; box-sizing: border-box !important;">
+      <div class="meet"><b>Mùa giải 2026</b><span>Vòng loại Đại Nam — còn 12 ngày · 38 chiến mã đang trong giáo án</span></div>
+      <nav>
+        <a href="/index.html">Trang chủ</a>
+        <a href="/ho-tro.html">Hỗ trợ</a>
+        <a href="/tai-lieu.html">Tài liệu</a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="auth-wrapper">
+    <div class="auth-box">
+      <a class="back-home" href="/index.html">← Quay lại Trang chủ Mã Trường</a>
+
+      <div class="auth-brand">
+        <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+          <path d="M17 3c6 0 10 4.6 10 10.6 0 5-2.6 7.4-2.6 11.2 0 2.6 1.6 3.9 1.6 5.4 0 1.2-1 1.8-2.3 1.8-2.6 0-4.2-2.2-4.2-5.2 0-3.4 2.2-5.6 2.2-9.2 0-2.9-1.8-5-4.7-5s-4.7 2.1-4.7 5c0 3.6 2.2 5.8 2.2 9.2 0 3-1.6 5.2-4.2 5.2-1.3 0-2.3-.6-2.3-1.8 0-1.5 1.6-2.8 1.6-5.4C9.6 21 7 18.6 7 13.6 7 6.6 11 3 17 3Z" fill="#C9A227"/>
+        </svg>
+        <div>
+          <span class="name">MÃ TRƯỜNG</span>
+          <span class="sub">RACEHORSE SYSTEM</span>
+        </div>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" id="tab-login-btn" onclick="switchAuthTab('login')">Đăng nhập</button>
+        <button class="auth-tab-btn" id="tab-register-btn" onclick="switchAuthTab('register')">Đăng ký</button>
+      </div>
+
+      <!-- Alert Notification -->
+      <div class="alert-box alert-success" id="auth-alert"></div>
+
+      <!-- Google Button -->
+      <button type="button" class="auth-google-btn" id="google-auth-btn" onclick="handleGoogleAuth()">
+        <svg width="20" height="20" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span id="google-btn-text">Tiếp tục bằng tài khoản Google (Gmail)</span>
+      </button>
+
+      <div class="auth-divider" id="auth-divider-text">hoặc tiếp tục với email</div>
+
+      <!-- FORM ĐĂNG NHẬP -->
+      <form class="auth-form" id="login-form" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group">
+          <label for="login-email">Email hoặc Tên đăng nhập</label>
+          <input type="text" id="login-email" required placeholder="name@example.com hoặc username">
+        </div>
+        <div class="form-group">
+          <label for="login-password">Mật khẩu</label>
+          <input type="password" id="login-password" required placeholder="Nhập mật khẩu">
+        </div>
+        <div class="form-row">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" style="accent-color:var(--brass);"> Ghi nhớ đăng nhập
+          </label>
+          <a href="#" onclick="alert('Vui lòng liên hệ quản trị viên hoặc sử dụng đăng nhập qua Google Gmail để khôi phục.');return false;">Quên mật khẩu?</a>
+        </div>
+        <button type="submit" class="auth-submit-btn">ĐĂNG NHẬP VÀO HỆ THỐNG</button>
+
+        <div class="auth-footer-switch">
+          Chưa có tài khoản? <button type="button" onclick="switchAuthTab('register')">Đăng ký ngay</button>
+        </div>
+      </form>
+
+      <!-- FORM ĐĂNG KÝ -->
+      <form class="auth-form" id="register-form" style="display:none;" onsubmit="handleRegisterSubmit(event)">
+        <div class="form-group">
+          <label for="reg-fullname">Họ và tên</label>
+          <input type="text" id="reg-fullname" required placeholder="Ví dụ: Nguyễn Văn An">
+        </div>
+        <div class="form-group">
+          <label for="reg-email">Địa chỉ Gmail / Email</label>
+          <input type="email" id="reg-email" required placeholder="vidu@gmail.com">
+        </div>
+        <div class="form-group">
+          <label for="reg-role">Vai trò của bạn trong hệ thống</label>
+          <select id="reg-role" required>
+            <option value="owner">Chủ sở hữu ngựa (Owner)</option>
+            <option value="trainer">Huấn luyện viên (Trainer)</option>
+            <option value="vet">Bác sĩ thú y (Veterinarian)</option>
+            <option value="groom">Nhân viên chăm sóc (Groom)</option>
+            <option value="guest">Khách tham quan / Khác</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="reg-password">Mật khẩu</label>
+          <input type="password" id="reg-password" required placeholder="Tối thiểu 6 ký tự">
+        </div>
+        <div class="form-group">
+          <label for="reg-confirm">Xác nhận mật khẩu</label>
+          <input type="password" id="reg-confirm" required placeholder="Nhập lại mật khẩu">
+        </div>
+        <div class="form-row">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" required style="accent-color:var(--brass);"> Tôi đồng ý với điều khoản dịch vụ
+          </label>
+        </div>
+        <button type="submit" class="auth-submit-btn">TẠO TÀI KHOẢN MỚI</button>
+
+        <div class="auth-footer-switch">
+          Đã có tài khoản? <button type="button" onclick="switchAuthTab('login')">Đăng nhập</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <script>
+    function switchAuthTab(tab) {
+      const loginBtn = document.getElementById('tab-login-btn');
+      const regBtn = document.getElementById('tab-register-btn');
+      const loginForm = document.getElementById('login-form');
+      const regForm = document.getElementById('register-form');
+      const googleBtnText = document.getElementById('google-btn-text');
+      const dividerText = document.getElementById('auth-divider-text');
+      const alertBox = document.getElementById('auth-alert');
+
+      alertBox.style.display = 'none';
+
+      if (tab === 'register') {
+        loginBtn.classList.remove('active');
+        regBtn.classList.add('active');
+        loginForm.style.display = 'none';
+        regForm.style.display = 'flex';
+        googleBtnText.innerText = 'Đăng ký nhanh bằng Google (Gmail)';
+        dividerText.innerText = 'hoặc đăng ký bằng email';
+        window.location.hash = '#register';
+      } else {
+        regBtn.classList.remove('active');
+        loginBtn.classList.add('active');
+        regForm.style.display = 'none';
+        loginForm.style.display = 'flex';
+        googleBtnText.innerText = 'Tiếp tục bằng tài khoản Google (Gmail)';
+        dividerText.innerText = 'hoặc tiếp tục với email';
+        window.location.hash = '#login';
+      }
+    }
+
+    function handleGoogleAuth() {
+      const isRegister = document.getElementById('tab-register-btn').classList.contains('active');
+      const actionText = isRegister ? 'Đăng ký bằng Google Gmail' : 'Đăng nhập bằng Google Gmail';
+      
+      const alertBox = document.getElementById('auth-alert');
+      alertBox.style.display = 'block';
+      alertBox.innerText = `Đang kết nối tài khoản Google... Xác thực thành công cho ${actionText}! Chuyển hướng vào hệ thống...`;
+      
+      setTimeout(() => {
+        window.location.href = '/index.html';
+      }, 1500);
+    }
+
+    function handleLoginSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const alertBox = document.getElementById('auth-alert');
+      alertBox.style.display = 'block';
+      alertBox.innerText = `Đăng nhập thành công với tài khoản ${email}! Đang đưa bạn vào hệ thống...`;
+      setTimeout(() => {
+        window.location.href = '/index.html';
+      }, 1200);
+    }
+
+    function handleRegisterSubmit(e) {
+      e.preventDefault();
+      const pass = document.getElementById('reg-password').value;
+      const confirm = document.getElementById('reg-confirm').value;
+      if (pass !== confirm) {
+        alert('Mật khẩu và xác nhận mật khẩu không khớp!');
+        return;
+      }
+      const name = document.getElementById('reg-fullname').value;
+      const alertBox = document.getElementById('auth-alert');
+      alertBox.style.display = 'block';
+      alertBox.innerText = `Chúc mừng ${name}! Đăng ký tài khoản thành công. Đang tự động đăng nhập...`;
+      setTimeout(() => {
+        window.location.href = '/index.html';
+      }, 1200);
+    }
+
+    // Auto-switch based on URL hash
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.location.hash === '#register' || window.location.pathname.includes('dang-ky')) {
+        switchAuthTab('register');
+      }
+    });
+  </script>
+</body>
+</html>
