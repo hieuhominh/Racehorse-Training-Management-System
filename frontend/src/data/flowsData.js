@@ -6,7 +6,7 @@ export const flowsData = [
     desc: 'Khai sinh hồ sơ một chiến mã: mã định danh, giống, dòng dõi ba đời, cân nặng, chủ sở hữu, vị trí chuồng. Mọi dữ liệu huấn luyện và y tế sau này đều móc vào hồ sơ này.',
     badge: 'BẮT BUỘC',
     isReq: true,
-    link: '/ho-so-ngua.html',
+    link: '/ho-so-ngua',
     linkText: 'Vào hồ sơ ngựa'
   },
   {
@@ -16,7 +16,7 @@ export const flowsData = [
     desc: 'HLV trưởng dựng giáo án theo giai đoạn, giao lịch xuống đội chăm sóc, theo dõi buổi tập bằng dữ liệu nhịp tim và vận tốc, rồi chấm phong độ kèm nhận xét chuyên môn.',
     badge: 'BẮT BUỘC',
     isReq: true,
-    link: '/huan-luyen.html',
+    link: '/ho-so-ngua',
     linkText: 'Vào giáo án'
   },
   {
@@ -26,7 +26,7 @@ export const flowsData = [
     desc: 'Từ ca khám đầu tiên đến ngày trở lại đường chạy: chẩn đoán, đánh dấu vị trí tổn thương trên mô hình 3D, phác đồ điều trị, và lệnh khóa huấn luyện chặn mọi bài tập nặng.',
     badge: 'BẮT BUỘC',
     isReq: true,
-    link: '/y-te.html',
+    link: '/ho-so-ngua',
     linkText: 'Vào hồ sơ y tế'
   },
   {
@@ -36,7 +36,7 @@ export const flowsData = [
     desc: 'Lịch sinh hoạt, khẩu phần từng bữa, checklist công việc trong ngày và báo cáo sự cố kèm ảnh từ khu chuồng.',
     badge: 'TÙY CHỌN',
     isReq: false,
-    link: '/chuong-trai.html',
+    link: '/chuong-trai',
     linkText: 'Vào chuồng trại'
   },
   {
@@ -46,7 +46,7 @@ export const flowsData = [
     desc: 'Chọn ngựa phù hợp với từng giải, nộp hồ sơ đăng ký, ghi kết quả và tổng hợp tiền thưởng về cho chủ sở hữu.',
     badge: 'TÙY CHỌN',
     isReq: false,
-    link: '/thi-dau.html',
+    link: '/thanh-tich',
     linkText: 'Vào lịch giải'
   }
 ];

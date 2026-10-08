@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { rolesData } from '../data/rolesData';
 
 export default function RolesSection() {
@@ -13,7 +14,7 @@ export default function RolesSection() {
         </div>
         <div className="role-grid">
           {rolesData.map((role, idx) => (
-            <a key={idx} className="role" href={role.link}>
+            <Link key={idx} className="role" to={role.link}>
               <div className="tag">{role.tag}</div>
               <h3>{role.title}</h3>
               <div className="vn">{role.vn}</div>
@@ -23,7 +24,7 @@ export default function RolesSection() {
                 ))}
               </ul>
               <div className="go">{role.cta}</div>
-            </a>
+            </Link>
           ))}
         </div>
       </div>

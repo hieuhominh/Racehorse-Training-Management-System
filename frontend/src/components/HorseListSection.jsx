@@ -7,7 +7,7 @@ export default function HorseListSection() {
   const [searchChip, setSearchChip] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [viewMode, setViewMode] = useState('table'); // 'table' | 'cards'
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table' (default to 'cards' so action buttons are 100% prominent)
   const [activeHorseForPedigree, setActiveHorseForPedigree] = useState(null);
   const [detailModalHorse, setDetailModalHorse] = useState(null);
 
@@ -161,19 +161,19 @@ export default function HorseListSection() {
               <div className="view-toggle-btns">
                 <button
                   type="button"
-                  className={`toggle-btn ${viewMode === 'table' ? 'active' : ''}`}
-                  onClick={() => setViewMode('table')}
-                  title="Hiển thị dạng bảng"
+                  className={`toggle-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                  onClick={() => setViewMode('cards')}
+                  title="Hiển thị dạng thẻ 100% khung hình"
                 >
-                  ☰ Bảng
+                  ☷ Thẻ Thao Tác
                 </button>
                 <button
                   type="button"
-                  className={`toggle-btn ${viewMode === 'cards' ? 'active' : ''}`}
-                  onClick={() => setViewMode('cards')}
-                  title="Hiển thị dạng thẻ"
+                  className={`toggle-btn ${viewMode === 'table' ? 'active' : ''}`}
+                  onClick={() => setViewMode('table')}
+                  title="Hiển thị dạng bảng thu gọn"
                 >
-                  ☷ Thẻ
+                  ☰ Bảng Thu Gọn
                 </button>
               </div>
             </div>
@@ -228,122 +228,8 @@ export default function HorseListSection() {
               Đặt lại bộ lọc
             </button>
           </div>
-        ) : viewMode === 'table' ? (
-          /* TABLE VIEW */
-          <div className="table-responsive-wrapper">
-            <table className="horses-table">
-              <thead>
-                <tr>
-                  <th>Mã Chip RFID</th>
-                  <th>Tên & Ảnh chiến mã</th>
-                  <th>Giống & Đặc điểm</th>
-                  <th>Chuồng & Thể trạng</th>
-                  <th>Dòng Cha (Sire) & Mẹ (Dam)</th>
-                  <th>Chủ sở hữu & HLV</th>
-                  <th>Trạng thái</th>
-                  <th className="text-right">Hành động Phả hệ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredHorses.map((horse) => (
-                  <tr key={horse.id} className="horse-table-row">
-                    {/* Chip ID */}
-                    <td className="chip-cell">
-                      <div className="chip-tag">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect x="2" y="4" width="20" height="16" rx="2" />
-                          <path d="M6 8v8M10 8v8M14 8v8M18 8v8" />
-                        </svg>
-                        <code>{horse.chipId}</code>
-                      </div>
-                    </td>
-
-                    {/* Name & Avatar */}
-                    <td className="horse-info-cell">
-                      <div className="horse-avatar-group">
-                        <img src={horse.avatar} alt={horse.name} className="horse-avatar-img" />
-                        <div>
-                          <div className="horse-name-main">{horse.name}</div>
-                          <div className="horse-name-eng">{horse.englishName}</div>
-                          <div className="horse-sub-meta">
-                            {horse.gender} • {horse.age} tuổi ({horse.yob})
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Breed & Specs */}
-                    <td>
-                      <div className="breed-meta">
-                        <strong>{horse.breed}</strong>
-                        <span>{horse.color}</span>
-                        <small>{horse.height} • {horse.weight}</small>
-                      </div>
-                    </td>
-
-                    {/* Stall & Record */}
-                    <td>
-                      <div className="stall-meta">
-                        <span className="stall-pill">{horse.stall}</span>
-                        <div className="wins-meta">🏆 {horse.winsCount}</div>
-                      </div>
-                    </td>
-
-                    {/* Sire & Dam */}
-                    <td>
-                      <div className="parents-mini-list">
-                        <div className="parent-mini sire">
-                          <span className="mini-icon">♂</span>
-                          <strong>Cha:</strong> {horse.pedigree?.g2?.sire?.name || 'N/A'}
-                        </div>
-                        <div className="parent-mini dam">
-                          <span className="mini-icon">♀</span>
-                          <strong>Mẹ:</strong> {horse.pedigree?.g2?.dam?.name || 'N/A'}
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Owner & Trainer */}
-                    <td>
-                      <div className="owner-meta">
-                        <div className="owner-name" title={horse.owner}>👤 {horse.owner}</div>
-                        <div className="trainer-name">🧢 {horse.trainer}</div>
-                      </div>
-                    </td>
-
-                    {/* Status */}
-                    <td>
-                      {getStatusBadge(horse.status, horse.statusLabel)}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="text-right">
-                      <div className="action-buttons-group">
-                        <button
-                          type="button"
-                          className="btn-pedigree-action"
-                          onClick={() => setActiveHorseForPedigree(horse)}
-                          title="Xem sơ đồ cây phả hệ 3 đời"
-                        >
-                          🌳 Cây dòng dõi
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-profile-preview"
-                          onClick={() => setDetailModalHorse(horse)}
-                          title="Xem tóm tắt hồ sơ"
-                        >
-                          📋 Hồ sơ
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          /* CARDS GRID VIEW */
+        ) : viewMode === 'cards' ? (
+          /* CARDS GRID VIEW (DEFAULT & 100% PROMINENT BUTTONS) */
           <div className="horses-cards-grid">
             {filteredHorses.map((horse) => (
               <div key={horse.id} className="horse-card">
@@ -382,22 +268,111 @@ export default function HorseListSection() {
                     </div>
                   </div>
 
+                  <div className="card-owner-info-strip">
+                    <span className="owner-title">👤 Chủ sở hữu:</span>
+                    <span className="owner-val">{horse.owner}</span>
+                  </div>
+
                   <div className="card-wins-strip">
                     <strong>THÀNH TÍCH:</strong> {horse.winsCount}
                   </div>
                 </div>
 
-                <div className="horse-card-footer">
+                {/* Card Footer with BOTH Action Buttons 100% Visible */}
+                <div className="horse-card-footer card-action-double-btn">
                   <button
                     type="button"
-                    className="btn btn-solid w-100"
+                    className="btn-pedigree-action btn-full-pedigree"
                     onClick={() => setActiveHorseForPedigree(horse)}
                   >
-                    🌳 Xem cây phả hệ 3 đời
+                    🌳 Cây dòng dõi 3 đời
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-profile-preview btn-full-profile"
+                    onClick={() => setDetailModalHorse(horse)}
+                  >
+                    📋 Hồ sơ chi tiết
                   </button>
                 </div>
               </div>
             ))}
+          </div>
+        ) : (
+          /* CONSOLIDATED 4-COLUMN COMPACT TABLE: 100% WIDTH WITH ZERO HORIZONTAL SCROLL */
+          <div className="clean-table-container">
+            <table className="clean-compact-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '28%' }}>Chiến mã & Mã Chip RFID</th>
+                  <th style={{ width: '28%' }}>Giống & Dòng dõi Cha Mẹ</th>
+                  <th style={{ width: '22%' }}>Chủ sở hữu & Trạng thái</th>
+                  <th style={{ width: '22%' }} className="text-right">Nút Thao Tác Phả Hệ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredHorses.map((horse) => (
+                  <tr key={horse.id}>
+                    {/* Col 1: Horse & Chip */}
+                    <td>
+                      <div className="horse-avatar-group">
+                        <img src={horse.avatar} alt={horse.name} className="horse-avatar-img" />
+                        <div>
+                          <div className="horse-name-main">{horse.name}</div>
+                          <div className="horse-name-eng">{horse.englishName}</div>
+                          <div className="compact-chip-tag">
+                            <code>{horse.chipId}</code>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Col 2: Breed & Parents */}
+                    <td>
+                      <div className="compact-breed-box">
+                        <strong>{horse.breed}</strong> ({horse.stall})
+                        <div className="mini-parents">
+                          <span className="sire-text">♂ {horse.pedigree?.g2?.sire?.name}</span>
+                          <span className="dam-text">♀ {horse.pedigree?.g2?.dam?.name}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Col 3: Owner & Status */}
+                    <td>
+                      <div className="compact-owner-box">
+                        <div className="owner-name-text">👤 {horse.owner}</div>
+                        <div className="status-badge-wrap">
+                          {getStatusBadge(horse.status, horse.statusLabel)}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Col 4: BOTH ACTION BUTTONS FULLY VISIBLE */}
+                    <td className="text-right">
+                      <div className="compact-action-buttons">
+                        <button
+                          type="button"
+                          className="btn-pedigree-action btn-sm"
+                          onClick={() => setActiveHorseForPedigree(horse)}
+                          title="Xem sơ đồ cây phả hệ 3 đời"
+                        >
+                          🌳 Cây dòng dõi
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-profile-preview btn-sm"
+                          onClick={() => setDetailModalHorse(horse)}
+                          title="Xem tóm tắt hồ sơ"
+                        >
+                          📋 Hồ sơ
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 

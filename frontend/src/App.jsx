@@ -8,6 +8,7 @@ import AuthModal from './components/AuthModal';
 import HomePage from './pages/HomePage';
 import HorsesPage from './pages/HorsesPage';
 import AchievementsPage from './pages/AchievementsPage';
+import StablesPage from './pages/StablesPage';
 
 // Helper component to auto scroll to top when changing routes
 function ScrollToTop() {
@@ -48,6 +49,9 @@ export default function App() {
           <Route path="/thanh-tich" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
           <Route path="/thanh-tich.html" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
           <Route path="/ho-so-ngua/thanh-tich.html" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
+          <Route path="/chuong-trai" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
+          <Route path="/chuong-trai.html" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
+          <Route path="/chuong-trai/so-do.html" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
           <Route path="*" element={<HomePage onOpenAuth={handleOpenAuth} />} />
         </Routes>
 

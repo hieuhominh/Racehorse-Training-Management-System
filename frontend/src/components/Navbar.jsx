@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { megaMenusData } from '../data/navigationData';
 
 export default function Navbar({ onOpenAuth }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMega, setActiveMega] = useState(null);
   const navRef = useRef(null);
-  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -44,18 +44,15 @@ export default function Navbar({ onOpenAuth }) {
     }
   };
 
-  const handleNavClick = (path) => {
+  const closeMenus = () => {
     setActiveMega(null);
     setMobileMenuOpen(false);
-    if (path.startsWith('/')) {
-      navigate(path);
-    }
   };
 
   return (
     <header className="nav" ref={navRef} onMouseLeave={handleMouseLeave} style={{ backgroundColor: '#000000', background: '#000000', width: '100%', left: 0, right: 0, opacity: 1, zIndex: 99999 }}>
       <div className="wrap" style={{ backgroundColor: '#000000', background: '#000000', width: '100%', maxWidth: '100%', margin: 0, padding: '0 40px', boxSizing: 'border-box' }}>
-        <Link className="brand" to="/" onClick={() => handleNavClick('/')}>
+        <Link className="brand" to="/" onClick={closeMenus}>
           <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
             <path d="M17 3c6 0 10 4.6 10 10.6 0 5-2.6 7.4-2.6 11.2 0 2.6 1.6 3.9 1.6 5.4 0 1.2-1 1.8-2.3 1.8-2.6 0-4.2-2.2-4.2-5.2 0-3.4 2.2-5.6 2.2-9.2 0-2.9-1.8-5-4.7-5s-4.7 2.1-4.7 5c0 3.6 2.2 5.8 2.2 9.2 0 3-1.6 5.2-4.2 5.2-1.3 0-2.3-.6-2.3-1.8 0-1.5 1.6-2.8 1.6-5.4C9.6 21 7 18.6 7 13.6 7 6.6 11 3 17 3Z" fill="#C9A227"/>
           </svg>
@@ -66,10 +63,12 @@ export default function Navbar({ onOpenAuth }) {
         </Link>
 
         <nav className={`mainnav ${mobileMenuOpen ? 'open' : ''}`} id="mainnav" style={{ background: 'transparent' }}>
-          <Link to="/" onClick={() => handleNavClick('/')}>Trang chủ</Link>
+          <Link to="/" onClick={closeMenus} className={location.pathname === '/' ? 'active' : ''}>Trang chủ</Link>
 
           {megaMenusData.map((menu) => {
             const isOpen = activeMega === menu.id;
+            const isChildActive = menu.ctaLink === location.pathname || menu.links.some(l => l.link === location.pathname);
+
             return (
               <div 
                 key={menu.id}
@@ -78,7 +77,7 @@ export default function Navbar({ onOpenAuth }) {
               >
                 <button
                   type="button"
-                  className="navlink"
+                  className={`navlink ${isChildActive ? 'active' : ''}`}
                   aria-expanded={isOpen}
                   onClick={() => toggleMega(menu.id)}
                 >
@@ -121,14 +120,14 @@ export default function Navbar({ onOpenAuth }) {
                       <h3>{menu.title}</h3>
                       <div className="vn">{menu.subtitle}</div>
                       <p>{menu.description}</p>
-                      <Link className="open-flow" to={menu.ctaLink} onClick={() => handleNavClick(menu.ctaLink)}>
+                      <Link className="open-flow" to={menu.ctaLink} onClick={closeMenus}>
                         {menu.ctaText}
                       </Link>
                     </div>
                     <div className="mega-links">
                       <h4>TRONG LUỒNG NÀY</h4>
                       {menu.links.map((sub, sIdx) => (
-                        <Link key={sIdx} to={sub.link} onClick={() => handleNavClick(sub.link)}>
+                        <Link key={sIdx} to={sub.link} onClick={closeMenus}>
                           {sub.title}
                           <em>{sub.desc}</em>
                         </Link>
@@ -140,13 +139,13 @@ export default function Navbar({ onOpenAuth }) {
             );
           })}
 
-          <Link to="/ho-so-ngua" onClick={() => handleNavClick('/ho-so-ngua')}>Hồ sơ ngựa & Phả hệ</Link>
+          <Link to="/ho-so-ngua" onClick={closeMenus} className={location.pathname === '/ho-so-ngua' ? 'active' : ''}>Hồ sơ ngựa & Phả hệ</Link>
         </nav>
 
         <div className="nav-cta">
           <a 
             className="btn btn-ghost" 
-            href="/dang-nhap.html#register"
+            href="#register"
             onClick={(e) => {
               if (onOpenAuth) {
                 e.preventDefault();
@@ -158,7 +157,7 @@ export default function Navbar({ onOpenAuth }) {
           </a>
           <a 
             className="btn btn-solid" 
-            href="/dang-nhap.html"
+            href="#login"
             onClick={(e) => {
               if (onOpenAuth) {
                 e.preventDefault();
