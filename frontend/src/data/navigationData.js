@@ -8,14 +8,14 @@ export const megaMenusData = [
     subtitle: 'Horse Profile & Pedigree',
     description: 'Khai sinh hồ sơ một chiến mã và giữ mọi dữ liệu huấn luyện, y tế, thi đấu về sau móc vào đúng một mã định danh.',
     ctaText: 'Mở danh sách ngựa',
-    ctaLink: '/ho-so-ngua.html',
+    ctaLink: '/ho-so-ngua',
     links: [
-      { title: 'Đăng ký ngựa mới', desc: 'Mã định danh, giống, cân nặng, chuồng', link: '/ho-so-ngua/them-moi.html' },
-      { title: 'Cây dòng dõi', desc: 'Pedigree ba đời', link: '/ho-so-ngua/pedigree.html' },
-      { title: 'Chủ sở hữu', desc: 'Gán ngựa cho chủ và tỉ lệ sở hữu', link: '/ho-so-ngua/chu-so-huu.html' },
-      { title: 'Lịch sử thành tích', desc: 'Các giải đã dự và kết quả', link: '/ho-so-ngua/thanh-tich.html' },
-      { title: 'Cân nặng & thể trạng', desc: 'Biểu đồ theo thời gian', link: '/ho-so-ngua/can-nang.html' },
-      { title: 'Ảnh & giấy tờ', desc: 'Chứng nhận, hộ chiếu ngựa', link: '/ho-so-ngua/ho-so-anh.html' }
+      { title: 'Danh sách & Mã Chip', desc: 'Lọc theo mã chip RFID', link: '/ho-so-ngua' },
+      { title: 'Cây dòng dõi 3 đời', desc: 'Sire, Dam & Grandparents', link: '/ho-so-ngua' },
+      { title: 'Chủ sở hữu', desc: 'Gán ngựa cho chủ và tỉ lệ sở hữu', link: '/ho-so-ngua' },
+      { title: 'Lịch sử thành tích', desc: 'Các giải đã dự và kết quả', link: '/ho-so-ngua' },
+      { title: 'Cân nặng & thể trạng', desc: 'Biểu đồ theo thời gian', link: '/ho-so-ngua' },
+      { title: 'Ảnh & giấy tờ', desc: 'Chứng nhận, hộ chiếu ngựa', link: '/ho-so-ngua' }
     ]
   },
   {

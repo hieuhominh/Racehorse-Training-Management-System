@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import Ticker from './components/Ticker';
 import Navbar from './components/Navbar';
-import Hero from './components/Hero';
-import RolesSection from './components/RolesSection';
-import FlowsSection from './components/FlowsSection';
-import StableSection from './components/StableSection';
-import CtaBand from './components/CtaBand';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
+
+import HomePage from './pages/HomePage';
+import HorsesPage from './pages/HorsesPage';
+
+// Helper component to auto scroll to top when changing routes
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 export default function App() {
   const [authModal, setAuthModal] = useState({ isOpen: false, tab: 'login' });
@@ -21,38 +29,34 @@ export default function App() {
   };
 
   return (
-    <div className="app-container">
-      {/* 1. Ticker thông báo mùa giải trên cùng */}
-      <Ticker onOpenAuth={handleOpenAuth} />
+    <BrowserRouter>
+      <ScrollToTop />
+      <div className="app-container">
+        {/* 1. Ticker thông báo mùa giải trên cùng */}
+        <Ticker onOpenAuth={handleOpenAuth} />
 
-      {/* 2. Header & Mega Menu tương tác */}
-      <Navbar onOpenAuth={handleOpenAuth} />
+        {/* 2. Header & Mega Menu tương tác */}
+        <Navbar onOpenAuth={handleOpenAuth} />
 
-      {/* 3. Hero Section & Vitals Telemetry trực tiếp */}
-      <Hero onOpenAuth={handleOpenAuth} />
+        {/* 3. Dynamic Page Routing */}
+        <Routes>
+          <Route path="/" element={<HomePage onOpenAuth={handleOpenAuth} />} />
+          <Route path="/ho-so-ngua" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
+          <Route path="/ho-so-ngua.html" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
+          <Route path="/ho-so-ngua/pedigree.html" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
+          <Route path="*" element={<HomePage onOpenAuth={handleOpenAuth} />} />
+        </Routes>
 
-      {/* 4. Danh sách các vai trò (RBAC Views) */}
-      <RolesSection />
+        {/* 4. Chân trang */}
+        <Footer onOpenAuth={handleOpenAuth} />
 
-      {/* 5. Năm luồng nghiệp vụ cốt lõi */}
-      <FlowsSection />
-
-      {/* 6. Sơ đồ chuồng trực quan & Lịch sinh hoạt trong ngày */}
-      <StableSection />
-
-      {/* 7. Dải kêu gọi hành động */}
-      <CtaBand onOpenAuth={handleOpenAuth} />
-
-      {/* 8. Chân trang */}
-      <Footer onOpenAuth={handleOpenAuth} />
-
-      {/* Modal Đăng nhập & Đăng ký */}
-      <AuthModal 
-        isOpen={authModal.isOpen} 
-        onClose={handleCloseAuth} 
-        initialTab={authModal.tab} 
-      />
-    </div>
+        {/* Modal Đăng nhập & Đăng ký */}
+        <AuthModal 
+          isOpen={authModal.isOpen} 
+          onClose={handleCloseAuth} 
+          initialTab={authModal.tab} 
+        />
+      </div>
+    </BrowserRouter>
   );
 }
-
