@@ -12,8 +12,8 @@ export const megaMenusData = [
     links: [
       { title: 'Danh sách & Mã Chip', desc: 'Lọc theo mã chip RFID', link: '/ho-so-ngua' },
       { title: 'Cây dòng dõi 3 đời', desc: 'Sire, Dam & Grandparents', link: '/ho-so-ngua' },
-      { title: 'Chủ sở hữu', desc: 'Gán ngựa cho chủ và tỉ lệ sở hữu', link: '/ho-so-ngua' },
-      { title: 'Lịch sử thành tích', desc: 'Các giải đã dự và kết quả', link: '/ho-so-ngua' },
+      { title: 'Chủ sở hữu & Tỉ lệ', desc: 'Gán ngựa cho chủ và tỉ lệ sở hữu', link: '/thanh-tich' },
+      { title: 'Lịch sử thành tích', desc: 'Đối soát chi phí & thưởng giải đua', link: '/thanh-tich' },
       { title: 'Cân nặng & thể trạng', desc: 'Biểu đồ theo thời gian', link: '/ho-so-ngua' },
       { title: 'Ảnh & giấy tờ', desc: 'Chứng nhận, hộ chiếu ngựa', link: '/ho-so-ngua' }
     ]
