@@ -3,7 +3,7 @@ export const rolesData = [
     tag: 'VAI TRÒ 01',
     title: 'Huấn luyện viên trưởng',
     vn: 'Head Trainer',
-    link: '/huan-luyen.html',
+    link: '/ho-so-ngua',
     cta: 'Mở bảng huấn luyện',
     duties: [
       'Bảng tiến độ và biểu đồ thể lực toàn bộ tàu ngựa',
@@ -17,7 +17,7 @@ export const rolesData = [
     tag: 'VAI TRÒ 02',
     title: 'Bác sĩ thú y',
     vn: 'Veterinarian',
-    link: '/y-te.html',
+    link: '/chuong-trai',
     cta: 'Mở hồ sơ y tế',
     duties: [
       'Sơ đồ chuồng trại theo trạng thái sức khỏe của cả đàn',
@@ -31,7 +31,7 @@ export const rolesData = [
     tag: 'VAI TRÒ 03',
     title: 'Nhân viên chăm sóc',
     vn: 'Groom / Stable Hand',
-    link: '/chuong-trai.html',
+    link: '/chuong-trai',
     cta: 'Mở việc hôm nay',
     duties: [
       'Sơ đồ vị trí chuồng và lịch sinh hoạt từng con ngựa',
@@ -45,7 +45,7 @@ export const rolesData = [
     tag: 'VAI TRÒ 04',
     title: 'Chủ sở hữu ngựa',
     vn: 'Horse Owner',
-    link: '/chu-so-huu.html',
+    link: '/thanh-tich',
     cta: 'Mở ngựa của tôi',
     duties: [
       'Lý lịch, dòng dõi và lịch sử thành tích thi đấu',
@@ -58,7 +58,7 @@ export const rolesData = [
     tag: 'VAI TRÒ 05',
     title: 'Quản lý câu lạc bộ',
     vn: 'Club Manager',
-    link: '/quan-tri.html',
+    link: '/thanh-tich',
     cta: 'Mở khu quản trị',
     duties: [
       'Danh mục tổng: ngựa, nhân sự, vật tư y tế và thức ăn',
@@ -71,7 +71,7 @@ export const rolesData = [
     tag: 'LỊCH GIẢI',
     title: 'Sàn đăng ký thi đấu',
     vn: 'Race Entry',
-    link: '/thi-dau.html',
+    link: '/thanh-tich',
     cta: 'Xem giải sắp diễn ra',
     duties: [
       'Danh sách giải đua đang mở đăng ký và điều kiện dự giải',

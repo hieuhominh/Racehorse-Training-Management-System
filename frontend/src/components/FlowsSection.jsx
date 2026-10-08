@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { flowsData } from '../data/flowsData';
 
 export default function FlowsSection() {
@@ -22,7 +23,7 @@ export default function FlowsSection() {
             </div>
             <div className="meta">
               <span className={`badge ${flow.isReq ? 'req' : 'opt'}`}>{flow.badge}</span>
-              <a href={flow.link}>{flow.linkText}</a>
+              <Link to={flow.link}>{flow.linkText}</Link>
             </div>
           </div>
         ))}
