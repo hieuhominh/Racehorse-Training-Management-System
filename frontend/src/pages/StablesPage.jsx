@@ -2,12 +2,47 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { initialStallsData } from '../data/stallsData';
 import CtaBand from '../components/CtaBand';
+import IncidentReportModal from '../components/IncidentReportModal';
 
 export default function StablesPage({ onOpenAuth }) {
   const [stalls, setStalls] = useState(initialStallsData);
   const [selectedZone, setSelectedZone] = useState('ALL'); // 'ALL' | 'A' | 'B'
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
   const [selectedStallCode, setSelectedStallCode] = useState('A1');
+
+  // Incident reporting modal state
+  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+  const [toastAlert, setToastAlert] = useState(null);
+
+  // Incidents history state
+  const [incidentsList, setIncidentsList] = useState([
+    {
+      id: 'INC-9012',
+      stallCode: 'A3',
+      horseName: 'Hắc Phong',
+      chipId: '982-000-348-192-003',
+      symptoms: ['🥣 Ngựa bỏ ăn', '🌡️ Có dấu hiệu đau bụng / Sốt'],
+      severity: 'HIGH',
+      description: 'Hắc Phong bỏ 2/3 khẩu phần cỏ Alfalfa buổi trưa, thở nhanh và dậm chân liên tục. Thân nhiệt 38.8°C, nghi ngờ đau bụng nhẹ (Colic).',
+      imageUrl: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=600&q=80',
+      reportedBy: 'Groom Nguyễn Văn Hùng',
+      timestamp: '11:45 - 08/10/2026',
+      status: 'pending_vet'
+    },
+    {
+      id: 'INC-8819',
+      stallCode: 'B4',
+      horseName: 'Phi Vân',
+      chipId: '982-000-348-192-010',
+      symptoms: ['🪵 Móng bị xước / Rạn guốc'],
+      severity: 'MEDIUM',
+      description: 'Phát hiện vết rạn móng nhẹ ở guốc sau phải sau buổi tập trên sân cát. Đã làm sạch móng, ngâm đá & chờ Thú y kiểm tra.',
+      imageUrl: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=600&q=80',
+      reportedBy: 'Groom Phạm Minh Tiến',
+      timestamp: '09:15 - 08/10/2026',
+      status: 'in_review'
+    }
+  ]);
 
   // Filtered stalls
   const filteredStalls = useMemo(() => {
@@ -79,6 +114,33 @@ export default function StablesPage({ onOpenAuth }) {
     );
   };
 
+  // Handle Submit New Emergency Incident Report
+  const handleIncidentSubmit = (newIncident) => {
+    setIncidentsList([newIncident, ...incidentsList]);
+
+    // Automatically update the stall's status badge in the map grid if severe
+    if (newIncident.severity === 'HIGH' || newIncident.severity === 'CRITICAL') {
+      setStalls((prevStalls) =>
+        prevStalls.map((s) => {
+          if (s.code === newIncident.stallCode) {
+            return {
+              ...s,
+              status: 'watch',
+              label: `Cần theo dõi: ${newIncident.symptoms[0]}`
+            };
+          }
+          return s;
+        })
+      );
+    }
+
+    // Trigger feedback Toast notification
+    setToastAlert(`🚨 BÁO ĐỘNG SỰ CỐ CHUỒNG ${newIncident.stallCode}: Đã gửi thông báo tới Bác sĩ Thú y trực & HLV trưởng!`);
+    setTimeout(() => {
+      setToastAlert(null);
+    }, 6000);
+  };
+
   const getStatusBadge = (status, label) => {
     switch (status) {
       case 'eligible':
@@ -98,6 +160,17 @@ export default function StablesPage({ onOpenAuth }) {
 
   return (
     <main className="page-content stables-page-wrapper">
+      {/* Toast Alert Popup */}
+      {toastAlert && (
+        <div className="emergency-toast-banner">
+          <div className="toast-content">
+            <span className="toast-icon">🔔</span>
+            <span>{toastAlert}</span>
+          </div>
+          <button type="button" className="toast-close-btn" onClick={() => setToastAlert(null)}>✕</button>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="page-banner">
         <div className="wrap">
@@ -112,21 +185,31 @@ export default function StablesPage({ onOpenAuth }) {
               <span className="badge badge-gold">FLOW 04 • QUẢN LÝ CHUỒNG TRẠI & GROOM</span>
               <h1 className="banner-title">SƠ ĐỒ CHUỒNG & CHECKLIST HẰNG NGÀY</h1>
               <p className="banner-desc">
-                Phân bổ vị trí 12 ô chuồng (A1-A6, B1-B6), theo dõi khẩu phần ăn, lịch ngâm đá và <strong>tick hoàn thành checklist công việc của Groom</strong> trực tiếp.
+                Phân bổ vị trí 12 ô chuồng (A1-A6, B1-B6), theo dõi khẩu phần ăn, lịch ngâm đá, <strong>tick hoàn thành checklist công việc của Groom</strong> và <strong>báo cáo sự cố đột xuất (bỏ ăn, sốt, xước móng) kèm ảnh chụp thực tế</strong>.
               </p>
             </div>
 
-            {/* Overall Groom Progress Widget */}
-            <div className="groom-progress-card">
-              <div className="progress-top-row">
-                <span className="progress-title">⚡ TIẾN ĐỘ CHECKLIST GROOM HÔM NAY</span>
-                <span className="progress-percent">{overallProgress}%</span>
-              </div>
-              <div className="progress-bar-bg">
-                <div className="progress-bar-fill" style={{ width: `${overallProgress}%` }}></div>
-              </div>
-              <div className="progress-sub">
-                Đã hoàn thành kiểm tra vệ sinh, ngâm đá & cho ăn toàn khu chuồng trại.
+            {/* Emergency Report Action Button & Groom Progress Card */}
+            <div className="banner-actions-column">
+              <button
+                type="button"
+                className="btn btn-emergency-pulse"
+                onClick={() => setIsIncidentModalOpen(true)}
+              >
+                🚨 BÁO CÁO SỰ CỐ ĐỘT XUẤT TẠI CHUỒNG
+              </button>
+
+              <div className="groom-progress-card">
+                <div className="progress-top-row">
+                  <span className="progress-title">⚡ TIẾN ĐỘ CHECKLIST GROOM HÔM NAY</span>
+                  <span className="progress-percent">{overallProgress}%</span>
+                </div>
+                <div className="progress-bar-bg">
+                  <div className="progress-bar-fill" style={{ width: `${overallProgress}%` }}></div>
+                </div>
+                <div className="progress-sub">
+                  Đã hoàn thành kiểm tra vệ sinh, ngâm đá & cho ăn toàn khu chuồng trại.
+                </div>
               </div>
             </div>
           </div>
@@ -160,8 +243,8 @@ export default function StablesPage({ onOpenAuth }) {
             <div className="fin-card">
               <div className="fin-icon quar-icon">☣️</div>
               <div>
-                <span className="fin-label">Chuồng cách ly</span>
-                <span className="fin-val quar-text">1 Chuồng (B2)</span>
+                <span className="fin-label">Sự cố ghi nhận hôm nay</span>
+                <span className="fin-val quar-text">{incidentsList.length} Ca sự cố</span>
               </div>
             </div>
           </div>
@@ -171,7 +254,7 @@ export default function StablesPage({ onOpenAuth }) {
       {/* Main Section Body */}
       <section className="stables-section">
         <div className="wrap">
-          {/* Controls Bar: Zone Filter & Status Filter */}
+          {/* Controls Bar: Zone Filter, Status Filter & Emergency Button */}
           <div className="stables-control-card">
             <div className="control-left">
               <span className="control-label">Lọc Khu Chuồng:</span>
@@ -215,10 +298,18 @@ export default function StablesPage({ onOpenAuth }) {
                 <option value="quar">Cách ly</option>
                 <option value="empty">Chuồng trống</option>
               </select>
+
+              <button
+                type="button"
+                className="btn btn-solid btn-emergency-header"
+                onClick={() => setIsIncidentModalOpen(true)}
+              >
+                🚨 Báo sự cố khẩn
+              </button>
             </div>
           </div>
 
-          {/* Grid Layout: Stalls Map Grid (Left) & Active Stall Checklist & Routine (Right) */}
+          {/* Grid Layout: Stalls Map Grid (Left) & Active Stall Inspection (Right) */}
           <div className="stables-main-layout">
             {/* LEFT COLUMN: INTERACTIVE STALLS MAP GRID */}
             <div className="stalls-map-container">
@@ -233,6 +324,7 @@ export default function StablesPage({ onOpenAuth }) {
                   const cl = stall.checklist || {};
                   const completedCount = Object.values(cl).filter(Boolean).length;
                   const totalCount = Object.keys(cl).length;
+                  const stallIncidents = incidentsList.filter(inc => inc.stallCode === stall.code);
 
                   return (
                     <div
@@ -255,10 +347,16 @@ export default function StablesPage({ onOpenAuth }) {
 
                       <div className="stall-card-bottom">
                         <span className="groom-tag">👤 {stall.groom.split(' ')[0]}</span>
-                        {stall.status !== 'empty' && (
-                          <span className="checklist-mini-count">
-                            Checklist: {completedCount}/{totalCount}
+                        {stallIncidents.length > 0 ? (
+                          <span className="incident-badge-mini">
+                            🚨 {stallIncidents.length} Sự cố
                           </span>
+                        ) : (
+                          stall.status !== 'empty' && (
+                            <span className="checklist-mini-count">
+                              Checklist: {completedCount}/{totalCount}
+                            </span>
+                          )
                         )}
                       </div>
                     </div>
@@ -273,7 +371,16 @@ export default function StablesPage({ onOpenAuth }) {
               <div className="inspection-header">
                 <div className="insp-top-row">
                   <span className="insp-code">CHUỒNG {activeStall.code}</span>
-                  {getStatusBadge(activeStall.status, activeStall.label)}
+                  <div className="insp-status-actions">
+                    {getStatusBadge(activeStall.status, activeStall.label)}
+                    <button
+                      type="button"
+                      className="btn-report-this-stall"
+                      onClick={() => setIsIncidentModalOpen(true)}
+                    >
+                      🚨 Báo sự cố chuồng {activeStall.code}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="insp-horse-row">
@@ -294,7 +401,7 @@ export default function StablesPage({ onOpenAuth }) {
               {activeStall.status === 'empty' ? (
                 <div className="empty-stall-notice">
                   <div className="notice-icon">⚪</div>
-                  <h3>CHUỒNG TRỐNG (B6)</h3>
+                  <h3>CHUỒNG TRỐNG ({activeStall.code})</h3>
                   <p>Hiện chưa phân bổ chiến mã vào ô chuồng này. Đã hoàn thành dọn dẹp khử trùng định kỳ.</p>
                 </div>
               ) : (
@@ -428,8 +535,80 @@ export default function StablesPage({ onOpenAuth }) {
               )}
             </div>
           </div>
+
+          {/* DEDICATED SECTION: INCIDENTS LOG & EMERGENCY REPORT GALLERY */}
+          <div className="incidents-history-section">
+            <div className="incidents-section-header">
+              <div>
+                <span className="badge badge-alert">NHẬT KÝ & CẢNH BÁO</span>
+                <h2>📌 NHẬT KÝ BÁO CÁO SỰ CỐ TẠI CHUỒNG (GROOM & THÚ Y TRỰC)</h2>
+                <p>Tổng hợp tất cả các sự cố đột xuất (bỏ ăn, sốt, xước móng, đau gân) kèm hình ảnh thực tế do Groom báo cáo.</p>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-solid btn-emergency-pulse"
+                onClick={() => setIsIncidentModalOpen(true)}
+              >
+                + BÁO CÁO SỰ CỐ MỚI
+              </button>
+            </div>
+
+            <div className="incidents-cards-grid">
+              {incidentsList.map((inc) => (
+                <div key={inc.id} className="incident-card">
+                  <div className="incident-card-top">
+                    <div className="inc-stall-tag">
+                      <span className="inc-code">CHUỒNG {inc.stallCode}</span>
+                      <span className="inc-horse-name">{inc.horseName}</span>
+                    </div>
+                    <span className={`inc-severity-badge severity-${inc.severity.toLowerCase()}`}>
+                      {inc.severity === 'HIGH' || inc.severity === 'CRITICAL' ? '🔴 RẤT KHẨN CẤP' : '🟧 KHẨN CẤP'}
+                    </span>
+                  </div>
+
+                  <div className="incident-card-body">
+                    <div className="inc-symptoms-list">
+                      {inc.symptoms.map((sym, sIdx) => (
+                        <span key={sIdx} className="symptom-tag-pill">{sym}</span>
+                      ))}
+                    </div>
+
+                    <p className="inc-description">{inc.description}</p>
+
+                    {inc.imageUrl && (
+                      <div className="inc-image-frame">
+                        <img src={inc.imageUrl} alt="Ảnh thực tế sự cố tại chuồng" className="inc-actual-photo" />
+                        <span className="inc-image-caption">📸 Ảnh chụp thực tế từ khu chuồng</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="incident-card-footer">
+                    <div className="inc-meta-info">
+                      <span className="inc-reporter">👤 {inc.reportedBy}</span>
+                      <span className="inc-time">🕒 {inc.timestamp}</span>
+                    </div>
+
+                    <span className="inc-status-tag">
+                      ⏳ Đang chờ Thú y trực xử lý
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
+
+      {/* EMERGENCY INCIDENT REPORT MODAL */}
+      <IncidentReportModal
+        isOpen={isIncidentModalOpen}
+        onClose={() => setIsIncidentModalOpen(false)}
+        activeStall={activeStall}
+        stallsList={stalls}
+        onSubmitIncident={handleIncidentSubmit}
+      />
 
       {/* CTA Band */}
       <CtaBand onOpenAuth={onOpenAuth} />
