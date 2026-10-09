@@ -154,10 +154,34 @@ export default function Navbar({ onOpenAuth }) {
               )}
               <button
                 type="button"
-                className="btn btn-ghost"
                 onClick={logout}
+                style={{
+                  background: 'rgba(217, 83, 79, 0.16)',
+                  border: '1px solid rgba(239, 68, 68, 0.45)',
+                  color: '#FF8885',
+                  padding: '9px 18px',
+                  borderRadius: '3px',
+                  fontFamily: 'var(--body)',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(217, 83, 79, 0.32)';
+                  e.currentTarget.style.borderColor = '#EF4444';
+                  e.currentTarget.style.color = '#FFFFFF';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(217, 83, 79, 0.16)';
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.45)';
+                  e.currentTarget.style.color = '#FF8885';
+                }}
               >
-                Đăng xuất
+                <span>🚪</span> Đăng xuất
               </button>
             </>
           ) : (
