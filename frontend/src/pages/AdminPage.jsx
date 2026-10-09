@@ -188,11 +188,11 @@ export default function AdminPage() {
       <div style={{
         background: 'linear-gradient(180deg, #1A1510 0%, #0F0E0C 100%)',
         borderBottom: '1px solid rgba(201, 162, 39, 0.3)',
-        padding: '24px 32px'
+        padding: 'clamp(16px, 3vw, 24px) clamp(16px, 3.5vw, 36px)'
       }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <span style={{
                 background: 'rgba(201, 162, 39, 0.2)',
                 color: 'var(--brass, #C9A227)',
@@ -209,41 +209,41 @@ export default function AdminPage() {
                 Phiên đăng nhập: <b>{currentUser?.full_name}</b> ({currentUser?.username})
               </span>
             </div>
-            <h1 style={{ fontFamily: 'var(--display, serif)', fontSize: '28px', color: '#FFFFFF', margin: '8px 0 0', letterSpacing: '0.02em' }}>
+            <h1 style={{ fontFamily: 'var(--display, serif)', fontSize: 'clamp(22px, 3.5vw, 28px)', color: '#FFFFFF', margin: '8px 0 0', letterSpacing: '0.02em' }}>
               Trung Tâm Điều Hành Mã Trường
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <Link
               to="/"
               style={{
-                padding: '9px 16px',
+                padding: '8px 14px',
                 background: 'rgba(232, 227, 215, 0.08)',
                 border: '1px solid rgba(232, 227, 215, 0.2)',
                 borderRadius: '6px',
                 color: '#E8E3D7',
                 textDecoration: 'none',
-                fontSize: '13.5px',
+                fontSize: '13px',
                 fontWeight: 600
               }}
             >
-              👁️ Xem Trang Chủ Public
+              👁️ Xem Public
             </Link>
             <button
               onClick={logout}
               style={{
-                padding: '9px 18px',
+                padding: '8px 16px',
                 background: 'rgba(217, 83, 79, 0.2)',
                 border: '1px solid #D9534F',
                 borderRadius: '6px',
                 color: '#FF8885',
-                fontSize: '13.5px',
+                fontSize: '13px',
                 fontWeight: 600,
                 cursor: 'pointer'
               }}
             >
-              🚪 Đăng xuất Quản trị
+              🚪 Đăng xuất
             </button>
           </div>
         </div>
@@ -251,13 +251,14 @@ export default function AdminPage() {
 
       {/* 2. THANH ĐIỀU HƯỚNG CÁC TAB CHỨC NĂNG CỦA ADMIN */}
       <div style={{
-        maxWidth: '1400px',
+        maxWidth: '1280px',
         margin: '0 auto',
-        padding: '20px 32px 0',
+        padding: '16px clamp(16px, 3.5vw, 36px) 0',
         display: 'flex',
         borderBottom: '1px solid rgba(232, 227, 215, 0.12)',
-        gap: '24px',
-        overflowX: 'auto'
+        gap: '20px',
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch'
       }}>
         {[
           { id: 'overview', label: '📊 Tổng quan & Báo cáo', desc: 'KPI đàn ngựa & cơ sở vật chất' },
@@ -293,13 +294,13 @@ export default function AdminPage() {
       </div>
 
       {/* 3. NỘI DUNG TỪNG TAB */}
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 32px' }}>
+      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px clamp(16px, 3.5vw, 36px)' }}>
 
         {/* ===================== TAB 1: TỔNG QUAN & BÁO CÁO ===================== */}
         {activeTab === 'overview' && (
           <div>
             {/* 4 Card KPI hàng đầu */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '16px', marginBottom: '28px' }}>
               <div style={{ background: '#141311', border: '1px solid rgba(201, 162, 39, 0.25)', borderRadius: '10px', padding: '22px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#9DA6A0', fontSize: '13px' }}>
                   <span>TỔNG ĐÀN CHIẾN MÃ</span>
@@ -354,7 +355,7 @@ export default function AdminPage() {
             </div>
 
             {/* Bảng Cảnh báo khẩn cấp & Tóm tắt phân bổ */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '20px' }}>
               <div style={{ background: '#12110F', border: '1px solid rgba(232, 227, 215, 0.14)', borderRadius: '10px', padding: '24px' }}>
                 <h3 style={{ fontSize: '16px', color: 'var(--brass, #C9A227)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   ⚠️ Cảnh Báo Trực Ban Điều Hành
