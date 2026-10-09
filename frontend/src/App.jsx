@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import Ticker from './components/Ticker';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
+import AdminRoute from './components/AdminRoute';
 
 import HomePage from './pages/HomePage';
 import HorsesPage from './pages/HorsesPage';
 import AchievementsPage from './pages/AchievementsPage';
 import StablesPage from './pages/StablesPage';
+import AdminPage from './pages/AdminPage';
 
 // Helper component to auto scroll to top when changing routes
 function ScrollToTop() {
@@ -31,40 +34,61 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
-      <ScrollToTop />
-      <div className="app-container">
-        {/* 1. Ticker thông báo mùa giải trên cùng */}
-        <Ticker onOpenAuth={handleOpenAuth} />
+    <AuthProvider>
+      <BrowserRouter>
+        <ScrollToTop />
+        <div className="app-container">
+          {/* 1. Ticker thông báo mùa giải trên cùng */}
+          <Ticker onOpenAuth={handleOpenAuth} />
 
-        {/* 2. Header & Mega Menu tương tác */}
-        <Navbar onOpenAuth={handleOpenAuth} />
+          {/* 2. Header & Mega Menu tương tác */}
+          <Navbar onOpenAuth={handleOpenAuth} />
 
-        {/* 3. Dynamic Page Routing */}
-        <Routes>
-          <Route path="/" element={<HomePage onOpenAuth={handleOpenAuth} />} />
-          <Route path="/ho-so-ngua" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
-          <Route path="/ho-so-ngua.html" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
-          <Route path="/ho-so-ngua/pedigree.html" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
-          <Route path="/thanh-tich" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
-          <Route path="/thanh-tich.html" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
-          <Route path="/ho-so-ngua/thanh-tich.html" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
-          <Route path="/chuong-trai" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
-          <Route path="/chuong-trai.html" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
-          <Route path="/chuong-trai/so-do.html" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
-          <Route path="*" element={<HomePage onOpenAuth={handleOpenAuth} />} />
-        </Routes>
+          {/* 3. Dynamic Page Routing */}
+          <Routes>
+            <Route path="/" element={<HomePage onOpenAuth={handleOpenAuth} />} />
+            <Route path="/ho-so-ngua" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
+            <Route path="/ho-so-ngua.html" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
+            <Route path="/ho-so-ngua/pedigree.html" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
+            <Route path="/thanh-tich" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
+            <Route path="/thanh-tich.html" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
+            <Route path="/ho-so-ngua/thanh-tich.html" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
+            <Route path="/chuong-trai" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
+            <Route path="/chuong-trai.html" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
+            <Route path="/chuong-trai/so-do.html" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
+            
+            {/* CỔNG QUẢN TRỊ VIÊN BẢO MẬT (ADMIN PORTAL) */}
+            <Route 
+              path="/admin" 
+              element={
+                <AdminRoute>
+                  <AdminPage />
+                </AdminRoute>
+              } 
+            />
+            <Route 
+              path="/admin.html" 
+              element={
+                <AdminRoute>
+                  <AdminPage />
+                </AdminRoute>
+              } 
+            />
 
-        {/* 4. Chân trang */}
-        <Footer onOpenAuth={handleOpenAuth} />
+            <Route path="*" element={<HomePage onOpenAuth={handleOpenAuth} />} />
+          </Routes>
 
-        {/* Modal Đăng nhập & Đăng ký */}
-        <AuthModal 
-          isOpen={authModal.isOpen} 
-          onClose={handleCloseAuth} 
-          initialTab={authModal.tab} 
-        />
-      </div>
-    </BrowserRouter>
+          {/* 4. Chân trang */}
+          <Footer onOpenAuth={handleOpenAuth} />
+
+          {/* Modal Đăng nhập & Đăng ký */}
+          <AuthModal 
+            isOpen={authModal.isOpen} 
+            onClose={handleCloseAuth} 
+            initialTab={authModal.tab} 
+          />
+        </div>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

@@ -169,11 +169,12 @@ INSERT INTO dbo.Roles (role_code, role_name, description) VALUES
 
 -- Chèn Người dùng (Password mặc định là 123456 hash giả định)
 INSERT INTO dbo.Users (username, password_hash, full_name, email, phone, role_id) VALUES
-('trainer_truong', '123456', N'Trần Văn Hùng', 'trainer@matruong.vn', '0901234567', 1),
-('vet_an', '123456', N'Bác sĩ Nguyễn An', 'vet@matruong.vn', '0902345678', 2),
-('groom_nam', '123456', N'Lê Hoàng Nam', 'groom@matruong.vn', '0903456789', 3),
-('owner_thanh', '123456', N'Phạm Tiến Thành', 'owner@matruong.vn', '0904567890', 4),
-('admin_quan', '123456', N'Quản trị viên', 'admin@matruong.vn', '0905678901', 5);
+('admin', '123456', N'Quản trị viên Hệ thống', 'admin@matruong.vn', '0905678999', 5),
+('admin_quan', '123456', N'Ban Quản trị Mã Trường', 'quanly@matruong.vn', '0905678901', 5),
+('trainer_truong', '123456', N'Trần Văn Hùng (HLV Trưởng)', 'trainer@matruong.vn', '0901234567', 1),
+('vet_an', '123456', N'Bác sĩ Nguyễn An (Thú Y)', 'vet@matruong.vn', '0902345678', 2),
+('groom_nam', '123456', N'Lê Hoàng Nam (Chăm sóc)', 'groom@matruong.vn', '0903456789', 3),
+('owner_thanh', '123456', N'Phạm Tiến Thành (Chủ ngựa)', 'owner@matruong.vn', '0904567890', 4);
 
 -- Chèn Chuồng trại (A1 - A6, B1 - B6 như sơ đồ UI)
 INSERT INTO dbo.Stables (stall_code, block_name, status) VALUES

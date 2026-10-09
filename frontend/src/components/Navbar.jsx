@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { megaMenusData } from '../data/navigationData';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ onOpenAuth }) {
+  const { currentUser, isAdmin, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMega, setActiveMega] = useState(null);
   const navRef = useRef(null);
@@ -140,33 +142,75 @@ export default function Navbar({ onOpenAuth }) {
           })}
 
           <Link to="/ho-so-ngua" onClick={closeMenus} className={location.pathname === '/ho-so-ngua' ? 'active' : ''}>Hồ sơ ngựa & Phả hệ</Link>
+          <Link 
+            to="/admin" 
+            onClick={closeMenus} 
+            className={location.pathname === '/admin' ? 'active' : ''}
+            style={{
+              color: 'var(--brass, #C9A227)',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            👑 Cổng Quản Trị
+          </Link>
         </nav>
 
         <div className="nav-cta">
-          <a 
-            className="btn btn-ghost" 
-            href="#register"
-            onClick={(e) => {
-              if (onOpenAuth) {
-                e.preventDefault();
-                onOpenAuth('register');
-              }
-            }}
-          >
-            Đăng ký
-          </a>
-          <a 
-            className="btn btn-solid" 
-            href="#login"
-            onClick={(e) => {
-              if (onOpenAuth) {
-                e.preventDefault();
-                onOpenAuth('login');
-              }
-            }}
-          >
-            Vào hệ thống
-          </a>
+          {currentUser ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginRight: '4px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>{currentUser.full_name}</span>
+                <span style={{ fontSize: '11px', color: 'var(--brass, #C9A227)' }}>{currentUser.role_name}</span>
+              </div>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="btn btn-solid"
+                  style={{ padding: '8px 14px', fontSize: '13px' }}
+                >
+                  Vào Quản Trị
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={logout}
+                className="btn btn-ghost"
+                style={{ padding: '8px 14px', fontSize: '13px', color: '#FF8885', borderColor: 'rgba(217, 83, 79, 0.4)' }}
+              >
+                Đăng xuất
+              </button>
+            </div>
+          ) : (
+            <>
+              <a 
+                className="btn btn-ghost" 
+                href="#register"
+                onClick={(e) => {
+                  if (onOpenAuth) {
+                    e.preventDefault();
+                    onOpenAuth('register');
+                  }
+                }}
+              >
+                Đăng ký
+              </a>
+              <a 
+                className="btn btn-solid" 
+                href="#login"
+                onClick={(e) => {
+                  if (onOpenAuth) {
+                    e.preventDefault();
+                    onOpenAuth('login');
+                  }
+                }}
+              >
+                Vào hệ thống
+              </a>
+            </>
+          )}
           <button 
             className="burger" 
             id="burger" 

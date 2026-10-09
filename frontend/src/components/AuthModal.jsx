@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
+  const { login, registerUser } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [notification, setNotification] = useState('');
+  const [isError, setIsError] = useState(false);
 
   // Form states
   const [loginEmail, setLoginEmail] = useState('');
@@ -16,17 +19,26 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   if (!isOpen) return null;
 
   const handleGoogleAuth = () => {
-    const action = activeTab === 'login' ? 'Đăng nhập' : 'Đăng ký';
-    setNotification(`Đang kết nối Google... ${action} bằng tài khoản Gmail thành công!`);
+    // Đăng nhập nhanh bằng tài khoản Google (giả lập Admin)
+    setIsError(false);
+    login('admin', '123');
+    setNotification('Đang kết nối Google... Đăng nhập thành công với tài khoản Admin!');
     setTimeout(() => {
       setNotification('');
       onClose();
-    }, 1500);
+    }, 1200);
   };
 
   const handleLoginSubmit = (e) => {
     e.preventDefault();
-    setNotification(`Đăng nhập thành công với tài khoản ${loginEmail}! Chào mừng bạn trở lại.`);
+    setIsError(false);
+    const res = login(loginEmail, loginPassword);
+    if (!res.success) {
+      setIsError(true);
+      setNotification(res.error);
+      return;
+    }
+    setNotification(`Đăng nhập thành công! Chào mừng ${res.user.full_name} (${res.user.role_name}).`);
     setTimeout(() => {
       setNotification('');
       onClose();
@@ -35,11 +47,21 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
 
   const handleRegisterSubmit = (e) => {
     e.preventDefault();
+    setIsError(false);
     if (regPassword !== regConfirm) {
-      alert('Mật khẩu và xác nhận mật khẩu không khớp!');
+      setIsError(true);
+      setNotification('Mật khẩu và xác nhận mật khẩu không khớp!');
       return;
     }
-    setNotification(`Chúc mừng ${regName}! Đăng ký tài khoản thành công. Đang tự động đăng nhập...`);
+    registerUser({
+      username: regEmail.split('@')[0],
+      email: regEmail,
+      full_name: regName,
+      role: regRole.toUpperCase(),
+      password: regPassword
+    });
+    login(regEmail.split('@')[0], regPassword);
+    setNotification(`Chúc mừng ${regName}! Đăng ký thành công. Đang chuyển vào hệ thống...`);
     setTimeout(() => {
       setNotification('');
       onClose();
@@ -161,9 +183,9 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             borderRadius: '4px',
             fontSize: '13px',
             marginBottom: '16px',
-            background: 'rgba(94, 156, 106, 0.15)',
-            border: '1px solid var(--ok)',
-            color: '#9cd5a5',
+            background: isError ? 'rgba(217, 83, 79, 0.2)' : 'rgba(94, 156, 106, 0.15)',
+            border: isError ? '1px solid #D9534F' : '1px solid var(--ok)',
+            color: isError ? '#FF8885' : '#9cd5a5',
             textAlign: 'center'
           }}>
             {notification}
