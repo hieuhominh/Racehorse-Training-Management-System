@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function AdminPage() {
   const { currentUser, usersList, updateUser, toggleUserStatus, registerUser, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   const [activeTab, setActiveTab] = useState('overview');
 
   // State danh sách ngựa quản lý
@@ -303,7 +310,7 @@ export default function AdminPage() {
               👁️ Xem Public
             </Link>
             <button
-              onClick={logout}
+              onClick={handleLogout}
               style={{
                 padding: '8px 16px',
                 background: 'rgba(217, 83, 79, 0.2)',

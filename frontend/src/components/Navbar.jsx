@@ -1,14 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { megaMenusData } from '../data/navigationData';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ onOpenAuth }) {
   const { currentUser, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMega, setActiveMega] = useState(null);
   const navRef = useRef(null);
   const location = useLocation();
+
+  const handleLogout = () => {
+    closeMenus();
+    logout();
+    navigate('/');
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -159,7 +166,7 @@ export default function Navbar({ onOpenAuth }) {
               )}
               <button
                 type="button"
-                onClick={logout}
+                onClick={handleLogout}
                 style={{
                   background: 'rgba(217, 83, 79, 0.16)',
                   border: '1px solid rgba(239, 68, 68, 0.45)',

@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function TrainerPage() {
   const { currentUser, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   const [activeTab, setActiveTab] = useState('vitals'); // 'vitals' | 'programs' | 'sessions' | 'review'
 
   // 1. Danh sách chiến mã quản lý huấn luyện
@@ -150,8 +157,9 @@ export default function TrainerPage() {
       avgSpeed: 64.2,
       maxHeartRate: 198,
       isOverLimit: false,
+      status: 'COMPLETED', // Hoàn thành
       score: 9.5,
-      feedback: 'Sải chân cực kỳ đều đặn, nhịp thở ổn định khi qua khúc cua số 3, phong độ hoàn hảo.'
+      feedback: 'Sải chân cực kỳ đều đặn, nhịp thở ổn định khi qua khúc cua số 3, hoàn thành xuất sắc bài tập.'
     },
     {
       id: 102,
@@ -162,8 +170,9 @@ export default function TrainerPage() {
       avgSpeed: 62.8,
       maxHeartRate: 216, // Vượt ngưỡng an toàn 210 bpm!
       isOverLimit: true,
-      score: 8.2,
-      feedback: 'Tăng tốc tốt ở 400m cuối nhưng nhịp tim lên 216 bpm vượt ngưỡng. Cần giảm khối lượng ngày mai.'
+      status: 'INCOMPLETE', // Không hoàn thành
+      score: 6.5,
+      feedback: 'Tăng tốc tốt ở 400m cuối nhưng nhịp tim lên 216 bpm vượt ngưỡng. Đã cho dừng sớm để bảo đảm an toàn cơ bắp.'
     },
     {
       id: 103,
@@ -174,6 +183,7 @@ export default function TrainerPage() {
       avgSpeed: 58.0,
       maxHeartRate: 192,
       isOverLimit: false,
+      status: 'COMPLETED', // Hoàn thành
       score: 8.8,
       feedback: 'Chiến mã trẻ tiếp thu bài rất nhanh, giữ thẳng lái tốt khi gặp áp lực bên cánh phải.'
     },
@@ -186,10 +196,28 @@ export default function TrainerPage() {
       avgSpeed: 38.5,
       maxHeartRate: 165,
       isOverLimit: false,
+      status: 'COMPLETED', // Hoàn thành
       score: 7.0,
       feedback: 'Bài đi bộ thả lỏng theo đúng phác đồ bác sĩ thú y. Khớp gối trái đã bớt sưng đỏ.'
     }
   ]);
+
+  // Bộ lọc theo chiến mã & trạng thái bài tập
+  const [filterHorse, setFilterHorse] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [toastMsg, setToastMsg] = useState('');
+
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  // Danh sách bài tập sau lọc
+  const filteredSessions = sessions.filter(sess => {
+    const matchHorse = filterHorse === 'ALL' || sess.horseName === filterHorse;
+    const matchStatus = filterStatus === 'ALL' || (sess.status || 'COMPLETED') === filterStatus;
+    return matchHorse && matchStatus;
+  });
 
   // Modal lập giáo án mới
   const [showAddProgramModal, setShowAddProgramModal] = useState(false);
@@ -211,11 +239,12 @@ export default function TrainerPage() {
     distanceRun: 1600,
     avgSpeed: 60.5,
     maxHeartRate: 200,
+    status: 'COMPLETED',
     score: 8.5,
     feedback: ''
   });
 
-  // Modal chỉnh sửa nhận xét & chấm điểm
+  // Modal chỉnh sửa nhận xét & chấm điểm bài tập
   const [showEditFeedbackModal, setShowEditFeedbackModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
 
@@ -234,6 +263,7 @@ export default function TrainerPage() {
       status: 'ACTIVE'
     };
     setPrograms([newProg, ...programs]);
+    showToast(`✓ Đã tạo giáo án mới cho ${newProgramData.horseName}`);
     setShowAddProgramModal(false);
     setNewProgramData({
       title: '',
@@ -246,7 +276,7 @@ export default function TrainerPage() {
     });
   };
 
-  // Xử lý ghi nhận buổi tập
+  // Xử lý ghi nhận buổi tập mới
   const handleCreateSession = (e) => {
     e.preventDefault();
     const heartRate = Number(newSessionData.maxHeartRate);
@@ -261,10 +291,12 @@ export default function TrainerPage() {
       avgSpeed: Number(newSessionData.avgSpeed),
       maxHeartRate: heartRate,
       isOverLimit,
-      score: Number(newSessionData.score),
+      status: newSessionData.status || 'COMPLETED',
+      score: Number(newSessionData.score) || 8.0,
       feedback: newSessionData.feedback || 'Hoàn thành buổi tập theo kế hoạch đề ra.'
     };
     setSessions([newSess, ...sessions]);
+    showToast(`✓ Đã lưu bài tập mới cho ${newSessionData.horseName} (${newSess.status === 'COMPLETED' ? 'Hoàn thành' : 'Chưa hoàn thành'})`);
     setShowAddSessionModal(false);
     setNewSessionData({
       horseName: 'Hắc Phong',
@@ -272,16 +304,48 @@ export default function TrainerPage() {
       distanceRun: 1600,
       avgSpeed: 60.5,
       maxHeartRate: 200,
+      status: 'COMPLETED',
       score: 8.5,
       feedback: ''
     });
   };
 
-  // Cập nhật nhận xét & chấm điểm
+  // Chuyển đổi trạng thái Hoàn thành / Không hoàn thành 1-chạm
+  const handleToggleSessionStatus = (sessionId) => {
+    setSessions(prev => prev.map(s => {
+      if (s.id === sessionId) {
+        const nextStatus = s.status === 'COMPLETED' ? 'INCOMPLETE' : 'COMPLETED';
+        const statusText = nextStatus === 'COMPLETED' ? 'Hoàn thành' : 'Không hoàn thành';
+        showToast(`✓ Đã đổi bài tập của ${s.horseName} sang: ${statusText}`);
+        return { ...s, status: nextStatus };
+      }
+      return s;
+    }));
+  };
+
+  // Mở modal chấm điểm & ghi chú bài tập
+  const handleOpenEvaluationModal = (sess) => {
+    setSelectedSession({
+      ...sess,
+      status: sess.status || 'COMPLETED',
+      score: sess.score !== undefined ? sess.score : 8.0,
+      feedback: sess.feedback || ''
+    });
+    setShowEditFeedbackModal(true);
+  };
+
+  // Cập nhật trạng thái, điểm số & ghi chú bài tập
   const handleUpdateFeedback = (e) => {
     e.preventDefault();
     if (!selectedSession) return;
-    setSessions(prev => prev.map(s => s.id === selectedSession.id ? { ...s, score: selectedSession.score, feedback: selectedSession.feedback } : s));
+    setSessions(prev => prev.map(s => s.id === selectedSession.id ? {
+      ...s,
+      status: selectedSession.status,
+      score: Number(selectedSession.score),
+      feedback: selectedSession.feedback
+    } : s));
+    const statusText = selectedSession.status === 'COMPLETED' ? 'Hoàn thành' : 'Không hoàn thành';
+    showToast(`✓ Đã lưu bài tập của ${selectedSession.horseName}: ${statusText} • Điểm ${selectedSession.score}/10`);
     setShowEditFeedbackModal(false);
     setSelectedSession(null);
   };
@@ -339,7 +403,7 @@ export default function TrainerPage() {
               ← Trang chủ
             </Link>
             <button
-              onClick={logout}
+              onClick={handleLogout}
               style={{
                 padding: '8px 14px',
                 background: 'rgba(239, 68, 68, 0.15)',
@@ -397,6 +461,29 @@ export default function TrainerPage() {
           </div>
         </div>
 
+        {/* Toast thông báo nhanh */}
+        {toastMsg && (
+          <div style={{
+            position: 'fixed',
+            top: '24px',
+            right: '24px',
+            background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+            color: '#FFFFFF',
+            padding: '14px 22px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: 700,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.85)',
+            zIndex: 10000000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <span style={{ fontSize: '18px' }}>✓</span> {toastMsg}
+          </div>
+        )}
+
         {/* 3. THANH ĐIỀU HƯỚNG TABS NGHIỆP VỤ HLV */}
         <div style={{
           display: 'flex',
@@ -410,7 +497,7 @@ export default function TrainerPage() {
             { id: 'vitals', label: '1. Thể Lực & Trạng Thái Tàu Ngựa', icon: '📊' },
             { id: 'programs', label: '2. Giáo Án Huấn Luyện (Programs)', icon: '📋' },
             { id: 'sessions', label: '3. Buổi Tập & Telemetry Nhịp Tim', icon: '⏱️' },
-            { id: 'review', label: '4. Chấm Phong Độ & Nhận Xét HLV', icon: '⭐' }
+            { id: 'review', label: '4. Đánh Giá Điểm & Ghi Chú Bài Tập', icon: '⭐' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -637,7 +724,7 @@ export default function TrainerPage() {
                   Nhật Ký Buổi Tập & Chỉ Số Viễn Trắc Telemetry
                 </h3>
                 <p style={{ margin: 0, fontSize: '13px', color: '#94A3B8' }}>
-                  Tự động phát hiện cảnh báo quá tải nhịp tim (&gt; 210 bpm) để HLV can thiệp kịp thời.
+                  Theo dõi dữ liệu chạy thực tế, cảnh báo quá tải nhịp tim (&gt; 210 bpm) và xác nhận kết quả bài tập.
                 </p>
               </div>
               <button
@@ -668,165 +755,377 @@ export default function TrainerPage() {
                     <th style={{ padding: '14px 18px' }}>Chiến mã & Giáo án</th>
                     <th style={{ padding: '14px 18px' }}>Quãng đường</th>
                     <th style={{ padding: '14px 18px' }}>Vận tốc TB</th>
-                    <th style={{ padding: '14px 18px' }}>Nhịp tim đỉnh</th>
-                    <th style={{ padding: '14px 18px' }}>Cảnh báo quá tải</th>
-                    <th style={{ padding: '14px 18px' }}>Điểm</th>
+                    <th style={{ padding: '14px 18px' }}>Nhịp tim</th>
+                    <th style={{ padding: '14px 18px' }}>Cảnh báo</th>
+                    <th style={{ padding: '14px 18px' }}>Trạng thái bài tập</th>
+                    <th style={{ padding: '14px 18px' }}>Điểm đánh giá</th>
+                    <th style={{ padding: '14px 18px', textAlign: 'center' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.map(sess => (
-                    <tr key={sess.id} style={{ borderBottom: '1px solid rgba(232, 227, 215, 0.06)' }}>
-                      <td style={{ padding: '14px 18px', color: '#94A3B8', fontSize: '12.5px' }}>
-                        {sess.time}
-                      </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <div style={{ fontWeight: 600, color: '#60A5FA' }}>{sess.horseName}</div>
-                        <div style={{ fontSize: '12px', color: '#94A3B8' }}>{sess.programTitle}</div>
-                      </td>
-                      <td style={{ padding: '14px 18px', color: '#E8E3D7' }}>
-                        {sess.distanceRun} m
-                      </td>
-                      <td style={{ padding: '14px 18px', color: '#34D399', fontWeight: 600 }}>
-                        {sess.avgSpeed} km/h
-                      </td>
-                      <td style={{ padding: '14px 18px', color: sess.isOverLimit ? '#EF4444' : '#E8E3D7', fontWeight: 700 }}>
-                        {sess.maxHeartRate} bpm
-                      </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        {sess.isOverLimit ? (
+                  {sessions.map(sess => {
+                    const isCompleted = sess.status === 'COMPLETED';
+                    return (
+                      <tr key={sess.id} style={{ borderBottom: '1px solid rgba(232, 227, 215, 0.06)' }}>
+                        <td style={{ padding: '14px 18px', color: '#94A3B8', fontSize: '12.5px' }}>
+                          {sess.time}
+                        </td>
+                        <td style={{ padding: '14px 18px' }}>
+                          <div style={{ fontWeight: 600, color: '#60A5FA' }}>{sess.horseName}</div>
+                          <div style={{ fontSize: '12px', color: '#94A3B8' }}>{sess.programTitle}</div>
+                        </td>
+                        <td style={{ padding: '14px 18px', color: '#E8E3D7' }}>
+                          {sess.distanceRun} m
+                        </td>
+                        <td style={{ padding: '14px 18px', color: '#34D399', fontWeight: 600 }}>
+                          {sess.avgSpeed} km/h
+                        </td>
+                        <td style={{ padding: '14px 18px', color: sess.isOverLimit ? '#EF4444' : '#E8E3D7', fontWeight: 700 }}>
+                          {sess.maxHeartRate} bpm
+                        </td>
+                        <td style={{ padding: '14px 18px' }}>
+                          {sess.isOverLimit ? (
+                            <span style={{
+                              padding: '4px 8px',
+                              background: 'rgba(239, 68, 68, 0.2)',
+                              color: '#FF8885',
+                              border: '1px solid #EF4444',
+                              borderRadius: '4px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              ⚠️ QUÁ TẢI (&gt;210)
+                            </span>
+                          ) : (
+                            <span style={{
+                              padding: '4px 8px',
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10B981',
+                              borderRadius: '4px',
+                              fontSize: '11.5px',
+                              fontWeight: 600
+                            }}>
+                              ✓ Bình thường
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '14px 18px' }}>
+                          <button
+                            onClick={() => handleToggleSessionStatus(sess.id)}
+                            title="Nhấp để đổi trạng thái bài tập"
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              background: isCompleted ? 'rgba(16, 185, 129, 0.18)' : 'rgba(239, 68, 68, 0.18)',
+                              color: isCompleted ? '#34D399' : '#F87171',
+                              border: isCompleted ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(239, 68, 68, 0.5)',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            {isCompleted ? '✓ Hoàn thành' : '✗ Chưa đạt'}
+                          </button>
+                        </td>
+                        <td style={{ padding: '14px 18px' }}>
                           <span style={{
                             padding: '4px 8px',
-                            background: 'rgba(239, 68, 68, 0.2)',
-                            color: '#FF8885',
-                            border: '1px solid #EF4444',
+                            background: 'rgba(201, 162, 39, 0.2)',
+                            color: 'var(--brass, #C9A227)',
                             borderRadius: '4px',
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
+                            fontSize: '12px',
+                            fontWeight: 700
                           }}>
-                            ⚠️ VƯỢT NGƯỠNG (&gt;210)
+                            ⭐ {sess.score !== undefined ? sess.score : 8.0}/10
                           </span>
-                        ) : (
-                          <span style={{
-                            padding: '4px 8px',
-                            background: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10B981',
-                            borderRadius: '4px',
-                            fontSize: '11.5px',
-                            fontWeight: 600
-                          }}>
-                            ✓ An toàn
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <span style={{
-                          padding: '4px 8px',
-                          background: 'rgba(201, 162, 39, 0.2)',
-                          color: 'var(--brass, #C9A227)',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          fontWeight: 700
-                        }}>
-                          ⭐ {sess.score}/10
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                          <button
+                            onClick={() => handleOpenEvaluationModal(sess)}
+                            style={{
+                              padding: '6px 12px',
+                              background: 'rgba(59, 130, 246, 0.15)',
+                              border: '1px solid #3B82F6',
+                              color: '#93C5FD',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            📝 Đánh giá & Ghi chú
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* ===================== TAB 4: CHẤM PHONG ĐỘ & NHẬN XÉT HLV ===================== */}
+        {/* ===================== TAB 4: CHẤM ĐIỂM & GHI CHÚ BÀI TẬP ===================== */}
         {activeTab === 'review' && (
           <div>
-            <div style={{ marginBottom: '18px' }}>
-              <h3 style={{ fontSize: '18px', margin: '0 0 4px', color: '#FFFFFF' }}>
-                Đánh Giá Phong Độ & Nhật Ký Nhận Xét Của HLV Trưởng
-              </h3>
-              <p style={{ margin: 0, fontSize: '13px', color: '#94A3B8' }}>
-                Ghi nhận chi tiết phản xạ của chiến mã sau buổi tập phục vụ đối chiếu và lập hồ sơ đăng ký thi đấu.
-              </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ fontSize: '18px', margin: '0 0 4px', color: '#FFFFFF' }}>
+                  Đánh Giá Điểm & Ghi Chú Bài Tập Theo Chiến Mã
+                </h3>
+                <p style={{ margin: 0, fontSize: '13px', color: '#94A3B8' }}>
+                  HLV có thể xác nhận bài tập hoàn thành/không hoàn thành, chấm điểm phong độ (1-10 ⭐) và lưu nhật ký ghi chú.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAddSessionModal(true)}
+                style={{
+                  padding: '9px 18px',
+                  background: '#3B82F6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '13.5px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>+</span> Ghi Nhận Bài Tập Mới
+              </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {sessions.map(sess => (
-                <div
-                  key={sess.id}
+            {/* BỘ LỌC CHIẾN MÃ & TRẠNG THÁI BÀI TẬP */}
+            <div style={{
+              background: '#101422',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              borderRadius: '8px',
+              padding: '14px 18px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 600 }}>Lọc theo chiến mã:</span>
+                <select
+                  value={filterHorse}
+                  onChange={(e) => setFilterHorse(e.target.value)}
                   style={{
-                    background: '#101422',
-                    border: '1px solid rgba(59, 130, 246, 0.2)',
-                    borderRadius: '10px',
-                    padding: '20px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    flexWrap: 'wrap',
-                    gap: '16px'
+                    background: '#090B10',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    color: '#FFFFFF',
+                    borderRadius: '6px',
+                    padding: '7px 12px',
+                    fontSize: '13px'
                   }}
                 >
-                  <div style={{ flex: 1, minWidth: '280px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '16px', fontWeight: 700, color: '#60A5FA' }}>
-                        {sess.horseName}
-                      </span>
-                      <span style={{ fontSize: '12px', color: '#94A3B8' }}>• {sess.time}</span>
-                      <span style={{
-                        padding: '3px 8px',
-                        background: 'rgba(201, 162, 39, 0.2)',
-                        color: 'var(--brass, #C9A227)',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        fontWeight: 700
-                      }}>
-                        ⭐ Điểm: {sess.score}/10
-                      </span>
-                    </div>
+                  <option value="ALL">Tất cả chiến mã</option>
+                  {trainerHorses.map(h => (
+                    <option key={h.id} value={h.name}>{h.name}</option>
+                  ))}
+                </select>
+              </div>
 
-                    <div style={{ fontSize: '13px', color: '#CBD5E1', marginBottom: '8px' }}>
-                      Giáo án: <b>{sess.programTitle}</b> (Cự ly: {sess.distanceRun}m • Vận tốc tb: {sess.avgSpeed} km/h)
-                    </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 600 }}>Trạng thái bài tập:</span>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  style={{
+                    background: '#090B10',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    color: '#FFFFFF',
+                    borderRadius: '6px',
+                    padding: '7px 12px',
+                    fontSize: '13px'
+                  }}
+                >
+                  <option value="ALL">Tất cả trạng thái</option>
+                  <option value="COMPLETED">✓ Đã hoàn thành (COMPLETED)</option>
+                  <option value="INCOMPLETE">✗ Không hoàn thành (INCOMPLETE)</option>
+                </select>
+              </div>
 
-                    <div style={{
-                      background: '#090B10',
-                      borderLeft: '3px solid #3B82F6',
-                      padding: '10px 14px',
-                      borderRadius: '0 6px 6px 0',
-                      fontSize: '13.5px',
-                      color: '#E2E8F0',
-                      lineHeight: 1.5
-                    }}>
-                      📝 <b>Nhận xét của HLV:</b> "{sess.feedback}"
-                    </div>
-                  </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', fontSize: '12.5px' }}>
+                <span style={{ padding: '4px 10px', background: 'rgba(59, 130, 246, 0.15)', color: '#93C5FD', borderRadius: '4px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                  Tổng: <b>{sessions.length}</b> bài tập
+                </span>
+                <span style={{ padding: '4px 10px', background: 'rgba(16, 185, 129, 0.15)', color: '#34D399', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                  Hoàn thành: <b>{sessions.filter(s => s.status === 'COMPLETED').length}</b>
+                </span>
+                <span style={{ padding: '4px 10px', background: 'rgba(239, 68, 68, 0.15)', color: '#F87171', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                  Chưa đạt: <b>{sessions.filter(s => s.status === 'INCOMPLETE').length}</b>
+                </span>
+              </div>
+            </div>
 
-                  <div>
-                    <button
-                      onClick={() => {
-                        setSelectedSession(sess);
-                        setShowEditFeedbackModal(true);
-                      }}
+            {/* DANH SÁCH BÀI TẬP VÀ ĐÁNH GIÁ GHI CHÚ */}
+            {filteredSessions.length === 0 ? (
+              <div style={{
+                background: '#101422',
+                borderRadius: '8px',
+                padding: '40px 20px',
+                textAlign: 'center',
+                color: '#94A3B8',
+                border: '1px dashed rgba(59, 130, 246, 0.3)'
+              }}>
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>📋</div>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: '#E2E8F0' }}>Không tìm thấy bài tập nào phù hợp</div>
+                <div style={{ fontSize: '13px', marginTop: '4px' }}>Hãy chọn lại bộ lọc hoặc tạo bài tập mới.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {filteredSessions.map(sess => {
+                  const isCompleted = sess.status === 'COMPLETED';
+                  return (
+                    <div
+                      key={sess.id}
                       style={{
-                        padding: '7px 14px',
-                        background: 'rgba(59, 130, 246, 0.15)',
-                        border: '1px solid #3B82F6',
-                        color: '#93C5FD',
-                        borderRadius: '6px',
-                        fontSize: '12.5px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
+                        background: '#101422',
+                        border: isCompleted ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid rgba(239, 68, 68, 0.35)',
+                        borderRadius: '10px',
+                        padding: '22px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        flexWrap: 'wrap',
+                        gap: '18px',
+                        position: 'relative'
                       }}
                     >
-                      ✏️ Sửa nhận xét & điểm
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                      <div style={{ flex: 1, minWidth: '300px' }}>
+                        {/* HÀNG TIÊU ĐỀ: TÊN CHIẾN MÃ, THỜI GIAN, BADGE TRẠNG THÁI & ĐIỂM */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '17px', fontWeight: 700, color: '#60A5FA' }}>
+                            {sess.horseName}
+                          </span>
+                          <span style={{ fontSize: '12.5px', color: '#94A3B8' }}>• {sess.time}</span>
+                          
+                          {/* BADGE TRẠNG THÁI HOÀN THÀNH / KHÔNG HOÀN THÀNH */}
+                          <span style={{
+                            padding: '4px 10px',
+                            background: isCompleted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            color: isCompleted ? '#34D399' : '#F87171',
+                            border: isCompleted ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(239, 68, 68, 0.5)',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            {isCompleted ? '✓ ĐÃ HOÀN THÀNH BÀI TẬP' : '✗ KHÔNG HOÀN THÀNH'}
+                          </span>
+
+                          {/* BADGE ĐIỂM ĐÁNH GIÁ */}
+                          <span style={{
+                            padding: '4px 10px',
+                            background: 'rgba(201, 162, 39, 0.2)',
+                            color: 'var(--brass, #C9A227)',
+                            borderRadius: '6px',
+                            fontSize: '12.5px',
+                            fontWeight: 700,
+                            border: '1px solid rgba(201, 162, 39, 0.4)'
+                          }}>
+                            ⭐ Điểm: {sess.score !== undefined ? sess.score : 8.0}/10
+                          </span>
+                        </div>
+
+                        {/* THÔNG TIN BÀI TẬP VÀ CHỈ SỐ */}
+                        <div style={{ fontSize: '13.5px', color: '#CBD5E1', marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
+                          <span>Giáo án: <b style={{ color: '#F1F5F9' }}>{sess.programTitle}</b></span>
+                          <span style={{ color: '#94A3B8' }}>|</span>
+                          <span>Cự ly: <b style={{ color: '#E8E3D7' }}>{sess.distanceRun}m</b></span>
+                          <span style={{ color: '#94A3B8' }}>|</span>
+                          <span>Tốc độ: <b style={{ color: '#34D399' }}>{sess.avgSpeed} km/h</b></span>
+                          <span style={{ color: '#94A3B8' }}>|</span>
+                          <span>Nhịp tim: <b style={{ color: sess.isOverLimit ? '#EF4444' : '#E8E3D7' }}>{sess.maxHeartRate} bpm</b></span>
+                        </div>
+
+                        {/* KHUNG GHI CHÚ BÀI TẬP CỦA HUẤN LUYỆN VIÊN */}
+                        <div style={{
+                          background: '#090B10',
+                          borderLeft: isCompleted ? '4px solid #3B82F6' : '4px solid #EF4444',
+                          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                          borderRight: '1px solid rgba(255, 255, 255, 0.05)',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                          padding: '12px 16px',
+                          borderRadius: '0 8px 8px 0',
+                          fontSize: '13.5px',
+                          color: '#E2E8F0',
+                          lineHeight: 1.6
+                        }}>
+                          <div style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>📝 Ghi chú bài tập & Nhận xét của HLV:</span>
+                          </div>
+                          <div>"{sess.feedback || 'Chưa có ghi chú cho bài tập này.'}"</div>
+                        </div>
+                      </div>
+
+                      {/* KHỐI NÚT THAO TÁC CỦA HLV */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignSelf: 'stretch', justifyContent: 'center' }}>
+                        {/* NÚT CHUYỂN TRẠNG THÁI NHANH */}
+                        <button
+                          onClick={() => handleToggleSessionStatus(sess.id)}
+                          style={{
+                            padding: '9px 16px',
+                            background: isCompleted ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                            border: isCompleted ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(16, 185, 129, 0.5)',
+                            color: isCompleted ? '#F87171' : '#34D399',
+                            borderRadius: '6px',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {isCompleted ? '✗ Đổi sang: Chưa đạt' : '✓ Đổi sang: Hoàn thành'}
+                        </button>
+
+                        {/* NÚT MỞ MODAL ĐÁNH GIÁ ĐIỂM & GHI CHÚ */}
+                        <button
+                          onClick={() => handleOpenEvaluationModal(sess)}
+                          style={{
+                            padding: '9px 16px',
+                            background: '#3B82F6',
+                            border: 'none',
+                            color: '#FFFFFF',
+                            borderRadius: '6px',
+                            fontSize: '12.5px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)'
+                          }}
+                        >
+                          ⭐ Đánh giá điểm & Sửa ghi chú
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -955,8 +1254,8 @@ export default function TrainerPage() {
             border: '1px solid rgba(59, 130, 246, 0.4)',
             borderRadius: '10px',
             width: '100%',
-            maxWidth: '500px',
-            padding: '30px',
+            maxWidth: '520px',
+            padding: '28px',
             color: '#FFFFFF'
           }}>
             <h3 style={{ fontSize: '18px', marginBottom: '16px' }}>Ghi Nhận Buổi Tập & Telemetry Mới</h3>
@@ -972,6 +1271,18 @@ export default function TrainerPage() {
                     <option key={h.id} value={h.name}>{h.name} ({h.microchip})</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Tên bài tập / Giáo án</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Rèn sức bền 2.000m sân cát"
+                  value={newSessionData.programTitle}
+                  onChange={(e) => setNewSessionData({ ...newSessionData, programTitle: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#05070C', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -1011,25 +1322,37 @@ export default function TrainerPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Chấm phong độ (1-10)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    max="10"
-                    required
-                    value={newSessionData.score}
-                    onChange={(e) => setNewSessionData({ ...newSessionData, score: e.target.value })}
+                  <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Trạng thái bài tập</label>
+                  <select
+                    value={newSessionData.status}
+                    onChange={(e) => setNewSessionData({ ...newSessionData, status: e.target.value })}
                     style={{ width: '100%', padding: '10px', background: '#05070C', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
-                  />
+                  >
+                    <option value="COMPLETED">✓ Hoàn thành bài tập</option>
+                    <option value="INCOMPLETE">✗ Không hoàn thành bài tập</option>
+                  </select>
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Nhận xét chuyên môn của HLV Trưởng</label>
+                <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Chấm điểm đánh giá (1.0 - 10.0 ⭐)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="10"
+                  required
+                  value={newSessionData.score}
+                  onChange={(e) => setNewSessionData({ ...newSessionData, score: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#05070C', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Ghi chú bài tập & Nhận xét của HLV</label>
                 <textarea
                   rows="3"
-                  placeholder="Ghi nhận xét về độ mở sải chân, tốc độ hồi tim sau chạy..."
+                  placeholder="Ghi nhận xét về phong độ, độ giãn bước, sức bền hoặc lý do nếu bài tập chưa hoàn thành..."
                   value={newSessionData.feedback}
                   onChange={(e) => setNewSessionData({ ...newSessionData, feedback: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: '#05070C', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box', resize: 'vertical' }}
@@ -1048,7 +1371,7 @@ export default function TrainerPage() {
                   type="submit"
                   style={{ flex: 1, padding: '10px', background: '#3B82F6', border: 'none', color: '#FFFFFF', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Lưu Buổi Tập
+                  Lưu Bài Tập
                 </button>
               </div>
             </form>
@@ -1056,7 +1379,7 @@ export default function TrainerPage() {
         </div>
       )}
 
-      {/* ===================== MODAL SỬA NHẬN XÉT & ĐIỂM ===================== */}
+      {/* ===================== MODAL ĐÁNH GIÁ ĐIỂM, TRẠNG THÁI & GHI CHÚ BÀI TẬP ===================== */}
       {showEditFeedbackModal && selectedSession && (
         <div style={{
           position: 'fixed',
@@ -1073,40 +1396,152 @@ export default function TrainerPage() {
             border: '1px solid rgba(59, 130, 246, 0.4)',
             borderRadius: '10px',
             width: '100%',
-            maxWidth: '460px',
+            maxWidth: '520px',
             padding: '28px',
-            color: '#FFFFFF'
+            color: '#FFFFFF',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)'
           }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '14px' }}>
-              Cập Nhật Nhận Xét — {selectedSession.horseName}
-            </h3>
-            <form onSubmit={handleUpdateFeedback} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Điểm phong độ (Thang 1-10)</label>
+                <h3 style={{ fontSize: '18px', margin: '0 0 4px', color: '#FFFFFF' }}>
+                  Đánh Giá & Ghi Chú Bài Tập
+                </h3>
+                <div style={{ fontSize: '13px', color: '#60A5FA', fontWeight: 600 }}>
+                  Chiến mã: {selectedSession.horseName} • {selectedSession.time}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditFeedbackModal(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94A3B8', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* TÓM TẮT BÀI TẬP */}
+            <div style={{ background: '#090B10', padding: '10px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12.5px', color: '#94A3B8', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+              <div>Giáo án: <b style={{ color: '#E2E8F0' }}>{selectedSession.programTitle}</b></div>
+              <div style={{ marginTop: '3px' }}>Cự ly: <b style={{ color: '#E2E8F0' }}>{selectedSession.distanceRun}m</b> • Vận tốc: <b style={{ color: '#34D399' }}>{selectedSession.avgSpeed} km/h</b> • Tim: <b style={{ color: selectedSession.isOverLimit ? '#EF4444' : '#E2E8F0' }}>{selectedSession.maxHeartRate} bpm</b></div>
+            </div>
+
+            <form onSubmit={handleUpdateFeedback} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              
+              {/* 1. CHỌN HOÀN THÀNH HOẶC KHÔNG HOÀN THÀNH */}
+              <div>
+                <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
+                  1. Xác nhận hoàn thành bài tập:
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSession({ ...selectedSession, status: 'COMPLETED' })}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      border: selectedSession.status === 'COMPLETED' ? '2px solid #10B981' : '1px solid rgba(255, 255, 255, 0.1)',
+                      background: selectedSession.status === 'COMPLETED' ? 'rgba(16, 185, 129, 0.2)' : '#090B10',
+                      color: selectedSession.status === 'COMPLETED' ? '#34D399' : '#94A3B8',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>✓</span>
+                    <span>Hoàn thành</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSession({ ...selectedSession, status: 'INCOMPLETE' })}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      border: selectedSession.status === 'INCOMPLETE' ? '2px solid #EF4444' : '1px solid rgba(255, 255, 255, 0.1)',
+                      background: selectedSession.status === 'INCOMPLETE' ? 'rgba(239, 68, 68, 0.2)' : '#090B10',
+                      color: selectedSession.status === 'INCOMPLETE' ? '#F87171' : '#94A3B8',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>✗</span>
+                    <span>Không hoàn thành</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. CHẤM ĐIỂM ĐÁNH GIÁ (1 - 10) */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 600 }}>
+                    2. Chấm điểm đánh giá (Thang 1.0 - 10.0 ⭐):
+                  </label>
+                  <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--brass, #C9A227)' }}>
+                    ⭐ {selectedSession.score || 8.0}/10
+                  </span>
+                </div>
                 <input
                   type="number"
                   step="0.1"
                   min="1"
                   max="10"
                   required
-                  value={selectedSession.score}
+                  value={selectedSession.score || ''}
                   onChange={(e) => setSelectedSession({ ...selectedSession, score: Number(e.target.value) })}
-                  style={{ width: '100%', padding: '10px', background: '#05070C', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: '#05070C', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box', marginBottom: '8px' }}
                 />
+                
+                {/* DẢI NÚT CHỌN ĐIỂM NHANH */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[5.0, 6.0, 7.0, 8.0, 8.5, 9.0, 9.5, 10.0].map(pt => (
+                    <button
+                      key={pt}
+                      type="button"
+                      onClick={() => setSelectedSession({ ...selectedSession, score: pt })}
+                      style={{
+                        padding: '4px 9px',
+                        background: selectedSession.score === pt ? '#C9A227' : 'rgba(255, 255, 255, 0.06)',
+                        color: selectedSession.score === pt ? '#000' : '#CBD5E1',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {pt}
+                    </button>
+                  ))}
+                </div>
               </div>
 
+              {/* 3. GHI CHÚ BÀI TẬP */}
               <div>
-                <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>Nhận xét chi tiết của HLV</label>
+                <label style={{ fontSize: '13px', color: '#94A3B8', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                  3. Ghi chú bài tập & Nhận xét của HLV:
+                </label>
                 <textarea
                   rows="4"
                   required
-                  value={selectedSession.feedback}
+                  placeholder="Ghi nhận xét chi tiết về thể trạng, nhịp bước, phản ứng với khẩu lệnh, hoặc lý do chưa hoàn thành bài tập..."
+                  value={selectedSession.feedback || ''}
                   onChange={(e) => setSelectedSession({ ...selectedSession, feedback: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#05070C', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box', resize: 'vertical' }}
+                  style={{ width: '100%', padding: '10px', background: '#05070C', border: '1px solid rgba(59, 130, 246, 0.25)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }}
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
                 <button
                   type="button"
                   onClick={() => setShowEditFeedbackModal(false)}
@@ -1118,7 +1553,7 @@ export default function TrainerPage() {
                   type="submit"
                   style={{ flex: 1, padding: '10px', background: '#3B82F6', border: 'none', color: '#FFFFFF', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Lưu Thay Đổi
+                  Lưu Đánh Giá & Ghi Chú
                 </button>
               </div>
             </form>
