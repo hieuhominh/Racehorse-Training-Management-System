@@ -6,12 +6,14 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
 import AdminRoute from './components/AdminRoute';
+import TrainerRoute from './components/TrainerRoute';
 
 import HomePage from './pages/HomePage';
 import HorsesPage from './pages/HorsesPage';
 import AchievementsPage from './pages/AchievementsPage';
 import StablesPage from './pages/StablesPage';
 import AdminPage from './pages/AdminPage';
+import TrainerPage from './pages/TrainerPage';
 
 // Helper component to auto scroll to top when changing routes
 function ScrollToTop() {
@@ -72,6 +74,40 @@ export default function App() {
                 <AdminRoute>
                   <AdminPage />
                 </AdminRoute>
+              } 
+            />
+
+            {/* CỔNG HUẤN LUYỆN VIÊN TRƯỞNG BẢO MẬT (TRAINER PORTAL) */}
+            <Route 
+              path="/trainer" 
+              element={
+                <TrainerRoute>
+                  <TrainerPage />
+                </TrainerRoute>
+              } 
+            />
+            <Route 
+              path="/trainer.html" 
+              element={
+                <TrainerRoute>
+                  <TrainerPage />
+                </TrainerRoute>
+              } 
+            />
+            <Route 
+              path="/huan-luyen" 
+              element={
+                <TrainerRoute>
+                  <TrainerPage />
+                </TrainerRoute>
+              } 
+            />
+            <Route 
+              path="/huan-luyen.html" 
+              element={
+                <TrainerRoute>
+                  <TrainerPage />
+                </TrainerRoute>
               } 
             />
 

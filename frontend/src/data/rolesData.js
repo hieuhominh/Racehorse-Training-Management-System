@@ -3,7 +3,7 @@ export const rolesData = [
     tag: 'VAI TRÒ 01',
     title: 'Huấn luyện viên trưởng',
     vn: 'Head Trainer',
-    link: '/ho-so-ngua',
+    link: '/trainer',
     cta: 'Mở bảng huấn luyện',
     duties: [
       'Bảng tiến độ và biểu đồ thể lực toàn bộ tàu ngựa',

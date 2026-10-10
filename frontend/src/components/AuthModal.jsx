@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
-  const { login, registerUser } = useAuth();
+  const { login, registerUser, usersList } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [notification, setNotification] = useState('');
   const [isError, setIsError] = useState(false);
@@ -12,21 +12,77 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const [loginPassword, setLoginPassword] = useState('');
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regRole, setRegRole] = useState('owner');
+  const [regPhone, setRegPhone] = useState('');
+  const [regRole, setRegRole] = useState('trainer');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirm, setRegConfirm] = useState('');
 
+  // Google Modal State & Fields
+  const [showGoogleDialog, setShowGoogleDialog] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState('huanluyen.vien@gmail.com');
+  const [googleName, setGoogleName] = useState('Nguyễn Văn Tuấn');
+  const [googlePhone, setGooglePhone] = useState('0912888999');
+  const [googleRole, setGoogleRole] = useState('TRAINER');
+
   if (!isOpen) return null;
 
-  const handleGoogleAuth = () => {
-    // Đăng nhập nhanh bằng tài khoản Google (giả lập Admin)
+  const handleOpenGoogleAuth = () => {
     setIsError(false);
-    login('admin', '123');
-    setNotification('Đang kết nối Google... Đăng nhập thành công với tài khoản Admin!');
+    setNotification('');
+    setShowGoogleDialog(true);
+  };
+
+  const handleConfirmGoogleRegister = (e) => {
+    e.preventDefault();
+    if (!googleEmail?.trim() || !googleName?.trim()) {
+      setIsError(true);
+      setNotification('Vui lòng điền đủ thông tin tài khoản Google!');
+      return;
+    }
+
+    const cleanEmail = googleEmail.trim().toLowerCase();
+    const existing = usersList?.find(u => u.email?.toLowerCase() === cleanEmail);
+
+    if (existing) {
+      const res = login(existing.username, existing.password || '123');
+      if (res.success) {
+        setNotification(`Đăng nhập Google thành công! Chào mừng ${existing.full_name} (${existing.role_name}).`);
+      } else {
+        setNotification(`Chào mừng ${existing.full_name}! Đã kết nối qua Google.`);
+      }
+    } else {
+      const roleMap = {
+        'TRAINER': 'Huấn luyện viên Trưởng',
+        'OWNER': 'Chủ sở hữu Ngựa',
+        'VET': 'Bác sĩ Thú y',
+        'GROOM': 'Nhân viên Chăm sóc',
+        'MANAGER': 'Quản lý Câu lạc bộ'
+      };
+      const createdUser = registerUser({
+        email: cleanEmail,
+        username: cleanEmail.split('@')[0],
+        full_name: googleName.trim(),
+        phone: googlePhone.trim() || '0901234567',
+        role: googleRole.toUpperCase(),
+        role_name: roleMap[googleRole.toUpperCase()] || 'Huấn luyện viên Trưởng',
+        password: '123'
+      });
+      login(createdUser.username, '123');
+      setNotification(`Đăng ký Google thành công! Chào mừng ${createdUser.full_name} với vai trò ${createdUser.role_name}.`);
+    }
+
+    setShowGoogleDialog(false);
     setTimeout(() => {
       setNotification('');
       onClose();
-    }, 1200);
+    }, 1400);
+  };
+
+  const handleQuickGoogleSelect = (preset) => {
+    setGoogleEmail(preset.email);
+    setGoogleName(preset.name);
+    setGooglePhone(preset.phone);
+    setGoogleRole(preset.role);
   };
 
   const handleLoginSubmit = (e) => {
@@ -57,6 +113,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
       username: regEmail.split('@')[0],
       email: regEmail,
       full_name: regName,
+      phone: regPhone || '0901234567',
       role: regRole.toUpperCase(),
       password: regPassword
     });
@@ -195,7 +252,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
         {/* Google Authentication Button */}
         <button
           type="button"
-          onClick={handleGoogleAuth}
+          onClick={handleOpenGoogleAuth}
           style={{
             width: '100%',
             display: 'flex',
@@ -204,14 +261,23 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             gap: '12px',
             padding: '12px 16px',
             background: '#111111',
-            border: '1px solid rgba(232, 227, 215, 0.2)',
+            border: '1px solid rgba(232, 227, 215, 0.25)',
             borderRadius: '4px',
             color: '#FFFFFF',
             fontFamily: 'var(--body)',
             fontSize: '14px',
             fontWeight: 600,
             cursor: 'pointer',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--brass)';
+            e.currentTarget.style.background = '#181818';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(232, 227, 215, 0.25)';
+            e.currentTarget.style.background = '#111111';
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24">
@@ -220,7 +286,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
           </svg>
-          {activeTab === 'login' ? 'Tiếp tục bằng tài khoản Google (Gmail)' : 'Đăng ký nhanh bằng Google (Gmail)'}
+          {activeTab === 'login' ? 'Tiếp tục bằng tài khoản Google (Gmail)' : 'Đăng ký nhanh bằng Google (Chọn vai trò)'}
         </button>
 
         {/* Divider */}
@@ -388,12 +454,32 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   outline: 'none'
                 }}
               >
+                <option value="trainer">Huấn luyện viên Trưởng (Trainer)</option>
                 <option value="owner">Chủ sở hữu ngựa (Owner)</option>
-                <option value="trainer">Huấn luyện viên (Trainer)</option>
                 <option value="vet">Bác sĩ thú y (Veterinarian)</option>
                 <option value="groom">Nhân viên chăm sóc (Groom)</option>
-                <option value="guest">Khách tham quan / Khác</option>
+                <option value="manager">Ban Quản lý Câu lạc bộ (Manager)</option>
               </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: '#E8E3D7' }}>Số điện thoại liên hệ</label>
+              <input
+                type="tel"
+                value={regPhone}
+                onChange={(e) => setRegPhone(e.target.value)}
+                placeholder="Ví dụ: 0912345678"
+                style={{
+                  padding: '11px 14px',
+                  background: '#000000',
+                  border: '1px solid rgba(232, 227, 215, 0.16)',
+                  borderRadius: '4px',
+                  color: '#FFFFFF',
+                  fontFamily: 'var(--body)',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -471,6 +557,207 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
           </form>
         )}
       </div>
+
+      {/* ===================== POPUP ĐĂNG KÝ BẰNG GOOGLE (CHỌN VAI TRÒ) ===================== */}
+      {showGoogleDialog && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.92)',
+            backdropFilter: 'blur(10px)',
+            zIndex: 10000000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowGoogleDialog(false)}
+        >
+          <div 
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              background: '#141210',
+              border: '1px solid rgba(201, 162, 39, 0.5)',
+              borderRadius: '12px',
+              padding: '32px 28px',
+              color: '#FFFFFF',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.95)',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Google */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF', fontWeight: 700 }}>
+                  Đăng Ký Tài Khoản Google
+                </h3>
+                <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#9DA6A0' }}>
+                  Xác thực danh tính & Chọn vai trò nghiệp vụ của bạn
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Demo Preset buttons */}
+            <div style={{ background: '#0B0A09', border: '1px solid rgba(232, 227, 215, 0.1)', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '11.5px', color: 'var(--brass, #C9A227)', fontWeight: 600, marginBottom: '6px' }}>
+                ⚡ TÀI KHOẢN GOOGLE MẪU (BẤM ĐỂ CHỌN NHANH):
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleQuickGoogleSelect({ email: 'hlv.hung@gmail.com', name: 'HLV Trần Văn Hùng', phone: '0901234567', role: 'TRAINER' })}
+                  style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid #3B82F6', color: '#93C5FD', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  🏇 HLV (Trainer)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickGoogleSelect({ email: 'chu.thanh@gmail.com', name: 'Chủ ngựa Phạm Tiến Thành', phone: '0904567890', role: 'OWNER' })}
+                  style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(139, 92, 246, 0.15)', border: '1px solid #8B5CF6', color: '#C4B5FD', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  👑 Chủ sở hữu (Owner)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickGoogleSelect({ email: 'bacsi.an@gmail.com', name: 'Bác sĩ Thú y Nguyễn An', phone: '0902345678', role: 'VET' })}
+                  style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10B981', color: '#6EE7B7', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  🩺 Bác sĩ Thú y (Vet)
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmGoogleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+              <div>
+                <label style={{ fontSize: '12.5px', color: '#C8C4B7', display: 'block', marginBottom: '4px' }}>Địa chỉ Gmail của bạn</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="vidu@gmail.com"
+                  value={googleEmail}
+                  onChange={(e) => setGoogleEmail(e.target.value)}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12.5px', color: '#C8C4B7', display: 'block', marginBottom: '4px' }}>Họ và tên hiển thị</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Hoàng Minh Tuấn"
+                  value={googleName}
+                  onChange={(e) => setGoogleName(e.target.value)}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12.5px', color: '#C8C4B7', display: 'block', marginBottom: '4px' }}>Số điện thoại liên hệ</label>
+                <input
+                  type="tel"
+                  placeholder="Ví dụ: 0912345678"
+                  value={googlePhone}
+                  onChange={(e) => setGooglePhone(e.target.value)}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              {/* VAI TRÒ CHỌN KHI ĐĂNG KÝ GOOGLE */}
+              <div>
+                <label style={{ fontSize: '13px', color: 'var(--brass, #C9A227)', display: 'block', marginBottom: '6px', fontWeight: 700 }}>
+                  🌟 LỰA CHỌN VAI TRÒ TRONG HỆ THỐNG (BẮT BUỘC):
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {[
+                    { id: 'TRAINER', title: '🏇 Huấn luyện viên Trưởng (Trainer)', desc: 'Lập giáo án tập luyện, theo dõi nhịp tim/vận tốc & chấm phong độ', color: '#3B82F6' },
+                    { id: 'OWNER', title: '👑 Chủ sở hữu Ngựa (Horse Owner)', desc: 'Xem hồ sơ phả hệ, thể lực chiến mã và lịch sử thành tích thi đấu', color: '#8B5CF6' },
+                    { id: 'VET', title: '🩺 Bác sĩ Thú y (Veterinarian)', desc: 'Quản lý y tế, chẩn đoán chấn thương & ra lệnh cấm tập khẩn cấp', color: '#10B981' },
+                    { id: 'GROOM', title: '🌾 Nhân viên Chăm sóc (Groom)', desc: 'Theo dõi chuồng trại, khẩu phần ăn & xác nhận nhiệm vụ hằng ngày', color: '#F59E0B' },
+                    { id: 'MANAGER', title: '🏛️ Quản lý Câu lạc bộ (Manager)', desc: 'Quản lý nhân sự, danh mục chiến mã và kiểm soát toàn bộ hệ thống', color: '#EF4444' }
+                  ].map((roleItem) => {
+                    const isSelected = googleRole === roleItem.id;
+                    return (
+                      <div
+                        key={roleItem.id}
+                        onClick={() => setGoogleRole(roleItem.id)}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: isSelected ? `2px solid ${roleItem.color}` : '1px solid rgba(232, 227, 215, 0.15)',
+                          background: isSelected ? `${roleItem.color}15` : '#0B0A09',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="googleRole"
+                          checked={isSelected}
+                          onChange={() => setGoogleRole(roleItem.id)}
+                          style={{ cursor: 'pointer', accentColor: roleItem.color }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13.5px', fontWeight: 600, color: isSelected ? '#FFFFFF' : '#E8E3D7' }}>
+                            {roleItem.title}
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#9DA6A0', marginTop: '2px' }}>
+                            {roleItem.desc}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowGoogleDialog(false)}
+                  style={{ flex: 1, padding: '11px', background: 'rgba(232, 227, 215, 0.1)', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1.6,
+                    padding: '11px',
+                    background: 'var(--brass, #C9A227)',
+                    border: 'none',
+                    color: '#14100A',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <span>✓</span> Hoàn tất đăng ký với Google
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

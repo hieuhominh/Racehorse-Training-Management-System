@@ -159,17 +159,25 @@ export function AuthProvider({ children }) {
 
   // Đăng ký nhanh tài khoản mới với ID tuần tự (#1, #2, #3, ...)
   const registerUser = (userData) => {
+    const roleMap = {
+      'MANAGER': 'Quản lý Câu lạc bộ',
+      'TRAINER': 'Huấn luyện viên Trưởng',
+      'VET': 'Bác sĩ Thú y',
+      'GROOM': 'Nhân viên Chăm sóc',
+      'OWNER': 'Chủ sở hữu Ngựa'
+    };
+    const userRole = (userData.role || 'OWNER').toUpperCase();
     const maxId = usersList.reduce((max, u) => Math.max(max, Number(u.user_id) || 0), 0);
     const nextId = maxId + 1;
     const newUser = {
       user_id: nextId,
-      username: userData.username || `user_${nextId}`,
+      username: userData.username || (userData.email ? userData.email.split('@')[0] : `user_${nextId}`),
       password: userData.password || '123',
       full_name: userData.full_name || 'Người dùng mới',
       email: userData.email,
       phone: userData.phone || '0900000000',
-      role: userData.role || 'OWNER',
-      role_name: userData.role_name || 'Chủ sở hữu Ngựa',
+      role: userRole,
+      role_name: userData.role_name || roleMap[userRole] || 'Chủ sở hữu Ngựa',
       status: 'ACTIVE'
     };
     setUsersList(prev => [...prev, newUser]);
