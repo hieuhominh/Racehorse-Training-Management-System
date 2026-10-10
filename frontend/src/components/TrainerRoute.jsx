@@ -20,8 +20,8 @@ export default function TrainerRoute({ children }) {
 
     if (!res.success) {
       setErrorMsg(res.error);
-    } else if (res.user.role !== 'TRAINER' && res.user.role !== 'MANAGER' && res.user.role !== 'ADMIN') {
-      setErrorMsg(`Tài khoản "${res.user.full_name}" không có quyền Huấn luyện viên (Chỉ có quyền ${res.user.role_name}). Vui lòng dùng tài khoản Trainer!`);
+    } else if (res.user.role !== 'TRAINER') {
+      setErrorMsg(`Tài khoản "${res.user.full_name}" là ${res.user.role_name}, không phải Huấn luyện viên! Vui lòng dùng đúng tài khoản Huấn luyện viên (vd: trainer_truong / 123).`);
     }
   };
 
@@ -251,8 +251,8 @@ export default function TrainerRoute({ children }) {
     );
   }
 
-  // 2. Trường hợp ĐÃ ĐĂNG NHẬP nhưng KHÔNG CÓ QUYỀN TRAINER (Và không phải MANAGER/ADMIN)
-  const isTrainer = currentUser.role === 'TRAINER' || currentUser.role === 'MANAGER' || currentUser.role === 'ADMIN';
+  // 2. Trường hợp ĐÃ ĐĂNG NHẬP nhưng KHÔNG CÓ QUYỀN TRAINER
+  const isTrainer = currentUser.role === 'TRAINER';
 
   if (!isTrainer) {
     return (

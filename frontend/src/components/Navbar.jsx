@@ -142,26 +142,20 @@ export default function Navbar({ onOpenAuth }) {
           })}
 
           <Link to="/ho-so-ngua" onClick={closeMenus} className={location.pathname === '/ho-so-ngua' ? 'active' : ''}>Hồ sơ ngựa & Phả hệ</Link>
-          <Link to="/trainer" onClick={closeMenus} className={location.pathname.startsWith('/trainer') ? 'active' : ''}>Huấn luyện</Link>
         </nav>
 
         <div className="nav-cta">
           {currentUser ? (
             <>
-              {currentUser?.role === 'TRAINER' && (
+              {currentUser.role === 'TRAINER' && (
                 <Link to="/trainer" className="btn btn-solid" onClick={closeMenus} style={{ background: '#3B82F6', borderColor: '#3B82F6' }}>
                   🏇 Huấn luyện
                 </Link>
               )}
-              {isAdmin && (
-                <>
-                  <Link to="/trainer" className="btn btn-ghost" onClick={closeMenus} style={{ color: '#60A5FA', borderColor: 'rgba(59, 130, 246, 0.4)' }}>
-                    🏇 Huấn luyện
-                  </Link>
-                  <Link to="/admin" className="btn btn-solid" onClick={closeMenus}>
-                    👑 Quản trị
-                  </Link>
-                </>
+              {currentUser.role !== 'TRAINER' && isAdmin && (
+                <Link to="/admin" className="btn btn-solid" onClick={closeMenus}>
+                  👑 Quản trị
+                </Link>
               )}
               <button
                 type="button"
