@@ -85,7 +85,25 @@ export function AuthProvider({ children }) {
   const [usersList, setUsersList] = useState(() => {
     try {
       const stored = localStorage.getItem('matruong_users_list');
-      return stored ? JSON.parse(stored) : SEED_USERS;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          let seq = 1;
+          const normalized = parsed.map(u => {
+            const num = Number(u.user_id);
+            if (!num || num > 1000) {
+              const assigned = seq;
+              seq++;
+              return { ...u, user_id: assigned };
+            } else {
+              seq = Math.max(seq, num + 1);
+              return { ...u, user_id: num };
+            }
+          });
+          return normalized;
+        }
+      }
+      return SEED_USERS;
     } catch {
       return SEED_USERS;
     }
@@ -101,6 +119,13 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem('matruong_users_list', JSON.stringify(usersList));
+    // Đồng bộ currentUser nếu user_id được chuẩn hóa lại
+    if (currentUser) {
+      const match = usersList.find(u => u.username === currentUser.username || u.email === currentUser.email);
+      if (match && match.user_id !== currentUser.user_id) {
+        setCurrentUser(match);
+      }
+    }
   }, [usersList]);
 
   // Đăng nhập
@@ -132,11 +157,13 @@ export function AuthProvider({ children }) {
     setCurrentUser(null);
   };
 
-  // Đăng ký nhanh tài khoản mới
+  // Đăng ký nhanh tài khoản mới với ID tuần tự (#1, #2, #3, ...)
   const registerUser = (userData) => {
+    const maxId = usersList.reduce((max, u) => Math.max(max, Number(u.user_id) || 0), 0);
+    const nextId = maxId + 1;
     const newUser = {
-      user_id: Date.now(),
-      username: userData.username || `user_${Date.now()}`,
+      user_id: nextId,
+      username: userData.username || `user_${nextId}`,
       password: userData.password || '123',
       full_name: userData.full_name || 'Người dùng mới',
       email: userData.email,
@@ -151,8 +178,8 @@ export function AuthProvider({ children }) {
 
   // Cập nhật người dùng (dành cho Admin)
   const updateUser = (userId, updatedFields) => {
-    setUsersList(prev => prev.map(u => u.user_id === userId ? { ...u, ...updatedFields } : u));
-    if (currentUser && currentUser.user_id === userId) {
+    setUsersList(prev => prev.map(u => Number(u.user_id) === Number(userId) ? { ...u, ...updatedFields } : u));
+    if (currentUser && Number(currentUser.user_id) === Number(userId)) {
       setCurrentUser(prev => ({ ...prev, ...updatedFields }));
     }
   };
@@ -160,7 +187,7 @@ export function AuthProvider({ children }) {
   // Xóa / Vô hiệu hóa người dùng
   const toggleUserStatus = (userId) => {
     setUsersList(prev => prev.map(u => {
-      if (u.user_id === userId) {
+      if (Number(u.user_id) === Number(userId)) {
         return { ...u, status: u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' };
       }
       return u;

@@ -89,6 +89,13 @@ export default function AdminPage() {
     password: '123'
   });
 
+  // Modal sửa thông tin nhân sự
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [editUserData, setEditUserData] = useState(null);
+
+  // Modal xác nhận sửa thông tin
+  const [showConfirmEditModal, setShowConfirmEditModal] = useState(false);
+
   // Modal thêm ngựa mới
   const [showAddHorseModal, setShowAddHorseModal] = useState(false);
   const [newHorseData, setNewHorseData] = useState({
@@ -127,7 +134,7 @@ export default function AdminPage() {
       {
         id: Date.now(),
         time: new Date().toLocaleString('vi-VN'),
-        user: `${currentUser.username} (Admin)`,
+        user: `${currentUser?.username || 'admin'} (Admin)`,
         action: 'TẠO TÀI KHOẢN MỚI',
         detail: `Thêm nhân sự ${newUserData.full_name} (${newUserData.username}) với vai trò ${roleLabels[newUserData.role]}`
       },
@@ -135,6 +142,71 @@ export default function AdminPage() {
     ]);
     setShowAddUserModal(false);
     setNewUserData({ username: '', full_name: '', email: '', phone: '', role: 'TRAINER', password: '123' });
+  };
+
+  // Mở modal sửa nhân sự
+  const handleOpenEditUser = (user) => {
+    setEditUserData({
+      user_id: user.user_id,
+      full_name: user.full_name || '',
+      username: user.username || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      role: user.role || 'OWNER',
+      role_name: user.role_name || '',
+      status: user.status || 'ACTIVE'
+    });
+    setShowEditUserModal(true);
+  };
+
+  // Khi bấm Lưu trong modal sửa -> hiển thị popup xác nhận
+  const handleRequestSaveEditUser = (e) => {
+    e.preventDefault();
+    if (!editUserData.full_name?.trim() || !editUserData.username?.trim() || !editUserData.email?.trim()) {
+      alert('Vui lòng điền đầy đủ các thông tin bắt buộc!');
+      return;
+    }
+    setShowConfirmEditModal(true);
+  };
+
+  // Xác nhận sửa thông tin người dùng
+  const handleConfirmSaveEditUser = () => {
+    if (!editUserData) return;
+
+    const roleLabels = {
+      'MANAGER': 'Quản lý Câu lạc bộ',
+      'TRAINER': 'Huấn luyện viên Trưởng',
+      'VET': 'Bác sĩ Thú y',
+      'GROOM': 'Nhân viên Chăm sóc',
+      'OWNER': 'Chủ sở hữu Ngựa'
+    };
+
+    const updatedRoleName = roleLabels[editUserData.role] || editUserData.role_name || editUserData.role;
+
+    updateUser(editUserData.user_id, {
+      full_name: editUserData.full_name,
+      username: editUserData.username,
+      email: editUserData.email,
+      phone: editUserData.phone,
+      role: editUserData.role,
+      role_name: updatedRoleName,
+      status: editUserData.status
+    });
+
+    setAuditLogs(prev => [
+      {
+        id: Date.now(),
+        time: new Date().toLocaleString('vi-VN'),
+        user: `${currentUser?.username || 'admin'} (Admin)`,
+        action: 'CẬP NHẬT NHÂN SỰ',
+        detail: `Sửa thông tin nhân sự #${editUserData.user_id} (${editUserData.full_name} - @${editUserData.username})`
+      },
+      ...prev
+    ]);
+
+    setShowConfirmEditModal(false);
+    setShowEditUserModal(false);
+    setEditUserData(null);
   };
 
   // Thêm ngựa mới
@@ -488,22 +560,43 @@ export default function AdminPage() {
                           </span>
                         </td>
                         <td style={{ padding: '14px 18px' }}>
-                          {u.username !== 'admin' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                             <button
-                              onClick={() => toggleUserStatus(u.user_id)}
+                              onClick={() => handleOpenEditUser(u)}
+                              title="Sửa thông tin nhân sự"
                               style={{
                                 padding: '6px 12px',
-                                background: u.status === 'ACTIVE' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                                border: `1px solid ${u.status === 'ACTIVE' ? '#EF4444' : '#10B981'}`,
-                                color: u.status === 'ACTIVE' ? '#FF7675' : '#10B981',
+                                background: 'rgba(201, 162, 39, 0.15)',
+                                border: '1px solid var(--brass, #C9A227)',
+                                color: 'var(--brass, #C9A227)',
                                 borderRadius: '4px',
                                 fontSize: '12px',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}
                             >
-                              {u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}
+                              ✏️ Sửa
                             </button>
-                          )}
+                            {u.username !== 'admin' && (
+                              <button
+                                onClick={() => toggleUserStatus(u.user_id)}
+                                style={{
+                                  padding: '6px 12px',
+                                  background: u.status === 'ACTIVE' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                  border: `1px solid ${u.status === 'ACTIVE' ? '#EF4444' : '#10B981'}`,
+                                  color: u.status === 'ACTIVE' ? '#FF7675' : '#10B981',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -772,6 +865,17 @@ export default function AdminPage() {
                 />
               </div>
               <div>
+                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Số điện thoại</label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="Ví dụ: 0901234567"
+                  value={newUserData.phone}
+                  onChange={(e) => setNewUserData({ ...newUserData, phone: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
                 <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Vai trò Nghiệp vụ (RBAC)</label>
                 <select
                   value={newUserData.role}
@@ -802,6 +906,216 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== MODAL CHỈNH SỬA THÔNG TIN NHÂN SỰ ===================== */}
+      {showEditUserModal && editUserData && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 999998
+        }}>
+          <div style={{
+            background: '#151311',
+            border: '1px solid rgba(201, 162, 39, 0.45)',
+            borderRadius: '10px',
+            width: '100%',
+            maxWidth: '480px',
+            padding: '30px',
+            color: '#FFFFFF',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.85)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <h3 style={{ fontSize: '18px', margin: 0, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>✏️</span> Sửa Thông Tin Nhân Sự
+              </h3>
+              <span style={{ fontSize: '12px', background: 'rgba(201, 162, 39, 0.15)', color: 'var(--brass, #C9A227)', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(201, 162, 39, 0.3)', fontWeight: 600 }}>
+                ID: #{editUserData.user_id}
+              </span>
+            </div>
+
+            <form onSubmit={handleRequestSaveEditUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Họ và tên</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Họ và tên nhân sự"
+                  value={editUserData.full_name}
+                  onChange={(e) => setEditUserData({ ...editUserData, full_name: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Tên đăng nhập (Username)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Username"
+                  value={editUserData.username}
+                  onChange={(e) => setEditUserData({ ...editUserData, username: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="Email"
+                  value={editUserData.email}
+                  onChange={(e) => setEditUserData({ ...editUserData, email: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Số điện thoại</label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="Số điện thoại"
+                  value={editUserData.phone}
+                  onChange={(e) => setEditUserData({ ...editUserData, phone: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Vai trò Nghiệp vụ (RBAC Role)</label>
+                <select
+                  value={editUserData.role}
+                  onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                >
+                  <option value="TRAINER">Huấn luyện viên Trưởng (Trainer)</option>
+                  <option value="VET">Bác sĩ Thú y (Veterinarian)</option>
+                  <option value="GROOM">Nhân viên Chăm sóc (Groom)</option>
+                  <option value="OWNER">Chủ sở hữu Ngựa (Owner)</option>
+                  <option value="MANAGER">Ban Quản lý Câu lạc bộ (Club Manager)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Trạng thái tài khoản</label>
+                <select
+                  value={editUserData.status}
+                  onChange={(e) => setEditUserData({ ...editUserData, status: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                >
+                  <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
+                  <option value="INACTIVE">Tạm khóa (INACTIVE)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '14px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setShowEditUserModal(false); setEditUserData(null); }}
+                  style={{ flex: 1, padding: '11px', background: 'rgba(232, 227, 215, 0.1)', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{ flex: 1, padding: '11px', background: 'var(--brass, #C9A227)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== MODAL XÁC NHẬN SỬA THÔNG TIN ===================== */}
+      {showConfirmEditModal && editUserData && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.88)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 1000000
+        }}>
+          <div style={{
+            background: '#1A1714',
+            border: '2px solid var(--brass, #C9A227)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '440px',
+            padding: '28px 24px',
+            color: '#FFFFFF',
+            textAlign: 'center',
+            boxShadow: '0 24px 48px rgba(0,0,0,0.9)'
+          }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(201, 162, 39, 0.15)', border: '1px solid var(--brass, #C9A227)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '24px' }}>
+              ⚠️
+            </div>
+            
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#FFFFFF', marginBottom: '12px' }}>
+              Xác nhận sửa thông tin
+            </h3>
+
+            <p style={{ fontSize: '15px', color: '#E8E3D7', lineHeight: '1.5', margin: '0 0 16px', fontWeight: 500 }}>
+              Bạn có chắc chắn sửa thông tin này không?
+            </p>
+
+            <div style={{ background: '#0F0E0C', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(232, 227, 215, 0.1)', marginBottom: '22px', textAlign: 'left', fontSize: '13px' }}>
+              <div style={{ color: '#9DA6A0', marginBottom: '4px' }}>Nhân sự ID: <b style={{ color: '#FFFFFF' }}>#{editUserData.user_id}</b></div>
+              <div style={{ color: '#9DA6A0', marginBottom: '4px' }}>Họ tên mới: <b style={{ color: '#FFFFFF' }}>{editUserData.full_name}</b></div>
+              <div style={{ color: '#9DA6A0', marginBottom: '4px' }}>Email: <b style={{ color: '#FFFFFF' }}>{editUserData.email}</b></div>
+              <div style={{ color: '#9DA6A0' }}>Số điện thoại: <b style={{ color: '#FFFFFF' }}>{editUserData.phone}</b></div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowConfirmEditModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '11px',
+                  background: 'rgba(232, 227, 215, 0.12)',
+                  border: '1px solid rgba(232, 227, 215, 0.2)',
+                  color: '#FFFFFF',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '13.5px'
+                }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSaveEditUser}
+                style={{
+                  flex: 1.2,
+                  padding: '11px',
+                  background: 'var(--brass, #C9A227)',
+                  border: 'none',
+                  color: '#14100A',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '13.5px',
+                  boxShadow: '0 4px 12px rgba(201, 162, 39, 0.3)'
+                }}
+              >
+                Có, xác nhận sửa
+              </button>
+            </div>
           </div>
         </div>
       )}
