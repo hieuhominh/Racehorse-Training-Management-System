@@ -29,14 +29,31 @@ public class DBContext {
                     + ";encrypt=true;trustServerCertificate=true;";
 
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-            connection = DriverManager.getConnection(url, userID, password);
-        } catch (ClassNotFoundException | SQLException ex) {
-            System.err.println("Lỗi kết nối CSDL SQL Server: " + ex.getMessage());
+        } catch (ClassNotFoundException ex) {
+            System.err.println("Lỗi nạp SQL Server Driver: " + ex.getMessage());
             ex.printStackTrace();
         }
     }
 
     public Connection getConnection() {
+        try {
+            if (connection == null || connection.isClosed()) {
+                String serverName = "localhost";
+                String portNumber = "1433";
+                String databaseName = "RacehorseDB";
+                String userID = "sa";
+                String password = "Password123@#";
+
+                String url = "jdbc:sqlserver://" + serverName + ":" + portNumber 
+                        + ";databaseName=" + databaseName 
+                        + ";encrypt=true;trustServerCertificate=true;";
+
+                connection = DriverManager.getConnection(url, userID, password);
+            }
+        } catch (SQLException ex) {
+            System.err.println("Lỗi kết nối CSDL SQL Server: " + ex.getMessage());
+            ex.printStackTrace();
+        }
         return connection;
     }
 
