@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { megaMenusData } from '../data/navigationData';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Navbar({ onOpenAuth }) {
   const { currentUser, isAdmin, logout } = useAuth();
+  const { theme, toggleTheme, isDark } = useTheme();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMega, setActiveMega] = useState(null);
@@ -59,8 +61,8 @@ export default function Navbar({ onOpenAuth }) {
   };
 
   return (
-    <header className="nav" ref={navRef} onMouseLeave={handleMouseLeave} style={{ backgroundColor: '#000000', background: '#000000', width: '100%', left: 0, right: 0, opacity: 1, zIndex: 99999 }}>
-      <div className="wrap" style={{ backgroundColor: '#000000', background: '#000000', width: '100%', maxWidth: '100%', margin: 0, padding: '0 40px', boxSizing: 'border-box' }}>
+    <header className="nav" ref={navRef} onMouseLeave={handleMouseLeave}>
+      <div className="wrap nav-wrap">
         <Link className="brand" to="/" onClick={closeMenus}>
           <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
             <path d="M17 3c6 0 10 4.6 10 10.6 0 5-2.6 7.4-2.6 11.2 0 2.6 1.6 3.9 1.6 5.4 0 1.2-1 1.8-2.3 1.8-2.6 0-4.2-2.2-4.2-5.2 0-3.4 2.2-5.6 2.2-9.2 0-2.9-1.8-5-4.7-5s-4.7 2.1-4.7 5c0 3.6 2.2 5.8 2.2 9.2 0 3-1.6 5.2-4.2 5.2-1.3 0-2.3-.6-2.3-1.8 0-1.5 1.6-2.8 1.6-5.4C9.6 21 7 18.6 7 13.6 7 6.6 11 3 17 3Z" fill="#C9A227"/>
@@ -71,7 +73,7 @@ export default function Navbar({ onOpenAuth }) {
           </span>
         </Link>
 
-        <nav className={`mainnav ${mobileMenuOpen ? 'open' : ''}`} id="mainnav" style={{ background: 'transparent' }}>
+        <nav className={`mainnav ${mobileMenuOpen ? 'open' : ''}`} id="mainnav">
           <Link to="/" onClick={closeMenus} className={location.pathname === '/' ? 'active' : ''}>Trang chủ</Link>
 
           {megaMenusData.map((menu) => {
@@ -95,32 +97,8 @@ export default function Navbar({ onOpenAuth }) {
                 <div 
                   className="mega" 
                   id={menu.id}
-                  style={{ 
-                    backgroundColor: '#000000',
-                    background: '#000000',
-                    width: '100%',
-                    left: 0,
-                    right: 0,
-                    opacity: 1, 
-                    zIndex: 999999,
-                    borderTop: '1px solid #C9A227',
-                    borderBottom: '1px solid var(--line)',
-                    boxShadow: '0 24px 48px rgba(0, 0, 0, 0.9)'
-                  }}
                 >
-                  <div 
-                    className="wrap" 
-                    style={{ 
-                      backgroundColor: '#000000',
-                      background: '#000000',
-                      opacity: 1,
-                      width: '100%',
-                      maxWidth: '100%',
-                      margin: 0,
-                      padding: '32px 40px 36px',
-                      boxSizing: 'border-box'
-                    }}
-                  >
+                  <div className="wrap mega-wrap">
                     <div className="mega-intro">
                       <div className="fno">
                         <b>{menu.fno}</b>
@@ -152,48 +130,45 @@ export default function Navbar({ onOpenAuth }) {
         </nav>
 
         <div className="nav-cta">
+          {/* NÚT CHUYỂN ĐỔI CHẾ ĐỘ SÁNG / TỐI (THEME TOGGLE) */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="theme-toggle-btn"
+            aria-label={isDark ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
+            title={isDark ? 'Chuyển sang giao diện Sáng (Light Mode)' : 'Chuyển sang giao diện Tối (Dark Mode)'}
+          >
+            <span className="theme-toggle-icon">
+              {isDark ? '☀️' : '🌙'}
+            </span>
+            <span className="theme-toggle-label">
+              {isDark ? 'Sáng' : 'Tối'}
+            </span>
+          </button>
+
           {currentUser ? (
             <>
               {currentUser.role === 'TRAINER' && (
-                <Link to="/trainer" className="btn btn-solid" onClick={closeMenus} style={{ background: '#3B82F6', borderColor: '#3B82F6' }}>
-                  🏇 Huấn luyện
+                <Link to="/trainer" className="btn btn-solid btn-role-trainer nav-role-btn" onClick={closeMenus}>
+                  <span className="nav-btn-icon">🏇</span>
+                  <span className="nav-btn-text">Huấn luyện</span>
                 </Link>
               )}
               {currentUser.role !== 'TRAINER' && isAdmin && (
-                <Link to="/admin" className="btn btn-solid" onClick={closeMenus}>
-                  👑 Quản trị
+                <Link to="/admin" className="btn btn-solid btn-role-admin nav-role-btn" onClick={closeMenus}>
+                  <span className="nav-btn-icon">👑</span>
+                  <span className="nav-btn-text">Quản trị</span>
                 </Link>
               )}
               <button
                 type="button"
                 onClick={handleLogout}
-                style={{
-                  background: 'rgba(217, 83, 79, 0.16)',
-                  border: '1px solid rgba(239, 68, 68, 0.45)',
-                  color: '#FF8885',
-                  padding: '9px 18px',
-                  borderRadius: '3px',
-                  fontFamily: 'var(--body)',
-                  fontWeight: 600,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(217, 83, 79, 0.32)';
-                  e.currentTarget.style.borderColor = '#EF4444';
-                  e.currentTarget.style.color = '#FFFFFF';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(217, 83, 79, 0.16)';
-                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.45)';
-                  e.currentTarget.style.color = '#FF8885';
-                }}
+                className="btn-logout"
+                title="Đăng xuất khỏi hệ thống"
+                aria-label="Đăng xuất"
               >
-                <span>🚪</span> Đăng xuất
+                <span className="btn-logout-icon">🚪</span>
+                <span className="btn-logout-text">Đăng xuất</span>
               </button>
             </>
           ) : (

@@ -5,7 +5,7 @@ export default function StableSection() {
   const [selectedStall, setSelectedStall] = useState(stallsData.find(s => s.code === 'A3'));
 
   return (
-    <section style={{ background: 'var(--ink-2)', borderBlock: '1px solid var(--line)' }}>
+    <section style={{ background: 'var(--bg-secondary)', borderBlock: '1px solid var(--line)' }}>
       <div className="wrap">
         {/* Split 1: Stalls Map */}
         <div className="split">
@@ -46,8 +46,8 @@ export default function StableSection() {
             </div>
 
             {selectedStall && (
-              <div style={{ marginTop: '16px', padding: '10px 14px', background: 'rgba(0,0,0,0.3)', borderRadius: '3px', fontSize: '13px' }}>
-                <b style={{ color: 'var(--brass)' }}>Chuồng {selectedStall.code}:</b> {selectedStall.horse} — <span style={{ opacity: 0.85 }}>{selectedStall.label}</span>
+              <div style={{ marginTop: '16px', padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', borderRadius: '6px', fontSize: '13px', color: 'var(--paper)' }}>
+                <b style={{ color: 'var(--brass)' }}>Chuồng {selectedStall.code}:</b> {selectedStall.horse} — <span style={{ color: 'var(--paper-dim)' }}>{selectedStall.label}</span>
               </div>
             )}
           </div>

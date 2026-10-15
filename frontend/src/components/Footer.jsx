@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer style={{ backgroundColor: '#000000', background: '#000000' }}>
+    <footer className="site-footer">
       <div className="wrap">
         <div className="fgrid">
           <div>
@@ -16,8 +16,8 @@ export default function Footer() {
                 <span className="sub">RACEHORSE SYSTEM</span>
               </span>
             </Link>
-            <p style={{ color: '#8F958F', maxWidth: '34ch' }}>
-              Hệ thống quản lý huấn luyện ngựa đua cho câu lạc bộ và trang trại.
+            <p className="footer-desc">
+              Hệ thống quản lý huấn luyện ngựa đua tiêu chuẩn quốc tế cho câu lạc bộ, trường đua và trang trại chuyên nghiệp.
             </p>
           </div>
           <div>
@@ -59,7 +59,7 @@ export default function Footer() {
         </div>
         <div className="fbot">
           <span>© 2026 Mã Trường · Racehorse Training &amp; Management System</span>
-          <span>
+          <span className="fbot-links">
             <Link to="/">Điều khoản</Link> · <Link to="/">Bảo mật</Link> · <Link to="/">Liên hệ</Link>
           </span>
         </div>

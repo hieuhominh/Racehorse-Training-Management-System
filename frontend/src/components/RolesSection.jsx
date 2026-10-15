@@ -4,9 +4,10 @@ import { rolesData } from '../data/rolesData';
 
 export default function RolesSection() {
   return (
-    <section className="roles" id="vai-tro" style={{ backgroundColor: '#000000', background: '#000000' }}>
+    <section className="roles" id="vai-tro">
       <div className="wrap">
         <div className="sec-head">
+          <div className="sec-badge">PHÂN QUYỀN RBAC CHUYÊN NGHIỆP</div>
           <h2>Mỗi người một khung nhìn</h2>
           <p>
             Hệ thống mở đúng phần việc của bạn ngay khi đăng nhập. Không ai phải lội qua màn hình của người khác để tìm thông tin mình cần.
@@ -23,7 +24,10 @@ export default function RolesSection() {
                   <li key={dIdx}>{duty}</li>
                 ))}
               </ul>
-              <div className="go">{role.cta}</div>
+              <div className="go">
+                <span>{role.cta}</span>
+                <span className="go-arrow">→</span>
+              </div>
             </Link>
           ))}
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Ticker from './components/Ticker';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -36,10 +37,11 @@ export default function App() {
   };
 
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <ScrollToTop />
-        <div className="app-container">
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <ScrollToTop />
+          <div className="app-container">
           {/* 1. Ticker thông báo mùa giải trên cùng */}
           <Ticker onOpenAuth={handleOpenAuth} />
 
@@ -126,5 +128,6 @@ export default function App() {
         </div>
       </BrowserRouter>
     </AuthProvider>
+    </ThemeProvider>
   );
 }

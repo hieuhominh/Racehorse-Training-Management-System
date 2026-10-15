@@ -149,12 +149,15 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
         style={{
           width: '100%',
           maxWidth: '460px',
-          background: '#080808',
-          border: '1px solid rgba(201, 162, 39, 0.35)',
-          borderRadius: '8px',
-          padding: '36px 32px',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.95)',
-          position: 'relative'
+          background: 'var(--bg-card)',
+          border: '1px solid var(--line-strong)',
+          borderRadius: '12px',
+          padding: 'clamp(24px, 5vw, 36px) clamp(20px, 4vw, 32px)',
+          boxShadow: 'var(--shadow-lg)',
+          position: 'relative',
+          color: 'var(--paper)',
+          maxHeight: '90vh',
+          overflowY: 'auto'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -168,7 +171,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             right: '18px',
             background: 'none',
             border: 'none',
-            color: '#9DA6A0',
+            color: 'var(--paper-dim)',
             fontSize: '24px',
             cursor: 'pointer',
             lineHeight: 1
@@ -184,13 +187,13 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             <path d="M17 3c6 0 10 4.6 10 10.6 0 5-2.6 7.4-2.6 11.2 0 2.6 1.6 3.9 1.6 5.4 0 1.2-1 1.8-2.3 1.8-2.6 0-4.2-2.2-4.2-5.2 0-3.4 2.2-5.6 2.2-9.2 0-2.9-1.8-5-4.7-5s-4.7 2.1-4.7 5c0 3.6 2.2 5.8 2.2 9.2 0 3-1.6 5.2-4.2 5.2-1.3 0-2.3-.6-2.3-1.8 0-1.5 1.6-2.8 1.6-5.4C9.6 21 7 18.6 7 13.6 7 6.6 11 3 17 3Z" fill="#C9A227"/>
           </svg>
           <div>
-            <div style={{ fontFamily: 'var(--display)', fontSize: '24px', color: '#FFFFFF', letterSpacing: '.02em', lineHeight: 1 }}>MÃ TRƯỜNG</div>
+            <div style={{ fontFamily: 'var(--display)', fontSize: '24px', color: 'var(--paper)', letterSpacing: '.02em', lineHeight: 1 }}>MÃ TRƯỜNG</div>
             <div style={{ fontSize: '10px', letterSpacing: '.16em', color: 'var(--brass)', marginTop: '2px' }}>RACEHORSE SYSTEM</div>
           </div>
         </div>
 
         {/* Tab switch */}
-        <div style={{ display: 'flex', borderBottom: '1px solid rgba(232, 227, 215, 0.14)', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', marginBottom: '24px' }}>
           <button
             type="button"
             onClick={() => { setActiveTab('login'); setNotification(''); }}
@@ -201,7 +204,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               background: 'none',
               border: 'none',
               borderBottom: activeTab === 'login' ? '2px solid var(--brass)' : '2px solid transparent',
-              color: activeTab === 'login' ? 'var(--brass)' : '#9DA6A0',
+              color: activeTab === 'login' ? 'var(--brass)' : 'var(--paper-dim)',
               fontFamily: 'var(--body)',
               fontSize: '15px',
               fontWeight: 600,
@@ -221,7 +224,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               background: 'none',
               border: 'none',
               borderBottom: activeTab === 'register' ? '2px solid var(--brass)' : '2px solid transparent',
-              color: activeTab === 'register' ? 'var(--brass)' : '#9DA6A0',
+              color: activeTab === 'register' ? 'var(--brass)' : 'var(--paper-dim)',
               fontFamily: 'var(--body)',
               fontSize: '15px',
               fontWeight: 600,
@@ -237,13 +240,14 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
         {notification && (
           <div style={{
             padding: '12px 14px',
-            borderRadius: '4px',
+            borderRadius: '6px',
             fontSize: '13px',
             marginBottom: '16px',
-            background: isError ? 'rgba(217, 83, 79, 0.2)' : 'rgba(94, 156, 106, 0.15)',
-            border: isError ? '1px solid #D9534F' : '1px solid var(--ok)',
-            color: isError ? '#FF8885' : '#9cd5a5',
-            textAlign: 'center'
+            background: isError ? 'rgba(217, 83, 79, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+            border: isError ? '1px solid #D9534F' : '1px solid #10B981',
+            color: isError ? '#FF8885' : '#10B981',
+            textAlign: 'center',
+            fontWeight: 600
           }}>
             {notification}
           </div>
@@ -260,24 +264,24 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             justifyContent: 'center',
             gap: '12px',
             padding: '12px 16px',
-            background: '#111111',
-            border: '1px solid rgba(232, 227, 215, 0.25)',
-            borderRadius: '4px',
-            color: '#FFFFFF',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--line)',
+            borderRadius: '6px',
+            color: 'var(--paper)',
             fontFamily: 'var(--body)',
             fontSize: '14px',
             fontWeight: 600,
             cursor: 'pointer',
             transition: 'all 0.2s ease',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+            boxShadow: 'var(--shadow-sm)'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = 'var(--brass)';
-            e.currentTarget.style.background = '#181818';
+            e.currentTarget.style.transform = 'translateY(-1px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(232, 227, 215, 0.25)';
-            e.currentTarget.style.background = '#111111';
+            e.currentTarget.style.borderColor = 'var(--line)';
+            e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24">
@@ -295,21 +299,21 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
           alignItems: 'center',
           gap: '12px',
           margin: '20px 0',
-          color: '#9DA6A0',
+          color: 'var(--paper-dim)',
           fontSize: '12px',
           letterSpacing: '0.08em',
           textTransform: 'uppercase'
         }}>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(232, 227, 215, 0.14)' }} />
+          <div style={{ flex: 1, height: '1px', background: 'var(--line)' }} />
           <span>hoặc với email</span>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(232, 227, 215, 0.14)' }} />
+          <div style={{ flex: 1, height: '1px', background: 'var(--line)' }} />
         </div>
 
         {/* LOGIN FORM */}
         {activeTab === 'login' ? (
           <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#E8E3D7' }}>Email hoặc Tên đăng nhập</label>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper)' }}>Email hoặc Tên đăng nhập</label>
               <input
                 type="text"
                 required
@@ -318,10 +322,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 placeholder="name@example.com hoặc username"
                 style={{
                   padding: '11px 14px',
-                  background: '#000000',
-                  border: '1px solid rgba(232, 227, 215, 0.16)',
-                  borderRadius: '4px',
-                  color: '#FFFFFF',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  color: 'var(--paper)',
                   fontFamily: 'var(--body)',
                   fontSize: '14px',
                   outline: 'none'
@@ -330,7 +334,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#E8E3D7' }}>Mật khẩu</label>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper)' }}>Mật khẩu</label>
               <input
                 type="password"
                 required
@@ -339,10 +343,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 placeholder="Nhập mật khẩu"
                 style={{
                   padding: '11px 14px',
-                  background: '#000000',
-                  border: '1px solid rgba(232, 227, 215, 0.16)',
-                  borderRadius: '4px',
-                  color: '#FFFFFF',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  color: 'var(--paper)',
                   fontFamily: 'var(--body)',
                   fontSize: '14px',
                   outline: 'none'
@@ -350,13 +354,13 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#9DA6A0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: 'var(--paper-dim)' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                 <input type="checkbox" style={{ accentColor: 'var(--brass)' }} /> Ghi nhớ
               </label>
               <span 
                 onClick={() => alert('Vui lòng liên hệ quản trị viên hoặc sử dụng Google Gmail để khôi phục tài khoản.')} 
-                style={{ color: 'var(--brass)', cursor: 'pointer' }}
+                style={{ color: 'var(--brass)', cursor: 'pointer', fontWeight: 500 }}
               >
                 Quên mật khẩu?
               </span>
@@ -427,10 +431,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 placeholder="vidu@gmail.com"
                 style={{
                   padding: '11px 14px',
-                  background: '#000000',
-                  border: '1px solid rgba(232, 227, 215, 0.16)',
-                  borderRadius: '4px',
-                  color: '#FFFFFF',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  color: 'var(--paper)',
                   fontFamily: 'var(--body)',
                   fontSize: '14px',
                   outline: 'none'
@@ -439,16 +443,16 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#E8E3D7' }}>Vai trò trong hệ thống</label>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper)' }}>Vai trò trong hệ thống</label>
               <select
                 value={regRole}
                 onChange={(e) => setRegRole(e.target.value)}
                 style={{
                   padding: '11px 14px',
-                  background: '#000000',
-                  border: '1px solid rgba(232, 227, 215, 0.16)',
-                  borderRadius: '4px',
-                  color: '#FFFFFF',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  color: 'var(--paper)',
                   fontFamily: 'var(--body)',
                   fontSize: '14px',
                   outline: 'none'
@@ -463,7 +467,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#E8E3D7' }}>Số điện thoại liên hệ</label>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper)' }}>Số điện thoại liên hệ</label>
               <input
                 type="tel"
                 value={regPhone}
@@ -471,10 +475,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 placeholder="Ví dụ: 0912345678"
                 style={{
                   padding: '11px 14px',
-                  background: '#000000',
-                  border: '1px solid rgba(232, 227, 215, 0.16)',
-                  borderRadius: '4px',
-                  color: '#FFFFFF',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  color: 'var(--paper)',
                   fontFamily: 'var(--body)',
                   fontSize: '14px',
                   outline: 'none'
@@ -483,7 +487,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#E8E3D7' }}>Mật khẩu</label>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper)' }}>Mật khẩu</label>
               <input
                 type="password"
                 required
@@ -492,10 +496,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 placeholder="Tối thiểu 6 ký tự"
                 style={{
                   padding: '11px 14px',
-                  background: '#000000',
-                  border: '1px solid rgba(232, 227, 215, 0.16)',
-                  borderRadius: '4px',
-                  color: '#FFFFFF',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  color: 'var(--paper)',
                   fontFamily: 'var(--body)',
                   fontSize: '14px',
                   outline: 'none'
@@ -504,7 +508,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#E8E3D7' }}>Xác nhận mật khẩu</label>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper)' }}>Xác nhận mật khẩu</label>
               <input
                 type="password"
                 required
@@ -513,10 +517,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 placeholder="Nhập lại mật khẩu"
                 style={{
                   padding: '11px 14px',
-                  background: '#000000',
-                  border: '1px solid rgba(232, 227, 215, 0.16)',
-                  borderRadius: '4px',
-                  color: '#FFFFFF',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  color: 'var(--paper)',
                   fontFamily: 'var(--body)',
                   fontSize: '14px',
                   outline: 'none'
@@ -531,20 +535,21 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 padding: '13px',
                 background: 'var(--brass)',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '6px',
                 color: '#14100A',
                 fontFamily: 'var(--body)',
                 fontSize: '15px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 marginTop: '6px',
-                transition: 'background 0.2s ease'
+                transition: 'background 0.2s ease',
+                boxShadow: 'var(--shadow-sm)'
               }}
             >
               TẠO TÀI KHOẢN MỚI
             </button>
 
-            <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13.5px', color: '#9DA6A0' }}>
+            <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13.5px', color: 'var(--paper-dim)' }}>
               Đã có tài khoản?{' '}
               <button
                 type="button"
@@ -564,7 +569,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
           style={{
             position: 'fixed',
             top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0, 0, 0, 0.92)',
+            background: 'rgba(0, 0, 0, 0.78)',
             backdropFilter: 'blur(10px)',
             zIndex: 10000000,
             display: 'flex',
@@ -578,19 +583,21 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             style={{
               width: '100%',
               maxWidth: '520px',
-              background: '#141210',
-              border: '1px solid rgba(201, 162, 39, 0.5)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--line-strong)',
               borderRadius: '12px',
-              padding: '32px 28px',
-              color: '#FFFFFF',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.95)',
+              padding: 'clamp(20px, 4vw, 32px) clamp(16px, 3.5vw, 28px)',
+              color: 'var(--paper)',
+              boxShadow: 'var(--shadow-lg)',
               position: 'relative'
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header Google */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'var(--shadow-sm)' }}>
                 <svg width="24" height="24" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -599,17 +606,17 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 </svg>
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF', fontWeight: 700 }}>
+                <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--paper)', fontWeight: 700 }}>
                   Đăng Ký Tài Khoản Google
                 </h3>
-                <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#9DA6A0' }}>
+                <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: 'var(--paper-dim)' }}>
                   Xác thực danh tính & Chọn vai trò nghiệp vụ của bạn
                 </p>
               </div>
             </div>
 
             {/* Quick Demo Preset buttons */}
-            <div style={{ background: '#0B0A09', border: '1px solid rgba(232, 227, 215, 0.1)', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px' }}>
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px' }}>
               <div style={{ fontSize: '11.5px', color: 'var(--brass, #C9A227)', fontWeight: 600, marginBottom: '6px' }}>
                 ⚡ TÀI KHOẢN GOOGLE MẪU (BẤM ĐỂ CHỌN NHANH):
               </div>
@@ -640,37 +647,37 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
 
             <form onSubmit={handleConfirmGoogleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
               <div>
-                <label style={{ fontSize: '12.5px', color: '#C8C4B7', display: 'block', marginBottom: '4px' }}>Địa chỉ Gmail của bạn</label>
+                <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Địa chỉ Gmail của bạn</label>
                 <input
                   type="email"
                   required
                   placeholder="vidu@gmail.com"
                   value={googleEmail}
                   onChange={(e) => setGoogleEmail(e.target.value)}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '12.5px', color: '#C8C4B7', display: 'block', marginBottom: '4px' }}>Họ và tên hiển thị</label>
+                <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Họ và tên hiển thị</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: Hoàng Minh Tuấn"
                   value={googleName}
                   onChange={(e) => setGoogleName(e.target.value)}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '12.5px', color: '#C8C4B7', display: 'block', marginBottom: '4px' }}>Số điện thoại liên hệ</label>
+                <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Số điện thoại liên hệ</label>
                 <input
                   type="tel"
                   placeholder="Ví dụ: 0912345678"
                   value={googlePhone}
                   onChange={(e) => setGooglePhone(e.target.value)}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
 
@@ -695,8 +702,8 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                         style={{
                           padding: '10px 12px',
                           borderRadius: '6px',
-                          border: isSelected ? `2px solid ${roleItem.color}` : '1px solid rgba(232, 227, 215, 0.15)',
-                          background: isSelected ? `${roleItem.color}15` : '#0B0A09',
+                          border: isSelected ? `2px solid ${roleItem.color}` : '1px solid var(--line)',
+                          background: isSelected ? `${roleItem.color}15` : 'var(--bg-primary)',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -712,10 +719,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                           style={{ cursor: 'pointer', accentColor: roleItem.color }}
                         />
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '13.5px', fontWeight: 600, color: isSelected ? '#FFFFFF' : '#E8E3D7' }}>
+                          <div style={{ fontSize: '13.5px', fontWeight: 600, color: isSelected ? roleItem.color : 'var(--paper)' }}>
                             {roleItem.title}
                           </div>
-                          <div style={{ fontSize: '11.5px', color: '#9DA6A0', marginTop: '2px' }}>
+                          <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
                             {roleItem.desc}
                           </div>
                         </div>
@@ -729,7 +736,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 <button
                   type="button"
                   onClick={() => setShowGoogleDialog(false)}
-                  style={{ flex: 1, padding: '11px', background: 'rgba(232, 227, 215, 0.1)', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                  style={{ flex: 1, padding: '11px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
                 >
                   Hủy bỏ
                 </button>

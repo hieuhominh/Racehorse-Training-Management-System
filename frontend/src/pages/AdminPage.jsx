@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function AdminPage() {
   const { currentUser, usersList, updateUser, toggleUserStatus, registerUser, logout } = useAuth();
@@ -261,19 +262,19 @@ export default function AdminPage() {
   };
 
   return (
-    <div style={{ backgroundColor: '#0A0A0A', color: '#FFFFFF', minHeight: '100vh', paddingBottom: '60px' }}>
+    <div style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--paper)', minHeight: '100vh', paddingBottom: '60px' }}>
       
       {/* 1. TOP HEADER BANNER QUẢN TRỊ */}
       <div style={{
-        background: 'linear-gradient(180deg, #1A1510 0%, #0F0E0C 100%)',
-        borderBottom: '1px solid rgba(201, 162, 39, 0.3)',
+        background: 'var(--bg-secondary)',
+        borderBottom: '1px solid var(--line)',
         padding: 'clamp(16px, 3vw, 24px) clamp(16px, 3.5vw, 36px)'
       }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <span style={{
-                background: 'rgba(201, 162, 39, 0.2)',
+                background: 'rgba(201, 162, 39, 0.15)',
                 color: 'var(--brass, #C9A227)',
                 border: '1px solid var(--brass, #C9A227)',
                 padding: '4px 10px',
@@ -284,45 +285,31 @@ export default function AdminPage() {
               }}>
                 👑 BAN QUẢN TRỊ & QUẢN LÝ CÂU LẠC BỘ
               </span>
-              <span style={{ fontSize: '13px', color: '#9DA6A0' }}>
+              <span style={{ fontSize: '13px', color: 'var(--paper-dim)' }}>
                 Phiên đăng nhập: <b>{currentUser?.full_name}</b> ({currentUser?.username})
               </span>
             </div>
-            <h1 style={{ fontFamily: 'var(--display, serif)', fontSize: 'clamp(22px, 3.5vw, 28px)', color: '#FFFFFF', margin: '8px 0 0', letterSpacing: '0.02em' }}>
+            <h1 style={{ fontFamily: 'var(--display, serif)', fontSize: 'clamp(22px, 3.5vw, 28px)', color: 'var(--paper)', margin: '8px 0 0', letterSpacing: '0.02em' }}>
               Trung Tâm Điều Hành Mã Trường
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div className="banner-header-actions">
+            <ThemeToggle />
             <Link
               to="/"
-              style={{
-                padding: '8px 14px',
-                background: 'rgba(232, 227, 215, 0.08)',
-                border: '1px solid rgba(232, 227, 215, 0.2)',
-                borderRadius: '6px',
-                color: '#E8E3D7',
-                textDecoration: 'none',
-                fontSize: '13px',
-                fontWeight: 600
-              }}
+              className="banner-action-btn banner-btn-public"
             >
-              👁️ Xem Public
+              👁️ <span className="btn-text">Xem Public</span>
             </Link>
             <button
               onClick={handleLogout}
-              style={{
-                padding: '8px 16px',
-                background: 'rgba(217, 83, 79, 0.2)',
-                border: '1px solid #D9534F',
-                borderRadius: '6px',
-                color: '#FF8885',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
+              className="banner-action-btn banner-btn-logout"
+              title="Đăng xuất khỏi hệ thống"
+              aria-label="Đăng xuất"
             >
-              🚪 Đăng xuất
+              <span className="btn-icon">🚪</span>
+              <span className="btn-text">Đăng xuất</span>
             </button>
           </div>
         </div>
@@ -334,7 +321,7 @@ export default function AdminPage() {
         margin: '0 auto',
         padding: '16px clamp(16px, 3.5vw, 36px) 0',
         display: 'flex',
-        borderBottom: '1px solid rgba(232, 227, 215, 0.12)',
+        borderBottom: '1px solid var(--line)',
         gap: '20px',
         overflowX: 'auto',
         WebkitOverflowScrolling: 'touch'
@@ -354,7 +341,7 @@ export default function AdminPage() {
               background: 'none',
               border: 'none',
               borderBottom: activeTab === tab.id ? '3px solid var(--brass, #C9A227)' : '3px solid transparent',
-              color: activeTab === tab.id ? 'var(--brass, #C9A227)' : '#9DA6A0',
+              color: activeTab === tab.id ? 'var(--brass, #C9A227)' : 'var(--paper-dim)',
               fontFamily: 'var(--body, sans-serif)',
               fontSize: '14.5px',
               fontWeight: activeTab === tab.id ? 700 : 500,
@@ -367,7 +354,7 @@ export default function AdminPage() {
             }}
           >
             <span>{tab.label}</span>
-            <span style={{ fontSize: '11px', color: '#68726B', marginTop: '2px', fontWeight: 400 }}>{tab.desc}</span>
+            <span style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px', fontWeight: 400, opacity: 0.8 }}>{tab.desc}</span>
           </button>
         ))}
       </div>
@@ -380,12 +367,12 @@ export default function AdminPage() {
           <div>
             {/* 4 Card KPI hàng đầu */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '16px', marginBottom: '28px' }}>
-              <div style={{ background: '#141311', border: '1px solid rgba(201, 162, 39, 0.25)', borderRadius: '10px', padding: '22px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#9DA6A0', fontSize: '13px' }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px', boxShadow: 'var(--shadow)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
                   <span>TỔNG ĐÀN CHIẾN MÃ</span>
                   <span style={{ fontSize: '20px' }}>🐎</span>
                 </div>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: '#FFFFFF', margin: '10px 0 4px' }}>
+                <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '10px 0 4px' }}>
                   {horses.length} con
                 </div>
                 <div style={{ fontSize: '12px', color: '#10B981' }}>
@@ -393,12 +380,12 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div style={{ background: '#141311', border: '1px solid rgba(201, 162, 39, 0.25)', borderRadius: '10px', padding: '22px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#9DA6A0', fontSize: '13px' }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px', boxShadow: 'var(--shadow)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
                   <span>CÔNG SUẤT CHUỒNG TRẠI</span>
                   <span style={{ fontSize: '20px' }}>🏠</span>
                 </div>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: '#FFFFFF', margin: '10px 0 4px' }}>
+                <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '10px 0 4px' }}>
                   {stables.filter(s => s.status === 'OCCUPIED').length} / {stables.length} ô
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--brass, #C9A227)' }}>
@@ -406,12 +393,12 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div style={{ background: '#141311', border: '1px solid rgba(201, 162, 39, 0.25)', borderRadius: '10px', padding: '22px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#9DA6A0', fontSize: '13px' }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px', boxShadow: 'var(--shadow)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
                   <span>TỔNG NHÂN SỰ HỆ THỐNG</span>
                   <span style={{ fontSize: '20px' }}>👥</span>
                 </div>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: '#FFFFFF', margin: '10px 0 4px' }}>
+                <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '10px 0 4px' }}>
                   {usersList.length} tài khoản
                 </div>
                 <div style={{ fontSize: '12px', color: '#38BDF8' }}>
@@ -419,15 +406,15 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div style={{ background: '#141311', border: '1px solid rgba(201, 162, 39, 0.25)', borderRadius: '10px', padding: '22px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#9DA6A0', fontSize: '13px' }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px', boxShadow: 'var(--shadow)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
                   <span>QUỸ GIẢI ĐẤU & HOẠT ĐỘNG</span>
                   <span style={{ fontSize: '20px' }}>🏆</span>
                 </div>
                 <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--brass, #C9A227)', margin: '10px 0 4px' }}>
                   500.000.000 ₫
                 </div>
-                <div style={{ fontSize: '12px', color: '#E8E3D7' }}>
+                <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
                   ● Giải Vô địch Đại Nam 2026 (Đã duyệt)
                 </div>
               </div>
@@ -435,37 +422,37 @@ export default function AdminPage() {
 
             {/* Bảng Cảnh báo khẩn cấp & Tóm tắt phân bổ */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '20px' }}>
-              <div style={{ background: '#12110F', border: '1px solid rgba(232, 227, 215, 0.14)', borderRadius: '10px', padding: '24px' }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '24px', boxShadow: 'var(--shadow)' }}>
                 <h3 style={{ fontSize: '16px', color: 'var(--brass, #C9A227)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   ⚠️ Cảnh Báo Trực Ban Điều Hành
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
                     <div style={{ fontWeight: 700, color: '#EF4444', fontSize: '14px' }}>🔒 Lệnh Khóa Huấn Luyện Y Tế: Ngựa "Phi Yến" (Ô A5)</div>
-                    <div style={{ fontSize: '13px', color: '#C8C4B7', marginTop: '4px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: '4px' }}>
                       Bác sĩ thú y đã kích hoạt khóa y tế do giãn dây chằng. HLV không thể xếp lịch thi đấu cho đến khi có xác nhận phục hồi.
                     </div>
                   </div>
                   <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
                     <div style={{ fontWeight: 700, color: '#F59E0B', fontSize: '14px' }}>⚠️ Theo dõi thể lực nhịp tim: Ngựa "Hắc Phong" (Ô A3)</div>
-                    <div style={{ fontSize: '13px', color: '#C8C4B7', marginTop: '4px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: '4px' }}>
                       Buổi tập gần nhất đạt nhịp tim 210 bpm (vượt ngưỡng cảnh báo an toàn). Đã chuyển thông báo cho Groom tăng khẩu phần điện giải.
                     </div>
                   </div>
                   <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                     <div style={{ fontWeight: 700, color: '#10B981', fontSize: '14px' }}>✓ Sẵn sàng thi đấu: Ngựa "Xích Thố" (Ô A1)</div>
-                    <div style={{ fontSize: '13px', color: '#C8C4B7', marginTop: '4px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: '4px' }}>
                       Đạt phong độ 9.2/10, Thú y đã duyệt chứng nhận kiểm dịch, đủ điều kiện dự Vòng loại Đại Nam.
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div style={{ background: '#12110F', border: '1px solid rgba(232, 227, 215, 0.14)', borderRadius: '10px', padding: '24px' }}>
-                <h3 style={{ fontSize: '16px', color: '#FFFFFF', marginBottom: '16px' }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '24px', boxShadow: 'var(--shadow)' }}>
+                <h3 style={{ fontSize: '16px', color: 'var(--paper)', marginBottom: '16px' }}>
                   📌 Quy Trình Nghiệp Vụ Tương Tác Giữa Các Vai Trò
                 </h3>
-                <div style={{ fontSize: '13.5px', color: '#9DA6A0', lineHeight: 1.7 }}>
+                <div style={{ fontSize: '13.5px', color: 'var(--paper-dim)', lineHeight: 1.7 }}>
                   <p>Hệ thống vận hành theo chu trình khép kín và tự động đối soát:</p>
                   <ul style={{ paddingLeft: '20px', marginTop: '8px' }}>
                     <li><b>Ban Quản lý (Admin)</b>: Cấp tài khoản, giám sát ngân sách, phân bổ ô chuồng.</li>
@@ -485,8 +472,8 @@ export default function AdminPage() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h2 style={{ fontSize: '20px', margin: 0 }}>Danh Sách Tài Khoản & Phân Quyền RBAC</h2>
-                <p style={{ fontSize: '13px', color: '#9DA6A0', margin: '4px 0 0' }}>
+                <h2 style={{ fontSize: '20px', margin: 0, color: 'var(--paper)' }}>Danh Sách Tài Khoản & Phân Quyền RBAC</h2>
+                <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '4px 0 0' }}>
                   Đồng bộ trực tiếp với bảng <code>Users</code> và <code>Roles</code> trong CSDL SQL Server 2019.
                 </p>
               </div>
@@ -507,10 +494,10 @@ export default function AdminPage() {
               </button>
             </div>
 
-            <div style={{ background: '#12110F', border: '1px solid rgba(232, 227, 215, 0.12)', borderRadius: '10px', overflowX: 'auto' }}>
+            <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', boxShadow: 'var(--shadow)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
                 <thead>
-                  <tr style={{ background: '#1A1815', borderBottom: '1px solid rgba(232, 227, 215, 0.12)', color: '#9DA6A0' }}>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
                     <th style={{ padding: '14px 18px' }}>ID</th>
                     <th style={{ padding: '14px 18px' }}>Tài khoản / Họ Tên</th>
                     <th style={{ padding: '14px 18px' }}>Email & Điện thoại</th>
@@ -530,15 +517,15 @@ export default function AdminPage() {
                     }[u.role] || '#9DA6A0';
 
                     return (
-                      <tr key={u.user_id} style={{ borderBottom: '1px solid rgba(232, 227, 215, 0.06)' }}>
-                        <td style={{ padding: '14px 18px', color: '#68726B' }}>#{u.user_id}</td>
+                      <tr key={u.user_id} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>#{u.user_id}</td>
                         <td style={{ padding: '14px 18px' }}>
-                          <div style={{ fontWeight: 600, color: '#FFFFFF' }}>{u.full_name}</div>
-                          <div style={{ fontSize: '12px', color: '#9DA6A0' }}>@{u.username}</div>
+                          <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{u.full_name}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>@{u.username}</div>
                         </td>
-                        <td style={{ padding: '14px 18px', color: '#C8C4B7' }}>
+                        <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
                           <div>{u.email}</div>
-                          <div style={{ fontSize: '12px', color: '#68726B' }}>{u.phone}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{u.phone}</div>
                         </td>
                         <td style={{ padding: '14px 18px' }}>
                           <span style={{
@@ -594,7 +581,7 @@ export default function AdminPage() {
                                   padding: '6px 12px',
                                   background: u.status === 'ACTIVE' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
                                   border: `1px solid ${u.status === 'ACTIVE' ? '#EF4444' : '#10B981'}`,
-                                  color: u.status === 'ACTIVE' ? '#FF7675' : '#10B981',
+                                  color: u.status === 'ACTIVE' ? '#EF4444' : '#10B981',
                                   borderRadius: '4px',
                                   fontSize: '12px',
                                   cursor: 'pointer'
@@ -619,8 +606,8 @@ export default function AdminPage() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h2 style={{ fontSize: '20px', margin: 0 }}>Danh Mục Quản Lý Chiến Mã Toàn Trại</h2>
-                <p style={{ fontSize: '13px', color: '#9DA6A0', margin: '4px 0 0' }}>
+                <h2 style={{ fontSize: '20px', margin: 0, color: 'var(--paper)' }}>Danh Mục Quản Lý Chiến Mã Toàn Trại</h2>
+                <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '4px 0 0' }}>
                   Giám sát mã định danh điện tử, phân bổ ô chuồng và trạng thái khóa y tế.
                 </p>
               </div>
@@ -641,10 +628,10 @@ export default function AdminPage() {
               </button>
             </div>
 
-            <div style={{ background: '#12110F', border: '1px solid rgba(232, 227, 215, 0.12)', borderRadius: '10px', overflowX: 'auto' }}>
+            <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', boxShadow: 'var(--shadow)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
                 <thead>
-                  <tr style={{ background: '#1A1815', borderBottom: '1px solid rgba(232, 227, 215, 0.12)', color: '#9DA6A0' }}>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
                     <th style={{ padding: '14px 18px' }}>Mã Chip / Tên Ngựa</th>
                     <th style={{ padding: '14px 18px' }}>Giống loài & Giới tính</th>
                     <th style={{ padding: '14px 18px' }}>Chuồng phân bổ</th>
@@ -655,21 +642,21 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {horses.map(h => (
-                    <tr key={h.id} style={{ borderBottom: '1px solid rgba(232, 227, 215, 0.06)' }}>
+                    <tr key={h.id} style={{ borderBottom: '1px solid var(--line)' }}>
                       <td style={{ padding: '14px 18px' }}>
                         <div style={{ fontWeight: 700, color: 'var(--brass, #C9A227)', fontSize: '15px' }}>{h.name}</div>
-                        <div style={{ fontSize: '12px', color: '#68726B', fontFamily: 'monospace' }}>{h.microchip}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>{h.microchip}</div>
                       </td>
-                      <td style={{ padding: '14px 18px', color: '#C8C4B7' }}>
+                      <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
                         <div>{h.breed}</div>
-                        <div style={{ fontSize: '12px', color: '#68726B' }}>{h.gender}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{h.gender}</div>
                       </td>
                       <td style={{ padding: '14px 18px' }}>
-                        <span style={{ padding: '4px 10px', background: 'rgba(232, 227, 215, 0.1)', borderRadius: '4px', fontWeight: 600 }}>
+                        <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '4px', fontWeight: 600 }}>
                           Ô {h.stable}
                         </span>
                       </td>
-                      <td style={{ padding: '14px 18px', color: '#C8C4B7' }}>{h.owner}</td>
+                      <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{h.owner}</td>
                       <td style={{ padding: '14px 18px' }}>
                         <span style={{
                           padding: '4px 10px',
@@ -706,8 +693,8 @@ export default function AdminPage() {
         {activeTab === 'stables' && (
           <div>
             <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '20px', margin: 0 }}>Sơ Đồ Phân Bổ Chuồng Trại (Block A & Block B)</h2>
-              <p style={{ fontSize: '13px', color: '#9DA6A0', margin: '4px 0 0' }}>
+              <h2 style={{ fontSize: '20px', margin: 0, color: 'var(--paper)' }}>Sơ Đồ Phân Bổ Chuồng Trại (Block A & Block B)</h2>
+              <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '4px 0 0' }}>
                 Quản lý hiện trạng 12 chuồng. Bấm vào nút hành động để chuyển trạng thái Sử dụng / Bảo trì.
               </p>
             </div>
@@ -718,14 +705,15 @@ export default function AdminPage() {
                 const isAvailable = s.status === 'AVAILABLE';
                 return (
                   <div key={s.stall_code} style={{
-                    background: '#141311',
+                    background: 'var(--bg-card)',
                     border: `1px solid ${isOccupied ? 'rgba(201, 162, 39, 0.4)' : isAvailable ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
                     borderRadius: '8px',
                     padding: '18px',
-                    position: 'relative'
+                    position: 'relative',
+                    boxShadow: 'var(--shadow)'
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>{s.stall_code}</span>
+                      <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--paper)' }}>{s.stall_code}</span>
                       <span style={{
                         fontSize: '10px',
                         padding: '2px 6px',
@@ -738,8 +726,8 @@ export default function AdminPage() {
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '12px', color: '#68726B' }}>{s.block}</div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: isOccupied ? '#FFFFFF' : '#68726B', marginTop: '6px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{s.block}</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: isOccupied ? 'var(--paper)' : 'var(--paper-dim)', marginTop: '6px' }}>
                       Ngựa: {s.horse}
                     </div>
 
@@ -749,10 +737,10 @@ export default function AdminPage() {
                         marginTop: '12px',
                         width: '100%',
                         padding: '6px 0',
-                        background: 'rgba(232, 227, 215, 0.08)',
-                        border: '1px solid rgba(232, 227, 215, 0.15)',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
                         borderRadius: '4px',
-                        color: '#E8E3D7',
+                        color: 'var(--paper)',
                         fontSize: '11.5px',
                         cursor: 'pointer'
                       }}
@@ -770,16 +758,16 @@ export default function AdminPage() {
         {activeTab === 'audit' && (
           <div>
             <div style={{ marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '20px', margin: 0 }}>Nhật Ký Thao Tác Hệ Thống (Audit Logs)</h2>
-              <p style={{ fontSize: '13px', color: '#9DA6A0', margin: '4px 0 0' }}>
+              <h2 style={{ fontSize: '20px', margin: 0, color: 'var(--paper)' }}>Nhật Ký Thao Tác Hệ Thống (Audit Logs)</h2>
+              <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '4px 0 0' }}>
                 Ghi nhận minh bạch mọi hành động tác nghiệp của các vai trò trong toàn bộ trang trại.
               </p>
             </div>
 
-            <div style={{ background: '#12110F', border: '1px solid rgba(232, 227, 215, 0.12)', borderRadius: '10px', overflowX: 'auto' }}>
+            <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', boxShadow: 'var(--shadow)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
                 <thead>
-                  <tr style={{ background: '#1A1815', borderBottom: '1px solid rgba(232, 227, 215, 0.12)', color: '#9DA6A0' }}>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
                     <th style={{ padding: '14px 18px' }}>Thời gian</th>
                     <th style={{ padding: '14px 18px' }}>Người thực hiện</th>
                     <th style={{ padding: '14px 18px' }}>Hành động</th>
@@ -788,9 +776,9 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {auditLogs.map(log => (
-                    <tr key={log.id} style={{ borderBottom: '1px solid rgba(232, 227, 215, 0.06)' }}>
-                      <td style={{ padding: '14px 18px', color: '#68726B', whiteSpace: 'nowrap' }}>{log.time}</td>
-                      <td style={{ padding: '14px 18px', color: '#FFFFFF', fontWeight: 600 }}>{log.user}</td>
+                    <tr key={log.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', whiteSpace: 'nowrap' }}>{log.time}</td>
+                      <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{log.user}</td>
                       <td style={{ padding: '14px 18px' }}>
                         <span style={{
                           padding: '3px 8px',
@@ -804,7 +792,7 @@ export default function AdminPage() {
                           {log.action}
                         </span>
                       </td>
-                      <td style={{ padding: '14px 18px', color: '#C8C4B7' }}>{log.detail}</td>
+                      <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{log.detail}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -820,7 +808,8 @@ export default function AdminPage() {
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.85)',
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -828,66 +817,69 @@ export default function AdminPage() {
           zIndex: 999999
         }}>
           <div style={{
-            background: '#151311',
-            border: '1px solid rgba(201, 162, 39, 0.4)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--line)',
             borderRadius: '10px',
             width: '100%',
             maxWidth: '480px',
-            padding: '32px',
-            color: '#FFFFFF'
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '28px',
+            color: 'var(--paper)',
+            boxShadow: 'var(--shadow)'
           }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '16px' }}>Thêm Nhân Sự / Người Dùng Mới</h3>
+            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>Thêm Nhân Sự / Người Dùng Mới</h3>
             <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Họ và tên</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Họ và tên</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: Hoàng Văn Bảo"
                   value={newUserData.full_name}
                   onChange={(e) => setNewUserData({ ...newUserData, full_name: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Tên đăng nhập (Username)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Tên đăng nhập (Username)</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: trainer_bao"
                   value={newUserData.username}
                   onChange={(e) => setNewUserData({ ...newUserData, username: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Email</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Email</label>
                 <input
                   type="email"
                   required
                   placeholder="bao@matruong.vn"
                   value={newUserData.email}
                   onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Số điện thoại</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Số điện thoại</label>
                 <input
                   type="tel"
                   required
                   placeholder="Ví dụ: 0901234567"
                   value={newUserData.phone}
                   onChange={(e) => setNewUserData({ ...newUserData, phone: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Vai trò Nghiệp vụ (RBAC)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Vai trò Nghiệp vụ (RBAC)</label>
                 <select
                   value={newUserData.role}
                   onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
                   <option value="TRAINER">Huấn luyện viên Trưởng (Trainer)</option>
                   <option value="VET">Bác sĩ Thú y (Veterinarian)</option>
@@ -901,7 +893,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddUserModal(false)}
-                  style={{ flex: 1, padding: '10px', background: 'rgba(232, 227, 215, 0.1)', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer' }}
                 >
                   Hủy
                 </button>
@@ -922,7 +914,8 @@ export default function AdminPage() {
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.85)',
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -930,17 +923,19 @@ export default function AdminPage() {
           zIndex: 999998
         }}>
           <div style={{
-            background: '#151311',
-            border: '1px solid rgba(201, 162, 39, 0.45)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--line)',
             borderRadius: '10px',
             width: '100%',
             maxWidth: '480px',
-            padding: '30px',
-            color: '#FFFFFF',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.85)'
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '28px',
+            color: 'var(--paper)',
+            boxShadow: 'var(--shadow)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-              <h3 style={{ fontSize: '18px', margin: 0, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '18px', margin: 0, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>✏️</span> Sửa Thông Tin Nhân Sự
               </h3>
               <span style={{ fontSize: '12px', background: 'rgba(201, 162, 39, 0.15)', color: 'var(--brass, #C9A227)', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(201, 162, 39, 0.3)', fontWeight: 600 }}>
@@ -950,59 +945,59 @@ export default function AdminPage() {
 
             <form onSubmit={handleRequestSaveEditUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Họ và tên</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Họ và tên</label>
                 <input
                   type="text"
                   required
                   placeholder="Họ và tên nhân sự"
                   value={editUserData.full_name}
                   onChange={(e) => setEditUserData({ ...editUserData, full_name: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Tên đăng nhập (Username)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Tên đăng nhập (Username)</label>
                 <input
                   type="text"
                   required
                   placeholder="Username"
                   value={editUserData.username}
                   onChange={(e) => setEditUserData({ ...editUserData, username: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Email</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Email</label>
                 <input
                   type="email"
                   required
                   placeholder="Email"
                   value={editUserData.email}
                   onChange={(e) => setEditUserData({ ...editUserData, email: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Số điện thoại</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Số điện thoại</label>
                 <input
                   type="tel"
                   required
                   placeholder="Số điện thoại"
                   value={editUserData.phone}
                   onChange={(e) => setEditUserData({ ...editUserData, phone: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Vai trò Nghiệp vụ (RBAC Role)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Vai trò Nghiệp vụ (RBAC Role)</label>
                 <select
                   value={editUserData.role}
                   onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
                   <option value="TRAINER">Huấn luyện viên Trưởng (Trainer)</option>
                   <option value="VET">Bác sĩ Thú y (Veterinarian)</option>
@@ -1013,11 +1008,11 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Trạng thái tài khoản</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Trạng thái tài khoản</label>
                 <select
                   value={editUserData.status}
                   onChange={(e) => setEditUserData({ ...editUserData, status: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
                   <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
                   <option value="INACTIVE">Tạm khóa (INACTIVE)</option>
@@ -1028,7 +1023,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => { setShowEditUserModal(false); setEditUserData(null); }}
-                  style={{ flex: 1, padding: '11px', background: 'rgba(232, 227, 215, 0.1)', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                  style={{ flex: 1, padding: '11px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
                 >
                   Hủy
                 </button>
@@ -1049,7 +1044,8 @@ export default function AdminPage() {
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.88)',
+          background: 'rgba(0, 0, 0, 0.78)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -1057,33 +1053,33 @@ export default function AdminPage() {
           zIndex: 1000000
         }}>
           <div style={{
-            background: '#1A1714',
+            background: 'var(--bg-card)',
             border: '2px solid var(--brass, #C9A227)',
             borderRadius: '12px',
             width: '100%',
             maxWidth: '440px',
             padding: '28px 24px',
-            color: '#FFFFFF',
+            color: 'var(--paper)',
             textAlign: 'center',
-            boxShadow: '0 24px 48px rgba(0,0,0,0.9)'
+            boxShadow: 'var(--shadow)'
           }}>
             <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(201, 162, 39, 0.15)', border: '1px solid var(--brass, #C9A227)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '24px' }}>
               ⚠️
             </div>
             
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#FFFFFF', marginBottom: '12px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--paper)', marginBottom: '12px' }}>
               Xác nhận sửa thông tin
             </h3>
 
-            <p style={{ fontSize: '15px', color: '#E8E3D7', lineHeight: '1.5', margin: '0 0 16px', fontWeight: 500 }}>
+            <p style={{ fontSize: '15px', color: 'var(--paper)', lineHeight: '1.5', margin: '0 0 16px', fontWeight: 500 }}>
               Bạn có chắc chắn sửa thông tin này không?
             </p>
 
-            <div style={{ background: '#0F0E0C', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(232, 227, 215, 0.1)', marginBottom: '22px', textAlign: 'left', fontSize: '13px' }}>
-              <div style={{ color: '#9DA6A0', marginBottom: '4px' }}>Nhân sự ID: <b style={{ color: '#FFFFFF' }}>#{editUserData.user_id}</b></div>
-              <div style={{ color: '#9DA6A0', marginBottom: '4px' }}>Họ tên mới: <b style={{ color: '#FFFFFF' }}>{editUserData.full_name}</b></div>
-              <div style={{ color: '#9DA6A0', marginBottom: '4px' }}>Email: <b style={{ color: '#FFFFFF' }}>{editUserData.email}</b></div>
-              <div style={{ color: '#9DA6A0' }}>Số điện thoại: <b style={{ color: '#FFFFFF' }}>{editUserData.phone}</b></div>
+            <div style={{ background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '22px', textAlign: 'left', fontSize: '13px' }}>
+              <div style={{ color: 'var(--paper-dim)', marginBottom: '4px' }}>Nhân sự ID: <b style={{ color: 'var(--paper)' }}>#{editUserData.user_id}</b></div>
+              <div style={{ color: 'var(--paper-dim)', marginBottom: '4px' }}>Họ tên mới: <b style={{ color: 'var(--paper)' }}>{editUserData.full_name}</b></div>
+              <div style={{ color: 'var(--paper-dim)', marginBottom: '4px' }}>Email: <b style={{ color: 'var(--paper)' }}>{editUserData.email}</b></div>
+              <div style={{ color: 'var(--paper-dim)' }}>Số điện thoại: <b style={{ color: 'var(--paper)' }}>{editUserData.phone}</b></div>
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
@@ -1093,9 +1089,9 @@ export default function AdminPage() {
                 style={{
                   flex: 1,
                   padding: '11px',
-                  background: 'rgba(232, 227, 215, 0.12)',
-                  border: '1px solid rgba(232, 227, 215, 0.2)',
-                  color: '#FFFFFF',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  color: 'var(--paper)',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontWeight: 600,
@@ -1132,7 +1128,8 @@ export default function AdminPage() {
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.85)',
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -1140,33 +1137,36 @@ export default function AdminPage() {
           zIndex: 999999
         }}>
           <div style={{
-            background: '#151311',
-            border: '1px solid rgba(201, 162, 39, 0.4)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--line)',
             borderRadius: '10px',
             width: '100%',
             maxWidth: '480px',
-            padding: '32px',
-            color: '#FFFFFF'
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '28px',
+            color: 'var(--paper)',
+            boxShadow: 'var(--shadow)'
           }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '16px' }}>Thêm Hồ Sơ Chiến Mã Mới</h3>
+            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>Thêm Hồ Sơ Chiến Mã Mới</h3>
             <form onSubmit={handleCreateHorse} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Tên chiến mã</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Tên chiến mã</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: Dạ Báo"
                   value={newHorseData.name}
                   onChange={(e) => setNewHorseData({ ...newHorseData, name: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Giống loài</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Giống loài</label>
                 <select
                   value={newHorseData.breed}
                   onChange={(e) => setNewHorseData({ ...newHorseData, breed: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
                   <option value="Thoroughbred">Thoroughbred (Thuần chủng Anh)</option>
                   <option value="Arabian">Arabian (Ả Rập)</option>
@@ -1174,11 +1174,11 @@ export default function AdminPage() {
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: '#9DA6A0', display: 'block', marginBottom: '4px' }}>Phân bổ vào ô chuồng</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Phân bổ vào ô chuồng</label>
                 <select
                   value={newHorseData.stable}
                   onChange={(e) => setNewHorseData({ ...newHorseData, stable: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: '#000', border: '1px solid rgba(232, 227, 215, 0.2)', color: '#fff', borderRadius: '4px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
                   <option value="B6">Ô B6 (Đang còn trống)</option>
                   <option value="A1">Ô A1</option>
@@ -1190,7 +1190,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddHorseModal(false)}
-                  style={{ flex: 1, padding: '10px', background: 'rgba(232, 227, 215, 0.1)', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer' }}
                 >
                   Hủy
                 </button>
