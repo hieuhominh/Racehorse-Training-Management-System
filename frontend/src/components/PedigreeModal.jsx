@@ -49,18 +49,21 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                 className={`tab-pill ${viewTab === 'tree' ? 'active' : ''}`}
                 onClick={() => setViewTab('tree')}
               >
-                🌳 Sơ đồ phả hệ 3D
+                Sơ đồ phả hệ 3D
               </button>
               <button 
                 type="button"
                 className={`tab-pill ${viewTab === 'table' ? 'active' : ''}`}
                 onClick={() => setViewTab('table')}
               >
-                📋 Bảng chi tiết 7 đời
+                Bảng chi tiết 7 đời
               </button>
             </div>
             <button type="button" className="close-btn" onClick={onClose} aria-label="Đóng modal">
-              ✕
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
             </button>
           </div>
         </div>
@@ -73,7 +76,7 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                 <div className="legend-item"><span className="legend-dot dot-subject"></span> Chủ thể (G1)</div>
                 <div className="legend-item"><span className="legend-dot dot-sire"></span> Dòng Cha (Sire Line)</div>
                 <div className="legend-item"><span className="legend-dot dot-dam"></span> Dòng Mẹ (Dam Line)</div>
-                <div className="legend-hint">💡 Bấm vào bất kỳ ngựa tổ tiên nào để xem hồ sơ dòng dõi</div>
+                <div className="legend-hint">Bấm vào bất kỳ ngựa tổ tiên nào để xem hồ sơ dòng dõi</div>
               </div>
 
               {/* 3-Generation Pedigree Grid */}
@@ -127,7 +130,7 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                       <div className="node-chip">MÃ CHIP: {g2.sire?.chipId}</div>
                       <div className="node-lineage">Dòng: {g2.sire?.lineage}</div>
                       <div className="node-record">Thành tích: {g2.sire?.record}</div>
-                      <div className="node-origin">📍 {g2.sire?.origin}</div>
+                      <div className="node-origin">Xuất xứ: {g2.sire?.origin}</div>
                     </div>
                   </div>
 
@@ -145,7 +148,7 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                       <div className="node-chip">MÃ CHIP: {g2.dam?.chipId}</div>
                       <div className="node-lineage">Dòng: {g2.dam?.lineage}</div>
                       <div className="node-record">Thành tích: {g2.dam?.record}</div>
-                      <div className="node-origin">📍 {g2.dam?.origin}</div>
+                      <div className="node-origin">Xuất xứ: {g2.dam?.origin}</div>
                     </div>
                   </div>
                 </div>
@@ -154,9 +157,9 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                 <div className="tree-connector-col col-2-3">
                   <svg className="connector-svg" width="40" height="100%" viewBox="0 0 40 400" preserveAspectRatio="none">
                     {/* Top branch for Sire */}
-                    <path d="M0 100 H20 V50 H40 M20 100 V150 H40" fill="none" stroke="#60A5FA" strokeWidth="1.5" opacity="0.6" />
+                    <path d="M0 100 H20 V50 H40 M20 100 V150 H40" fill="none" stroke="var(--brass)" strokeWidth="1.5" opacity="0.6" />
                     {/* Bottom branch for Dam */}
-                    <path d="M0 300 H20 V250 H40 M20 300 V350 H40" fill="none" stroke="#F472B6" strokeWidth="1.5" opacity="0.6" />
+                    <path d="M0 300 H20 V250 H40 M20 300 V350 H40" fill="none" stroke="var(--line-strong)" strokeWidth="1.5" opacity="0.6" />
                   </svg>
                 </div>
 
@@ -372,11 +375,11 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
         {/* Modal Footer */}
         <div className="modal-footer">
           <div className="footer-info">
-            🔒 Xác thực sinh trắc học DNA & Mã Chip RFID đăng ký chính thức bởi Hiệp hội Đua Mã Quốc tế.
+            Xác thực sinh trắc học DNA & Mã Chip RFID đăng ký chính thức bởi Hiệp hội Đua Mã Quốc tế.
           </div>
           <div className="footer-btns">
             <button type="button" className="btn btn-ghost" onClick={() => window.print()}>
-              🖨️ In chứng nhận phả hệ
+              In chứng nhận phả hệ
             </button>
             <button type="button" className="btn btn-solid" onClick={onClose}>
               Đóng cửa sổ

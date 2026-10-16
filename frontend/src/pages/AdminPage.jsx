@@ -3,6 +3,62 @@ import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 
+// Minimalist SVG Icons
+const IconShield = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" />
+  </svg>
+);
+
+const IconOverview = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="9" />
+    <rect x="14" y="3" width="7" height="5" />
+    <rect x="14" y="12" width="7" height="9" />
+    <rect x="3" y="16" width="7" height="5" />
+  </svg>
+);
+
+const IconHorse = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="8" r="4" />
+    <path d="M6 20v-2a6 6 0 0 1 12 0v2" />
+  </svg>
+);
+
+const IconStable = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </svg>
+);
+
+const IconUsers = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+const IconAudit = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+  </svg>
+);
+
+const IconMenu = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
+
 export default function AdminPage() {
   const { currentUser, usersList, updateUser, toggleUserStatus, registerUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -13,6 +69,11 @@ export default function AdminPage() {
   };
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
+  const [horseFilter, setHorseFilter] = useState('ALL');
+  const [userFilter, setUserFilter] = useState('ALL');
+  const [stableFilter, setStableFilter] = useState('ALL');
 
   // State danh sách ngựa quản lý
   const [horses, setHorses] = useState([
@@ -27,7 +88,8 @@ export default function AdminPage() {
       status: 'WATCH',
       statusText: 'Cần theo dõi',
       statusColor: '#F59E0B',
-      locked: false
+      locked: false,
+      desc: 'Chiến mã cự ly 1.600m, thể lực sung mãn, đang theo dõi tải nhịp tim cao.'
     },
     {
       id: 2,
@@ -40,7 +102,8 @@ export default function AdminPage() {
       status: 'ELIGIBLE',
       statusText: 'Đủ điều kiện thi đấu',
       statusColor: '#10B981',
-      locked: false
+      locked: false,
+      desc: 'Sức bền tuyệt hảo 2.400m sân cỏ, đã vượt qua kiểm định y tế Thú y.'
     },
     {
       id: 3,
@@ -53,7 +116,8 @@ export default function AdminPage() {
       status: 'INJURED',
       statusText: 'Chấn thương gân',
       statusColor: '#EF4444',
-      locked: true
+      locked: true,
+      desc: 'Bác sĩ Thú y kích hoạt lệnh khóa do giãn gân chân trái. Cấm tập nặng.'
     },
     {
       id: 4,
@@ -66,24 +130,25 @@ export default function AdminPage() {
       status: 'QUARANTINE',
       statusText: 'Cách ly theo dõi',
       statusColor: '#8B5CF6',
-      locked: true
+      locked: true,
+      desc: 'Đang theo dõi kiểm dịch dịch tễ tại khu cách ly Block B. Sức khỏe ổn định.'
     }
   ]);
 
   // State danh sách chuồng trại
   const [stables, setStables] = useState([
-    { stall_code: 'A1', block: 'Block A', status: 'OCCUPIED', horse: 'Xích Thố' },
-    { stall_code: 'A2', block: 'Block A', status: 'OCCUPIED', horse: 'Bạch Long' },
-    { stall_code: 'A3', block: 'Block A', status: 'OCCUPIED', horse: 'Hắc Phong' },
-    { stall_code: 'A4', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Vũ' },
-    { stall_code: 'A5', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Yến' },
-    { stall_code: 'A6', block: 'Block A', status: 'OCCUPIED', horse: 'Kim Kê' },
-    { stall_code: 'B1', block: 'Block B', status: 'OCCUPIED', horse: 'Thanh Vân' },
-    { stall_code: 'B2', block: 'Block B', status: 'OCCUPIED', horse: 'Lôi Chấn' },
-    { stall_code: 'B3', block: 'Block B', status: 'OCCUPIED', horse: 'Hồng Sa' },
-    { stall_code: 'B4', block: 'Block B', status: 'OCCUPIED', horse: 'Thiên Lý' },
-    { stall_code: 'B5', block: 'Block B', status: 'OCCUPIED', horse: 'Bảo Mã' },
-    { stall_code: 'B6', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)' }
+    { stall_code: 'A1', block: 'Block A', status: 'OCCUPIED', horse: 'Xích Thố', area: '14 m²', dim: '3.8 x 3.8m' },
+    { stall_code: 'A2', block: 'Block A', status: 'OCCUPIED', horse: 'Bạch Long', area: '14 m²', dim: '3.8 x 3.8m' },
+    { stall_code: 'A3', block: 'Block A', status: 'OCCUPIED', horse: 'Hắc Phong', area: '14 m²', dim: '3.8 x 3.8m' },
+    { stall_code: 'A4', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Vũ', area: '14 m²', dim: '3.8 x 3.8m' },
+    { stall_code: 'A5', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Yến', area: '14 m²', dim: '3.8 x 3.8m' },
+    { stall_code: 'A6', block: 'Block A', status: 'OCCUPIED', horse: 'Kim Kê', area: '14 m²', dim: '3.8 x 3.8m' },
+    { stall_code: 'B1', block: 'Block B', status: 'OCCUPIED', horse: 'Thanh Vân', area: '16 m²', dim: '4.0 x 4.0m' },
+    { stall_code: 'B2', block: 'Block B', status: 'OCCUPIED', horse: 'Lôi Chấn', area: '16 m²', dim: '4.0 x 4.0m' },
+    { stall_code: 'B3', block: 'Block B', status: 'OCCUPIED', horse: 'Hồng Sa', area: '16 m²', dim: '4.0 x 4.0m' },
+    { stall_code: 'B4', block: 'Block B', status: 'OCCUPIED', horse: 'Thiên Lý', area: '16 m²', dim: '4.0 x 4.0m' },
+    { stall_code: 'B5', block: 'Block B', status: 'OCCUPIED', horse: 'Bảo Mã', area: '16 m²', dim: '4.0 x 4.0m' },
+    { stall_code: 'B6', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', area: '16 m²', dim: '4.0 x 4.0m' }
   ]);
 
   // Modal thêm người dùng mới
@@ -123,6 +188,36 @@ export default function AdminPage() {
     { id: 4, time: '09/10/2026 14:00', user: 'groom_nam (Chăm sóc chuồng)', action: 'CHECKLIST DINH DƯỠNG', detail: 'Hoàn tất bữa chiều và ngâm chân đá lạnh cho đàn ngựa Block A' },
     { id: 5, time: '09/10/2026 10:00', user: 'admin (Ban Quản lý)', action: 'PHÊ DUYỆT NGÂN SÁCH GIẢI', detail: 'Duyệt kinh phí 500.000.000 ₫ cho Giải Đua Vô địch Đại Nam 2026' }
   ]);
+
+  // Thao tác khóa / mở y tế cho ngựa
+  const handleToggleHorseLock = (horseId) => {
+    setHorses(prev => prev.map(h => {
+      if (h.id === horseId) {
+        const nextLocked = !h.locked;
+        return {
+          ...h,
+          locked: nextLocked,
+          status: nextLocked ? 'INJURED' : 'ELIGIBLE',
+          statusText: nextLocked ? 'Khóa y tế Thú y' : 'Đủ điều kiện thi đấu',
+          statusColor: nextLocked ? '#EF4444' : '#10B981'
+        };
+      }
+      return h;
+    }));
+    const target = horses.find(item => item.id === horseId);
+    if (target) {
+      setAuditLogs(prev => [
+        {
+          id: Date.now(),
+          time: new Date().toLocaleString('vi-VN'),
+          user: `${currentUser?.username || 'admin'} (Admin)`,
+          action: target.locked ? 'MỞ KHÓA THI ĐẤU' : 'KHÓA Y TẾ THÚ Y',
+          detail: `${target.locked ? 'Mở khóa thi đấu' : 'Khóa y tế khẩn cấp'} chiến mã ${target.name} (${target.microchip})`
+        },
+        ...prev
+      ]);
+    }
+  };
 
   // Thêm người dùng mới
   const handleCreateUser = (e) => {
@@ -231,16 +326,16 @@ export default function AdminPage() {
       status: 'ELIGIBLE',
       statusText: 'Đủ điều kiện thi đấu',
       statusColor: '#10B981',
-      locked: false
+      locked: false,
+      desc: 'Chiến mã mới bổ sung vào trang trại, sẵn sàng bài tập nhập môn.'
     };
     setHorses(prev => [...prev, newHorse]);
-    // Cập nhật chuồng B6 thành occupied
     setStables(prev => prev.map(s => s.stall_code === newHorseData.stable ? { ...s, status: 'OCCUPIED', horse: newHorseData.name } : s));
     setAuditLogs(prev => [
       {
         id: Date.now(),
         time: new Date().toLocaleString('vi-VN'),
-        user: `${currentUser.username} (Admin)`,
+        user: `${currentUser?.username || 'admin'} (Admin)`,
         action: 'THÊM CHIẾN MÃ MỚI',
         detail: `Nhập hồ sơ chiến mã ${newHorse.name} (Chip: ${newHorse.microchip}) vào ô chuồng ${newHorse.stable}`
       },
@@ -261,546 +356,1011 @@ export default function AdminPage() {
     }));
   };
 
-  return (
-    <div style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--paper)', minHeight: '100vh', paddingBottom: '60px' }}>
-      
-      {/* 1. TOP HEADER BANNER QUẢN TRỊ */}
-      <div style={{
-        background: 'var(--bg-secondary)',
-        borderBottom: '1px solid var(--line)',
-        padding: 'clamp(16px, 3vw, 24px) clamp(16px, 3.5vw, 36px)'
-      }}>
-        <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <span style={{
-                background: 'rgba(201, 162, 39, 0.15)',
-                color: 'var(--brass, #C9A227)',
-                border: '1px solid var(--brass, #C9A227)',
-                padding: '4px 10px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '0.08em'
-              }}>
-                👑 BAN QUẢN TRỊ & QUẢN LÝ CÂU LẠC BỘ
-              </span>
-              <span style={{ fontSize: '13px', color: 'var(--paper-dim)' }}>
-                Phiên đăng nhập: <b>{currentUser?.full_name}</b> ({currentUser?.username})
-              </span>
-            </div>
-            <h1 style={{ fontFamily: 'var(--display, serif)', fontSize: 'clamp(22px, 3.5vw, 28px)', color: 'var(--paper)', margin: '8px 0 0', letterSpacing: '0.02em' }}>
-              Trung Tâm Điều Hành Mã Trường
-            </h1>
-          </div>
+  // Lọc dữ liệu ngựa
+  const filteredHorses = horses.filter(h => {
+    if (horseFilter === 'ALL') return true;
+    if (horseFilter === 'ELIGIBLE') return h.status === 'ELIGIBLE' && !h.locked;
+    if (horseFilter === 'WATCH') return h.status === 'WATCH';
+    if (horseFilter === 'LOCKED') return h.locked || h.status === 'INJURED' || h.status === 'QUARANTINE';
+    return true;
+  });
 
-          <div className="banner-header-actions">
-            <ThemeToggle />
-            <Link
-              to="/"
-              className="banner-action-btn banner-btn-public"
-            >
-              👁️ <span className="btn-text">Xem Public</span>
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="banner-action-btn banner-btn-logout"
-              title="Đăng xuất khỏi hệ thống"
-              aria-label="Đăng xuất"
-            >
-              <span className="btn-icon">🚪</span>
-              <span className="btn-text">Đăng xuất</span>
-            </button>
+  // Lọc dữ liệu người dùng
+  const filteredUsers = usersList.filter(u => {
+    if (userFilter === 'ALL') return true;
+    return u.role === userFilter;
+  });
+
+  // Lọc chuồng
+  const filteredStables = stables.filter(s => {
+    if (stableFilter === 'ALL') return true;
+    return s.status === stableFilter;
+  });
+
+  // Initials for avatar
+  const getInitials = (name) => {
+    if (!name) return 'QT';
+    const parts = name.trim().split(' ');
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  return (
+    <div className="portal-layout">
+      {/* Mobile drawer backdrop */}
+      <div
+        className={`portal-sidebar-backdrop ${sidebarOpen ? 'open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      {/* ===================== SIDEBAR ===================== */}
+      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`}>
+        <div className="portal-brand">
+          <div className="portal-brand-icon" style={{ color: 'var(--brass)' }}>
+            <IconShield />
+          </div>
+          <div className="portal-brand-text">
+            <h3>Mã Trường OS</h3>
+            <p>Facility & Club Manager</p>
           </div>
         </div>
-      </div>
 
-      {/* 2. THANH ĐIỀU HƯỚNG CÁC TAB CHỨC NĂNG CỦA ADMIN */}
-      <div style={{
-        maxWidth: '1280px',
-        margin: '0 auto',
-        padding: '16px clamp(16px, 3.5vw, 36px) 0',
-        display: 'flex',
-        borderBottom: '1px solid var(--line)',
-        gap: '20px',
-        overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch'
-      }}>
-        {[
-          { id: 'overview', label: '📊 Tổng quan & Báo cáo', desc: 'KPI đàn ngựa & cơ sở vật chất' },
-          { id: 'users', label: '👥 Quản lý Nhân sự & RBAC', desc: 'Tài khoản 5 vai trò & phân quyền' },
-          { id: 'horses', label: '🐎 Danh mục Chiến mã', desc: 'Hồ sơ, chip điện tử, khóa y tế' },
-          { id: 'stables', label: '🏠 Quản lý Chuồng trại', desc: '12 ô chuồng Block A & B' },
-          { id: 'audit', label: '📜 Nhật ký & Phê duyệt', desc: 'Lịch sử thao tác & ngân sách giải' }
-        ].map(tab => (
+        <nav className="portal-nav">
           <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '12px 4px',
-              background: 'none',
-              border: 'none',
-              borderBottom: activeTab === tab.id ? '3px solid var(--brass, #C9A227)' : '3px solid transparent',
-              color: activeTab === tab.id ? 'var(--brass, #C9A227)' : 'var(--paper-dim)',
-              fontFamily: 'var(--body, sans-serif)',
-              fontSize: '14.5px',
-              fontWeight: activeTab === tab.id ? 700 : 500,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start'
-            }}
+            className={`portal-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
           >
-            <span>{tab.label}</span>
-            <span style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px', fontWeight: 400, opacity: 0.8 }}>{tab.desc}</span>
+            <span className="portal-nav-icon"><IconOverview /></span>
+            <span className="portal-nav-label">Tổng quan cơ sở</span>
           </button>
-        ))}
-      </div>
 
-      {/* 3. NỘI DUNG TỪNG TAB */}
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px clamp(16px, 3.5vw, 36px)' }}>
+          <button
+            className={`portal-nav-item ${activeTab === 'horses' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('horses'); setSidebarOpen(false); }}
+          >
+            <span className="portal-nav-icon"><IconHorse /></span>
+            <span className="portal-nav-label">Quản lý ô ngựa</span>
+            <span className="portal-nav-badge">{horses.length}</span>
+          </button>
 
-        {/* ===================== TAB 1: TỔNG QUAN & BÁO CÁO ===================== */}
-        {activeTab === 'overview' && (
-          <div>
-            {/* 4 Card KPI hàng đầu */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '16px', marginBottom: '28px' }}>
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px', boxShadow: 'var(--shadow)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                  <span>TỔNG ĐÀN CHIẾN MÃ</span>
-                  <span style={{ fontSize: '20px' }}>🐎</span>
-                </div>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '10px 0 4px' }}>
-                  {horses.length} con
-                </div>
-                <div style={{ fontSize: '12px', color: '#10B981' }}>
-                  ● 2 Đủ điều kiện · 1 Theo dõi · 1 Chấn thương
-                </div>
-              </div>
+          <button
+            className={`portal-nav-item ${activeTab === 'stables' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('stables'); setSidebarOpen(false); }}
+          >
+            <span className="portal-nav-icon"><IconStable /></span>
+            <span className="portal-nav-label">Quản lý chuồng trại</span>
+            <span className="portal-nav-badge">{stables.filter(s => s.status === 'AVAILABLE').length} trống</span>
+          </button>
 
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px', boxShadow: 'var(--shadow)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                  <span>CÔNG SUẤT CHUỒNG TRẠI</span>
-                  <span style={{ fontSize: '20px' }}>🏠</span>
-                </div>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '10px 0 4px' }}>
-                  {stables.filter(s => s.status === 'OCCUPIED').length} / {stables.length} ô
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--brass, #C9A227)' }}>
-                  ● Tỉ lệ lấp đầy: 91.7% (1 chuồng trống sẵn sàng)
-                </div>
-              </div>
+          <button
+            className={`portal-nav-item ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('users'); setSidebarOpen(false); }}
+          >
+            <span className="portal-nav-icon"><IconUsers /></span>
+            <span className="portal-nav-label">Phân công nhân sự</span>
+            <span className="portal-nav-badge">{usersList.length}</span>
+          </button>
 
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px', boxShadow: 'var(--shadow)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                  <span>TỔNG NHÂN SỰ HỆ THỐNG</span>
-                  <span style={{ fontSize: '20px' }}>👥</span>
-                </div>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '10px 0 4px' }}>
-                  {usersList.length} tài khoản
-                </div>
-                <div style={{ fontSize: '12px', color: '#38BDF8' }}>
-                  ● Đầy đủ 5 vai trò nghiệp vụ (RBAC kiểm soát)
-                </div>
-              </div>
+          <button
+            className={`portal-nav-item ${activeTab === 'audit' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('audit'); setSidebarOpen(false); }}
+          >
+            <span className="portal-nav-icon"><IconAudit /></span>
+            <span className="portal-nav-label">Nhật ký & Báo cáo</span>
+          </button>
+        </nav>
 
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '22px', boxShadow: 'var(--shadow)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                  <span>QUỸ GIẢI ĐẤU & HOẠT ĐỘNG</span>
-                  <span style={{ fontSize: '20px' }}>🏆</span>
-                </div>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--brass, #C9A227)', margin: '10px 0 4px' }}>
-                  500.000.000 ₫
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                  ● Giải Vô địch Đại Nam 2026 (Đã duyệt)
-                </div>
-              </div>
+        <div className="portal-sidebar-footer">
+          <div className="portal-sys-badge">
+            <div className="portal-sys-dot" />
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '12px' }}>Mã Trường OS</div>
+              <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>v2.4 Enterprise</div>
             </div>
+          </div>
+          <Link to="/" className="portal-public-link" style={{ marginTop: '12px' }}>
+            <span>Xem trang Public</span>
+          </Link>
+        </div>
+      </aside>
 
-            {/* Bảng Cảnh báo khẩn cấp & Tóm tắt phân bổ */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '20px' }}>
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '24px', boxShadow: 'var(--shadow)' }}>
-                <h3 style={{ fontSize: '16px', color: 'var(--brass, #C9A227)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  ⚠️ Cảnh Báo Trực Ban Điều Hành
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                    <div style={{ fontWeight: 700, color: '#EF4444', fontSize: '14px' }}>🔒 Lệnh Khóa Huấn Luyện Y Tế: Ngựa "Phi Yến" (Ô A5)</div>
-                    <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                      Bác sĩ thú y đã kích hoạt khóa y tế do giãn dây chằng. HLV không thể xếp lịch thi đấu cho đến khi có xác nhận phục hồi.
-                    </div>
-                  </div>
-                  <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                    <div style={{ fontWeight: 700, color: '#F59E0B', fontSize: '14px' }}>⚠️ Theo dõi thể lực nhịp tim: Ngựa "Hắc Phong" (Ô A3)</div>
-                    <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                      Buổi tập gần nhất đạt nhịp tim 210 bpm (vượt ngưỡng cảnh báo an toàn). Đã chuyển thông báo cho Groom tăng khẩu phần điện giải.
-                    </div>
-                  </div>
-                  <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                    <div style={{ fontWeight: 700, color: '#10B981', fontSize: '14px' }}>✓ Sẵn sàng thi đấu: Ngựa "Xích Thố" (Ô A1)</div>
-                    <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                      Đạt phong độ 9.2/10, Thú y đã duyệt chứng nhận kiểm dịch, đủ điều kiện dự Vòng loại Đại Nam.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '24px', boxShadow: 'var(--shadow)' }}>
-                <h3 style={{ fontSize: '16px', color: 'var(--paper)', marginBottom: '16px' }}>
-                  📌 Quy Trình Nghiệp Vụ Tương Tác Giữa Các Vai Trò
-                </h3>
-                <div style={{ fontSize: '13.5px', color: 'var(--paper-dim)', lineHeight: 1.7 }}>
-                  <p>Hệ thống vận hành theo chu trình khép kín và tự động đối soát:</p>
-                  <ul style={{ paddingLeft: '20px', marginTop: '8px' }}>
-                    <li><b>Ban Quản lý (Admin)</b>: Cấp tài khoản, giám sát ngân sách, phân bổ ô chuồng.</li>
-                    <li><b>Thú y (Vet)</b>: Độc quyền quyền <i>Khóa / Mở khóa y tế</i> để bảo vệ tính mạng ngựa đua.</li>
-                    <li><b>HLV (Trainer)</b>: Lập giáo án và theo dõi telemetry chỉ số buổi chạy.</li>
-                    <li><b>Groom (Chăm sóc)</b>: Báo cáo bữa ăn và sự cố thực tế chuồng trại.</li>
-                    <li><b>Chủ ngựa (Owner)</b>: Theo dõi báo cáo minh bạch chi phí và kết quả giải.</li>
-                  </ul>
-                </div>
+      {/* ===================== MAIN CONTENT WRAPPER ===================== */}
+      <div className="portal-content-wrap">
+        
+        {/* TOP BAR */}
+        <header className="portal-topbar">
+          <div className="portal-topbar-left">
+            <button
+              className="portal-mobile-toggle"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Mở Menu"
+            >
+              <IconMenu />
+            </button>
+            <div className="portal-title-box">
+              <h2 className="portal-page-title">
+                {activeTab === 'overview' && 'Facility Overview'}
+                {activeTab === 'horses' && 'Quản Lý Danh Mục Chiến Mã'}
+                {activeTab === 'stables' && 'Sơ Đồ Phân Bổ Chuồng Trại'}
+                {activeTab === 'users' && 'Quản Lý Nhân Sự & RBAC'}
+                {activeTab === 'audit' && 'Nhật Ký Thao Tác Hệ Thống'}
+              </h2>
+              <div className="portal-page-subtitle">
+                {activeTab === 'overview' && 'Trung tâm giám sát tài nguyên, đàn ngựa & cơ sở vật chất'}
+                {activeTab === 'horses' && 'Giám sát mã định danh chip, hồ sơ giống & khóa y tế Thú y'}
+                {activeTab === 'stables' && 'Hiện trạng 12 ô chuồng nuôi dưỡng Block A và Block B'}
+                {activeTab === 'users' && 'Bảo mật đa tầng phân quyền 5 vai trò nhân sự'}
+                {activeTab === 'audit' && 'Kiểm toán minh bạch mọi hành vi tác nghiệp thời gian thực'}
               </div>
             </div>
           </div>
-        )}
 
-        {/* ===================== TAB 2: QUẢN LÝ NHÂN SỰ & RBAC ===================== */}
-        {activeTab === 'users' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <h2 style={{ fontSize: '20px', margin: 0, color: 'var(--paper)' }}>Danh Sách Tài Khoản & Phân Quyền RBAC</h2>
-                <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '4px 0 0' }}>
-                  Đồng bộ trực tiếp với bảng <code>Users</code> và <code>Roles</code> trong CSDL SQL Server 2019.
-                </p>
+          <div className="portal-topbar-right">
+            <ThemeToggle />
+            <div className="portal-user-badge">
+              <div className="portal-user-avatar">
+                {getInitials(currentUser?.full_name)}
               </div>
-              <button
-                onClick={() => setShowAddUserModal(true)}
-                style={{
-                  padding: '10px 20px',
-                  background: 'var(--brass, #C9A227)',
-                  color: '#14100A',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontWeight: 700,
-                  fontSize: '13.5px',
-                  cursor: 'pointer'
-                }}
-              >
-                + Thêm Nhân Sự Mới
-              </button>
+              <div className="portal-user-info">
+                <div className="portal-user-name">{currentUser?.full_name || 'Quản Trị Viên'}</div>
+                <div className="portal-user-role">{currentUser?.role_name || 'Ban Quản Trị & Quản Lý'}</div>
+              </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="portal-btn-logout"
+              title="Đăng xuất khỏi hệ thống"
+            >
+              <span>Đăng xuất</span>
+            </button>
+          </div>
+        </header>
 
-            <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', boxShadow: 'var(--shadow)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                    <th style={{ padding: '14px 18px' }}>ID</th>
-                    <th style={{ padding: '14px 18px' }}>Tài khoản / Họ Tên</th>
-                    <th style={{ padding: '14px 18px' }}>Email & Điện thoại</th>
-                    <th style={{ padding: '14px 18px' }}>Vai trò Nghiệp vụ (Role)</th>
-                    <th style={{ padding: '14px 18px' }}>Trạng thái</th>
-                    <th style={{ padding: '14px 18px' }}>Hành động</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usersList.map((u) => {
-                    const roleBadgeColor = {
-                      'MANAGER': '#EF4444',
-                      'TRAINER': '#3B82F6',
-                      'VET': '#10B981',
-                      'GROOM': '#F59E0B',
-                      'OWNER': '#8B5CF6'
-                    }[u.role] || '#9DA6A0';
+        {/* MAIN BODY PER TAB */}
+        <main className="portal-main">
 
+          {/* ===================== TAB 1: OVERVIEW ===================== */}
+          {activeTab === 'overview' && (
+            <div>
+              {/* Top Filter Bar */}
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button className="portal-pill-btn active">
+                    Tất cả cơ sở <span className="pill-count">100%</span>
+                  </button>
+                  <button className="portal-pill-btn" onClick={() => setActiveTab('horses')}>
+                    Chiến mã <span className="pill-count">{horses.length}</span>
+                  </button>
+                  <button className="portal-pill-btn" onClick={() => setActiveTab('stables')}>
+                    Ô chuồng <span className="pill-count">{stables.length}</span>
+                  </button>
+                  <button className="portal-pill-btn" onClick={() => setActiveTab('users')}>
+                    Nhân sự <span className="pill-count">{usersList.length}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '18px', marginBottom: '28px' }}>
+                <div className="facility-card" style={{ padding: '22px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 600 }}>TỔNG ĐÀN CHIẾN MÃ</span>
+                    <span style={{ color: 'var(--brass)' }}><IconHorse /></span>
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
+                    {horses.length} con
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
+                    2 Đủ điều kiện · 1 Theo dõi · 1 Tạm khóa
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '22px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 600 }}>CÔNG SUẤT CHUỒNG TRẠI</span>
+                    <span style={{ color: 'var(--brass)' }}><IconStable /></span>
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
+                    {stables.filter(s => s.status === 'OCCUPIED').length} / {stables.length} ô
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--brass)', fontWeight: 500 }}>
+                    Lấp đầy: 91.7% (1 chuồng trống)
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '22px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 600 }}>TỔNG NHÂN SỰ RBAC</span>
+                    <span style={{ color: 'var(--brass)' }}><IconUsers /></span>
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
+                    {usersList.length} tài khoản
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
+                    Phân quyền 5 nhóm chức năng
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '22px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 600 }}>QUỸ GIẢI ĐẤU & HOẠT ĐỘNG</span>
+                    <span style={{ color: 'var(--brass)' }}><IconShield /></span>
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--brass)', margin: '12px 0 6px' }}>
+                    500.000.000 ₫
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
+                    Giải Vô địch Quốc gia 2026 (Đã duyệt)
+                  </div>
+                </div>
+              </div>
+
+              {/* Status and business workflow */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px' }}>
+                <div className="facility-card" style={{ padding: '24px' }}>
+                  <h3 style={{ fontSize: '16px', color: 'var(--brass)', marginBottom: '16px', fontWeight: 600 }}>
+                    Thông Báo Trực Ban Điều Hành
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px' }}>Khóa y tế: Ngựa Phi Yến (Ô A5)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                        Bác sĩ thú y kích hoạt lệnh khóa y tế do giãn dây chằng. HLV tạm ngừng lịch tập cường độ cao.
+                      </div>
+                    </div>
+                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px' }}>Theo dõi thể lực: Ngựa Hắc Phong (Ô A3)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                        Buổi tập gần nhất đạt nhịp tim 210 bpm. Đã thông báo cho Groom bổ sung điện giải và theo dõi nhịp thở.
+                      </div>
+                    </div>
+                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--brass)', fontSize: '13px' }}>Sẵn sàng thi đấu: Ngựa Xích Thố (Ô A1)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                        Đạt phong độ tiêu chuẩn, hoàn tất kiểm định thú y và đủ điều kiện xuất trận.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '24px' }}>
+                  <h3 style={{ fontSize: '16px', color: 'var(--paper)', marginBottom: '16px', fontWeight: 600 }}>
+                    Quy Trình Nghiệp Vụ Tương Tác
+                  </h3>
+                  <div style={{ fontSize: '13.5px', color: 'var(--paper-dim)', lineHeight: 1.75 }}>
+                    <p style={{ margin: '0 0 10px' }}>Hệ thống vận hành theo chu trình khép kín và tự động đối soát:</p>
+                    <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <li><b style={{ color: 'var(--paper)' }}>Ban Quản lý (Admin)</b>: Cấp tài khoản, giám sát ngân sách, phân bổ ô chuồng.</li>
+                      <li><b style={{ color: 'var(--paper)' }}>Thú y (Vet)</b>: Độc quyền quyền <i>Khóa / Mở khóa y tế</i> để bảo vệ tính mạng ngựa đua.</li>
+                      <li><b style={{ color: 'var(--paper)' }}>HLV (Trainer)</b>: Lập giáo án và theo dõi telemetry chỉ số buổi chạy.</li>
+                      <li><b style={{ color: 'var(--paper)' }}>Groom (Chăm sóc)</b>: Báo cáo bữa ăn và sự cố thực tế chuồng trại.</li>
+                      <li><b style={{ color: 'var(--paper)' }}>Chủ ngựa (Owner)</b>: Theo dõi báo cáo minh bạch chi phí và kết quả giải.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================== TAB 2: HORSES ===================== */}
+          {activeTab === 'horses' && (
+            <div>
+              {/* Filter and View Mode Switcher */}
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button
+                    className={`portal-pill-btn ${horseFilter === 'ALL' ? 'active' : ''}`}
+                    onClick={() => setHorseFilter('ALL')}
+                  >
+                    Tất cả <span className="pill-count">{horses.length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${horseFilter === 'ELIGIBLE' ? 'active' : ''}`}
+                    onClick={() => setHorseFilter('ELIGIBLE')}
+                  >
+                    Đủ điều kiện <span className="pill-count">{horses.filter(h => h.status === 'ELIGIBLE' && !h.locked).length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${horseFilter === 'WATCH' ? 'active' : ''}`}
+                    onClick={() => setHorseFilter('WATCH')}
+                  >
+                    Cần theo dõi <span className="pill-count">{horses.filter(h => h.status === 'WATCH').length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${horseFilter === 'LOCKED' ? 'active' : ''}`}
+                    onClick={() => setHorseFilter('LOCKED')}
+                  >
+                    Khóa Y Tế <span className="pill-count">{horses.filter(h => h.locked || h.status === 'INJURED').length}</span>
+                  </button>
+                </div>
+
+                <div className="portal-view-tools">
+                  <button
+                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                    onClick={() => setViewMode('cards')}
+                  >
+                    Lưới thẻ
+                  </button>
+                  <button
+                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                  >
+                    Bảng dữ liệu
+                  </button>
+                  <button
+                    onClick={() => setShowAddHorseModal(true)}
+                    className="portal-view-btn"
+                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
+                  >
+                    + Thêm Ngựa
+                  </button>
+                </div>
+              </div>
+
+              {/* Card Grid View */}
+              {viewMode === 'cards' ? (
+                <div className="portal-cards-grid">
+                  {filteredHorses.map((h) => {
+                    const badgeClass = h.breed === 'Thoroughbred' ? 'badge-gold' : 'badge-slate';
                     return (
-                      <tr key={u.user_id} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>#{u.user_id}</td>
-                        <td style={{ padding: '14px 18px' }}>
-                          <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{u.full_name}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>@{u.username}</div>
-                        </td>
-                        <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
-                          <div>{u.email}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{u.phone}</div>
-                        </td>
-                        <td style={{ padding: '14px 18px' }}>
+                      <div key={h.id} className="facility-card">
+                        {/* Top Badge */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className={`facility-card-badge ${badgeClass}`}>
+                            <span>{h.breed.toUpperCase()}</span>
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>
+                            {h.microchip}
+                          </span>
+                        </div>
+
+                        {/* Title & Desc */}
+                        <h3 className="facility-card-title">{h.name}</h3>
+                        <p className="facility-card-desc">{h.desc}</p>
+                        
+                        <div className="facility-card-bullets">
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>Mã chip định danh: <b>{h.microchip}</b></span>
+                          </div>
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>Chuồng nuôi dưỡng: <b>Ô {h.stable}</b></span>
+                          </div>
+                        </div>
+
+                        {/* 3-column specs grid */}
+                        <div className="facility-specs-grid">
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Giới tính</span>
+                            <span className="spec-val">{h.gender.includes('đực') ? 'Đực' : h.gender.includes('thiến') ? 'Thiến' : 'Cái'}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Ô Chuồng</span>
+                            <span className="spec-val" style={{ color: 'var(--brass)', fontWeight: 700 }}>Ô {h.stable}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Chủ sở hữu</span>
+                            <span className="spec-val" style={{ fontSize: '11.5px' }}>{h.owner.split(' ').slice(-1)[0]}</span>
+                          </div>
+                        </div>
+
+                        {/* Status/Price Box */}
+                        <div className="facility-price-box">
+                          <div>
+                            <div className="price-label">Trạng thái sức khỏe</div>
+                            <div className="price-value" style={{ fontSize: '15px', color: 'var(--paper)' }}>
+                              {h.statusText}
+                            </div>
+                          </div>
                           <span style={{
-                            display: 'inline-block',
-                            padding: '4px 10px',
-                            borderRadius: '4px',
-                            fontSize: '12px',
+                            fontSize: '11px',
                             fontWeight: 600,
-                            background: `${roleBadgeColor}20`,
-                            color: roleBadgeColor,
-                            border: `1px solid ${roleBadgeColor}50`
+                            padding: '3px 7px',
+                            borderRadius: '4px',
+                            background: 'var(--bg-primary)',
+                            color: h.locked ? 'var(--paper-dim)' : 'var(--brass)',
+                            border: '1px solid var(--line)'
                           }}>
-                            {u.role_name}
+                            {h.locked ? 'TẠM KHÓA' : 'KHẢ DỤNG'}
                           </span>
-                        </td>
-                        <td style={{ padding: '14px 18px' }}>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '12.5px',
-                            color: u.status === 'ACTIVE' ? '#10B981' : '#EF4444'
-                          }}>
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: u.status === 'ACTIVE' ? '#10B981' : '#EF4444' }} />
-                            {u.status === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm khóa'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '14px 18px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="facility-card-actions">
+                          <div className="actions-left">
                             <button
-                              onClick={() => handleOpenEditUser(u)}
-                              title="Sửa thông tin nhân sự"
+                              className="facility-btn-action"
+                              onClick={() => alert(`Xem chi tiết hồ sơ mã ${h.name} (Chip: ${h.microchip})`)}
+                            >
+                              Xem chi tiết
+                            </button>
+                            <button
+                              className={`facility-btn-action ${h.locked ? 'btn-danger' : ''}`}
+                              onClick={() => handleToggleHorseLock(h.id)}
+                            >
+                              {h.locked ? 'Mở khóa' : 'Khóa y tế'}
+                            </button>
+                          </div>
+                          <button
+                            className="facility-link-action"
+                            onClick={() => alert(`Đang mở hồ sơ bệnh án thú y và chỉ số chạy của ${h.name}`)}
+                          >
+                            Chi tiết ô →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Table View */
+                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                        <th style={{ padding: '14px 18px' }}>Mã Chip / Tên Ngựa</th>
+                        <th style={{ padding: '14px 18px' }}>Giống loài & Giới tính</th>
+                        <th style={{ padding: '14px 18px' }}>Chuồng phân bổ</th>
+                        <th style={{ padding: '14px 18px' }}>Chủ sở hữu</th>
+                        <th style={{ padding: '14px 18px' }}>Trạng thái Sức khỏe</th>
+                        <th style={{ padding: '14px 18px' }}>Khóa Y Tế Thú Y</th>
+                        <th style={{ padding: '14px 18px' }}>Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredHorses.map(h => (
+                        <tr key={h.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                          <td style={{ padding: '14px 18px' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--brass)', fontSize: '15px' }}>{h.name}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>{h.microchip}</div>
+                          </td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
+                            <div>{h.breed}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{h.gender}</div>
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '4px', fontWeight: 600 }}>
+                              Ô {h.stable}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{h.owner}</td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              background: 'var(--bg-secondary)',
+                              color: 'var(--paper)',
+                              border: '1px solid var(--line)'
+                            }}>
+                              {h.statusText}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            {h.locked ? (
+                              <span style={{ color: 'var(--brass)', fontWeight: 600, fontSize: '12px' }}>
+                                Tạm khóa y tế
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>
+                                Bình thường
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <button
+                              onClick={() => handleToggleHorseLock(h.id)}
                               style={{
-                                padding: '6px 12px',
-                                background: 'rgba(201, 162, 39, 0.15)',
-                                border: '1px solid var(--brass, #C9A227)',
-                                color: 'var(--brass, #C9A227)',
+                                padding: '5px 12px',
+                                background: 'var(--bg-secondary)',
+                                border: '1px solid var(--line)',
+                                color: 'var(--paper)',
                                 borderRadius: '4px',
                                 fontSize: '12px',
                                 cursor: 'pointer',
-                                fontWeight: 600,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
+                                fontWeight: 500
                               }}
                             >
-                              ✏️ Sửa
+                              {h.locked ? 'Mở Khóa' : 'Khóa Y Tế'}
                             </button>
-                            {u.username !== 'admin' && (
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===================== TAB 3: STABLES ===================== */}
+          {activeTab === 'stables' && (
+            <div>
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button
+                    className={`portal-pill-btn ${stableFilter === 'ALL' ? 'active' : ''}`}
+                    onClick={() => setStableFilter('ALL')}
+                  >
+                    Tất cả 12 ô <span className="pill-count">{stables.length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${stableFilter === 'AVAILABLE' ? 'active' : ''}`}
+                    onClick={() => setStableFilter('AVAILABLE')}
+                  >
+                    Còn trống <span className="pill-count">{stables.filter(s => s.status === 'AVAILABLE').length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${stableFilter === 'OCCUPIED' ? 'active' : ''}`}
+                    onClick={() => setStableFilter('OCCUPIED')}
+                  >
+                    Đã lấp đầy <span className="pill-count">{stables.filter(s => s.status === 'OCCUPIED').length}</span>
+                  </button>
+                </div>
+
+                <div className="portal-view-tools">
+                  <button
+                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                    onClick={() => setViewMode('cards')}
+                  >
+                    Lưới thẻ
+                  </button>
+                  <button
+                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                  >
+                    Bảng danh sách
+                  </button>
+                </div>
+              </div>
+
+              {viewMode === 'cards' ? (
+                <div className="portal-cards-grid">
+                  {filteredStables.map(s => {
+                    const isOccupied = s.status === 'OCCUPIED';
+                    const isAvailable = s.status === 'AVAILABLE';
+                    const badgeClass = isOccupied ? 'badge-gold' : 'badge-slate';
+
+                    return (
+                      <div key={s.stall_code} className="facility-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className={`facility-card-badge ${badgeClass}`}>
+                            <span>{s.block.toUpperCase()}</span>
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 600 }}>
+                            {s.stall_code}
+                          </span>
+                        </div>
+
+                        <h3 className="facility-card-title">Ô Chuồng {s.stall_code}</h3>
+                        <p className="facility-card-desc">
+                          {isOccupied ? `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.` : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.'}
+                        </p>
+
+                        <div className="facility-card-bullets">
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>Chiến mã lưu trú: <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)' }}>{s.horse}</b></span>
+                          </div>
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>Khu chuồng: <b>{s.block}</b></span>
+                          </div>
+                        </div>
+
+                        <div className="facility-specs-grid">
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Diện tích</span>
+                            <span className="spec-val">{s.area || '14 m²'}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Kích thước</span>
+                            <span className="spec-val">{s.dim || '3.8 x 3.8m'}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Tiêu chuẩn</span>
+                            <span className="spec-val">Pro Stall</span>
+                          </div>
+                        </div>
+
+                        <div className="facility-price-box">
+                          <div>
+                            <div className="price-label">Trạng thái ô</div>
+                            <div className="price-value" style={{ fontSize: '14.5px', color: isOccupied ? 'var(--brass)' : 'var(--paper)' }}>
+                              {isOccupied ? 'Đang nuôi dưỡng' : isAvailable ? 'Còn trống sẵn sàng' : 'Đang bảo dưỡng'}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '3px 7px',
+                            borderRadius: '4px',
+                            background: 'var(--bg-primary)',
+                            color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)',
+                            border: '1px solid var(--line)'
+                          }}>
+                            {isOccupied ? 'LẤP ĐẦY' : isAvailable ? 'TRỐNG' : 'BẢO TRÌ'}
+                          </span>
+                        </div>
+
+                        <div className="facility-card-actions">
+                          <div className="actions-left">
+                            <button
+                              className="facility-btn-action"
+                              onClick={() => handleToggleStable(s.stall_code)}
+                            >
+                              Đổi trạng thái
+                            </button>
+                          </div>
+                          <span className="facility-link-action" style={{ cursor: 'default' }}>
+                            {s.block} →
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                        <th style={{ padding: '14px 18px' }}>Mã Ô Chuồng</th>
+                        <th style={{ padding: '14px 18px' }}>Khu Vực</th>
+                        <th style={{ padding: '14px 18px' }}>Chiến Mã Đang Ở</th>
+                        <th style={{ padding: '14px 18px' }}>Trạng Thái</th>
+                        <th style={{ padding: '14px 18px' }}>Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredStables.map(s => {
+                        const isOccupied = s.status === 'OCCUPIED';
+                        const isAvailable = s.status === 'AVAILABLE';
+                        return (
+                          <tr key={s.stall_code} style={{ borderBottom: '1px solid var(--line)' }}>
+                            <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>Ô {s.stall_code}</td>
+                            <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{s.block}</td>
+                            <td style={{ padding: '14px 18px', color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 600 }}>{s.horse}</td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11.5px',
+                                fontWeight: 600,
+                                background: 'var(--bg-secondary)',
+                                color: isOccupied ? 'var(--brass)' : 'var(--paper)',
+                                border: '1px solid var(--line)'
+                              }}>
+                                {isOccupied ? 'Đang dùng' : isAvailable ? 'Còn trống' : 'Bảo trì'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
                               <button
-                                onClick={() => toggleUserStatus(u.user_id)}
+                                onClick={() => handleToggleStable(s.stall_code)}
                                 style={{
-                                  padding: '6px 12px',
-                                  background: u.status === 'ACTIVE' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                                  border: `1px solid ${u.status === 'ACTIVE' ? '#EF4444' : '#10B981'}`,
-                                  color: u.status === 'ACTIVE' ? '#EF4444' : '#10B981',
+                                  padding: '5px 12px',
+                                  background: 'var(--bg-secondary)',
+                                  border: '1px solid var(--line)',
                                   borderRadius: '4px',
+                                  color: 'var(--paper)',
                                   fontSize: '12px',
                                   cursor: 'pointer'
                                 }}
                               >
-                                {u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}
+                                Đổi trạng thái
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===================== TAB 4: USERS & RBAC ===================== */}
+          {activeTab === 'users' && (
+            <div>
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button
+                    className={`portal-pill-btn ${userFilter === 'ALL' ? 'active' : ''}`}
+                    onClick={() => setUserFilter('ALL')}
+                  >
+                    Tất cả <span className="pill-count">{usersList.length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${userFilter === 'TRAINER' ? 'active' : ''}`}
+                    onClick={() => setUserFilter('TRAINER')}
+                  >
+                    Huấn Luyện Viên <span className="pill-count">{usersList.filter(u => u.role === 'TRAINER').length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${userFilter === 'VET' ? 'active' : ''}`}
+                    onClick={() => setUserFilter('VET')}
+                  >
+                    Bác Sĩ Thú Y <span className="pill-count">{usersList.filter(u => u.role === 'VET').length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${userFilter === 'GROOM' ? 'active' : ''}`}
+                    onClick={() => setUserFilter('GROOM')}
+                  >
+                    Chăm Sóc Groom <span className="pill-count">{usersList.filter(u => u.role === 'GROOM').length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${userFilter === 'OWNER' ? 'active' : ''}`}
+                    onClick={() => setUserFilter('OWNER')}
+                  >
+                    Chủ Ngựa <span className="pill-count">{usersList.filter(u => u.role === 'OWNER').length}</span>
+                  </button>
+                </div>
+
+                <div className="portal-view-tools">
+                  <button
+                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                    onClick={() => setViewMode('cards')}
+                  >
+                    Lưới thẻ
+                  </button>
+                  <button
+                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                  >
+                    Bảng danh sách
+                  </button>
+                  <button
+                    onClick={() => setShowAddUserModal(true)}
+                    className="portal-view-btn"
+                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
+                  >
+                    + Thêm Nhân Sự
+                  </button>
+                </div>
+              </div>
+
+              {viewMode === 'cards' ? (
+                <div className="portal-cards-grid">
+                  {filteredUsers.map((u) => {
+                    const roleBadgeClass = u.role === 'MANAGER' ? 'badge-gold' : 'badge-slate';
+
+                    return (
+                      <div key={u.user_id} className="facility-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className={`facility-card-badge ${roleBadgeClass}`}>
+                            <span>{u.role_name}</span>
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                            ID #{u.user_id}
+                          </span>
+                        </div>
+
+                        <h3 className="facility-card-title">{u.full_name}</h3>
+                        <p className="facility-card-desc">
+                          Tài khoản: <b style={{ color: 'var(--paper)' }}>@{u.username}</b>. Quyền hạn thao tác RBAC chuẩn hóa.
+                        </p>
+
+                        <div className="facility-card-bullets">
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>Email: <b>{u.email}</b></span>
+                          </div>
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>Hotline: <b>{u.phone || '0901234567'}</b></span>
+                          </div>
+                        </div>
+
+                        <div className="facility-specs-grid">
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Mã ID</span>
+                            <span className="spec-val">#{u.user_id}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Vai trò</span>
+                            <span className="spec-val" style={{ fontSize: '11.5px' }}>{u.role}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Trạng thái</span>
+                            <span className="spec-val" style={{ color: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)' }}>
+                              {u.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="facility-price-box">
+                          <div>
+                            <div className="price-label">Trạng thái tài khoản</div>
+                            <div className="price-value" style={{ fontSize: '14.5px', color: 'var(--paper)' }}>
+                              {u.status === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm khóa truy cập'}
+                            </div>
+                          </div>
+                          <span style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)'
+                          }} />
+                        </div>
+
+                        <div className="facility-card-actions">
+                          <div className="actions-left">
+                            <button
+                              className="facility-btn-action"
+                              onClick={() => handleOpenEditUser(u)}
+                            >
+                              Sửa
+                            </button>
+                            {u.username !== 'admin' && (
+                              <button
+                                className={`facility-btn-action ${u.status === 'ACTIVE' ? 'btn-danger' : ''}`}
+                                onClick={() => toggleUserStatus(u.user_id)}
+                              >
+                                {u.status === 'ACTIVE' ? 'Khóa' : 'Mở'}
                               </button>
                             )}
                           </div>
-                        </td>
-                      </tr>
+                          <button
+                            className="facility-link-action"
+                            onClick={() => handleOpenEditUser(u)}
+                          >
+                            Hồ sơ →
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                        <th style={{ padding: '14px 18px' }}>ID</th>
+                        <th style={{ padding: '14px 18px' }}>Tài khoản / Họ Tên</th>
+                        <th style={{ padding: '14px 18px' }}>Email & Điện thoại</th>
+                        <th style={{ padding: '14px 18px' }}>Vai trò Nghiệp vụ (Role)</th>
+                        <th style={{ padding: '14px 18px' }}>Trạng thái</th>
+                        <th style={{ padding: '14px 18px' }}>Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredUsers.map((u) => {
+                        return (
+                          <tr key={u.user_id} style={{ borderBottom: '1px solid var(--line)' }}>
+                            <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>#{u.user_id}</td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{u.full_name}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>@{u.username}</div>
+                            </td>
+                            <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
+                              <div>{u.email}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{u.phone}</div>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                background: u.role === 'MANAGER' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                                color: u.role === 'MANAGER' ? 'var(--brass)' : 'var(--paper)',
+                                border: '1px solid var(--line)'
+                              }}>
+                                {u.role_name}
+                              </span>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '12.5px',
+                                color: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)'
+                              }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)' }} />
+                                {u.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <button
+                                  onClick={() => handleOpenEditUser(u)}
+                                  title="Sửa thông tin nhân sự"
+                                  style={{
+                                    padding: '5px 12px',
+                                    background: 'var(--bg-secondary)',
+                                    border: '1px solid var(--line)',
+                                    color: 'var(--paper)',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    fontWeight: 500
+                                  }}
+                                >
+                                  Sửa
+                                </button>
+                                {u.username !== 'admin' && (
+                                  <button
+                                    onClick={() => toggleUserStatus(u.user_id)}
+                                    style={{
+                                      padding: '5px 12px',
+                                      background: 'var(--bg-secondary)',
+                                      border: '1px solid var(--line)',
+                                      color: 'var(--paper-dim)',
+                                      borderRadius: '4px',
+                                      fontSize: '12px',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    {u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ===================== TAB 3: DANH MỤC CHIẾN MÃ ===================== */}
-        {activeTab === 'horses' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <h2 style={{ fontSize: '20px', margin: 0, color: 'var(--paper)' }}>Danh Mục Quản Lý Chiến Mã Toàn Trại</h2>
-                <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '4px 0 0' }}>
-                  Giám sát mã định danh điện tử, phân bổ ô chuồng và trạng thái khóa y tế.
-                </p>
+          {/* ===================== TAB 5: AUDIT LOGS ===================== */}
+          {activeTab === 'audit' && (
+            <div>
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button className="portal-pill-btn active">
+                    Tất cả sự kiện <span className="pill-count">{auditLogs.length}</span>
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => setShowAddHorseModal(true)}
-                style={{
-                  padding: '10px 20px',
-                  background: 'var(--brass, #C9A227)',
-                  color: '#14100A',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontWeight: 700,
-                  fontSize: '13.5px',
-                  cursor: 'pointer'
-                }}
-              >
-                + Thêm Chiến Mã Mới
-              </button>
-            </div>
 
-            <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', boxShadow: 'var(--shadow)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                    <th style={{ padding: '14px 18px' }}>Mã Chip / Tên Ngựa</th>
-                    <th style={{ padding: '14px 18px' }}>Giống loài & Giới tính</th>
-                    <th style={{ padding: '14px 18px' }}>Chuồng phân bổ</th>
-                    <th style={{ padding: '14px 18px' }}>Chủ sở hữu</th>
-                    <th style={{ padding: '14px 18px' }}>Trạng thái Sức khỏe</th>
-                    <th style={{ padding: '14px 18px' }}>Khóa Y Tế Thú Y</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {horses.map(h => (
-                    <tr key={h.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                      <td style={{ padding: '14px 18px' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--brass, #C9A227)', fontSize: '15px' }}>{h.name}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>{h.microchip}</div>
-                      </td>
-                      <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
-                        <div>{h.breed}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{h.gender}</div>
-                      </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '4px', fontWeight: 600 }}>
-                          Ô {h.stable}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{h.owner}</td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          background: `${h.statusColor}20`,
-                          color: h.statusColor,
-                          border: `1px solid ${h.statusColor}40`
-                        }}>
-                          {h.statusText}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        {h.locked ? (
-                          <span style={{ color: '#EF4444', fontWeight: 700, fontSize: '12px' }}>
-                            🔒 ĐANG KHÓA BỞI THÚ Y
-                          </span>
-                        ) : (
-                          <span style={{ color: '#10B981', fontSize: '12px' }}>
-                            ✓ Bình thường
-                          </span>
-                        )}
-                      </td>
+              <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                      <th style={{ padding: '14px 18px' }}>Thời gian</th>
+                      <th style={{ padding: '14px 18px' }}>Người thực hiện</th>
+                      <th style={{ padding: '14px 18px' }}>Hành động</th>
+                      <th style={{ padding: '14px 18px' }}>Nội dung chi tiết</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {auditLogs.map(log => (
+                      <tr key={log.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', whiteSpace: 'nowrap' }}>{log.time}</td>
+                        <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{log.user}</td>
+                        <td style={{ padding: '14px 18px' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background: 'rgba(201, 162, 39, 0.15)',
+                            color: 'var(--brass, #C9A227)',
+                            border: '1px solid rgba(201, 162, 39, 0.3)'
+                          }}>
+                            {log.action}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{log.detail}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ===================== TAB 4: QUẢN LÝ CHUỒNG TRẠI ===================== */}
-        {activeTab === 'stables' && (
-          <div>
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '20px', margin: 0, color: 'var(--paper)' }}>Sơ Đồ Phân Bổ Chuồng Trại (Block A & Block B)</h2>
-              <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '4px 0 0' }}>
-                Quản lý hiện trạng 12 chuồng. Bấm vào nút hành động để chuyển trạng thái Sử dụng / Bảo trì.
-              </p>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-              {stables.map(s => {
-                const isOccupied = s.status === 'OCCUPIED';
-                const isAvailable = s.status === 'AVAILABLE';
-                return (
-                  <div key={s.stall_code} style={{
-                    background: 'var(--bg-card)',
-                    border: `1px solid ${isOccupied ? 'rgba(201, 162, 39, 0.4)' : isAvailable ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
-                    borderRadius: '8px',
-                    padding: '18px',
-                    position: 'relative',
-                    boxShadow: 'var(--shadow)'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--paper)' }}>{s.stall_code}</span>
-                      <span style={{
-                        fontSize: '10px',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        fontWeight: 700,
-                        background: isOccupied ? 'rgba(201, 162, 39, 0.2)' : isAvailable ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                        color: isOccupied ? 'var(--brass, #C9A227)' : isAvailable ? '#10B981' : '#EF4444'
-                      }}>
-                        {isOccupied ? 'ĐANG DÙNG' : isAvailable ? 'CÒN TRỐNG' : 'BẢO TRÌ'}
-                      </span>
-                    </div>
-
-                    <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{s.block}</div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: isOccupied ? 'var(--paper)' : 'var(--paper-dim)', marginTop: '6px' }}>
-                      Ngựa: {s.horse}
-                    </div>
-
-                    <button
-                      onClick={() => handleToggleStable(s.stall_code)}
-                      style={{
-                        marginTop: '12px',
-                        width: '100%',
-                        padding: '6px 0',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--line)',
-                        borderRadius: '4px',
-                        color: 'var(--paper)',
-                        fontSize: '11.5px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Đổi trạng thái
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ===================== TAB 5: NHẬT KÝ & PHÊ DUYỆT ===================== */}
-        {activeTab === 'audit' && (
-          <div>
-            <div style={{ marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '20px', margin: 0, color: 'var(--paper)' }}>Nhật Ký Thao Tác Hệ Thống (Audit Logs)</h2>
-              <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '4px 0 0' }}>
-                Ghi nhận minh bạch mọi hành động tác nghiệp của các vai trò trong toàn bộ trang trại.
-              </p>
-            </div>
-
-            <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', boxShadow: 'var(--shadow)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                    <th style={{ padding: '14px 18px' }}>Thời gian</th>
-                    <th style={{ padding: '14px 18px' }}>Người thực hiện</th>
-                    <th style={{ padding: '14px 18px' }}>Hành động</th>
-                    <th style={{ padding: '14px 18px' }}>Nội dung chi tiết</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {auditLogs.map(log => (
-                    <tr key={log.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                      <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', whiteSpace: 'nowrap' }}>{log.time}</td>
-                      <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{log.user}</td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          background: 'rgba(201, 162, 39, 0.15)',
-                          color: 'var(--brass, #C9A227)',
-                          border: '1px solid rgba(201, 162, 39, 0.3)'
-                        }}>
-                          {log.action}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{log.detail}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
+        </main>
       </div>
 
       {/* ===================== MODAL THÊM NGƯỜI DÙNG ===================== */}
@@ -819,7 +1379,7 @@ export default function AdminPage() {
           <div style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--line)',
-            borderRadius: '10px',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '480px',
             maxHeight: '90vh',
@@ -925,7 +1485,7 @@ export default function AdminPage() {
           <div style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--line)',
-            borderRadius: '10px',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '480px',
             maxHeight: '90vh',
@@ -936,9 +1496,9 @@ export default function AdminPage() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
               <h3 style={{ fontSize: '18px', margin: 0, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>✏️</span> Sửa Thông Tin Nhân Sự
+                Sửa Thông Tin Nhân Sự
               </h3>
-              <span style={{ fontSize: '12px', background: 'rgba(201, 162, 39, 0.15)', color: 'var(--brass, #C9A227)', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(201, 162, 39, 0.3)', fontWeight: 600 }}>
+              <span style={{ fontSize: '12px', background: 'rgba(201, 162, 39, 0.12)', color: 'var(--brass)', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--brass)', fontWeight: 600 }}>
                 ID: #{editUserData.user_id}
               </span>
             </div>
@@ -1029,7 +1589,7 @@ export default function AdminPage() {
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '11px', background: 'var(--brass, #C9A227)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '11px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
                   Lưu thay đổi
                 </button>
@@ -1054,7 +1614,7 @@ export default function AdminPage() {
         }}>
           <div style={{
             background: 'var(--bg-card)',
-            border: '2px solid var(--brass, #C9A227)',
+            border: '1px solid var(--brass)',
             borderRadius: '12px',
             width: '100%',
             maxWidth: '440px',
@@ -1063,8 +1623,8 @@ export default function AdminPage() {
             textAlign: 'center',
             boxShadow: 'var(--shadow)'
           }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(201, 162, 39, 0.15)', border: '1px solid var(--brass, #C9A227)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '24px' }}>
-              ⚠️
+            <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(201, 162, 39, 0.12)', border: '1px solid var(--brass)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'var(--brass)' }}>
+              <IconShield size={24} />
             </div>
             
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--paper)', marginBottom: '12px' }}>
@@ -1106,14 +1666,13 @@ export default function AdminPage() {
                 style={{
                   flex: 1.2,
                   padding: '11px',
-                  background: 'var(--brass, #C9A227)',
+                  background: 'var(--brass)',
                   border: 'none',
                   color: '#14100A',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontWeight: 700,
-                  fontSize: '13.5px',
-                  boxShadow: '0 4px 12px rgba(201, 162, 39, 0.3)'
+                  fontSize: '13.5px'
                 }}
               >
                 Có, xác nhận sửa
@@ -1139,7 +1698,7 @@ export default function AdminPage() {
           <div style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--line)',
-            borderRadius: '10px',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '480px',
             maxHeight: '90vh',
@@ -1196,7 +1755,7 @@ export default function AdminPage() {
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '10px', background: 'var(--brass, #C9A227)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
                   Lưu Chiến Mã
                 </button>

@@ -1,8 +1,8 @@
 export const ownersList = [
-  { id: 'OWN001', name: 'Nguyễn Văn Minh', farm: 'Trang trại Đông Á', avatar: '👤' },
-  { id: 'OWN002', name: 'Trần Hoàng Lâm', farm: 'CLB Đua Mã Sài Gòn', avatar: '👤' },
-  { id: 'OWN003', name: 'Nguyễn Bích Ngọc', farm: 'Ngọc Mã Stables', avatar: '👤' },
-  { id: 'OWN004', name: 'Tập đoàn Thể thao Mã Trường', farm: 'Mã Trường Corp', avatar: '🏢' }
+  { id: 'OWN001', name: 'Nguyễn Văn Minh', farm: 'Trang trại Đông Á' },
+  { id: 'OWN002', name: 'Trần Hoàng Lâm', farm: 'CLB Đua Mã Sài Gòn' },
+  { id: 'OWN003', name: 'Nguyễn Bích Ngọc', farm: 'Ngọc Mã Stables' },
+  { id: 'OWN004', name: 'Tập đoàn Thể thao Mã Trường', farm: 'Mã Trường Corp' }
 ];
 
 export const ownedHorsesData = [
@@ -94,7 +94,7 @@ export const settlementStatementsData = [
     chipId: '982-000-348-192-001',
     ownershipShare: 70,
     raceName: 'Cúp Đua Mã Mùa Thu Khai Mạc G1 (2400m)',
-    raceRank: 'HẠNG NHẤT (VÔ ĐỊCH 🏆)',
+    raceRank: 'HẠNG NHẤT (VÔ ĐỊCH)',
     totalRacePrize: 600000000, // 600M
     shareRacePrize: 420000000, // 70% = 420M
     careExpense: 25000000,     // 25M (Thức ăn, dinh dưỡng, chuồng A1)
@@ -130,7 +130,7 @@ export const settlementStatementsData = [
     chipId: '982-000-348-192-001',
     ownershipShare: 70,
     raceName: 'Giải Vô Địch Nước Rút Mở Rộng 1400m',
-    raceRank: 'HẠNG NHÌ (Á QUÂN 🥈)',
+    raceRank: 'HẠNG NHÌ (Á QUÂN)',
     totalRacePrize: 300000000,
     shareRacePrize: 210000000,
     careExpense: 24000000,
@@ -164,7 +164,7 @@ export const settlementStatementsData = [
     chipId: '982-000-348-192-002',
     ownershipShare: 30,
     raceName: 'Giải Đua Mã Trường Đường Dài 2400m',
-    raceRank: 'HẠNG NHẤT (VÔ ĐỊCH 🏆)',
+    raceRank: 'HẠNG NHẤT (VÔ ĐỊCH)',
     totalRacePrize: 450000000,
     shareRacePrize: 135000000, // 30% of 450M
     careExpense: 22000000,
@@ -200,7 +200,7 @@ export const raceHistoryLogs = [
     raceName: 'Cúp Đua Mã Mùa Thu Khai Mạc G1',
     track: 'Mặt sân cỏ Turf • 2.400 m',
     rank: '1 / 12',
-    rankBadge: 'HẠNG NHẤT 🏆',
+    rankBadge: 'HẠNG NHẤT',
     jockey: 'Nài ngựa Nguyễn Văn Hùng',
     timeRecord: '2:14.38 (Kỷ lục mùa giải)',
     prizeAmount: 600000000,
@@ -214,7 +214,7 @@ export const raceHistoryLogs = [
     raceName: 'Giải Vô Địch Nước Rút Mở Rộng',
     track: 'Mặt sân cát Sand • 1.400 m',
     rank: '2 / 10',
-    rankBadge: 'HẠNG NHÌ 🥈',
+    rankBadge: 'HẠNG NHÌ',
     jockey: 'Nài ngựa Trần Quốc Bảo',
     timeRecord: '1:21.05',
     prizeAmount: 300000000,
@@ -228,7 +228,7 @@ export const raceHistoryLogs = [
     raceName: 'Giải Đua Mã Trường Đường Dài 2400m',
     track: 'Mặt sân cỏ Turf • 2.400 m',
     rank: '1 / 8',
-    rankBadge: 'HẠNG NHẤT 🏆',
+    rankBadge: 'HẠNG NHẤT',
     jockey: 'Nài ngựa Phạm Minh Tiến',
     timeRecord: '2:16.12',
     prizeAmount: 450000000,
@@ -242,7 +242,7 @@ export const raceHistoryLogs = [
     raceName: 'Giải Đua Thử Sức Trẻ Mùa Thu 1200m',
     track: 'Mặt sân cát Sand • 1.200 m',
     rank: '1 / 10',
-    rankBadge: 'HẠNG NHẤT 🏆',
+    rankBadge: 'HẠNG NHẤT',
     jockey: 'Nài ngựa Vũ Đức Thắng',
     timeRecord: '1:09.45',
     prizeAmount: 250000000,

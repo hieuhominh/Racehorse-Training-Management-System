@@ -54,15 +54,15 @@ export default function HorseListSection() {
   const getStatusBadge = (status, label) => {
     switch (status) {
       case 'eligible':
-        return <span className="badge badge-ok">✓ {label}</span>;
+        return <span className="badge badge-gold">{label}</span>;
       case 'watch':
-        return <span className="badge badge-warn">⚠️ {label}</span>;
+        return <span className="badge badge-slate">{label}</span>;
       case 'resting':
-        return <span className="badge badge-info">💤 {label}</span>;
+        return <span className="badge badge-slate">{label}</span>;
       case 'hurt':
-        return <span className="badge badge-alert">🚑 {label}</span>;
+        return <span className="badge badge-slate">{label}</span>;
       default:
-        return <span className="badge">{label}</span>;
+        return <span className="badge badge-slate">{label}</span>;
     }
   };
 
@@ -127,7 +127,7 @@ export default function HorseListSection() {
 
             {/* General Search Input */}
             <div className="filter-group">
-              <label htmlFor="general-search-input">🔍 Tìm theo tên / giống / chủ sở hữu:</label>
+              <label htmlFor="general-search-input">Tìm theo tên / giống / chủ sở hữu:</label>
               <input
                 id="general-search-input"
                 type="text"
@@ -140,7 +140,7 @@ export default function HorseListSection() {
 
             {/* Status Select Filter */}
             <div className="filter-group">
-              <label htmlFor="status-select">⚡ Trạng thái thể lực:</label>
+              <label htmlFor="status-select">Trạng thái thể lực:</label>
               <select
                 id="status-select"
                 value={selectedStatus}
@@ -165,7 +165,7 @@ export default function HorseListSection() {
                   onClick={() => setViewMode('cards')}
                   title="Hiển thị dạng thẻ 100% khung hình"
                 >
-                  ☷ Thẻ Thao Tác
+                  Thẻ Thao Tác
                 </button>
                 <button
                   type="button"
@@ -173,7 +173,7 @@ export default function HorseListSection() {
                   onClick={() => setViewMode('table')}
                   title="Hiển thị dạng bảng thu gọn"
                 >
-                  ☰ Bảng Thu Gọn
+                  Bảng Thu Gọn
                 </button>
               </div>
             </div>
@@ -206,7 +206,7 @@ export default function HorseListSection() {
             
             {(searchChip || searchQuery || selectedStatus !== 'all') && (
               <button type="button" className="btn-reset-filters" onClick={handleResetFilters}>
-                🔄 Xóa bộ lọc
+                Xóa bộ lọc
               </button>
             )}
 
@@ -219,7 +219,6 @@ export default function HorseListSection() {
         {/* Main Content Area */}
         {filteredHorses.length === 0 ? (
           <div className="no-results-card">
-            <div className="no-results-icon">🐎🔍</div>
             <h3>Không tìm thấy chiến mã phù hợp</h3>
             <p>
               Không tìm thấy hồ sơ ngựa trùng khớp với mã chip "<strong>{searchChip}</strong>" hoặc từ khóa tìm kiếm.
@@ -269,7 +268,7 @@ export default function HorseListSection() {
                   </div>
 
                   <div className="card-owner-info-strip">
-                    <span className="owner-title">👤 Chủ sở hữu:</span>
+                    <span className="owner-title">Chủ sở hữu:</span>
                     <span className="owner-val">{horse.owner}</span>
                   </div>
 
@@ -285,14 +284,14 @@ export default function HorseListSection() {
                     className="btn-pedigree-action btn-full-pedigree"
                     onClick={() => setActiveHorseForPedigree(horse)}
                   >
-                    🌳 Cây dòng dõi 3 đời
+                    Cây dòng dõi 3 đời
                   </button>
                   <button
                     type="button"
                     className="btn-profile-preview btn-full-profile"
                     onClick={() => setDetailModalHorse(horse)}
                   >
-                    📋 Hồ sơ chi tiết
+                    Hồ sơ chi tiết
                   </button>
                 </div>
               </div>
@@ -341,7 +340,7 @@ export default function HorseListSection() {
                     {/* Col 3: Owner & Status */}
                     <td>
                       <div className="compact-owner-box">
-                        <div className="owner-name-text">👤 {horse.owner}</div>
+                        <div className="owner-name-text">{horse.owner}</div>
                         <div className="status-badge-wrap">
                           {getStatusBadge(horse.status, horse.statusLabel)}
                         </div>
@@ -357,7 +356,7 @@ export default function HorseListSection() {
                           onClick={() => setActiveHorseForPedigree(horse)}
                           title="Xem sơ đồ cây phả hệ 3 đời"
                         >
-                          🌳 Cây dòng dõi
+                          Cây dòng dõi
                         </button>
                         <button
                           type="button"
@@ -365,7 +364,7 @@ export default function HorseListSection() {
                           onClick={() => setDetailModalHorse(horse)}
                           title="Xem tóm tắt hồ sơ"
                         >
-                          📋 Hồ sơ
+                          Hồ sơ
                         </button>
                       </div>
                     </td>
@@ -382,7 +381,7 @@ export default function HorseListSection() {
             <div className="modal-container profile-preview-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>HỒ SƠ CHI TIẾT CHIẾN MÃ - {detailModalHorse.name}</h3>
-                <button type="button" className="close-btn" onClick={() => setDetailModalHorse(null)}>✕</button>
+                <button type="button" className="close-btn" onClick={() => setDetailModalHorse(null)}>&times;</button>
               </div>
               <div className="modal-body profile-preview-body">
                 <div className="profile-preview-grid">
@@ -413,7 +412,7 @@ export default function HorseListSection() {
                     setActiveHorseForPedigree(h);
                   }}
                 >
-                  🌳 Mở cây phả hệ 3 đời của {detailModalHorse.name}
+                  Mở cây phả hệ 3 đời của {detailModalHorse.name}
                 </button>
               </div>
             </div>

@@ -39,10 +39,10 @@ export default function StableSection() {
               })}
             </div>
             <div className="legend">
-              <span><i style={{ background: 'var(--ok)' }}></i>Đủ điều kiện</span>
-              <span><i style={{ background: 'var(--brass)' }}></i>Cần theo dõi</span>
-              <span><i style={{ background: 'var(--alert)' }}></i>Chấn thương</span>
-              <span><i style={{ background: '#6F7BA8' }}></i>Cách ly</span>
+              <span><i style={{ background: 'var(--brass)' }}></i>Đủ điều kiện</span>
+              <span><i style={{ background: 'var(--paper-dim)' }}></i>Cần theo dõi</span>
+              <span><i style={{ background: 'var(--paper-muted)' }}></i>Chấn thương</span>
+              <span><i style={{ background: 'var(--line-strong)' }}></i>Cách ly</span>
             </div>
 
             {selectedStall && (

@@ -4,6 +4,43 @@ import { initialStallsData } from '../data/stallsData';
 import CtaBand from '../components/CtaBand';
 import IncidentReportModal from '../components/IncidentReportModal';
 
+// Clean Minimalist SVGs
+function IconStall() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+      <polyline points="9 22 9 12 15 12 15 22"></polyline>
+    </svg>
+  );
+}
+
+function IconCheck() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  );
+}
+
+function IconAlert() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+  );
+}
+
+function IconClipboard() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+    </svg>
+  );
+}
+
 export default function StablesPage({ onOpenAuth }) {
   const [stalls, setStalls] = useState(initialStallsData);
   const [selectedZone, setSelectedZone] = useState('ALL'); // 'ALL' | 'A' | 'B'
@@ -21,7 +58,7 @@ export default function StablesPage({ onOpenAuth }) {
       stallCode: 'A3',
       horseName: 'Hắc Phong',
       chipId: '982-000-348-192-003',
-      symptoms: ['🥣 Ngựa bỏ ăn', '🌡️ Có dấu hiệu đau bụng / Sốt'],
+      symptoms: ['Ngựa bỏ ăn', 'Có dấu hiệu đau bụng / Sốt'],
       severity: 'HIGH',
       description: 'Hắc Phong bỏ 2/3 khẩu phần cỏ Alfalfa buổi trưa, thở nhanh và dậm chân liên tục. Thân nhiệt 38.8°C, nghi ngờ đau bụng nhẹ (Colic).',
       imageUrl: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=600&q=80',
@@ -34,7 +71,7 @@ export default function StablesPage({ onOpenAuth }) {
       stallCode: 'B4',
       horseName: 'Phi Vân',
       chipId: '982-000-348-192-010',
-      symptoms: ['🪵 Móng bị xước / Rạn guốc'],
+      symptoms: ['Móng bị xước / Rạn guốc'],
       severity: 'MEDIUM',
       description: 'Phát hiện vết rạn móng nhẹ ở guốc sau phải sau buổi tập trên sân cát. Đã làm sạch móng, ngâm đá & chờ Thú y kiểm tra.',
       imageUrl: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=600&q=80',
@@ -135,7 +172,7 @@ export default function StablesPage({ onOpenAuth }) {
     }
 
     // Trigger feedback Toast notification
-    setToastAlert(`🚨 BÁO ĐỘNG SỰ CỐ CHUỒNG ${newIncident.stallCode}: Đã gửi thông báo tới Bác sĩ Thú y trực & HLV trưởng!`);
+    setToastAlert(`BÁO ĐỘNG SỰ CỐ CHUỒNG ${newIncident.stallCode}: Đã gửi thông báo tới Bác sĩ Thú y trực & HLV trưởng.`);
     setTimeout(() => {
       setToastAlert(null);
     }, 6000);
@@ -144,17 +181,17 @@ export default function StablesPage({ onOpenAuth }) {
   const getStatusBadge = (status, label) => {
     switch (status) {
       case 'eligible':
-        return <span className="badge badge-ok">✓ {label}</span>;
+        return <span className="badge badge-gold">{label}</span>;
       case 'watch':
-        return <span className="badge badge-warn">⚠️ {label}</span>;
+        return <span className="badge badge-slate">{label}</span>;
       case 'hurt':
-        return <span className="badge badge-alert">🚑 {label}</span>;
+        return <span className="badge badge-slate">{label}</span>;
       case 'quar':
-        return <span className="badge badge-quar">☣️ {label}</span>;
+        return <span className="badge badge-slate">{label}</span>;
       case 'empty':
-        return <span className="badge badge-empty">⚪ {label}</span>;
+        return <span className="badge badge-slate">{label}</span>;
       default:
-        return <span className="badge">{label}</span>;
+        return <span className="badge badge-slate">{label}</span>;
     }
   };
 
@@ -162,12 +199,16 @@ export default function StablesPage({ onOpenAuth }) {
     <main className="page-content stables-page-wrapper">
       {/* Toast Alert Popup */}
       {toastAlert && (
-        <div className="emergency-toast-banner">
-          <div className="toast-content">
-            <span className="toast-icon">🔔</span>
+        <div className="emergency-toast-banner" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--brass)' }}>
+          <div className="toast-content" style={{ color: 'var(--brass)' }}>
             <span>{toastAlert}</span>
           </div>
-          <button type="button" className="toast-close-btn" onClick={() => setToastAlert(null)}>✕</button>
+          <button type="button" className="toast-close-btn" onClick={() => setToastAlert(null)} aria-label="Đóng">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
       )}
 
@@ -182,7 +223,7 @@ export default function StablesPage({ onOpenAuth }) {
 
           <div className="banner-flex">
             <div>
-              <span className="badge badge-gold">FLOW 04 • QUẢN LÝ CHUỒNG TRẠI & GROOM</span>
+              <span className="badge badge-gold">QUẢN LÝ CHUỒNG TRẠI & GROOM</span>
               <h1 className="banner-title">SƠ ĐỒ CHUỒNG & CHECKLIST HẰNG NGÀY</h1>
               <p className="banner-desc">
                 Phân bổ vị trí 12 ô chuồng (A1-A6, B1-B6), theo dõi khẩu phần ăn, lịch ngâm đá, <strong>tick hoàn thành checklist công việc của Groom</strong> và <strong>báo cáo sự cố đột xuất (bỏ ăn, sốt, xước móng) kèm ảnh chụp thực tế</strong>.
@@ -193,19 +234,19 @@ export default function StablesPage({ onOpenAuth }) {
             <div className="banner-actions-column">
               <button
                 type="button"
-                className="btn btn-emergency-pulse"
+                className="btn btn-solid"
                 onClick={() => setIsIncidentModalOpen(true)}
               >
-                🚨 BÁO CÁO SỰ CỐ ĐỘT XUẤT TẠI CHUỒNG
+                BÁO CÁO SỰ CỐ TẠI CHUỒNG
               </button>
 
               <div className="groom-progress-card">
                 <div className="progress-top-row">
-                  <span className="progress-title">⚡ TIẾN ĐỘ CHECKLIST GROOM HÔM NAY</span>
-                  <span className="progress-percent">{overallProgress}%</span>
+                  <span className="progress-title">TIẾN ĐỘ CHECKLIST GROOM HÔM NAY</span>
+                  <span className="progress-percent" style={{ color: 'var(--brass)' }}>{overallProgress}%</span>
                 </div>
                 <div className="progress-bar-bg">
-                  <div className="progress-bar-fill" style={{ width: `${overallProgress}%` }}></div>
+                  <div className="progress-bar-fill" style={{ width: `${overallProgress}%`, background: 'var(--brass)' }}></div>
                 </div>
                 <div className="progress-sub">
                   Đã hoàn thành kiểm tra vệ sinh, ngâm đá & cho ăn toàn khu chuồng trại.
@@ -217,7 +258,7 @@ export default function StablesPage({ onOpenAuth }) {
           {/* Quick Stall Status Telemetry Cards */}
           <div className="financial-summary-grid stall-telemetry-grid">
             <div className="fin-card">
-              <div className="fin-icon green-icon">🏠</div>
+              <div className="fin-icon gold-icon"><IconStall /></div>
               <div>
                 <span className="fin-label">Chuồng đang sử dụng</span>
                 <span className="fin-val">11 / 12 Chuồng</span>
@@ -225,7 +266,7 @@ export default function StablesPage({ onOpenAuth }) {
             </div>
 
             <div className="fin-card">
-              <div className="fin-icon gold-icon">✓</div>
+              <div className="fin-icon gold-icon"><IconCheck /></div>
               <div>
                 <span className="fin-label">Chiến mã đủ điều kiện</span>
                 <span className="fin-val gold-text">7 Chuồng</span>
@@ -233,18 +274,18 @@ export default function StablesPage({ onOpenAuth }) {
             </div>
 
             <div className="fin-card">
-              <div className="fin-icon alert-icon">⚠️</div>
+              <div className="fin-icon slate-icon"><IconAlert /></div>
               <div>
                 <span className="fin-label">Cần theo dõi & Y tế</span>
-                <span className="fin-val alert-text">3 Chuồng (A3, A5, B4)</span>
+                <span className="fin-val">3 Chuồng (A3, A5, B4)</span>
               </div>
             </div>
 
             <div className="fin-card">
-              <div className="fin-icon quar-icon">☣️</div>
+              <div className="fin-icon slate-icon"><IconClipboard /></div>
               <div>
                 <span className="fin-label">Sự cố ghi nhận hôm nay</span>
-                <span className="fin-val quar-text">{incidentsList.length} Ca sự cố</span>
+                <span className="fin-val">{incidentsList.length} Ca sự cố</span>
               </div>
             </div>
           </div>
@@ -301,10 +342,10 @@ export default function StablesPage({ onOpenAuth }) {
 
               <button
                 type="button"
-                className="btn btn-solid btn-emergency-header"
+                className="btn btn-ghost btn-sm"
                 onClick={() => setIsIncidentModalOpen(true)}
               >
-                🚨 Báo sự cố khẩn
+                Báo sự cố khẩn cấp
               </button>
             </div>
           </div>
@@ -315,7 +356,7 @@ export default function StablesPage({ onOpenAuth }) {
             <div className="stalls-map-container">
               <div className="map-header">
                 <h3>SƠ ĐỒ VỊ TRÍ CHUỒNG TRẠI (A1 - A6, B1 - B6)</h3>
-                <span className="map-hint">💡 Bấm chọn ô chuồng để xem lịch trình & tick checklist</span>
+                <span className="map-hint">Bấm chọn ô chuồng để xem lịch trình & tick checklist</span>
               </div>
 
               <div className="stalls-grid">
@@ -346,10 +387,10 @@ export default function StablesPage({ onOpenAuth }) {
                       </div>
 
                       <div className="stall-card-bottom">
-                        <span className="groom-tag">👤 {stall.groom.split(' ')[0]}</span>
+                        <span className="groom-tag">{stall.groom.split(' ')[0]}</span>
                         {stallIncidents.length > 0 ? (
-                          <span className="incident-badge-mini">
-                            🚨 {stallIncidents.length} Sự cố
+                          <span className="incident-badge-mini" style={{ color: 'var(--brass)' }}>
+                            {stallIncidents.length} Sự cố
                           </span>
                         ) : (
                           stall.status !== 'empty' && (
@@ -378,7 +419,7 @@ export default function StablesPage({ onOpenAuth }) {
                       className="btn-report-this-stall"
                       onClick={() => setIsIncidentModalOpen(true)}
                     >
-                      🚨 Báo sự cố chuồng {activeStall.code}
+                      Báo sự cố chuồng {activeStall.code}
                     </button>
                   </div>
                 </div>
@@ -400,7 +441,6 @@ export default function StablesPage({ onOpenAuth }) {
 
               {activeStall.status === 'empty' ? (
                 <div className="empty-stall-notice">
-                  <div className="notice-icon">⚪</div>
                   <h3>CHUỒNG TRỐNG ({activeStall.code})</h3>
                   <p>Hiện chưa phân bổ chiến mã vào ô chuồng này. Đã hoàn thành dọn dẹp khử trùng định kỳ.</p>
                 </div>
@@ -408,7 +448,7 @@ export default function StablesPage({ onOpenAuth }) {
                 <>
                   {/* Feed & Diet Specification Box */}
                   <div className="diet-spec-card">
-                    <div className="diet-title">🥣 KHẨU PHẦN ĂN & DINH DƯỠNG TRONG NGÀY</div>
+                    <div className="diet-title">KHẨU PHẦN ĂN & DINH DƯỠNG TRONG NGÀY</div>
                     <p className="diet-content">{activeStall.feedDiet}</p>
                   </div>
 
@@ -416,7 +456,7 @@ export default function StablesPage({ onOpenAuth }) {
                   <div className="groom-checklist-card">
                     <div className="checklist-card-header">
                       <div>
-                        <h3>📋 CHECKLIST CÔNG VIỆC CỦA GROOM (TICK HOÀN THÀNH)</h3>
+                        <h3>CHECKLIST CÔNG VIỆC CỦA GROOM (HOÀN THÀNH HẰNG NGÀY)</h3>
                         <p>Đánh dấu các công việc chăm sóc đã thực hiện cho chuồng {activeStall.code}.</p>
                       </div>
                       <button
@@ -424,7 +464,7 @@ export default function StablesPage({ onOpenAuth }) {
                         className="btn btn-solid btn-sm"
                         onClick={() => handleCompleteAllForStall(activeStall.code)}
                       >
-                        ✓ Tick tất cả
+                        Tick tất cả
                       </button>
                     </div>
 
@@ -439,7 +479,7 @@ export default function StablesPage({ onOpenAuth }) {
                         />
                         <span className="checkbox-custom"></span>
                         <div className="item-text-group">
-                          <strong>🥣 Cho ăn sáng (05:30)</strong>
+                          <strong>Cho ăn sáng (05:30)</strong>
                           <small>Khẩu phần ngũ cốc, cỏ Alfalfa & điện giải</small>
                         </div>
                       </label>
@@ -454,7 +494,7 @@ export default function StablesPage({ onOpenAuth }) {
                         />
                         <span className="checkbox-custom"></span>
                         <div className="item-text-group">
-                          <strong>🧹 Dọn vệ sinh & Rải đệm chuồng</strong>
+                          <strong>Dọn vệ sinh & Rải đệm chuồng</strong>
                           <small>Thu dọn rơm cũ, lau vách & sát trùng chuồng {activeStall.code}</small>
                         </div>
                       </label>
@@ -469,7 +509,7 @@ export default function StablesPage({ onOpenAuth }) {
                         />
                         <span className="checkbox-custom"></span>
                         <div className="item-text-group">
-                          <strong>🧊 Ngâm chân nước đá & Tắm rửa (08:00)</strong>
+                          <strong>Ngâm chân nước đá & Tắm rửa (08:00)</strong>
                           <small>Tắm mát sau buổi tập, chải lông đuôi & ngâm chân đá 20 phút</small>
                         </div>
                       </label>
@@ -484,7 +524,7 @@ export default function StablesPage({ onOpenAuth }) {
                         />
                         <span className="checkbox-custom"></span>
                         <div className="item-text-group">
-                          <strong>💊 Uống Vitamin / Thuốc theo đơn thú y</strong>
+                          <strong>Uống Vitamin / Thuốc theo đơn thú y</strong>
                           <small>Kiểm tra móng, bôi khoáng & bổ sung vi chất dinh dưỡng</small>
                         </div>
                       </label>
@@ -499,7 +539,7 @@ export default function StablesPage({ onOpenAuth }) {
                         />
                         <span className="checkbox-custom"></span>
                         <div className="item-text-group">
-                          <strong>🥣 Cho ăn chiều & Kiểm tra tổng thể (17:30)</strong>
+                          <strong>Cho ăn chiều & Kiểm tra tổng thể (17:30)</strong>
                           <small>Bổ sung cỏ khô, kiểm tra cửa chuồng & chốt khóa an toàn</small>
                         </div>
                       </label>
@@ -509,7 +549,7 @@ export default function StablesPage({ onOpenAuth }) {
                   {/* DAILY ROUTINE TIMELINE */}
                   <div className="daily-routine-card">
                     <div className="routine-header">
-                      <h3>⏰ LỊCH TRÌNH SINH HOẠT HẰNG NGÀY ({activeStall.horse})</h3>
+                      <h3>LỊCH TRÌNH SINH HOẠT HẰNG NGÀY ({activeStall.horse})</h3>
                     </div>
 
                     <div className="timeline-list">
@@ -517,14 +557,14 @@ export default function StablesPage({ onOpenAuth }) {
                         <div key={idx} className={`timeline-item ${item.done ? 'timeline-done' : ''}`}>
                           <div className="timeline-time">{item.time}</div>
                           <div className="timeline-dot-connector">
-                            <span className="t-dot"></span>
+                            <span className="t-dot" style={{ background: item.done ? 'var(--brass)' : 'var(--line-strong)' }}></span>
                           </div>
                           <div className="timeline-content">
                             <span className="t-title">{item.title}</span>
                             {item.done ? (
-                              <span className="t-status done">✓ Đã hoàn thành</span>
+                              <span className="t-status done" style={{ color: 'var(--brass)' }}>Đã hoàn thành</span>
                             ) : (
-                              <span className="t-status pending">⏳ Đang chờ thực hiện</span>
+                              <span className="t-status pending" style={{ color: 'var(--paper-dim)' }}>Đang chờ thực hiện</span>
                             )}
                           </div>
                         </div>
@@ -540,14 +580,14 @@ export default function StablesPage({ onOpenAuth }) {
           <div className="incidents-history-section">
             <div className="incidents-section-header">
               <div>
-                <span className="badge badge-alert">NHẬT KÝ & CẢNH BÁO</span>
-                <h2>📌 NHẬT KÝ BÁO CÁO SỰ CỐ TẠI CHUỒNG (GROOM & THÚ Y TRỰC)</h2>
+                <span className="badge badge-slate">NHẬT KÝ & CẢNH BÁO</span>
+                <h2>NHẬT KÝ BÁO CÁO SỰ CỐ TẠI CHUỒNG (GROOM & THÚ Y TRỰC)</h2>
                 <p>Tổng hợp tất cả các sự cố đột xuất (bỏ ăn, sốt, xước móng, đau gân) kèm hình ảnh thực tế do Groom báo cáo.</p>
               </div>
 
               <button
                 type="button"
-                className="btn btn-solid btn-emergency-pulse"
+                className="btn btn-solid"
                 onClick={() => setIsIncidentModalOpen(true)}
               >
                 + BÁO CÁO SỰ CỐ MỚI
@@ -556,21 +596,21 @@ export default function StablesPage({ onOpenAuth }) {
 
             <div className="incidents-cards-grid">
               {incidentsList.map((inc) => (
-                <div key={inc.id} className="incident-card">
+                <div key={inc.id} className="incident-card" style={{ border: '1px solid var(--line)', background: 'var(--bg-secondary)' }}>
                   <div className="incident-card-top">
                     <div className="inc-stall-tag">
-                      <span className="inc-code">CHUỒNG {inc.stallCode}</span>
+                      <span className="inc-code" style={{ color: 'var(--brass)' }}>CHUỒNG {inc.stallCode}</span>
                       <span className="inc-horse-name">{inc.horseName}</span>
                     </div>
-                    <span className={`inc-severity-badge severity-${inc.severity.toLowerCase()}`}>
-                      {inc.severity === 'HIGH' || inc.severity === 'CRITICAL' ? '🔴 RẤT KHẨN CẤP' : '🟧 KHẨN CẤP'}
+                    <span className="badge badge-slate">
+                      {inc.severity === 'HIGH' || inc.severity === 'CRITICAL' ? 'RẤT KHẨN CẤP' : 'KHẨN CẤP'}
                     </span>
                   </div>
 
                   <div className="incident-card-body">
                     <div className="inc-symptoms-list">
                       {inc.symptoms.map((sym, sIdx) => (
-                        <span key={sIdx} className="symptom-tag-pill">{sym}</span>
+                        <span key={sIdx} className="symptom-tag-pill" style={{ background: 'var(--line)', color: 'var(--paper)' }}>{sym}</span>
                       ))}
                     </div>
 
@@ -579,19 +619,19 @@ export default function StablesPage({ onOpenAuth }) {
                     {inc.imageUrl && (
                       <div className="inc-image-frame">
                         <img src={inc.imageUrl} alt="Ảnh thực tế sự cố tại chuồng" className="inc-actual-photo" />
-                        <span className="inc-image-caption">📸 Ảnh chụp thực tế từ khu chuồng</span>
+                        <span className="inc-image-caption">Ảnh chụp thực tế từ khu chuồng</span>
                       </div>
                     )}
                   </div>
 
                   <div className="incident-card-footer">
                     <div className="inc-meta-info">
-                      <span className="inc-reporter">👤 {inc.reportedBy}</span>
-                      <span className="inc-time">🕒 {inc.timestamp}</span>
+                      <span className="inc-reporter">{inc.reportedBy}</span>
+                      <span className="inc-time">{inc.timestamp}</span>
                     </div>
 
-                    <span className="inc-status-tag">
-                      ⏳ Đang chờ Thú y trực xử lý
+                    <span className="inc-status-tag" style={{ color: 'var(--paper-dim)' }}>
+                      Đang chờ Thú y trực xử lý
                     </span>
                   </div>
                 </div>

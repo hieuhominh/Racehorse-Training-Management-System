@@ -3,6 +3,58 @@ import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 
+// Minimalist, high-end SVG icons (0 emojis, strict professional aesthetic)
+const IconHorse = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 19l2-7 4-1 3-5h4l-2 5 4 3-1 4-3 1-2 5-3-1-1-4z" />
+  </svg>
+);
+
+const IconOverview = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="9" rx="1" />
+    <rect x="14" y="3" width="7" height="5" rx="1" />
+    <rect x="14" y="12" width="7" height="9" rx="1" />
+    <rect x="3" y="16" width="7" height="5" rx="1" />
+  </svg>
+);
+
+const IconClipboard = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+  </svg>
+);
+
+const IconTimer = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const IconStar = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+);
+
+const IconGlobe = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="2" y1="12" x2="22" y2="12" />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z" />
+  </svg>
+);
+
+const IconMenu = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
+
 export default function TrainerPage() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -13,6 +65,8 @@ export default function TrainerPage() {
   };
 
   const [activeTab, setActiveTab] = useState('vitals'); // 'vitals' | 'programs' | 'sessions' | 'review'
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
 
   // 1. Danh sách chiến mã quản lý huấn luyện
   const [trainerHorses, setTrainerHorses] = useState([
@@ -25,12 +79,12 @@ export default function TrainerPage() {
       age: '4 tuổi',
       status: 'WATCH',
       statusText: 'Cần theo dõi',
-      statusColor: '#F59E0B',
       isLockedByVet: false,
       avgHeartRate: 118,
       maxSpeed: 64.5,
       totalDistanceKm: 184,
-      condition: '92%'
+      condition: '92%',
+      desc: 'Chiến mã cự ly 1.600m, đang tập thích ứng nhịp chạy nước rút cao.'
     },
     {
       id: 2,
@@ -41,12 +95,12 @@ export default function TrainerPage() {
       age: '5 tuổi',
       status: 'READY',
       statusText: 'Sẵn sàng thi đấu',
-      statusColor: '#10B981',
       isLockedByVet: false,
       avgHeartRate: 108,
       maxSpeed: 68.2,
       totalDistanceKm: 260,
-      condition: '98%'
+      condition: '98%',
+      desc: 'Phong độ đỉnh cao, thể lực ổn định ở cự ly 2.400m sân cỏ.'
     },
     {
       id: 3,
@@ -57,13 +111,13 @@ export default function TrainerPage() {
       age: '3 tuổi',
       status: 'INJURED',
       statusText: 'Khóa tập bởi Thú y',
-      statusColor: '#EF4444',
       isLockedByVet: true,
       vetNotice: 'Giãn gân chân trái - Cấm bài tập chạy nước rút và tải nặng!',
       avgHeartRate: 136,
       maxSpeed: 42.0,
       totalDistanceKm: 98,
-      condition: '58%'
+      condition: '58%',
+      desc: 'Đang theo phác đồ vật lý trị liệu & đi bộ thả lỏng theo lệnh Bác sĩ Thú y.'
     },
     {
       id: 4,
@@ -74,12 +128,12 @@ export default function TrainerPage() {
       age: '4 tuổi',
       status: 'WATCH',
       statusText: 'Cách ly theo dõi',
-      statusColor: '#8B5CF6',
       isLockedByVet: false,
       avgHeartRate: 122,
       maxSpeed: 59.8,
       totalDistanceKm: 142,
-      condition: '84%'
+      condition: '84%',
+      desc: 'Chiến mã cơ bắp, đang rèn kỹ thuật xuất phát máy và chuyển làn an toàn.'
     },
     {
       id: 5,
@@ -90,12 +144,12 @@ export default function TrainerPage() {
       age: '2 tuổi',
       status: 'READY',
       statusText: 'Đang phát triển tốt',
-      statusColor: '#10B981',
       isLockedByVet: false,
       avgHeartRate: 112,
       maxSpeed: 62.0,
       totalDistanceKm: 115,
-      condition: '90%'
+      condition: '90%',
+      desc: 'Chiến mã trẻ tiếp thu nhanh, thể lực phát triển vượt kỳ vọng.'
     }
   ]);
 
@@ -158,7 +212,7 @@ export default function TrainerPage() {
       avgSpeed: 64.2,
       maxHeartRate: 198,
       isOverLimit: false,
-      status: 'COMPLETED', // Hoàn thành
+      status: 'COMPLETED',
       score: 9.5,
       feedback: 'Sải chân cực kỳ đều đặn, nhịp thở ổn định khi qua khúc cua số 3, hoàn thành xuất sắc bài tập.'
     },
@@ -169,9 +223,9 @@ export default function TrainerPage() {
       programTitle: 'Tăng tốc nước rút 1.600m sân cát',
       distanceRun: 1600,
       avgSpeed: 62.8,
-      maxHeartRate: 216, // Vượt ngưỡng an toàn 210 bpm!
+      maxHeartRate: 216,
       isOverLimit: true,
-      status: 'INCOMPLETE', // Không hoàn thành
+      status: 'INCOMPLETE',
       score: 6.5,
       feedback: 'Tăng tốc tốt ở 400m cuối nhưng nhịp tim lên 216 bpm vượt ngưỡng. Đã cho dừng sớm để bảo đảm an toàn cơ bắp.'
     },
@@ -184,7 +238,7 @@ export default function TrainerPage() {
       avgSpeed: 58.0,
       maxHeartRate: 192,
       isOverLimit: false,
-      status: 'COMPLETED', // Hoàn thành
+      status: 'COMPLETED',
       score: 8.8,
       feedback: 'Chiến mã trẻ tiếp thu bài rất nhanh, giữ thẳng lái tốt khi gặp áp lực bên cánh phải.'
     },
@@ -197,7 +251,7 @@ export default function TrainerPage() {
       avgSpeed: 38.5,
       maxHeartRate: 165,
       isOverLimit: false,
-      status: 'COMPLETED', // Hoàn thành
+      status: 'COMPLETED',
       score: 7.0,
       feedback: 'Bài đi bộ thả lỏng theo đúng phác đồ bác sĩ thú y. Khớp gối trái đã bớt sưng đỏ.'
     }
@@ -264,7 +318,7 @@ export default function TrainerPage() {
       status: 'ACTIVE'
     };
     setPrograms([newProg, ...programs]);
-    showToast(`✓ Đã tạo giáo án mới cho ${newProgramData.horseName}`);
+    showToast(`Đã tạo giáo án mới cho ${newProgramData.horseName}`);
     setShowAddProgramModal(false);
     setNewProgramData({
       title: '',
@@ -297,7 +351,7 @@ export default function TrainerPage() {
       feedback: newSessionData.feedback || 'Hoàn thành buổi tập theo kế hoạch đề ra.'
     };
     setSessions([newSess, ...sessions]);
-    showToast(`✓ Đã lưu bài tập mới cho ${newSessionData.horseName} (${newSess.status === 'COMPLETED' ? 'Hoàn thành' : 'Chưa hoàn thành'})`);
+    showToast(`Đã lưu bài tập mới cho ${newSessionData.horseName} (${newSess.status === 'COMPLETED' ? 'Hoàn thành' : 'Chưa hoàn thành'})`);
     setShowAddSessionModal(false);
     setNewSessionData({
       horseName: 'Hắc Phong',
@@ -317,7 +371,7 @@ export default function TrainerPage() {
       if (s.id === sessionId) {
         const nextStatus = s.status === 'COMPLETED' ? 'INCOMPLETE' : 'COMPLETED';
         const statusText = nextStatus === 'COMPLETED' ? 'Hoàn thành' : 'Không hoàn thành';
-        showToast(`✓ Đã đổi bài tập của ${s.horseName} sang: ${statusText}`);
+        showToast(`Đã đổi bài tập của ${s.horseName} sang: ${statusText}`);
         return { ...s, status: nextStatus };
       }
       return s;
@@ -346,795 +400,913 @@ export default function TrainerPage() {
       feedback: selectedSession.feedback
     } : s));
     const statusText = selectedSession.status === 'COMPLETED' ? 'Hoàn thành' : 'Không hoàn thành';
-    showToast(`✓ Đã lưu bài tập của ${selectedSession.horseName}: ${statusText} • Điểm ${selectedSession.score}/10`);
+    showToast(`Đã lưu bài tập của ${selectedSession.horseName}: ${statusText} • Điểm ${selectedSession.score}/10`);
     setShowEditFeedbackModal(false);
     setSelectedSession(null);
   };
 
+  const getInitials = (name) => {
+    if (!name) return 'HL';
+    const parts = name.trim().split(' ');
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   return (
-    <div style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--paper)', minHeight: '100vh', paddingBottom: '70px', transition: 'background-color 0.25s ease, color 0.25s ease' }}>
-      
-      {/* 1. HEADER BANNER DÀNH RIÊNG CHO TRAINER */}
-      <div style={{
-        background: 'var(--bg-secondary)',
-        borderBottom: '1px solid var(--line)',
-        padding: 'clamp(18px, 3.5vw, 28px) clamp(16px, 4vw, 40px)',
-        transition: 'background-color 0.25s ease'
-      }}>
-        <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <span style={{
-                background: 'rgba(59, 130, 246, 0.2)',
-                color: '#60A5FA',
-                border: '1px solid #3B82F6',
-                padding: '4px 12px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '0.08em'
-              }}>
-                🏇 HUẤN LUYỆN VIÊN TRƯỞNG (HEAD TRAINER)
-              </span>
-              <span style={{ fontSize: '13px', color: 'var(--paper-dim)' }}>
-                Đang trực tuyến: <b style={{ color: 'var(--paper)' }}>{currentUser?.full_name}</b> (@{currentUser?.username})
-              </span>
+    <div className="portal-layout">
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          background: 'var(--bg-card)',
+          color: 'var(--paper)',
+          padding: '14px 22px',
+          borderRadius: '8px',
+          fontSize: '13.5px',
+          fontWeight: 600,
+          boxShadow: 'var(--shadow)',
+          zIndex: 10000000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          border: '1px solid var(--brass)'
+        }}>
+          <span style={{ color: 'var(--brass)', fontWeight: 700 }}>•</span> {toastMsg}
+        </div>
+      )}
+
+      {/* Mobile drawer backdrop */}
+      <div
+        className={`portal-sidebar-backdrop ${sidebarOpen ? 'open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      {/* ===================== SIDEBAR ===================== */}
+      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`}>
+        <div className="portal-brand">
+          <div className="portal-brand-icon">
+            <IconHorse size={22} color="var(--brass)" />
+          </div>
+          <div className="portal-brand-text">
+            <h3>Mã Trường OS</h3>
+            <p>Trainer Management Hub</p>
+          </div>
+        </div>
+
+        <nav className="portal-nav">
+          <button
+            className={`portal-nav-item ${activeTab === 'vitals' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('vitals'); setSidebarOpen(false); }}
+          >
+            <span className="portal-nav-icon"><IconOverview size={18} /></span>
+            <span className="portal-nav-label">Thể lực tàu ngựa</span>
+            <span className="portal-nav-badge">{trainerHorses.length}</span>
+          </button>
+
+          <button
+            className={`portal-nav-item ${activeTab === 'programs' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('programs'); setSidebarOpen(false); }}
+          >
+            <span className="portal-nav-icon"><IconClipboard size={18} /></span>
+            <span className="portal-nav-label">Giáo án huấn luyện</span>
+            <span className="portal-nav-badge">{programs.length}</span>
+          </button>
+
+          <button
+            className={`portal-nav-item ${activeTab === 'sessions' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('sessions'); setSidebarOpen(false); }}
+          >
+            <span className="portal-nav-icon"><IconTimer size={18} /></span>
+            <span className="portal-nav-label">Buổi tập & Telemetry</span>
+            <span className="portal-nav-badge">{sessions.length}</span>
+          </button>
+
+          <button
+            className={`portal-nav-item ${activeTab === 'review' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('review'); setSidebarOpen(false); }}
+          >
+            <span className="portal-nav-icon"><IconStar size={18} /></span>
+            <span className="portal-nav-label">Đánh giá & Ghi chú</span>
+          </button>
+        </nav>
+
+        <div className="portal-sidebar-footer">
+          <div className="portal-sys-badge">
+            <div className="portal-sys-dot" />
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '12px' }}>Mã Trường OS</div>
+              <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>v2.4 Trainer Portal</div>
             </div>
-            <h1 style={{ fontFamily: 'var(--display, serif)', fontSize: 'clamp(22px, 3.5vw, 30px)', color: 'var(--paper)', margin: '8px 0 4px', letterSpacing: '0.02em' }}>
-              Trung Tâm Quản Lý Huấn Luyện Chiến Mã
-            </h1>
-            <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--paper-dim)' }}>
-              Lập giáo án cự ly & mặt sân, giám sát nhịp tim viễn trắc (telemetry), cảnh báo quá tải và chấm điểm phong độ đàn ngựa.
-            </p>
+          </div>
+          <Link to="/" className="portal-public-link" style={{ marginTop: '12px' }}>
+            <IconGlobe size={15} />
+            <span>Xem trang Public</span>
+          </Link>
+        </div>
+      </aside>
+
+      {/* ===================== MAIN CONTENT WRAPPER ===================== */}
+      <div className="portal-content-wrap">
+        
+        {/* TOP BAR */}
+        <header className="portal-topbar">
+          <div className="portal-topbar-left">
+            <button
+              className="portal-mobile-toggle"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Mở Menu"
+            >
+              <IconMenu size={20} />
+            </button>
+            <div className="portal-title-box">
+              <h2 className="portal-page-title">
+                {activeTab === 'vitals' && 'Bảng Giám Sát Thể Lực Tàu Ngựa'}
+                {activeTab === 'programs' && 'Giáo Án & Kế Hoạch Huấn Luyện'}
+                {activeTab === 'sessions' && 'Nhật Ký Buổi Tập & Telemetry'}
+                {activeTab === 'review' && 'Đánh Giá Phong Độ & Chấm Điểm'}
+              </h2>
+              <div className="portal-page-subtitle">
+                {activeTab === 'vitals' && 'Đo lường nhịp tim, vận tốc tối đa và chỉ định của Bác sĩ Thú y'}
+                {activeTab === 'programs' && 'Thiết kế theo cự ly, giai đoạn, khối lượng và loại mặt sân'}
+                {activeTab === 'sessions' && 'Giám sát viễn trắc nhịp tim thời gian thực và cảnh báo an toàn'}
+                {activeTab === 'review' && 'Chấm điểm (thang điểm 1-10), xác nhận bài tập và lưu nhật ký huấn luyện viên'}
+              </div>
+            </div>
           </div>
 
-          <div className="banner-header-actions">
+          <div className="portal-topbar-right">
             <ThemeToggle />
-            <Link
-              to="/"
-              className="banner-action-btn banner-btn-public"
-            >
-              ← <span className="btn-text">Trang chủ</span>
-            </Link>
+            <div className="portal-user-badge">
+              <div className="portal-user-avatar">
+                {getInitials(currentUser?.full_name)}
+              </div>
+              <div className="portal-user-info">
+                <div className="portal-user-name">{currentUser?.full_name || 'Huấn Luyện Viên'}</div>
+                <div className="portal-user-role">{currentUser?.role_name || 'Huấn Luyện Viên Trưởng'}</div>
+              </div>
+            </div>
             <button
               onClick={handleLogout}
-              className="banner-action-btn banner-btn-logout"
+              className="portal-btn-logout"
               title="Đăng xuất khỏi hệ thống"
-              aria-label="Đăng xuất"
             >
-              <span className="btn-icon">🚪</span>
-              <span className="btn-text">Đăng xuất</span>
+              Đăng xuất
             </button>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: 'clamp(16px, 3vw, 30px) clamp(16px, 4vw, 40px)' }}>
+        {/* MAIN BODY PER TAB */}
+        <main className="portal-main">
 
-        {/* 2. THỐNG KÊ NHANH (QUICK KPI CARDS) */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '16px',
-          marginBottom: '28px'
-        }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>TỔNG CHIẾN MÃ HUẤN LUYỆN</div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--paper)', margin: '6px 0 2px' }}>{trainerHorses.length} con</div>
-            <div style={{ fontSize: '12px', color: '#60A5FA' }}>Theo dõi định kỳ 24/7</div>
-          </div>
-
-          <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>ĐỦ ĐIỀU KIỆN XUẤT TRẬN</div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: '#10B981', margin: '6px 0 2px' }}>
-              {trainerHorses.filter(h => h.status === 'READY').length} con
-            </div>
-            <div style={{ fontSize: '12px', color: '#34D399' }}>Sẵn sàng đăng ký giải đua</div>
-          </div>
-
-          <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: '10px', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>KHÓA TẬP BỞI BÁC SĨ THÚ Y</div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: '#EF4444', margin: '6px 0 2px' }}>
-              {trainerHorses.filter(h => h.isLockedByVet).length} con
-            </div>
-            <div style={{ fontSize: '12px', color: '#F87171' }}>Cấm bài chạy nước rút nặng</div>
-          </div>
-
-          <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(201, 162, 39, 0.35)', borderRadius: '10px', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>BUỔI TẬP ĐÃ HOÀN TẤT</div>
-            <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--brass, #C9A227)', margin: '6px 0 2px' }}>
-              {sessions.length} lượt
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Dữ liệu lưu vết Telemetry</div>
-          </div>
-        </div>
-
-        {/* Toast thông báo nhanh */}
-        {toastMsg && (
-          <div style={{
-            position: 'fixed',
-            top: '24px',
-            right: '24px',
-            background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-            color: '#FFFFFF',
-            padding: '14px 22px',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: 700,
-            boxShadow: '0 12px 30px rgba(0,0,0,0.85)',
-            zIndex: 10000000,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
-          }}>
-            <span style={{ fontSize: '18px' }}>✓</span> {toastMsg}
-          </div>
-        )}
-
-        {/* 3. THANH ĐIỀU HƯỚNG TABS NGHIỆP VỤ HLV */}
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          borderBottom: '1px solid var(--line)',
-          marginBottom: '24px',
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          paddingBottom: '4px'
-        }}>
-          {[
-            { id: 'vitals', label: '1. Thể Lực & Trạng Thái Tàu Ngựa', icon: '📊' },
-            { id: 'programs', label: '2. Giáo Án Huấn Luyện (Programs)', icon: '📋' },
-            { id: 'sessions', label: '3. Buổi Tập & Telemetry Nhịp Tim', icon: '⏱️' },
-            { id: 'review', label: '4. Đánh Giá Điểm & Ghi Chú Bài Tập', icon: '⭐' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: '12px 18px',
-                background: activeTab === tab.id ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
-                border: 'none',
-                borderBottom: activeTab === tab.id ? '3px solid #3B82F6' : '3px solid transparent',
-                color: activeTab === tab.id ? '#3B82F6' : 'var(--paper-dim)',
-                fontWeight: activeTab === tab.id ? 700 : 500,
-                fontSize: '14px',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span>{tab.icon}</span> {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* ===================== TAB 1: THỂ LỰC & TIẾN ĐỘ TÀU NGỰA ===================== */}
-        {activeTab === 'vitals' && (
-          <div>
-            <div style={{ marginBottom: '18px' }}>
-              <h3 style={{ fontSize: '18px', margin: '0 0 6px', color: 'var(--paper)' }}>
-                Bảng Giám Sát Thể Lực Toàn Bộ Tàu Ngựa
-              </h3>
-              <p style={{ margin: 0, fontSize: '13px', color: 'var(--paper-dim)' }}>
-                Dữ liệu đo lường nhịp tim, vận tốc tối đa và chỉ định của Bác sĩ Thú y trước khi phân công bài tập.
-              </p>
+          {/* Quick KPI Header Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '24px' }}>
+            <div className="facility-card" style={{ padding: '18px 20px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>TỔNG CHIẾN MÃ HUẤN LUYỆN</div>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--paper)', margin: '6px 0 2px' }}>{trainerHorses.length} con</div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Theo dõi telemetry định kỳ</div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-              {trainerHorses.map(horse => (
-                <div
-                  key={horse.id}
-                  style={{
-                    background: 'var(--bg-card)',
-                    border: horse.isLockedByVet ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid var(--line)',
-                    borderRadius: '10px',
-                    padding: '20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '14px',
-                    boxShadow: 'var(--shadow-sm)',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--paper)' }}>{horse.name}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                        Chip: <b style={{ color: 'var(--paper)' }}>{horse.microchip}</b> • {horse.stall} • {horse.age}
-                      </div>
-                    </div>
-                    <span style={{
-                      padding: '4px 10px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      background: `${horse.statusColor}20`,
-                      color: horse.statusColor,
-                      border: `1px solid ${horse.statusColor}50`
-                    }}>
-                      {horse.statusText}
-                    </span>
-                  </div>
+            <div className="facility-card" style={{ padding: '18px 20px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>ĐỦ ĐIỀU KIỆN XUẤT TRẬN</div>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--brass)', margin: '6px 0 2px' }}>
+                {trainerHorses.filter(h => h.status === 'READY').length} con
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Sẵn sàng đăng ký giải đua</div>
+            </div>
 
-                  {/* Cảnh báo thú y nếu có */}
-                  {horse.isLockedByVet && (
-                    <div style={{
-                      background: 'rgba(239, 68, 68, 0.15)',
-                      border: '1px solid #EF4444',
-                      borderRadius: '6px',
-                      padding: '10px 12px',
-                      fontSize: '12.5px',
-                      color: '#EF4444',
-                      lineHeight: 1.4,
-                      fontWeight: 500
-                    }}>
-                      🚨 <b>CẢNH BÁO BÁC SĨ THÚ Y:</b> {horse.vetNotice}
-                    </div>
-                  )}
+            <div className="facility-card" style={{ padding: '18px 20px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>KHÓA TẬP BỞI THÚ Y</div>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--paper)', margin: '6px 0 2px' }}>
+                {trainerHorses.filter(h => h.isLockedByVet).length} con
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Cấm bài chạy nước rút nặng</div>
+            </div>
 
-                  {/* Chỉ số thể lực */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', padding: '12px', borderRadius: '8px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Nhịp tim TB</div>
-                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#3B82F6', marginTop: '2px' }}>{horse.avgHeartRate} bpm</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Tốc độ đỉnh</div>
-                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#10B981', marginTop: '2px' }}>{horse.maxSpeed} km/h</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Phong độ</div>
-                      <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--brass, #C9A227)', marginTop: '2px' }}>{horse.condition}</div>
-                    </div>
-                  </div>
+            <div className="facility-card" style={{ padding: '18px 20px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>BUỔI TẬP ĐÃ HOÀN TẤT</div>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--brass)', margin: '6px 0 2px' }}>
+                {sessions.length} lượt
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Dữ liệu lưu vết an toàn</div>
+            </div>
+          </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px', color: 'var(--paper-dim)' }}>
-                    <span>Quãng đường tích lũy: <b style={{ color: 'var(--paper)' }}>{horse.totalDistanceKm} km</b></span>
-                    <button
-                      onClick={() => {
-                        setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
-                        setShowAddSessionModal(true);
-                      }}
-                      disabled={horse.isLockedByVet}
-                      style={{
-                        padding: '6px 12px',
-                        background: horse.isLockedByVet ? 'var(--bg-secondary)' : '#3B82F6',
-                        color: horse.isLockedByVet ? 'var(--paper-dim)' : '#FFFFFF',
-                        border: horse.isLockedByVet ? '1px solid var(--line)' : 'none',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: horse.isLockedByVet ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {horse.isLockedByVet ? 'Đang bị khóa' : '+ Lên bài tập'}
-                    </button>
-                  </div>
+          {/* ===================== TAB 1: THỂ LỰC & TRẠNG THÁI ===================== */}
+          {activeTab === 'vitals' && (
+            <div>
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button className="portal-pill-btn active">
+                    Tất cả đàn ngựa <span className="pill-count">{trainerHorses.length}</span>
+                  </button>
+                  <button className="portal-pill-btn" onClick={() => setActiveTab('programs')}>
+                    Giáo án <span className="pill-count">{programs.length}</span>
+                  </button>
+                  <button className="portal-pill-btn" onClick={() => setActiveTab('sessions')}>
+                    Buổi tập <span className="pill-count">{sessions.length}</span>
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* ===================== TAB 2: GIÁO ÁN HUẤN LUYỆN ===================== */}
-        {activeTab === 'programs' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <h3 style={{ fontSize: '18px', margin: '0 0 4px', color: 'var(--paper)' }}>
-                  Kế Hoạch & Giáo Án Huấn Luyện (Training Programs)
-                </h3>
-                <p style={{ margin: 0, fontSize: '13px', color: 'var(--paper-dim)' }}>
-                  Thiết kế theo cự ly, giai đoạn, khối lượng và loại mặt sân (Cỏ - GRASS, Cát - SAND).
-                </p>
+                <div className="portal-view-tools">
+                  <button
+                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                    onClick={() => setViewMode('cards')}
+                  >
+                    Lưới Thẻ
+                  </button>
+                  <button
+                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                  >
+                    Bảng Thông Số
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => setShowAddProgramModal(true)}
-                style={{
-                  padding: '9px 18px',
-                  background: '#3B82F6',
-                  border: 'none',
-                  borderRadius: '6px',
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: '13.5px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: 'var(--shadow-sm)'
-                }}
-              >
-                <span>+</span> Lập Giáo Án Mới
-              </button>
-            </div>
 
-            <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', boxShadow: 'var(--shadow-sm)' }}>
-              <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Chiến mã</th>
-                    <th style={{ padding: '14px 18px', minWidth: '220px' }}>Tên giáo án</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Giai đoạn</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Cự ly mục tiêu</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Mặt sân</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Thời gian áp dụng</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap', textAlign: 'center' }}>Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {programs.map(prog => (
-                    <tr key={prog.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                      <td style={{ padding: '14px 18px', fontWeight: 600, color: '#3B82F6', whiteSpace: 'nowrap' }}>
-                        {prog.horseName}
-                      </td>
-                      <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)', minWidth: '220px' }}>
-                        {prog.title}
-                      </td>
-                      <td style={{ padding: '14px 18px', color: 'var(--paper)', whiteSpace: 'nowrap' }}>
-                        {prog.phase}
-                      </td>
-                      <td style={{ padding: '14px 18px', color: 'var(--brass, #C9A227)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {prog.targetDistance} m
-                      </td>
-                      <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', whiteSpace: 'nowrap' }}>
-                        {prog.surface}
-                      </td>
-                      <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
-                        {prog.startDate} → {prog.endDate}
-                      </td>
-                      <td style={{ padding: '14px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          padding: '6px 14px',
-                          borderRadius: '20px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          color: '#10B981',
-                          border: '1px solid rgba(16, 185, 129, 0.45)',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
-                          Đang thực hiện
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ===================== TAB 3: BUỔI TẬP & TELEMETRY ===================== */}
-        {activeTab === 'sessions' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <h3 style={{ fontSize: '18px', margin: '0 0 4px', color: 'var(--paper)' }}>
-                  Nhật Ký Buổi Tập & Chỉ Số Viễn Trắc Telemetry
-                </h3>
-                <p style={{ margin: 0, fontSize: '13px', color: 'var(--paper-dim)' }}>
-                  Theo dõi dữ liệu chạy thực tế, cảnh báo quá tải nhịp tim (&gt; 210 bpm) và xác nhận kết quả bài tập.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowAddSessionModal(true)}
-                style={{
-                  padding: '9px 18px',
-                  background: '#3B82F6',
-                  border: 'none',
-                  borderRadius: '6px',
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: '13.5px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: 'var(--shadow-sm)'
-                }}
-              >
-                <span>+</span> Ghi Nhận Buổi Tập
-              </button>
-            </div>
-
-            <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '10px', boxShadow: 'var(--shadow-sm)' }}>
-              <table style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Thời gian</th>
-                    <th style={{ padding: '14px 18px', minWidth: '220px' }}>Chiến mã & Giáo án</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Quãng đường</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Vận tốc TB</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Nhịp tim</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>Cảnh báo</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap', textAlign: 'center' }}>Trạng thái bài tập</th>
-                    <th style={{ padding: '14px 18px', whiteSpace: 'nowrap', textAlign: 'center' }}>Điểm đánh giá</th>
-                    <th style={{ padding: '14px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.map(sess => {
-                    const isCompleted = sess.status === 'COMPLETED';
+              {viewMode === 'cards' ? (
+                <div className="portal-cards-grid">
+                  {trainerHorses.map(horse => {
+                    const badgeClass = horse.status === 'READY' ? 'badge-gold' : 'badge-slate';
                     return (
-                      <tr key={sess.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
-                          {sess.time}
-                        </td>
-                        <td style={{ padding: '14px 18px', minWidth: '220px' }}>
-                          <div style={{ fontWeight: 600, color: '#3B82F6', whiteSpace: 'nowrap' }}>{sess.horseName}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{sess.programTitle}</div>
-                        </td>
-                        <td style={{ padding: '14px 18px', color: 'var(--paper)', whiteSpace: 'nowrap' }}>
-                          {sess.distanceRun} m
-                        </td>
-                        <td style={{ padding: '14px 18px', color: '#10B981', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          {sess.avgSpeed} km/h
-                        </td>
-                        <td style={{ padding: '14px 18px', color: sess.isOverLimit ? '#EF4444' : 'var(--paper)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                          {sess.maxHeartRate} bpm
-                        </td>
-                        <td style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
-                          {sess.isOverLimit ? (
-                            <span style={{
-                              padding: '4px 8px',
-                              background: 'rgba(239, 68, 68, 0.2)',
-                              color: '#EF4444',
-                              border: '1px solid #EF4444',
-                              borderRadius: '4px',
-                              fontSize: '11.5px',
-                              fontWeight: 700,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              ⚠️ QUÁ TẢI (&gt;210)
-                            </span>
-                          ) : (
-                            <span style={{
-                              padding: '4px 8px',
-                              background: 'rgba(16, 185, 129, 0.15)',
-                              color: '#10B981',
-                              borderRadius: '4px',
-                              fontSize: '11.5px',
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap'
-                            }}>
-                              ✓ Bình thường
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '14px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          <button
-                            onClick={() => handleToggleSessionStatus(sess.id)}
-                            title="Nhấp để đổi trạng thái bài tập"
-                            style={{
-                              padding: '5px 12px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              background: isCompleted ? 'rgba(16, 185, 129, 0.18)' : 'rgba(239, 68, 68, 0.18)',
-                              color: isCompleted ? '#10B981' : '#EF4444',
-                              border: isCompleted ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(239, 68, 68, 0.5)',
-                              whiteSpace: 'nowrap',
-                              transition: 'all 0.2s ease'
-                            }}
-                          >
-                            {isCompleted ? '✓ Hoàn thành' : '✗ Chưa đạt'}
-                          </button>
-                        </td>
-                        <td style={{ padding: '14px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          <span style={{
-                            padding: '4px 10px',
-                            background: 'rgba(201, 162, 39, 0.15)',
-                            color: 'var(--brass, #C9A227)',
-                            border: '1px solid rgba(201, 162, 39, 0.3)',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            whiteSpace: 'nowrap'
-                          }}>
-                            ⭐ {sess.score !== undefined ? sess.score : 8.0}/10
+                      <div key={horse.id} className="facility-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className={`facility-card-badge ${badgeClass}`}>
+                            <IconHorse size={14} color="var(--brass)" />
+                            <span>{horse.stall} • {horse.breed.toUpperCase()}</span>
                           </span>
-                        </td>
-                        <td style={{ padding: '14px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>
+                            {horse.microchip}
+                          </span>
+                        </div>
+
+                        <h3 className="facility-card-title">{horse.name}</h3>
+                        <p className="facility-card-desc">{horse.desc}</p>
+
+                        {/* Cảnh báo thú y nếu có */}
+                        {horse.isLockedByVet && (
+                          <div style={{
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--line)',
+                            borderRadius: '6px',
+                            padding: '8px 10px',
+                            fontSize: '12px',
+                            color: 'var(--paper-dim)',
+                            lineHeight: 1.4,
+                            fontWeight: 600,
+                            marginBottom: '10px'
+                          }}>
+                            <span style={{ color: 'var(--brass)', fontWeight: 700 }}>CẢNH BÁO THÚ Y:</span> {horse.vetNotice}
+                          </div>
+                        )}
+
+                        <div className="facility-card-bullets">
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>Quãng đường tích lũy: <b>{horse.totalDistanceKm} km</b></span>
+                          </div>
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>Độ tuổi: <b>{horse.age}</b></span>
+                          </div>
+                        </div>
+
+                        {/* 3-column specs */}
+                        <div className="facility-specs-grid">
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Nhịp tim TB</span>
+                            <span className="spec-val" style={{ color: 'var(--paper)' }}>{horse.avgHeartRate} bpm</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Tốc độ đỉnh</span>
+                            <span className="spec-val" style={{ color: 'var(--paper)' }}>{horse.maxSpeed} km/h</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">Phong độ</span>
+                            <span className="spec-val" style={{ color: 'var(--brass)' }}>{horse.condition}</span>
+                          </div>
+                        </div>
+
+                        {/* Status/Price Box */}
+                        <div className="facility-price-box">
+                          <div>
+                            <div className="price-label">Trạng thái thi đấu</div>
+                            <div className="price-value" style={{ fontSize: '15px', color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper)' }}>
+                              {horse.statusText}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            background: horse.status === 'READY' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
+                            color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper-dim)',
+                            border: horse.status === 'READY' ? '1px solid var(--brass)' : '1px solid var(--line)'
+                          }}>
+                            {horse.isLockedByVet ? 'KHÓA' : 'SẴN SÀNG'}
+                          </span>
+                        </div>
+
+                        <div className="facility-card-actions">
+                          <div className="actions-left">
+                            <button
+                              className="facility-btn-action"
+                              onClick={() => {
+                                setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
+                                setShowAddSessionModal(true);
+                              }}
+                              disabled={horse.isLockedByVet}
+                            >
+                              {horse.isLockedByVet ? 'Đang khóa' : '+ Lên bài tập'}
+                            </button>
+                          </div>
                           <button
-                            onClick={() => handleOpenEvaluationModal(sess)}
-                            style={{
-                              padding: '6px 12px',
-                              background: 'rgba(59, 130, 246, 0.15)',
-                              border: '1px solid #3B82F6',
-                              color: '#3B82F6',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap'
+                            className="facility-link-action"
+                            onClick={() => {
+                              setFilterHorse(horse.name);
+                              setActiveTab('review');
                             }}
                           >
-                            📝 Đánh giá & Ghi chú
+                            Xem đánh giá →
                           </button>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                        <th style={{ padding: '14px 18px' }}>Chiến Mã</th>
+                        <th style={{ padding: '14px 18px' }}>Ô Chuồng</th>
+                        <th style={{ padding: '14px 18px' }}>Nhịp Tim TB</th>
+                        <th style={{ padding: '14px 18px' }}>Tốc Độ Đỉnh</th>
+                        <th style={{ padding: '14px 18px' }}>Phong Độ</th>
+                        <th style={{ padding: '14px 18px' }}>Trạng Thái</th>
+                        <th style={{ padding: '14px 18px' }}>Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trainerHorses.map(horse => (
+                        <tr key={horse.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                          <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>
+                            <div>{horse.name}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{horse.microchip}</div>
+                          </td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{horse.stall}</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.avgHeartRate} bpm</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.maxSpeed} km/h</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--brass)', fontWeight: 700 }}>{horse.condition}</td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              background: horse.status === 'READY' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
+                              color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper-dim)',
+                              border: horse.status === 'READY' ? '1px solid var(--brass)' : '1px solid var(--line)'
+                            }}>
+                              {horse.statusText}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <button
+                              onClick={() => {
+                                setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
+                                setShowAddSessionModal(true);
+                              }}
+                              disabled={horse.isLockedByVet}
+                              style={{
+                                padding: '6px 12px',
+                                background: horse.isLockedByVet ? 'var(--bg-secondary)' : 'var(--brass)',
+                                color: horse.isLockedByVet ? 'var(--paper-dim)' : '#14100A',
+                                border: horse.isLockedByVet ? '1px solid var(--line)' : 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                cursor: horse.isLockedByVet ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              {horse.isLockedByVet ? 'Đang bị khóa' : '+ Lên bài tập'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ===================== TAB 4: CHẤM ĐIỂM & GHI CHÚ BÀI TẬP ===================== */}
-        {activeTab === 'review' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <h3 style={{ fontSize: '18px', margin: '0 0 4px', color: 'var(--paper)' }}>
-                  Đánh Giá Điểm & Ghi Chú Bài Tập Theo Chiến Mã
-                </h3>
-                <p style={{ margin: 0, fontSize: '13px', color: 'var(--paper-dim)' }}>
-                  HLV có thể xác nhận bài tập hoàn thành/không hoàn thành, chấm điểm phong độ (1-10 ⭐) và lưu nhật ký ghi chú.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowAddSessionModal(true)}
-                style={{
-                  padding: '9px 18px',
-                  background: '#3B82F6',
-                  border: 'none',
-                  borderRadius: '6px',
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: '13.5px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <span>+</span> Ghi Nhận Bài Tập Mới
-              </button>
-            </div>
+          {/* ===================== TAB 2: GIÁO ÁN HUẤN LUYỆN ===================== */}
+          {activeTab === 'programs' && (
+            <div>
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button className="portal-pill-btn active">
+                    Tất cả giáo án <span className="pill-count">{programs.length}</span>
+                  </button>
+                </div>
 
-            {/* BỘ LỌC CHIẾN MÃ & TRẠNG THÁI BÀI TẬP */}
-            <div style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--line)',
-              borderRadius: '8px',
-              padding: '14px 18px',
-              marginBottom: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '16px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>Lọc theo chiến mã:</span>
-                <select
-                  value={filterHorse}
-                  onChange={(e) => setFilterHorse(e.target.value)}
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--line)',
-                    color: 'var(--paper)',
-                    borderRadius: '6px',
-                    padding: '7px 12px',
-                    fontSize: '13px'
-                  }}
-                >
-                  <option value="ALL">Tất cả chiến mã</option>
-                  {trainerHorses.map(h => (
-                    <option key={h.id} value={h.name}>{h.name}</option>
-                  ))}
-                </select>
+                <div className="portal-view-tools">
+                  <button
+                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                    onClick={() => setViewMode('cards')}
+                  >
+                    Lưới Thẻ
+                  </button>
+                  <button
+                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                  >
+                    Bảng Danh Sách
+                  </button>
+                  <button
+                    onClick={() => setShowAddProgramModal(true)}
+                    className="portal-view-btn"
+                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
+                  >
+                    + Lập Giáo Án
+                  </button>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>Trạng thái bài tập:</span>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--line)',
-                    color: 'var(--paper)',
-                    borderRadius: '6px',
-                    padding: '7px 12px',
-                    fontSize: '13px'
-                  }}
-                >
-                  <option value="ALL">Tất cả trạng thái</option>
-                  <option value="COMPLETED">✓ Đã hoàn thành (COMPLETED)</option>
-                  <option value="INCOMPLETE">✗ Không hoàn thành (INCOMPLETE)</option>
-                </select>
-              </div>
+              {viewMode === 'cards' ? (
+                <div className="portal-cards-grid">
+                  {programs.map(prog => (
+                    <div key={prog.id} className="facility-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="facility-card-badge badge-gold">
+                          <IconClipboard size={14} color="var(--brass)" />
+                          <span>{prog.phase.toUpperCase()}</span>
+                        </span>
+                        <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                          {prog.surface}
+                        </span>
+                      </div>
 
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', fontSize: '12.5px', flexWrap: 'wrap' }}>
-                <span style={{ padding: '4px 10px', background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', borderRadius: '4px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                  Tổng: <b>{sessions.length}</b> bài tập
-                </span>
-                <span style={{ padding: '4px 10px', background: 'rgba(16, 185, 129, 0.15)', color: '#34D399', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                  Hoàn thành: <b>{sessions.filter(s => s.status === 'COMPLETED').length}</b>
-                </span>
-                <span style={{ padding: '4px 10px', background: 'rgba(239, 68, 68, 0.15)', color: '#F87171', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                  Chưa đạt: <b>{sessions.filter(s => s.status === 'INCOMPLETE').length}</b>
-                </span>
-              </div>
-            </div>
+                      <h3 className="facility-card-title">{prog.title}</h3>
+                      <p className="facility-card-desc">
+                        Chiến mã đảm nhận: <b style={{ color: 'var(--brass)' }}>{prog.horseName}</b>. Áp dụng chuẩn chuyên nghiệp.
+                      </p>
 
-            {/* DANH SÁCH BÀI TẬP VÀ ĐÁNH GIÁ GHI CHÚ */}
-            {filteredSessions.length === 0 ? (
-              <div style={{
-                background: 'var(--bg-card)',
-                borderRadius: '8px',
-                padding: '40px 20px',
-                textAlign: 'center',
-                color: 'var(--paper-dim)',
-                border: '1px dashed var(--line)'
-              }}>
-                <div style={{ fontSize: '28px', marginBottom: '8px' }}>📋</div>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--paper)' }}>Không tìm thấy bài tập nào phù hợp</div>
-                <div style={{ fontSize: '13px', marginTop: '4px' }}>Hãy chọn lại bộ lọc hoặc tạo bài tập mới.</div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {filteredSessions.map(sess => {
-                  const isCompleted = sess.status === 'COMPLETED';
-                  return (
-                    <div
-                      key={sess.id}
-                      style={{
-                        background: 'var(--bg-card)',
-                        border: isCompleted ? '1px solid var(--line)' : '1px solid rgba(239, 68, 68, 0.35)',
-                        boxShadow: 'var(--shadow)',
-                        borderRadius: '10px',
-                        padding: '22px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        flexWrap: 'wrap',
-                        gap: '18px',
-                        position: 'relative'
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: '280px' }}>
-                        {/* HÀNG TIÊU ĐỀ: TÊN CHIẾN MÃ, THỜI GIAN, BADGE TRẠNG THÁI & ĐIỂM */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '17px', fontWeight: 700, color: 'var(--paper)' }}>
-                            {sess.horseName}
-                          </span>
-                          <span style={{ fontSize: '12.5px', color: 'var(--paper-dim)' }}>• {sess.time}</span>
-                          
-                          {/* BADGE TRẠNG THÁI HOÀN THÀNH / KHÔNG HOÀN THÀNH */}
-                          <span style={{
-                            padding: '4px 10px',
-                            background: isCompleted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                            color: isCompleted ? '#34D399' : '#F87171',
-                            border: isCompleted ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(239, 68, 68, 0.5)',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            {isCompleted ? '✓ ĐÃ HOÀN THÀNH BÀI TẬP' : '✗ KHÔNG HOÀN THÀNH'}
-                          </span>
-
-                          {/* BADGE ĐIỂM ĐÁNH GIÁ */}
-                          <span style={{
-                            padding: '4px 10px',
-                            background: 'rgba(201, 162, 39, 0.2)',
-                            color: 'var(--brass, #C9A227)',
-                            borderRadius: '6px',
-                            fontSize: '12.5px',
-                            fontWeight: 700,
-                            border: '1px solid rgba(201, 162, 39, 0.4)'
-                          }}>
-                            ⭐ Điểm: {sess.score !== undefined ? sess.score : 8.0}/10
-                          </span>
-                        </div>
-
-                        {/* THÔNG TIN BÀI TẬP VÀ CHỈ SỐ */}
-                        <div style={{ fontSize: '13.5px', color: 'var(--paper-dim)', marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
-                          <span>Giáo án: <b style={{ color: 'var(--paper)' }}>{sess.programTitle}</b></span>
-                          <span style={{ color: 'var(--line)' }}>|</span>
-                          <span>Cự ly: <b style={{ color: 'var(--paper)' }}>{sess.distanceRun}m</b></span>
-                          <span style={{ color: 'var(--line)' }}>|</span>
-                          <span>Tốc độ: <b style={{ color: '#34D399' }}>{sess.avgSpeed} km/h</b></span>
-                          <span style={{ color: 'var(--line)' }}>|</span>
-                          <span>Nhịp tim: <b style={{ color: sess.isOverLimit ? '#EF4444' : 'var(--paper)' }}>{sess.maxHeartRate} bpm</b></span>
-                        </div>
-
-                        {/* KHUNG GHI CHÚ BÀI TẬP CỦA HUẤN LUYỆN VIÊN */}
-                        <div style={{
-                          background: 'var(--bg-secondary)',
-                          borderLeft: isCompleted ? '4px solid #3B82F6' : '4px solid #EF4444',
-                          borderTop: '1px solid var(--line)',
-                          borderRight: '1px solid var(--line)',
-                          borderBottom: '1px solid var(--line)',
-                          padding: '12px 16px',
-                          borderRadius: '0 8px 8px 0',
-                          fontSize: '13.5px',
-                          color: 'var(--paper)',
-                          lineHeight: 1.6
-                        }}>
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>📝 Ghi chú bài tập & Nhận xét của HLV:</span>
-                          </div>
-                          <div>"{sess.feedback || 'Chưa có ghi chú cho bài tập này.'}"</div>
+                      <div className="facility-card-bullets">
+                        <div className="facility-bullet-item">
+                          <span className="bullet-dot" />
+                          <span>Thời gian: <b>{prog.startDate} → {prog.endDate}</b></span>
                         </div>
                       </div>
 
-                      {/* KHỐI NÚT THAO TÁC CỦA HLV */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignSelf: 'stretch', justifyContent: 'center' }}>
-                        {/* NÚT CHUYỂN TRẠNG THÁI NHANH */}
-                        <button
-                          onClick={() => handleToggleSessionStatus(sess.id)}
-                          style={{
-                            padding: '9px 16px',
-                            background: isCompleted ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                            border: isCompleted ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(16, 185, 129, 0.5)',
-                            color: isCompleted ? '#F87171' : '#34D399',
-                            borderRadius: '6px',
-                            fontSize: '12.5px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {isCompleted ? '✗ Đổi sang: Chưa đạt' : '✓ Đổi sang: Hoàn thành'}
-                        </button>
+                      <div className="facility-specs-grid">
+                        <div className="facility-spec-cell">
+                          <span className="spec-label">Chiến Mã</span>
+                          <span className="spec-val" style={{ color: 'var(--paper)' }}>{prog.horseName}</span>
+                        </div>
+                        <div className="facility-spec-cell">
+                          <span className="spec-label">Cự ly mục tiêu</span>
+                          <span className="spec-val">{prog.targetDistance} m</span>
+                        </div>
+                        <div className="facility-spec-cell">
+                          <span className="spec-label">Mặt sân</span>
+                          <span className="spec-val">{prog.surface.split(' ')[0]}</span>
+                        </div>
+                      </div>
 
-                        {/* NÚT MỞ MODAL ĐÁNH GIÁ ĐIỂM & GHI CHÚ */}
-                        <button
-                          onClick={() => handleOpenEvaluationModal(sess)}
-                          style={{
-                            padding: '9px 16px',
-                            background: '#3B82F6',
-                            border: 'none',
-                            color: '#FFFFFF',
-                            borderRadius: '6px',
-                            fontSize: '12.5px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px',
-                            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)'
-                          }}
-                        >
-                          ⭐ Đánh giá điểm & Sửa ghi chú
-                        </button>
+                      <div className="facility-price-box">
+                        <div>
+                          <div className="price-label">Trạng thái giáo án</div>
+                          <div className="price-value" style={{ fontSize: '15px', color: 'var(--brass)' }}>
+                            Đang thực hiện tích cực
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          background: 'rgba(201, 162, 39, 0.12)',
+                          color: 'var(--brass)',
+                          border: '1px solid var(--brass)'
+                        }}>
+                          ACTIVE
+                        </span>
+                      </div>
+
+                      <div className="facility-card-actions">
+                        <div className="actions-left">
+                          <button
+                            className="facility-btn-action"
+                            onClick={() => {
+                              setNewSessionData(prev => ({ ...prev, horseName: prog.horseName, programTitle: prog.title }));
+                              setShowAddSessionModal(true);
+                            }}
+                          >
+                            Chạy bài này
+                          </button>
+                        </div>
+                        <span className="facility-link-action" style={{ cursor: 'default' }}>
+                          Cự ly {prog.targetDistance}m →
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+                  ))}
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                  <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                        <th style={{ padding: '14px 18px' }}>Chiến mã</th>
+                        <th style={{ padding: '14px 18px' }}>Tên giáo án</th>
+                        <th style={{ padding: '14px 18px' }}>Giai đoạn</th>
+                        <th style={{ padding: '14px 18px' }}>Cự ly mục tiêu</th>
+                        <th style={{ padding: '14px 18px' }}>Mặt sân</th>
+                        <th style={{ padding: '14px 18px' }}>Thời gian</th>
+                        <th style={{ padding: '14px 18px', textAlign: 'center' }}>Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {programs.map(prog => (
+                        <tr key={prog.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                          <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{prog.horseName}</td>
+                          <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{prog.title}</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{prog.phase}</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--brass)', fontWeight: 600 }}>{prog.targetDistance} m</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{prog.surface}</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', fontSize: '12.5px' }}>{prog.startDate} → {prog.endDate}</td>
+                          <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                            <span style={{
+                              padding: '4px 12px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              background: 'rgba(201, 162, 39, 0.12)',
+                              color: 'var(--brass)',
+                              border: '1px solid var(--brass)'
+                            }}>
+                              Đang thực hiện
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
+          {/* ===================== TAB 3: BUỔI TẬP & TELEMETRY ===================== */}
+          {activeTab === 'sessions' && (
+            <div>
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button className="portal-pill-btn active">
+                    Tất cả buổi tập <span className="pill-count">{sessions.length}</span>
+                  </button>
+                  <button
+                    className="portal-pill-btn"
+                    onClick={() => {
+                      setFilterStatus('COMPLETED');
+                      setActiveTab('review');
+                    }}
+                  >
+                    Hoàn thành <span className="pill-count">{sessions.filter(s => s.status === 'COMPLETED').length}</span>
+                  </button>
+                  <button
+                    className="portal-pill-btn"
+                    onClick={() => {
+                      setFilterStatus('INCOMPLETE');
+                      setActiveTab('review');
+                    }}
+                  >
+                    Chưa đạt <span className="pill-count">{sessions.filter(s => s.status === 'INCOMPLETE').length}</span>
+                  </button>
+                </div>
+
+                <div className="portal-view-tools">
+                  <button
+                    onClick={() => setShowAddSessionModal(true)}
+                    className="portal-view-btn"
+                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
+                  >
+                    + Ghi Nhận Buổi Tập
+                  </button>
+                </div>
+              </div>
+
+              <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                <table style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                      <th style={{ padding: '14px 18px' }}>Thời gian</th>
+                      <th style={{ padding: '14px 18px' }}>Chiến mã & Giáo án</th>
+                      <th style={{ padding: '14px 18px' }}>Quãng đường</th>
+                      <th style={{ padding: '14px 18px' }}>Vận tốc TB</th>
+                      <th style={{ padding: '14px 18px' }}>Nhịp tim</th>
+                      <th style={{ padding: '14px 18px' }}>Cảnh báo</th>
+                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>Trạng thái bài tập</th>
+                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>Điểm đánh giá</th>
+                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.map(sess => {
+                      const isCompleted = sess.status === 'COMPLETED';
+                      return (
+                        <tr key={sess.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
+                            {sess.time}
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{sess.horseName}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{sess.programTitle}</div>
+                          </td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{sess.distanceRun} m</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{sess.avgSpeed} km/h</td>
+                          <td style={{ padding: '14px 18px', color: sess.isOverLimit ? 'var(--brass)' : 'var(--paper)', fontWeight: 700 }}>
+                            {sess.maxHeartRate} bpm
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            {sess.isOverLimit ? (
+                              <span style={{
+                                padding: '4px 8px',
+                                background: 'rgba(201, 162, 39, 0.12)',
+                                color: 'var(--brass)',
+                                border: '1px solid var(--brass)',
+                                borderRadius: '4px',
+                                fontSize: '11.5px',
+                                fontWeight: 700
+                              }}>
+                                Quá tải (&gt;210)
+                              </span>
+                            ) : (
+                              <span style={{
+                                padding: '4px 8px',
+                                background: 'var(--bg-secondary)',
+                                color: 'var(--paper-dim)',
+                                border: '1px solid var(--line)',
+                                borderRadius: '4px',
+                                fontSize: '11.5px',
+                                fontWeight: 600
+                              }}>
+                                Bình thường
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                            <button
+                              onClick={() => handleToggleSessionStatus(sess.id)}
+                              title="Nhấp để đổi trạng thái bài tập"
+                              style={{
+                                padding: '5px 12px',
+                                borderRadius: '20px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                background: isCompleted ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
+                                color: isCompleted ? 'var(--brass)' : 'var(--paper-dim)',
+                                border: isCompleted ? '1px solid var(--brass)' : '1px solid var(--line)',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              {isCompleted ? 'Hoàn thành' : 'Chưa đạt'}
+                            </button>
+                          </td>
+                          <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                            <span style={{
+                              padding: '4px 10px',
+                              background: 'rgba(201, 162, 39, 0.12)',
+                              color: 'var(--brass)',
+                              border: '1px solid var(--brass)',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: 700
+                            }}>
+                              {sess.score !== undefined ? sess.score : 8.0}/10
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                            <button
+                              onClick={() => handleOpenEvaluationModal(sess)}
+                              style={{
+                                padding: '6px 12px',
+                                background: 'var(--bg-secondary)',
+                                border: '1px solid var(--line)',
+                                color: 'var(--paper)',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Đánh giá
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ===================== TAB 4: ĐÁNH GIÁ & GHI CHÚ BÀI TẬP ===================== */}
+          {activeTab === 'review' && (
+            <div>
+              <div className="portal-filter-bar">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>Chiến mã:</span>
+                    <select
+                      value={filterHorse}
+                      onChange={(e) => setFilterHorse(e.target.value)}
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--paper)',
+                        borderRadius: '6px',
+                        padding: '7px 12px',
+                        fontSize: '13px'
+                      }}
+                    >
+                      <option value="ALL">Tất cả chiến mã</option>
+                      {trainerHorses.map(h => (
+                        <option key={h.id} value={h.name}>{h.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>Trạng thái:</span>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--paper)',
+                        borderRadius: '6px',
+                        padding: '7px 12px',
+                        fontSize: '13px'
+                      }}
+                    >
+                      <option value="ALL">Tất cả trạng thái</option>
+                      <option value="COMPLETED">Hoàn thành</option>
+                      <option value="INCOMPLETE">Chưa đạt</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="portal-view-tools">
+                  <button
+                    onClick={() => setShowAddSessionModal(true)}
+                    className="portal-view-btn"
+                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
+                  >
+                    + Ghi Nhận Mới
+                  </button>
+                </div>
+              </div>
+
+              {filteredSessions.length === 0 ? (
+                <div style={{
+                  background: 'var(--bg-card)',
+                  borderRadius: '12px',
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  color: 'var(--paper-dim)',
+                  border: '1px dashed var(--line)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                    <IconClipboard size={32} color="var(--paper-dim)" />
+                  </div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)' }}>Không tìm thấy bài tập nào phù hợp</div>
+                  <div style={{ fontSize: '13px', marginTop: '4px' }}>Hãy điều chỉnh lại bộ lọc hoặc ghi nhận thêm bài tập.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {filteredSessions.map(sess => {
+                    const isCompleted = sess.status === 'COMPLETED';
+                    return (
+                      <div
+                        key={sess.id}
+                        className="facility-card"
+                        style={{
+                          border: isCompleted ? '1px solid var(--line)' : '1px solid var(--line)',
+                          padding: '22px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
+                          <div style={{ flex: 1, minWidth: '280px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--paper)' }}>
+                                {sess.horseName}
+                              </span>
+                              <span style={{ fontSize: '12.5px', color: 'var(--paper-dim)' }}>• {sess.time}</span>
+                              <span style={{
+                                padding: '3px 8px',
+                                background: isCompleted ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
+                                color: isCompleted ? 'var(--brass)' : 'var(--paper-dim)',
+                                border: isCompleted ? '1px solid var(--brass)' : '1px solid var(--line)',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 700
+                              }}>
+                                {isCompleted ? 'ĐÃ HOÀN THÀNH' : 'CHƯA ĐẠT'}
+                              </span>
+                              <span style={{
+                                padding: '3px 8px',
+                                background: 'rgba(201, 162, 39, 0.12)',
+                                color: 'var(--brass)',
+                                borderRadius: '4px',
+                                fontSize: '12.5px',
+                                fontWeight: 700,
+                                border: '1px solid var(--brass)'
+                              }}>
+                                {sess.score !== undefined ? sess.score : 8.0}/10
+                              </span>
+                            </div>
+
+                            <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
+                              <span>Giáo án: <b style={{ color: 'var(--paper)' }}>{sess.programTitle}</b></span>
+                              <span>|</span>
+                              <span>Cự ly: <b style={{ color: 'var(--paper)' }}>{sess.distanceRun}m</b></span>
+                              <span>|</span>
+                              <span>Tốc độ: <b style={{ color: 'var(--paper)' }}>{sess.avgSpeed} km/h</b></span>
+                              <span>|</span>
+                              <span>Nhịp tim: <b style={{ color: sess.isOverLimit ? 'var(--brass)' : 'var(--paper)' }}>{sess.maxHeartRate} bpm</b></span>
+                            </div>
+
+                            <div style={{
+                              background: 'var(--bg-secondary)',
+                              borderLeft: isCompleted ? '3px solid var(--brass)' : '3px solid var(--line)',
+                              borderTop: '1px solid var(--line)',
+                              borderRight: '1px solid var(--line)',
+                              borderBottom: '1px solid var(--line)',
+                              padding: '12px 16px',
+                              borderRadius: '0 8px 8px 0',
+                              fontSize: '13.5px',
+                              color: 'var(--paper)',
+                              lineHeight: 1.6
+                            }}>
+                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '4px', fontWeight: 600 }}>
+                                Nhận xét & Ghi chú của Huấn luyện viên:
+                              </div>
+                              <div>"{sess.feedback || 'Chưa có ghi chú.'}"</div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '180px' }}>
+                            <button
+                              onClick={() => handleToggleSessionStatus(sess.id)}
+                              style={{
+                                padding: '9px 16px',
+                                background: 'var(--bg-secondary)',
+                                border: '1px solid var(--line)',
+                                color: 'var(--paper)',
+                                borderRadius: '6px',
+                                fontSize: '12.5px',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {isCompleted ? 'Đổi sang: Chưa đạt' : 'Đổi sang: Hoàn thành'}
+                            </button>
+
+                            <button
+                              onClick={() => handleOpenEvaluationModal(sess)}
+                              style={{
+                                padding: '9px 16px',
+                                background: 'var(--brass)',
+                                border: 'none',
+                                color: '#14100A',
+                                borderRadius: '6px',
+                                fontSize: '12.5px',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Sửa điểm & Ghi chú
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+        </main>
       </div>
 
       {/* ===================== MODAL THÊM GIÁO ÁN MỚI ===================== */}
@@ -1153,12 +1325,12 @@ export default function TrainerPage() {
           <div style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--line)',
-            borderRadius: '10px',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '480px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            padding: '26px',
+            padding: '28px',
             color: 'var(--paper)',
             boxShadow: 'var(--shadow)'
           }}>
@@ -1237,7 +1409,7 @@ export default function TrainerPage() {
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '10px', background: '#3B82F6', border: 'none', color: '#FFFFFF', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
                   Lưu Giáo Án
                 </button>
@@ -1263,12 +1435,12 @@ export default function TrainerPage() {
           <div style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--line)',
-            borderRadius: '10px',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '520px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            padding: '26px',
+            padding: '28px',
             color: 'var(--paper)',
             boxShadow: 'var(--shadow)'
           }}>
@@ -1342,14 +1514,14 @@ export default function TrainerPage() {
                     onChange={(e) => setNewSessionData({ ...newSessionData, status: e.target.value })}
                     style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                   >
-                    <option value="COMPLETED">✓ Hoàn thành bài tập</option>
-                    <option value="INCOMPLETE">✗ Không hoàn thành bài tập</option>
+                    <option value="COMPLETED">Hoàn thành bài tập</option>
+                    <option value="INCOMPLETE">Không hoàn thành bài tập</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Chấm điểm đánh giá (1.0 - 10.0 ⭐)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Chấm điểm đánh giá (thang điểm 1.0 - 10.0)</label>
                 <input
                   type="number"
                   step="0.1"
@@ -1383,7 +1555,7 @@ export default function TrainerPage() {
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '10px', background: '#3B82F6', border: 'none', color: '#FFFFFF', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
                   Lưu Bài Tập
                 </button>
@@ -1393,7 +1565,7 @@ export default function TrainerPage() {
         </div>
       )}
 
-      {/* ===================== MODAL ĐÁNH GIÁ ĐIỂM, TRẠNG THÁI & GHI CHÚ BÀI TẬP ===================== */}
+      {/* ===================== MODAL ĐÁNH GIÁ ĐIỂM & GHI CHÚ BÀI TẬP ===================== */}
       {showEditFeedbackModal && selectedSession && (
         <div style={{
           position: 'fixed',
@@ -1409,12 +1581,12 @@ export default function TrainerPage() {
           <div style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--line)',
-            borderRadius: '10px',
+            borderRadius: '12px',
             width: '100%',
             maxWidth: '520px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            padding: '26px',
+            padding: '28px',
             color: 'var(--paper)',
             boxShadow: 'var(--shadow)'
           }}>
@@ -1423,8 +1595,8 @@ export default function TrainerPage() {
                 <h3 style={{ fontSize: '18px', margin: '0 0 4px', color: 'var(--paper)' }}>
                   Đánh Giá & Ghi Chú Bài Tập
                 </h3>
-                <div style={{ fontSize: '13px', color: '#60A5FA', fontWeight: 600 }}>
-                  Chiến mã: {selectedSession.horseName} • {selectedSession.time}
+                <div style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>
+                  Chiến mã: <b style={{ color: 'var(--paper)' }}>{selectedSession.horseName}</b> • {selectedSession.time}
                 </div>
               </div>
               <button
@@ -1432,19 +1604,16 @@ export default function TrainerPage() {
                 onClick={() => setShowEditFeedbackModal(false)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
               >
-                ✕
+                &times;
               </button>
             </div>
 
-            {/* TÓM TẮT BÀI TẬP */}
             <div style={{ background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12.5px', color: 'var(--paper-dim)', border: '1px solid var(--line)' }}>
               <div>Giáo án: <b style={{ color: 'var(--paper)' }}>{selectedSession.programTitle}</b></div>
-              <div style={{ marginTop: '3px' }}>Cự ly: <b style={{ color: 'var(--paper)' }}>{selectedSession.distanceRun}m</b> • Vận tốc: <b style={{ color: '#34D399' }}>{selectedSession.avgSpeed} km/h</b> • Tim: <b style={{ color: selectedSession.isOverLimit ? '#EF4444' : 'var(--paper)' }}>{selectedSession.maxHeartRate} bpm</b></div>
+              <div style={{ marginTop: '3px' }}>Cự ly: <b style={{ color: 'var(--paper)' }}>{selectedSession.distanceRun}m</b> • Vận tốc: <b style={{ color: 'var(--paper)' }}>{selectedSession.avgSpeed} km/h</b> • Tim: <b style={{ color: selectedSession.isOverLimit ? 'var(--brass)' : 'var(--paper)' }}>{selectedSession.maxHeartRate} bpm</b></div>
             </div>
 
             <form onSubmit={handleUpdateFeedback} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              
-              {/* 1. CHỌN HOÀN THÀNH HOẶC KHÔNG HOÀN THÀNH */}
               <div>
                 <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
                   1. Xác nhận hoàn thành bài tập:
@@ -1457,20 +1626,18 @@ export default function TrainerPage() {
                       padding: '12px 14px',
                       borderRadius: '8px',
                       cursor: 'pointer',
-                      border: selectedSession.status === 'COMPLETED' ? '2px solid #10B981' : '1px solid var(--line)',
-                      background: selectedSession.status === 'COMPLETED' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-secondary)',
-                      color: selectedSession.status === 'COMPLETED' ? '#34D399' : 'var(--paper-dim)',
+                      border: selectedSession.status === 'COMPLETED' ? '1px solid var(--brass)' : '1px solid var(--line)',
+                      background: selectedSession.status === 'COMPLETED' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
+                      color: selectedSession.status === 'COMPLETED' ? 'var(--brass)' : 'var(--paper-dim)',
                       fontWeight: 700,
                       fontSize: '13px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
-                      gap: '4px',
-                      transition: 'all 0.2s ease'
+                      gap: '4px'
                     }}
                   >
-                    <span style={{ fontSize: '18px' }}>✓</span>
-                    <span>Hoàn thành</span>
+                    <span>Hoàn thành bài tập</span>
                   </button>
 
                   <button
@@ -1480,32 +1647,29 @@ export default function TrainerPage() {
                       padding: '12px 14px',
                       borderRadius: '8px',
                       cursor: 'pointer',
-                      border: selectedSession.status === 'INCOMPLETE' ? '2px solid #EF4444' : '1px solid var(--line)',
-                      background: selectedSession.status === 'INCOMPLETE' ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-secondary)',
-                      color: selectedSession.status === 'INCOMPLETE' ? '#F87171' : 'var(--paper-dim)',
+                      border: selectedSession.status === 'INCOMPLETE' ? '1px solid var(--brass)' : '1px solid var(--line)',
+                      background: selectedSession.status === 'INCOMPLETE' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
+                      color: selectedSession.status === 'INCOMPLETE' ? 'var(--brass)' : 'var(--paper-dim)',
                       fontWeight: 700,
                       fontSize: '13px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
-                      gap: '4px',
-                      transition: 'all 0.2s ease'
+                      gap: '4px'
                     }}
                   >
-                    <span style={{ fontSize: '18px' }}>✗</span>
                     <span>Không hoàn thành</span>
                   </button>
                 </div>
               </div>
 
-              {/* 2. CHẤM ĐIỂM ĐÁNH GIÁ (1 - 10) */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <label style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>
-                    2. Chấm điểm đánh giá (Thang 1.0 - 10.0 ⭐):
+                    2. Chấm điểm đánh giá (Thang 1.0 - 10.0):
                   </label>
-                  <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--brass, #C9A227)' }}>
-                    ⭐ {selectedSession.score || 8.0}/10
+                  <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--brass)' }}>
+                    {selectedSession.score || 8.0}/10
                   </span>
                 </div>
                 <input
@@ -1519,7 +1683,6 @@ export default function TrainerPage() {
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box', marginBottom: '8px' }}
                 />
                 
-                {/* DẢI NÚT CHỌN ĐIỂM NHANH */}
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {[5.0, 6.0, 7.0, 8.0, 8.5, 9.0, 9.5, 10.0].map(pt => (
                     <button
@@ -1528,9 +1691,9 @@ export default function TrainerPage() {
                       onClick={() => setSelectedSession({ ...selectedSession, score: pt })}
                       style={{
                         padding: '4px 9px',
-                        background: selectedSession.score === pt ? '#C9A227' : 'var(--bg-secondary)',
-                        color: selectedSession.score === pt ? '#000' : 'var(--paper)',
-                        border: '1px solid var(--line)',
+                        background: selectedSession.score === pt ? 'var(--brass)' : 'var(--bg-secondary)',
+                        color: selectedSession.score === pt ? '#14100A' : 'var(--paper)',
+                        border: selectedSession.score === pt ? '1px solid var(--brass)' : '1px solid var(--line)',
                         borderRadius: '4px',
                         fontSize: '11.5px',
                         fontWeight: 700,
@@ -1543,7 +1706,6 @@ export default function TrainerPage() {
                 </div>
               </div>
 
-              {/* 3. GHI CHÚ BÀI TẬP */}
               <div>
                 <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
                   3. Ghi chú bài tập & Nhận xét của HLV:
@@ -1551,7 +1713,7 @@ export default function TrainerPage() {
                 <textarea
                   rows="4"
                   required
-                  placeholder="Ghi nhận xét chi tiết về thể trạng, nhịp bước, phản ứng với khẩu lệnh, hoặc lý do chưa hoàn thành bài tập..."
+                  placeholder="Ghi nhận xét chi tiết..."
                   value={selectedSession.feedback || ''}
                   onChange={(e) => setSelectedSession({ ...selectedSession, feedback: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }}
@@ -1568,7 +1730,7 @@ export default function TrainerPage() {
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '10px', background: '#3B82F6', border: 'none', color: '#FFFFFF', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
                   Lưu Đánh Giá & Ghi Chú
                 </button>
