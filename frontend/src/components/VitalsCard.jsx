@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function VitalsCard() {
+  const { t, lang } = useLanguage();
   const [heartRate, setHeartRate] = useState(186);
   const [speed, setSpeed] = useState(58.4);
   const [distance, setDistance] = useState(1200);
@@ -16,13 +18,13 @@ export default function VitalsCard() {
   }, []);
 
   return (
-    <div className="vitals" aria-label="Dữ liệu buổi tập đang diễn ra">
+    <div className="vitals" aria-label={t('vitalsCardTitle')}>
       <div className="vitals-head">
         <div className="who">
-          HẮC PHONG <small>Đường chạy số 2 · mặt sân cát</small>
+          {t('vitalsHorseName')} <small>{t('vitalsTrackInfo')}</small>
         </div>
         <div className="live">
-          <span className="dot"></span>Đang chạy
+          <span className="dot"></span>{t('vitalsLive')}
         </div>
       </div>
       <svg className="trace" viewBox="0 0 520 78" preserveAspectRatio="none" aria-hidden="true">
@@ -31,20 +33,20 @@ export default function VitalsCard() {
       <div className="readouts">
         <div>
           <b>{heartRate}</b>
-          <span>NHỊP TIM / PHÚT</span>
+          <span>{t('vitalsHeartRate')}</span>
         </div>
         <div>
-          <b>{speed.toString().replace('.', ',')}</b>
-          <span>KM/GIỜ</span>
+          <b>{lang === 'vi' ? speed.toString().replace('.', ',') : speed.toFixed(1)}</b>
+          <span>{t('vitalsSpeed')}</span>
         </div>
         <div>
           <b>{distance}</b>
-          <span>MÉT ĐÃ CHẠY</span>
+          <span>{t('vitalsDistance')}</span>
         </div>
       </div>
       <div className="vitals-foot">
         <span className="flag"></span>
-        Nhịp tim vượt ngưỡng an toàn 8 phút liên tục. Hệ thống đề nghị giảm tải và báo bác sĩ thú y trực.
+        {t('vitalsAlert')}
       </div>
     </div>
   );

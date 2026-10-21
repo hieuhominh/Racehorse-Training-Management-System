@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { getTrainingProgramsApi } from '../services/api';
 import ThemeToggle from '../components/ThemeToggle';
 
 // Minimalist, high-end SVG icons (0 emojis, strict professional aesthetic)
@@ -200,6 +201,29 @@ export default function TrainerPage() {
       status: 'ACTIVE'
     }
   ]);
+
+  // Nạp giáo án từ API Backend khi khởi động
+  useEffect(() => {
+    let isMounted = true;
+    getTrainingProgramsApi().then(res => {
+      if (isMounted && res.isFromBackend && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped = res.data.map((p, idx) => ({
+          id: p.id || idx + 1,
+          title: p.title,
+          horseName: p.horse,
+          phase: p.phase,
+          targetDistance: p.targetDistance,
+          surface: p.surface,
+          startDate: '10/10/2026',
+          endDate: '30/10/2026',
+          status: p.status || 'ACTIVE'
+        }));
+        setPrograms(prev => [...mapped, ...prev.slice(mapped.length)]);
+      }
+    }).catch(() => {});
+
+    return () => { isMounted = false; };
+  }, []);
 
   // 3. Danh sách buổi tập & chỉ số Telemetry (Training Sessions)
   const [sessions, setSessions] = useState([

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function PedigreeModal({ horse, isOpen, onClose }) {
+  const { t, lang } = useLanguage();
   const [selectedNode, setSelectedNode] = useState(null);
   const [viewTab, setViewTab] = useState('tree'); // 'tree' | 'table'
 
@@ -26,19 +28,19 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
         <div className="modal-header">
           <div className="modal-title-group">
             <div className="badge-row">
-              <span className="badge badge-gold">CÂY DÒNG DÕI 3 ĐỜI</span>
+              <span className="badge badge-gold">{t('pedigreeModalBadge')}</span>
               <span className="chip-badge">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2v20M2 12h20M7 7l10 10M17 7L7 17"/>
                 </svg>
-                CHIP RFID: <strong>{horse.chipId}</strong>
+                {t('pedigreeChipPrefix')} <strong>{horse.chipId}</strong>
               </span>
             </div>
             <h2 id="pedigree-modal-title" className="modal-title">
-              {horse.name} <span className="sub-title">({horse.englishName})</span>
+              {lang === 'en' ? horse.englishName : horse.name} <span className="sub-title">({lang === 'en' ? horse.name : horse.englishName})</span>
             </h2>
             <p className="modal-subtitle">
-              {horse.breed} • {horse.gender} • Sinh năm {horse.yob} ({horse.age} tuổi) • {horse.color}
+              {horse.breed} • {lang === 'en' ? (horse.gender === 'Đực' ? 'Stallion' : 'Mare') : horse.gender} • {lang === 'en' ? `Foaled in ${horse.yob} (${horse.age}yo)` : `Sinh năm ${horse.yob} (${horse.age} tuổi)`} • {horse.color}
             </p>
           </div>
 
@@ -49,17 +51,17 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                 className={`tab-pill ${viewTab === 'tree' ? 'active' : ''}`}
                 onClick={() => setViewTab('tree')}
               >
-                Sơ đồ phả hệ 3D
+                {t('tabPedigreeTree')}
               </button>
               <button 
                 type="button"
                 className={`tab-pill ${viewTab === 'table' ? 'active' : ''}`}
                 onClick={() => setViewTab('table')}
               >
-                Bảng chi tiết 7 đời
+                {t('tabPedigreeTable')}
               </button>
             </div>
-            <button type="button" className="close-btn" onClick={onClose} aria-label="Đóng modal">
+            <button type="button" className="close-btn" onClick={onClose} aria-label={t('closePedigreeAria')}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -73,17 +75,17 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
           {viewTab === 'tree' ? (
             <div className="pedigree-tree-wrapper">
               <div className="tree-legend">
-                <div className="legend-item"><span className="legend-dot dot-subject"></span> Chủ thể (G1)</div>
-                <div className="legend-item"><span className="legend-dot dot-sire"></span> Dòng Cha (Sire Line)</div>
-                <div className="legend-item"><span className="legend-dot dot-dam"></span> Dòng Mẹ (Dam Line)</div>
-                <div className="legend-hint">Bấm vào bất kỳ ngựa tổ tiên nào để xem hồ sơ dòng dõi</div>
+                <div className="legend-item"><span className="legend-dot dot-subject"></span> {t('legendSubject')}</div>
+                <div className="legend-item"><span className="legend-dot dot-sire"></span> {t('legendSire')}</div>
+                <div className="legend-item"><span className="legend-dot dot-dam"></span> {t('legendDam')}</div>
+                <div className="legend-hint">{t('legendHint')}</div>
               </div>
 
               {/* 3-Generation Pedigree Grid */}
               <div className="pedigree-grid">
                 {/* Generation 1: Subject Horse */}
                 <div className="gen-column gen-1">
-                  <div className="gen-title">ĐỜI 1: CHỦ THỂ</div>
+                  <div className="gen-title">{t('gen1Title')}</div>
                   <div 
                     className={`node-card node-subject ${activeDetail?.chipId === g1.chipId ? 'node-selected' : ''}`}
                     onClick={() => setSelectedNode(g1)}
@@ -93,10 +95,10 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                       <span className="node-gen-badge">G1</span>
                     </div>
                     <div className="node-info">
-                      <div className="node-role">CHIẾN MÃ</div>
-                      <div className="node-name">{g1.name || horse.name}</div>
-                      <div className="node-eng">{g1.englishName || horse.englishName}</div>
-                      <div className="node-chip">MÃ CHIP: {g1.chipId || horse.chipId}</div>
+                      <div className="node-role">{t('roleSubject')}</div>
+                      <div className="node-name">{lang === 'en' ? (g1.englishName || horse.englishName) : (g1.name || horse.name)}</div>
+                      <div className="node-eng">{lang === 'en' ? (g1.name || horse.name) : (g1.englishName || horse.englishName)}</div>
+                      <div className="node-chip">{t('pedigreeChipPrefix')} {g1.chipId || horse.chipId}</div>
                       <div className="node-tags">
                         <span className="mini-tag">{horse.breed}</span>
                         <span className="mini-tag gold-tag">{g1.record || horse.winsCount}</span>
@@ -114,23 +116,23 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
 
                 {/* Generation 2: Parents (Sire & Dam) */}
                 <div className="gen-column gen-2">
-                  <div className="gen-title">ĐỜI 2: CHA & MẸ (PARENTS)</div>
+                  <div className="gen-title">{t('gen2Title')}</div>
                   
                   {/* SIRE */}
                   <div className="parent-branch sire-branch">
                     <div 
                       className={`node-card node-sire ${activeDetail?.chipId === g2.sire?.chipId ? 'node-selected' : ''}`}
-                      onClick={() => setSelectedNode({ ...g2.sire, relationRole: 'Cha (Sire)' })}
+                      onClick={() => setSelectedNode({ ...g2.sire, relationRole: t('roleSire') })}
                     >
                       <div className="node-header-row">
-                        <span className="relation-pill sire-pill">♂ SIRE (CHA)</span>
+                        <span className="relation-pill sire-pill">♂ {t('roleSire')}</span>
                         <span className="node-yob">{g2.sire?.yob}</span>
                       </div>
-                      <div className="node-name">{g2.sire?.name || 'Chưa cập nhật'}</div>
-                      <div className="node-chip">MÃ CHIP: {g2.sire?.chipId}</div>
-                      <div className="node-lineage">Dòng: {g2.sire?.lineage}</div>
-                      <div className="node-record">Thành tích: {g2.sire?.record}</div>
-                      <div className="node-origin">Xuất xứ: {g2.sire?.origin}</div>
+                      <div className="node-name">{g2.sire?.name || (lang === 'en' ? 'Unrecorded' : 'Chưa cập nhật')}</div>
+                      <div className="node-chip">{t('pedigreeChipPrefix')} {g2.sire?.chipId}</div>
+                      <div className="node-lineage">{lang === 'en' ? 'Sire Line:' : 'Dòng:'} {g2.sire?.lineage}</div>
+                      <div className="node-record">{lang === 'en' ? 'Record:' : 'Thành tích:'} {g2.sire?.record}</div>
+                      <div className="node-origin">{lang === 'en' ? 'Origin:' : 'Xuất xứ:'} {g2.sire?.origin}</div>
                     </div>
                   </div>
 
@@ -138,17 +140,17 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                   <div className="parent-branch dam-branch">
                     <div 
                       className={`node-card node-dam ${activeDetail?.chipId === g2.dam?.chipId ? 'node-selected' : ''}`}
-                      onClick={() => setSelectedNode({ ...g2.dam, relationRole: 'Mẹ (Dam)' })}
+                      onClick={() => setSelectedNode({ ...g2.dam, relationRole: t('roleDam') })}
                     >
                       <div className="node-header-row">
-                        <span className="relation-pill dam-pill">♀ DAM (MẸ)</span>
+                        <span className="relation-pill dam-pill">♀ {t('roleDam')}</span>
                         <span className="node-yob">{g2.dam?.yob}</span>
                       </div>
-                      <div className="node-name">{g2.dam?.name || 'Chưa cập nhật'}</div>
-                      <div className="node-chip">MÃ CHIP: {g2.dam?.chipId}</div>
-                      <div className="node-lineage">Dòng: {g2.dam?.lineage}</div>
-                      <div className="node-record">Thành tích: {g2.dam?.record}</div>
-                      <div className="node-origin">Xuất xứ: {g2.dam?.origin}</div>
+                      <div className="node-name">{g2.dam?.name || (lang === 'en' ? 'Unrecorded' : 'Chưa cập nhật')}</div>
+                      <div className="node-chip">{t('pedigreeChipPrefix')} {g2.dam?.chipId}</div>
+                      <div className="node-lineage">{lang === 'en' ? 'Dam Line:' : 'Dòng:'} {g2.dam?.lineage}</div>
+                      <div className="node-record">{lang === 'en' ? 'Record:' : 'Thành tích:'} {g2.dam?.record}</div>
+                      <div className="node-origin">{lang === 'en' ? 'Origin:' : 'Xuất xứ:'} {g2.dam?.origin}</div>
                     </div>
                   </div>
                 </div>
@@ -165,16 +167,16 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
 
                 {/* Generation 3: Grandparents (4 Nodes) */}
                 <div className="gen-column gen-3">
-                  <div className="gen-title">ĐỜI 3: ÔNG BÀ NỘI NGOẠI (GRANDPARENTS)</div>
+                  <div className="gen-title">{t('gen3Title')}</div>
                   
                   {/* Sire's Sire */}
                   <div className="grandparent-slot">
                     <div 
                       className={`node-card node-g3 node-sire-line ${activeDetail?.chipId === g3.sireSire?.chipId ? 'node-selected' : ''}`}
-                      onClick={() => setSelectedNode({ ...g3.sireSire, relationRole: 'Ông Nội (Sire\'s Sire)' })}
+                      onClick={() => setSelectedNode({ ...g3.sireSire, relationRole: t('roleGrandSireP') })}
                     >
                       <div className="node-header-row">
-                        <span className="g3-pill male">♂ ÔNG NỘI</span>
+                        <span className="g3-pill male">♂ {t('roleGrandSireP')}</span>
                         <span className="node-yob">{g3.sireSire?.yob}</span>
                       </div>
                       <div className="node-name">{g3.sireSire?.name}</div>
@@ -187,10 +189,10 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                   <div className="grandparent-slot">
                     <div 
                       className={`node-card node-g3 node-sire-line ${activeDetail?.chipId === g3.sireDam?.chipId ? 'node-selected' : ''}`}
-                      onClick={() => setSelectedNode({ ...g3.sireDam, relationRole: 'Bà Nội (Sire\'s Dam)' })}
+                      onClick={() => setSelectedNode({ ...g3.sireDam, relationRole: t('roleGrandDamP') })}
                     >
                       <div className="node-header-row">
-                        <span className="g3-pill female">♀ BÀ NỘI</span>
+                        <span className="g3-pill female">♀ {t('roleGrandDamP')}</span>
                         <span className="node-yob">{g3.sireDam?.yob}</span>
                       </div>
                       <div className="node-name">{g3.sireDam?.name}</div>
@@ -203,10 +205,10 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                   <div className="grandparent-slot">
                     <div 
                       className={`node-card node-g3 node-dam-line ${activeDetail?.chipId === g3.damSire?.chipId ? 'node-selected' : ''}`}
-                      onClick={() => setSelectedNode({ ...g3.damSire, relationRole: 'Ông Ngoại (Dam\'s Sire)' })}
+                      onClick={() => setSelectedNode({ ...g3.damSire, relationRole: t('roleGrandSireM') })}
                     >
                       <div className="node-header-row">
-                        <span className="g3-pill male">♂ ÔNG NGOẠI</span>
+                        <span className="g3-pill male">♂ {t('roleGrandSireM')}</span>
                         <span className="node-yob">{g3.damSire?.yob}</span>
                       </div>
                       <div className="node-name">{g3.damSire?.name}</div>
@@ -219,10 +221,10 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
                   <div className="grandparent-slot">
                     <div 
                       className={`node-card node-g3 node-dam-line ${activeDetail?.chipId === g3.damDam?.chipId ? 'node-selected' : ''}`}
-                      onClick={() => setSelectedNode({ ...g3.damDam, relationRole: 'Bà Ngoại (Dam\'s Dam)' })}
+                      onClick={() => setSelectedNode({ ...g3.damDam, relationRole: t('roleGrandDamM') })}
                     >
                       <div className="node-header-row">
-                        <span className="g3-pill female">♀ BÀ NGOẠI</span>
+                        <span className="g3-pill female">♀ {t('roleGrandDamM')}</span>
                         <span className="node-yob">{g3.damDam?.yob}</span>
                       </div>
                       <div className="node-name">{g3.damDam?.name}</div>
@@ -238,30 +240,30 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
               {activeDetail && (
                 <div className="selected-node-panel">
                   <div className="panel-title-row">
-                    <span className="panel-badge">CHI TIẾT THÔNG TIN HUYẾT THỐNG CHỌN LỌC</span>
-                    <span className="panel-role">{activeDetail.relationRole || activeDetail.relation || 'Chiến mã chủ thể'}</span>
+                    <span className="panel-badge">{t('ancestorDetailsTitle')}</span>
+                    <span className="panel-role">{activeDetail.relationRole || activeDetail.relation || t('roleSubject')}</span>
                   </div>
                   <div className="panel-grid">
                     <div className="panel-item">
-                      <label>Tên ngựa:</label>
+                      <label>{lang === 'en' ? 'Horse Name:' : 'Tên ngựa:'}</label>
                       <span className="highlight-text">{activeDetail.name}</span>
                     </div>
                     <div className="panel-item">
-                      <label>Mã Chip RFID:</label>
+                      <label>{t('propChipId')}</label>
                       <code className="chip-code">{activeDetail.chipId}</code>
                     </div>
                     <div className="panel-item">
-                      <label>Giống & Xuất xứ:</label>
+                      <label>{lang === 'en' ? 'Breed & Origin:' : 'Giống & Xuất xứ:'}</label>
                       <span>{activeDetail.breed || 'Thoroughbred'} ({activeDetail.origin || 'N/A'})</span>
                     </div>
                     <div className="panel-item">
-                      <label>Năm sinh / Tuổi:</label>
-                      <span>{activeDetail.yob ? `Năm ${activeDetail.yob}` : 'N/A'}</span>
+                      <label>{lang === 'en' ? 'YOB / Age:' : 'Năm sinh / Tuổi:'}</label>
+                      <span>{activeDetail.yob ? (lang === 'en' ? `Born ${activeDetail.yob}` : `Năm ${activeDetail.yob}`) : 'N/A'}</span>
                     </div>
                     <div className="panel-item full-width">
-                      <label>Thành tích / Danh hiệu nổi bật:</label>
+                      <label>{t('propAchievements')}</label>
                       <span className="achievement-text">
-                        {activeDetail.achievements || activeDetail.record || activeDetail.notes || 'Hồ sơ thi đấu tiêu chuẩn quốc tế'}
+                        {activeDetail.achievements || activeDetail.record || activeDetail.notes || (lang === 'en' ? 'International race record on file' : 'Hồ sơ thi đấu tiêu chuẩn quốc tế')}
                       </span>
                     </div>
                   </div>
@@ -274,25 +276,25 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
               <table className="pedigree-table">
                 <thead>
                   <tr>
-                    <th>Thế hệ</th>
-                    <th>Quan hệ / Vai trò</th>
-                    <th>Tên ngựa</th>
-                    <th>Mã Chip RFID</th>
-                    <th>Năm sinh</th>
-                    <th>Giống & Xuất xứ</th>
-                    <th>Thành tích / Ghi chú</th>
+                    <th>{lang === 'en' ? 'Generation' : 'Thế hệ'}</th>
+                    <th>{lang === 'en' ? 'Relationship / Role' : 'Quan hệ / Vai trò'}</th>
+                    <th>{lang === 'en' ? 'Horse Name' : 'Tên ngựa'}</th>
+                    <th>{t('colChip')}</th>
+                    <th>{t('cardYobLabel')}</th>
+                    <th>{lang === 'en' ? 'Breed & Origin' : 'Giống & Xuất xứ'}</th>
+                    <th>{lang === 'en' ? 'Record & Notes' : 'Thành tích / Ghi chú'}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {/* G1 */}
                   <tr className="row-g1">
-                    <td><span className="gen-tag g1">Đời 1</span></td>
-                    <td><strong>Chủ thể</strong></td>
+                    <td><span className="gen-tag g1">{lang === 'en' ? 'Gen 1' : 'Đời 1'}</span></td>
+                    <td><strong>{t('roleSubject')}</strong></td>
                     <td className="horse-name-cell">
                       <img src={horse.avatar} alt={horse.name} className="mini-avatar" />
                       <div>
-                        <strong>{g1.name || horse.name}</strong>
-                        <small>{g1.englishName || horse.englishName}</small>
+                        <strong>{lang === 'en' ? (g1.englishName || horse.englishName) : (g1.name || horse.name)}</strong>
+                        <small>{lang === 'en' ? (g1.name || horse.name) : (g1.englishName || horse.englishName)}</small>
                       </div>
                     </td>
                     <td><code>{g1.chipId || horse.chipId}</code></td>
@@ -303,8 +305,8 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
 
                   {/* G2 Sire */}
                   <tr className="row-sire">
-                    <td><span className="gen-tag g2">Đời 2</span></td>
-                    <td><span className="relation-pill sire-pill">♂ Cha (Sire)</span></td>
+                    <td><span className="gen-tag g2">{lang === 'en' ? 'Gen 2' : 'Đời 2'}</span></td>
+                    <td><span className="relation-pill sire-pill">♂ {t('roleSire')}</span></td>
                     <td><strong>{g2.sire?.name}</strong></td>
                     <td><code>{g2.sire?.chipId}</code></td>
                     <td>{g2.sire?.yob}</td>
@@ -314,8 +316,8 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
 
                   {/* G2 Dam */}
                   <tr className="row-dam">
-                    <td><span className="gen-tag g2">Đời 2</span></td>
-                    <td><span className="relation-pill dam-pill">♀ Mẹ (Dam)</span></td>
+                    <td><span className="gen-tag g2">{lang === 'en' ? 'Gen 2' : 'Đời 2'}</span></td>
+                    <td><span className="relation-pill dam-pill">♀ {t('roleDam')}</span></td>
                     <td><strong>{g2.dam?.name}</strong></td>
                     <td><code>{g2.dam?.chipId}</code></td>
                     <td>{g2.dam?.yob}</td>
@@ -325,8 +327,8 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
 
                   {/* G3 Sire's Sire */}
                   <tr>
-                    <td><span className="gen-tag g3">Đời 3</span></td>
-                    <td>Ông nội (Sire's Sire)</td>
+                    <td><span className="gen-tag g3">{lang === 'en' ? 'Gen 3' : 'Đời 3'}</span></td>
+                    <td>{t('roleGrandSireP')}</td>
                     <td><strong>{g3.sireSire?.name}</strong></td>
                     <td><code>{g3.sireSire?.chipId}</code></td>
                     <td>{g3.sireSire?.yob}</td>
@@ -336,8 +338,8 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
 
                   {/* G3 Sire's Dam */}
                   <tr>
-                    <td><span className="gen-tag g3">Đời 3</span></td>
-                    <td>Bà nội (Sire's Dam)</td>
+                    <td><span className="gen-tag g3">{lang === 'en' ? 'Gen 3' : 'Đời 3'}</span></td>
+                    <td>{t('roleGrandDamP')}</td>
                     <td><strong>{g3.sireDam?.name}</strong></td>
                     <td><code>{g3.sireDam?.chipId}</code></td>
                     <td>{g3.sireDam?.yob}</td>
@@ -347,8 +349,8 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
 
                   {/* G3 Dam's Sire */}
                   <tr>
-                    <td><span className="gen-tag g3">Đời 3</span></td>
-                    <td>Ông ngoại (Dam's Sire)</td>
+                    <td><span className="gen-tag g3">{lang === 'en' ? 'Gen 3' : 'Đời 3'}</span></td>
+                    <td>{t('roleGrandSireM')}</td>
                     <td><strong>{g3.damSire?.name}</strong></td>
                     <td><code>{g3.damSire?.chipId}</code></td>
                     <td>{g3.damSire?.yob}</td>
@@ -358,8 +360,8 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
 
                   {/* G3 Dam's Dam */}
                   <tr>
-                    <td><span className="gen-tag g3">Đời 3</span></td>
-                    <td>Bà ngoại (Dam's Dam)</td>
+                    <td><span className="gen-tag g3">{lang === 'en' ? 'Gen 3' : 'Đời 3'}</span></td>
+                    <td>{t('roleGrandDamM')}</td>
                     <td><strong>{g3.damDam?.name}</strong></td>
                     <td><code>{g3.damDam?.chipId}</code></td>
                     <td>{g3.damDam?.yob}</td>
@@ -375,14 +377,16 @@ export default function PedigreeModal({ horse, isOpen, onClose }) {
         {/* Modal Footer */}
         <div className="modal-footer">
           <div className="footer-info">
-            Xác thực sinh trắc học DNA & Mã Chip RFID đăng ký chính thức bởi Hiệp hội Đua Mã Quốc tế.
+            {lang === 'en' 
+              ? 'Biometric DNA & RFID Microchip officially registered with International Racing Authority.'
+              : 'Xác thực sinh trắc học DNA & Mã Chip RFID đăng ký chính thức bởi Hiệp hội Đua Mã Quốc tế.'}
           </div>
           <div className="footer-btns">
             <button type="button" className="btn btn-ghost" onClick={() => window.print()}>
-              In chứng nhận phả hệ
+              {lang === 'en' ? 'Print Pedigree Certificate' : 'In chứng nhận phả hệ'}
             </button>
             <button type="button" className="btn btn-solid" onClick={onClose}>
-              Đóng cửa sổ
+              {t('closeBtn')}
             </button>
           </div>
         </div>

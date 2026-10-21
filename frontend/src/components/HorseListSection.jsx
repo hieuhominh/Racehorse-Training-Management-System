@@ -1,15 +1,46 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { initialHorsesData } from '../data/horsesData';
+import { getHorsesApi } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useLanguage } from '../context/LanguageContext';
 import PedigreeModal from './PedigreeModal';
 
 export default function HorseListSection() {
-  const [horses] = useState(initialHorsesData);
+  const { showToast } = useToast();
+  const { t, lang } = useLanguage();
+  const [horses, setHorses] = useState(initialHorsesData);
+  const [isFromBackend, setIsFromBackend] = useState(false);
+  const [isLoadingApi, setIsLoadingApi] = useState(false);
   const [searchChip, setSearchChip] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table' (default to 'cards' so action buttons are 100% prominent)
   const [activeHorseForPedigree, setActiveHorseForPedigree] = useState(null);
   const [detailModalHorse, setDetailModalHorse] = useState(null);
+
+  // Gọi API kết nối với Backend Java Servlet khi component mount
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingApi(true);
+
+    getHorsesApi()
+      .then((res) => {
+        if (isMounted && res.data) {
+          setHorses(res.data);
+          setIsFromBackend(res.isFromBackend);
+        }
+      })
+      .catch((err) => {
+        console.error('Lỗi nạp dữ liệu ngựa từ API:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingApi(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Filter logic
   const filteredHorses = useMemo(() => {
@@ -51,18 +82,32 @@ export default function HorseListSection() {
     setSelectedStatus('all');
   };
 
+  const getStatusText = (status, defaultLabel) => {
+    if (lang === 'en') {
+      switch (status) {
+        case 'eligible': return 'Race Eligible';
+        case 'watch': return 'Watchlist';
+        case 'resting': return 'Resting';
+        case 'hurt': return 'Injured';
+        default: return defaultLabel || status;
+      }
+    }
+    return defaultLabel;
+  };
+
   const getStatusBadge = (status, label) => {
+    const text = getStatusText(status, label);
     switch (status) {
       case 'eligible':
-        return <span className="badge badge-gold">{label}</span>;
+        return <span className="badge badge-gold">{text}</span>;
       case 'watch':
-        return <span className="badge badge-slate">{label}</span>;
+        return <span className="badge badge-slate">{text}</span>;
       case 'resting':
-        return <span className="badge badge-slate">{label}</span>;
+        return <span className="badge badge-slate">{text}</span>;
       case 'hurt':
-        return <span className="badge badge-slate">{label}</span>;
+        return <span className="badge badge-slate">{text}</span>;
       default:
-        return <span className="badge badge-slate">{label}</span>;
+        return <span className="badge badge-slate">{text}</span>;
     }
   };
 
@@ -73,20 +118,20 @@ export default function HorseListSection() {
         <div className="sec-head-flex">
           <div>
             <div className="eyebrow">
-              FLOW 01 • LÝ LỊCH & QUẢN LÝ DÒNG DÕI
+              {t('horseListEyebrow')}
             </div>
-            <h2>DANH SÁCH HỒ SƠ NGỰA & PHẢ HỆ</h2>
+            <h2>{t('horseListHeading')}</h2>
             <p>
-              Tra cứu hồ sơ định danh, lọc theo <strong>Mã Chip RFID</strong> và mở sơ đồ <strong>Cây dòng dõi 3 đời (Sire, Dam, Grandparents)</strong>.
+              {t('horseListDesc')}
             </p>
           </div>
           <div className="sec-head-actions">
             <button 
               type="button" 
               className="btn btn-solid" 
-              onClick={() => alert('Chức năng "Đăng ký ngựa mới" sẵn sàng kết nối với hệ thống RFID định danh.')}
+              onClick={() => showToast(t('regNewHorseToast'), 'QUẢN LÝ CHIẾN MÃ')}
             >
-              + Đăng ký ngựa mới
+              {t('regNewHorseBtn')}
             </button>
           </div>
         </div>
@@ -101,13 +146,13 @@ export default function HorseListSection() {
                   <rect x="2" y="4" width="20" height="16" rx="2" />
                   <path d="M6 8v8M10 8v8M14 8v8M18 8v8" />
                 </svg>
-                Lọc theo Mã Chip RFID:
+                {t('filterChipLabel')}
               </label>
               <div className="input-with-icon">
                 <input
                   id="chip-search-input"
                   type="text"
-                  placeholder="Nhập mã chip (ví dụ: 982-000-348...)"
+                  placeholder={t('filterChipPlaceholder')}
                   value={searchChip}
                   onChange={(e) => setSearchChip(e.target.value)}
                   className="filter-input chip-input"
@@ -117,7 +162,7 @@ export default function HorseListSection() {
                     type="button" 
                     className="clear-input-btn" 
                     onClick={() => setSearchChip('')}
-                    title="Xóa mã chip"
+                    title={t('clearChipTitle')}
                   >
                     ✕
                   </button>
@@ -127,11 +172,11 @@ export default function HorseListSection() {
 
             {/* General Search Input */}
             <div className="filter-group">
-              <label htmlFor="general-search-input">Tìm theo tên / giống / chủ sở hữu:</label>
+              <label htmlFor="general-search-input">{t('filterSearchLabel')}</label>
               <input
                 id="general-search-input"
                 type="text"
-                placeholder="Nhập tên ngựa, giống, HLV..."
+                placeholder={t('filterSearchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="filter-input"
@@ -140,24 +185,24 @@ export default function HorseListSection() {
 
             {/* Status Select Filter */}
             <div className="filter-group">
-              <label htmlFor="status-select">Trạng thái thể lực:</label>
+              <label htmlFor="status-select">{t('statusFilterLabel')}</label>
               <select
                 id="status-select"
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
                 className="filter-select"
               >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="eligible">Đủ điều kiện thi đấu</option>
-                <option value="watch">Cần theo dõi</option>
-                <option value="resting">Nghỉ dưỡng</option>
-                <option value="hurt">Chấn thương</option>
+                <option value="all">{t('statusAll')}</option>
+                <option value="eligible">{t('statusEligible')}</option>
+                <option value="watch">{t('statusWatch')}</option>
+                <option value="resting">{t('statusResting')}</option>
+                <option value="hurt">{t('statusHurt')}</option>
               </select>
             </div>
 
             {/* View Switcher Toggle */}
             <div className="filter-group view-toggle-group">
-              <label>Chế độ hiển thị:</label>
+              <label>{t('viewModeLabel')}</label>
               <div className="view-toggle-btns">
                 <button
                   type="button"
@@ -165,7 +210,7 @@ export default function HorseListSection() {
                   onClick={() => setViewMode('cards')}
                   title="Hiển thị dạng thẻ 100% khung hình"
                 >
-                  Thẻ Thao Tác
+                  {t('viewActionCards')}
                 </button>
                 <button
                   type="button"
@@ -173,7 +218,7 @@ export default function HorseListSection() {
                   onClick={() => setViewMode('table')}
                   title="Hiển thị dạng bảng thu gọn"
                 >
-                  Bảng Thu Gọn
+                  {t('viewCompactTable')}
                 </button>
               </div>
             </div>
@@ -181,37 +226,47 @@ export default function HorseListSection() {
 
           {/* Quick Chip Preset Buttons */}
           <div className="quick-presets">
-            <span className="preset-label">Mẫu mã chip nhanh:</span>
+            <span className="preset-label">{t('quickPresetsLabel')}</span>
             <button 
               type="button" 
               className={`preset-pill ${searchChip === '982-000-348-192-001' ? 'active' : ''}`}
               onClick={() => setSearchChip('982-000-348-192-001')}
             >
-              #001 (Xích Thố)
+              #001 ({lang === 'en' ? 'Red Hare' : 'Xích Thố'})
             </button>
             <button 
               type="button" 
               className={`preset-pill ${searchChip === '982-000-348-192-002' ? 'active' : ''}`}
               onClick={() => setSearchChip('982-000-348-192-002')}
             >
-              #002 (Bạch Long)
+              #002 ({lang === 'en' ? 'White Dragon' : 'Bạch Long'})
             </button>
             <button 
               type="button" 
               className={`preset-pill ${searchChip === '982-000-348-192-003' ? 'active' : ''}`}
               onClick={() => setSearchChip('982-000-348-192-003')}
             >
-              #003 (Hắc Phong)
+              #003 ({lang === 'en' ? 'Black Wind' : 'Hắc Phong'})
             </button>
             
             {(searchChip || searchQuery || selectedStatus !== 'all') && (
               <button type="button" className="btn-reset-filters" onClick={handleResetFilters}>
-                Xóa bộ lọc
+                {t('clearFiltersBtn')}
               </button>
             )}
 
             <div className="counter-badge">
-              Hiển thị <strong>{filteredHorses.length}</strong> / <strong>{horses.length}</strong> chiến mã
+              {t('showingHorsesCount')} <strong>{filteredHorses.length}</strong> / <strong>{horses.length}</strong> {t('ofHorsesCount')}
+            </div>
+
+            <div className="api-status-badge">
+              {isLoadingApi ? (
+                <span className="badge badge-slate" style={{ fontSize: '11px' }}>{t('checkingApi')}</span>
+              ) : isFromBackend ? (
+                <span className="badge badge-gold" style={{ fontSize: '11px' }}>{t('connectedApi')}</span>
+              ) : (
+                <span className="badge badge-slate" style={{ fontSize: '11px' }}>{lang === 'en' ? 'Local Mode' : 'Dữ liệu chuẩn hóa (Local Mode)'}</span>
+              )}
             </div>
           </div>
         </div>
@@ -219,12 +274,14 @@ export default function HorseListSection() {
         {/* Main Content Area */}
         {filteredHorses.length === 0 ? (
           <div className="no-results-card">
-            <h3>Không tìm thấy chiến mã phù hợp</h3>
+            <h3>{t('noHorsesFound')}</h3>
             <p>
-              Không tìm thấy hồ sơ ngựa trùng khớp với mã chip "<strong>{searchChip}</strong>" hoặc từ khóa tìm kiếm.
+              {lang === 'en' 
+                ? `No racehorse profiles match chip ID "${searchChip}" or the search keyword.`
+                : `Không tìm thấy hồ sơ ngựa trùng khớp với mã chip "${searchChip}" hoặc từ khóa tìm kiếm.`}
             </p>
             <button type="button" className="btn btn-ghost" onClick={handleResetFilters}>
-              Đặt lại bộ lọc
+              {t('clearFiltersBtn')}
             </button>
           </div>
         ) : viewMode === 'cards' ? (
@@ -241,39 +298,39 @@ export default function HorseListSection() {
 
                 <div className="horse-card-body">
                   <div className="card-chip-bar">
-                    <span className="chip-code-badge">MÃ CHIP: {horse.chipId}</span>
+                    <span className="chip-code-badge">{t('cardChipLabel')}: {horse.chipId}</span>
                     <span className="stall-code">{horse.stall}</span>
                   </div>
 
-                  <h3 className="card-horse-name">{horse.name}</h3>
-                  <div className="card-eng-name">{horse.englishName}</div>
+                  <h3 className="card-horse-name">{lang === 'en' ? horse.englishName : horse.name}</h3>
+                  <div className="card-eng-name">{lang === 'en' ? horse.name : horse.englishName}</div>
 
                   <div className="card-specs-row">
                     <span className="spec-tag">{horse.breed}</span>
-                    <span className="spec-tag">{horse.gender}</span>
-                    <span className="spec-tag">{horse.age} tuổi</span>
+                    <span className="spec-tag">{lang === 'en' ? (horse.gender === 'Đực' ? 'Stallion' : 'Mare') : horse.gender}</span>
+                    <span className="spec-tag">{horse.age} {t('cardAgeLabel')}</span>
                   </div>
 
                   {/* Sire & Dam box */}
                   <div className="card-pedigree-preview">
-                    <div className="pedigree-preview-header">DÒNG DÕI CHA MẸ</div>
+                    <div className="pedigree-preview-header">{lang === 'en' ? 'LINEAGE (SIRE & DAM)' : 'DÒNG DÕI CHA MẸ'}</div>
                     <div className="preview-row">
-                      <span className="p-label sire">♂ CHA (SIRE):</span>
+                      <span className="p-label sire">♂ {lang === 'en' ? 'SIRE:' : 'CHA (SIRE):'}</span>
                       <span className="p-val">{horse.pedigree?.g2?.sire?.name}</span>
                     </div>
                     <div className="preview-row">
-                      <span className="p-label dam">♀ MẸ (DAM):</span>
+                      <span className="p-label dam">♀ {lang === 'en' ? 'DAM:' : 'MẸ (DAM):'}</span>
                       <span className="p-val">{horse.pedigree?.g2?.dam?.name}</span>
                     </div>
                   </div>
 
                   <div className="card-owner-info-strip">
-                    <span className="owner-title">Chủ sở hữu:</span>
+                    <span className="owner-title">{t('cardOwnerLabel')}:</span>
                     <span className="owner-val">{horse.owner}</span>
                   </div>
 
                   <div className="card-wins-strip">
-                    <strong>THÀNH TÍCH:</strong> {horse.winsCount}
+                    <strong>{lang === 'en' ? 'RECORD:' : 'THÀNH TÍCH:'}</strong> {horse.winsCount}
                   </div>
                 </div>
 
@@ -284,14 +341,14 @@ export default function HorseListSection() {
                     className="btn-pedigree-action btn-full-pedigree"
                     onClick={() => setActiveHorseForPedigree(horse)}
                   >
-                    Cây dòng dõi 3 đời
+                    {t('cardPedigreeBtn')}
                   </button>
                   <button
                     type="button"
                     className="btn-profile-preview btn-full-profile"
                     onClick={() => setDetailModalHorse(horse)}
                   >
-                    Hồ sơ chi tiết
+                    {t('cardProfileBtn')}
                   </button>
                 </div>
               </div>
@@ -303,10 +360,10 @@ export default function HorseListSection() {
             <table className="clean-compact-table">
               <thead>
                 <tr>
-                  <th style={{ width: '28%' }}>Chiến mã & Mã Chip RFID</th>
-                  <th style={{ width: '28%' }}>Giống & Dòng dõi Cha Mẹ</th>
-                  <th style={{ width: '22%' }}>Chủ sở hữu & Trạng thái</th>
-                  <th style={{ width: '22%' }} className="text-right">Nút Thao Tác Phả Hệ</th>
+                  <th style={{ width: '28%' }}>{t('colHorse')} & {t('colChip')}</th>
+                  <th style={{ width: '28%' }}>{t('colBreed')}</th>
+                  <th style={{ width: '22%' }}>{t('colOwner')}</th>
+                  <th style={{ width: '22%' }} className="text-right">{t('colActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -317,8 +374,8 @@ export default function HorseListSection() {
                       <div className="horse-avatar-group">
                         <img src={horse.avatar} alt={horse.name} className="horse-avatar-img" />
                         <div>
-                          <div className="horse-name-main">{horse.name}</div>
-                          <div className="horse-name-eng">{horse.englishName}</div>
+                          <div className="horse-name-main">{lang === 'en' ? horse.englishName : horse.name}</div>
+                          <div className="horse-name-eng">{lang === 'en' ? horse.name : horse.englishName}</div>
                           <div className="compact-chip-tag">
                             <code>{horse.chipId}</code>
                           </div>
@@ -354,17 +411,17 @@ export default function HorseListSection() {
                           type="button"
                           className="btn-pedigree-action btn-sm"
                           onClick={() => setActiveHorseForPedigree(horse)}
-                          title="Xem sơ đồ cây phả hệ 3 đời"
+                          title={t('cardPedigreeBtn')}
                         >
-                          Cây dòng dõi
+                          {t('cardPedigreeBtn')}
                         </button>
                         <button
                           type="button"
                           className="btn-profile-preview btn-sm"
                           onClick={() => setDetailModalHorse(horse)}
-                          title="Xem tóm tắt hồ sơ"
+                          title={t('cardProfileBtn')}
                         >
-                          Hồ sơ
+                          {t('cardProfileBtn')}
                         </button>
                       </div>
                     </td>
@@ -380,7 +437,7 @@ export default function HorseListSection() {
           <div className="modal-overlay" onClick={() => setDetailModalHorse(null)}>
             <div className="modal-container profile-preview-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>HỒ SƠ CHI TIẾT CHIẾN MÃ - {detailModalHorse.name}</h3>
+                <h3>{lang === 'en' ? `HORSE PROFILE DOSSIER - ${detailModalHorse.englishName}` : `HỒ SƠ CHI TIẾT CHIẾN MÃ - ${detailModalHorse.name}`}</h3>
                 <button type="button" className="close-btn" onClick={() => setDetailModalHorse(null)}>&times;</button>
               </div>
               <div className="modal-body profile-preview-body">
@@ -388,16 +445,16 @@ export default function HorseListSection() {
                   <img src={detailModalHorse.avatar} alt={detailModalHorse.name} className="large-profile-img" />
                   <div className="profile-details-list">
                     <h4>{detailModalHorse.name} ({detailModalHorse.englishName})</h4>
-                    <p className="chip-highlight">MÃ CHIP RFID DỊCH VỤ: <code>{detailModalHorse.chipId}</code></p>
+                    <p className="chip-highlight">{t('colChip')}: <code>{detailModalHorse.chipId}</code></p>
                     <ul>
-                      <li><strong>Giống loài:</strong> {detailModalHorse.breed}</li>
-                      <li><strong>Giới tính & Tuổi:</strong> {detailModalHorse.gender}, {detailModalHorse.age} tuổi ({detailModalHorse.yob})</li>
-                      <li><strong>Chiều cao & Cân nặng:</strong> {detailModalHorse.height}, {detailModalHorse.weight}</li>
-                      <li><strong>Màu lông:</strong> {detailModalHorse.color}</li>
-                      <li><strong>Vị trí chuồng:</strong> {detailModalHorse.stall}</li>
-                      <li><strong>Chủ sở hữu:</strong> {detailModalHorse.owner}</li>
-                      <li><strong>Huấn luyện viên:</strong> {detailModalHorse.trainer}</li>
-                      <li><strong>Thống kê tiền thưởng:</strong> {detailModalHorse.totalEarnings}</li>
+                      <li><strong>{t('propBreed')}</strong> {detailModalHorse.breed}</li>
+                      <li><strong>{lang === 'en' ? 'Gender & Age:' : 'Giới tính & Tuổi:'}</strong> {lang === 'en' ? (detailModalHorse.gender === 'Đực' ? 'Stallion' : 'Mare') : detailModalHorse.gender}, {detailModalHorse.age} {t('cardAgeLabel')} ({detailModalHorse.yob})</li>
+                      <li><strong>{lang === 'en' ? 'Height & Weight:' : 'Chiều cao & Cân nặng:'}</strong> {detailModalHorse.height}, {detailModalHorse.weight}</li>
+                      <li><strong>{t('propColor')}</strong> {detailModalHorse.color}</li>
+                      <li><strong>{lang === 'en' ? 'Stall Location:' : 'Vị trí chuồng:'}</strong> {detailModalHorse.stall}</li>
+                      <li><strong>{t('cardOwnerLabel')}:</strong> {detailModalHorse.owner}</li>
+                      <li><strong>{t('cardTrainerLabel')}:</strong> {detailModalHorse.trainer}</li>
+                      <li><strong>{lang === 'en' ? 'Total Earnings:' : 'Thống kê tiền thưởng:'}</strong> {detailModalHorse.totalEarnings}</li>
                     </ul>
                   </div>
                 </div>
@@ -412,7 +469,7 @@ export default function HorseListSection() {
                     setActiveHorseForPedigree(h);
                   }}
                 >
-                  Mở cây phả hệ 3 đời của {detailModalHorse.name}
+                  {lang === 'en' ? `Open 3-Gen Pedigree for ${detailModalHorse.englishName}` : `Mở cây phả hệ 3 đời của ${detailModalHorse.name}`}
                 </button>
               </div>
             </div>

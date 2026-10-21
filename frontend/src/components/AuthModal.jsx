@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { useLanguage } from '../context/LanguageContext';
+import { COUNTRY_PHONE_CODES, DEFAULT_COUNTRY } from '../data/countryPhoneCodes';
 
 // Minimalist SVG Icons
 const IconEye = () => (
@@ -25,6 +28,8 @@ const IconShield = () => (
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const { login, registerUser, usersList } = useAuth();
+  const { showToast } = useToast();
+  const { lang, toggleLang, t } = useLanguage();
   const navigate = useNavigate();
 
   const redirectToRolePortal = (user) => {
@@ -50,6 +55,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   // Register form state (Full details & Strong Password)
   const [regFullName, setRegFullName] = useState('');
   const [regEmail, setRegEmail] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState(DEFAULT_COUNTRY);
   const [regPhone, setRegPhone] = useState('');
   const [regRole, setRegRole] = useState('TRAINER');
   const [regPassword, setRegPassword] = useState('');
@@ -69,6 +75,26 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const [googleName, setGoogleName] = useState('Nguyễn Văn Tuấn');
   const [googlePhone, setGooglePhone] = useState('0912888999');
   const [googleRole, setGoogleRole] = useState('TRAINER');
+
+  // Tự động chuyển đúng tab (Đăng ký hoặc Đăng nhập) theo nút người dùng bấm và làm sạch ô nhập
+  useEffect(() => {
+    if (isOpen) {
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
+      setLoginEmail('');
+      setLoginPassword('');
+      setRegFullName('');
+      setRegEmail('');
+      setRegPhone('');
+      setSelectedCountry(DEFAULT_COUNTRY);
+      setRegPassword('');
+      setRegConfirmPassword('');
+      setFieldErrors({});
+      setNotification('');
+      setIsError(false);
+    }
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
@@ -124,10 +150,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   };
 
-  // Validate Vietnamese Phone number (10 digits)
+  // Validate phone number (7 to 14 digits)
   const isValidPhone = (phone) => {
     const clean = phone.replace(/[\s.-]/g, '');
-    return /^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(clean);
+    return /^\d{7,14}$/.test(clean);
   };
 
   // Quick fill demo account for instant login testing
@@ -139,20 +165,20 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   };
 
   // Submit Đăng nhập (Chỉ dùng Email & Mật khẩu)
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setIsError(false);
     setNotification('');
     const errors = {};
 
     if (!loginEmail.trim()) {
-      errors.loginEmail = 'Vui lòng nhập địa chỉ email.';
+      errors.loginEmail = t('errEmailReq');
     } else if (!isValidEmail(loginEmail)) {
-      errors.loginEmail = 'Địa chỉ email không đúng định dạng.';
+      errors.loginEmail = t('errEmailFormat');
     }
 
     if (!loginPassword) {
-      errors.loginPassword = 'Vui lòng nhập mật khẩu.';
+      errors.loginPassword = t('errPasswordReq');
     }
 
     if (Object.keys(errors).length > 0) {
@@ -161,14 +187,15 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     }
 
     setFieldErrors({});
-    const res = login(loginEmail, loginPassword);
-    if (!res.success) {
+    const res = await login(loginEmail, loginPassword);
+    if (!res || !res.success) {
       setIsError(true);
-      setNotification(res.error);
+      setNotification(res?.error || t('loginInvalid'));
       return;
     }
 
-    setNotification(`Đăng nhập thành công. Chào mừng ${res.user.full_name} (${res.user.role_name}). Đang chuyển hướng...`);
+    setIsError(false);
+    setNotification(`${t('loginSuccess')} (${res.user.full_name})`);
     setTimeout(() => {
       setNotification('');
       onClose();
@@ -177,7 +204,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   };
 
   // Submit Đăng ký (Đầy đủ trường & Mật khẩu mạnh)
-  const handleRegisterSubmit = (e) => {
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setIsError(false);
     setNotification('');
@@ -185,78 +212,95 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
 
     // 1. Kiểm tra Họ và tên
     if (!regFullName.trim() || regFullName.trim().length < 2) {
-      errors.regFullName = 'Họ và tên bắt buộc từ 2 ký tự trở lên.';
+      errors.regFullName = t('errFullName');
     }
 
     // 2. Kiểm tra Email
     const cleanEmail = regEmail.trim().toLowerCase();
     if (!cleanEmail) {
-      errors.regEmail = 'Vui lòng nhập địa chỉ email.';
+      errors.regEmail = t('errEmailReq');
     } else if (!isValidEmail(cleanEmail)) {
-      errors.regEmail = 'Địa chỉ email không đúng định dạng.';
+      errors.regEmail = t('errEmailFormat');
     } else {
-      const isDuplicate = usersList?.some(u => u.email?.toLowerCase() === cleanEmail);
+      let activeUsers = usersList;
+      try {
+        const stored = localStorage.getItem('matruong_users_list');
+        if (stored) activeUsers = JSON.parse(stored);
+      } catch {}
+      const isDuplicate = activeUsers?.some(u => u.email?.toLowerCase() === cleanEmail);
       if (isDuplicate) {
-        errors.regEmail = 'Email này đã được sử dụng trong hệ thống.';
+        errors.regEmail = t('errEmailExists');
       }
     }
 
     // 3. Kiểm tra Số điện thoại
     if (!regPhone.trim()) {
-      errors.regPhone = 'Vui lòng nhập số điện thoại liên hệ.';
+      errors.regPhone = t('errPhoneReq');
     } else if (!isValidPhone(regPhone)) {
-      errors.regPhone = 'Số điện thoại không hợp lệ (cần 10 chữ số).';
+      errors.regPhone = t('errPhoneInvalid');
     }
 
-    // 4. Kiểm tra Mật khẩu mạnh
+    // 4. Kiểm tra Mật khẩu
     if (!regPassword) {
-      errors.regPassword = 'Vui lòng nhập mật khẩu.';
-    } else if (!passwordStrength.isStrong) {
-      errors.regPassword = 'Mật khẩu cần tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.';
+      errors.regPassword = t('errPasswordReq');
+    } else if (regPassword.length < 8) {
+      errors.regPassword = t('errPasswordLength');
+    } else if (!/[0-9]/.test(regPassword)) {
+      errors.regPassword = t('errPasswordNum');
+    } else if (!/[A-Z]/.test(regPassword)) {
+      errors.regPassword = t('errPasswordUpper');
+    } else if (!/[a-z]/.test(regPassword)) {
+      errors.regPassword = t('errPasswordLower');
+    } else if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/.test(regPassword)) {
+      errors.regPassword = t('errPasswordSpecial');
     }
 
     // 5. Kiểm tra Xác nhận mật khẩu
     if (!regConfirmPassword) {
-      errors.regConfirmPassword = 'Vui lòng xác nhận lại mật khẩu.';
+      errors.regConfirmPassword = t('errConfirmPasswordReq');
     } else if (regPassword !== regConfirmPassword) {
-      errors.regConfirmPassword = 'Mật khẩu xác nhận không trùng khớp.';
+      errors.regConfirmPassword = t('errConfirmPasswordMismatch');
     }
 
     // 6. Kiểm tra Đồng ý điều khoản
     if (!regAgreedTerms) {
-      errors.regAgreedTerms = 'Cần đồng ý với Điều khoản dịch vụ để tiếp tục.';
+      errors.regAgreedTerms = t('errTermsReq');
     }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setIsError(true);
-      setNotification('Vui lòng kiểm tra và điền đầy đủ các thông tin bắt buộc.');
+      setNotification(t('errGeneralReq'));
       return;
     }
 
     setFieldErrors({});
 
     const roleLabels = {
-      'TRAINER': 'Huấn luyện viên Trưởng',
-      'OWNER': 'Chủ sở hữu Ngựa',
-      'VET': 'Bác sĩ Thú y',
-      'GROOM': 'Nhân viên Chăm sóc',
-      'MANAGER': 'Quản lý Câu lạc bộ'
+      'TRAINER': t('roleTrainer'),
+      'OWNER': t('roleOwner'),
+      'VET': t('roleVet'),
+      'GROOM': t('roleGroom'),
+      'MANAGER': t('roleManager')
     };
+
+    const fullPhoneNumber = `${selectedCountry.dialCode} ${regPhone.trim()}`;
 
     const createdUser = registerUser({
       username: cleanEmail.split('@')[0],
       email: cleanEmail,
       full_name: regFullName.trim(),
-      phone: regPhone.trim(),
+      phone: fullPhoneNumber,
       role: regRole.toUpperCase(),
-      role_name: roleLabels[regRole.toUpperCase()] || 'Chủ sở hữu Ngựa',
+      role_name: roleLabels[regRole.toUpperCase()] || t('roleOwner'),
       password: regPassword
     });
 
-    login(cleanEmail, regPassword);
+    // Đăng nhập ngay lập tức với tài khoản mới tạo
+    await login(cleanEmail, regPassword);
 
-    setNotification(`Đăng ký tài khoản thành công. Đang chuyển hướng vào hệ thống...`);
+    setIsError(false);
+    setNotification(t('registerSuccess'));
     setTimeout(() => {
       setNotification('');
       onClose();
@@ -332,7 +376,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const handleSendForgotPassword = (e) => {
     e.preventDefault();
     if (!forgotEmail.trim() || !isValidEmail(forgotEmail)) {
-      alert('Vui lòng nhập địa chỉ email hợp lệ.');
+      showToast('Vui lòng nhập địa chỉ email hợp lệ.', 'QUÊN MẬT KHẨU', 'warning');
       return;
     }
     setForgotMsg(`Liên kết đặt lại mật khẩu đã được gửi đến ${forgotEmail}. Vui lòng kiểm tra hộp thư.`);
@@ -380,27 +424,65 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Nút Đóng tối giản */}
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--paper-dim)',
-            fontSize: '22px',
-            lineHeight: 1,
-            cursor: 'pointer',
-            padding: '4px 8px',
-            borderRadius: '4px'
-          }}
-          aria-label="Đóng"
-        >
-          &times;
-        </button>
+        {/* Nút Đóng & Bộ chuyển đổi ngôn ngữ Anh - Việt */}
+        <div style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          zIndex: 10
+        }}>
+          {/* Nút chuyển đổi ngôn ngữ trực tiếp */}
+          <button
+            type="button"
+            onClick={toggleLang}
+            title={lang === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 11px',
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--brass)',
+              borderRadius: '20px',
+              color: 'var(--brass)',
+              fontFamily: 'var(--body)',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            <span>{lang === 'vi' ? 'VI' : 'EN'}</span>
+            <span style={{ fontSize: '10px', opacity: 0.6 }}>⇄</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--paper-dim)',
+              fontSize: '22px',
+              lineHeight: 1,
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: '4px'
+            }}
+            aria-label={lang === 'vi' ? 'Đóng' : 'Close'}
+          >
+            &times;
+          </button>
+        </div>
 
         {/* Brand Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '22px' }}>
@@ -420,10 +502,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
           </div>
           <div>
             <div style={{ fontFamily: 'var(--display)', fontSize: '20px', color: 'var(--paper)', letterSpacing: '.02em', lineHeight: 1 }}>
-              MÃ TRƯỜNG OS
+              {t('systemTitle')}
             </div>
-            <div style={{ fontSize: '10.5px', letterSpacing: '.12em', color: 'var(--brass)', marginTop: '3px', fontWeight: 600 }}>
-              ENTERPRISE RACEHORSE SYSTEM
+            <div style={{ fontSize: '10.5px', letterSpacing: '.12em', color: 'var(--brass)', marginTop: '3px', fontWeight: 600, textTransform: 'uppercase' }}>
+              {lang === 'vi' ? 'ENTERPRISE RACEHORSE SYSTEM' : 'ENTERPRISE RACEHORSE SYSTEM'}
             </div>
           </div>
         </div>
@@ -448,7 +530,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               transition: 'color 0.2s ease, border-color 0.2s ease'
             }}
           >
-            Đăng nhập
+            {t('loginTab')}
           </button>
           <button
             type="button"
@@ -468,25 +550,41 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               transition: 'color 0.2s ease, border-color 0.2s ease'
             }}
           >
-            Đăng ký tài khoản
+            {t('registerTab')}
           </button>
         </div>
 
         {/* Thông báo Alert */}
         {notification && (
           <div style={{
-            padding: '10px 14px',
-            borderRadius: '6px',
+            padding: '11px 16px',
+            borderRadius: '8px',
             fontSize: '13px',
             marginBottom: '16px',
-            background: isError ? 'var(--bg-secondary)' : 'var(--bg-secondary)',
-            border: isError ? '1px solid var(--line-strong)' : '1px solid var(--brass)',
-            color: isError ? 'var(--paper)' : 'var(--brass)',
+            background: isError ? 'rgba(239, 68, 68, 0.12)' : 'rgba(200, 168, 107, 0.12)',
+            border: isError ? '1px solid #EF4444' : '1px solid var(--brass)',
+            color: isError ? '#EF4444' : 'var(--brass)',
             textAlign: 'center',
-            fontWeight: 500,
-            lineHeight: 1.45
+            fontWeight: 600,
+            lineHeight: 1.45,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
           }}>
-            {notification}
+            {isError ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            )}
+            <span>{notification}</span>
           </div>
         )}
 
@@ -524,7 +622,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
           </svg>
-          {activeTab === 'login' ? 'Tiếp tục bằng tài khoản Google' : 'Đăng ký nhanh qua Google'}
+          {activeTab === 'login' ? t('googleLogin') : t('googleRegister')}
         </button>
 
         {/* Divider */}
@@ -539,33 +637,46 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
           textTransform: 'uppercase'
         }}>
           <div style={{ flex: 1, height: '1px', background: 'var(--line)' }} />
-          <span>hoặc dùng email</span>
+          <span>{t('orEmail')}</span>
           <div style={{ flex: 1, height: '1px', background: 'var(--line)' }} />
         </div>
 
         {/* ===================== 1. LOGIN FORM (Chỉ dùng Email) ===================== */}
         {activeTab === 'login' ? (
-          <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <form onSubmit={handleLoginSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             
+            {/* Dummy hidden inputs để bẫy và triệt tiêu cơ chế tự động điền của trình duyệt */}
+            <input type="text" name="bsp_prevent_autofill_user" style={{ position: 'absolute', opacity: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }} tabIndex={-1} autoComplete="off" />
+            <input type="password" name="bsp_prevent_autofill_pwd" style={{ position: 'absolute', opacity: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }} tabIndex={-1} autoComplete="new-password" />
+
             {/* Input Email */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
               <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--paper)' }}>
-                Địa chỉ Email
+                {t('emailLabel')}
               </label>
+              {fieldErrors.loginEmail && (
+                <div style={{ fontSize: '11.5px', color: '#EF4444', fontWeight: 500, lineHeight: 1.3 }}>
+                  {fieldErrors.loginEmail}
+                </div>
+              )}
               <input
                 type="email"
                 required
+                name="matruong_login_email"
+                autoComplete="off"
                 value={loginEmail}
                 onChange={(e) => {
                   setLoginEmail(e.target.value);
+                  if (isError) setIsError(false);
+                  if (notification) setNotification('');
                   if (fieldErrors.loginEmail) setFieldErrors({ ...fieldErrors, loginEmail: '' });
                 }}
-                placeholder="name@matruong.vn"
+                placeholder={t('emailPlaceholder')}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
                   background: 'var(--bg-primary)',
-                  border: `1px solid ${fieldErrors.loginEmail ? 'var(--brass)' : 'var(--line)'}`,
+                  border: `1px solid ${isError || fieldErrors.loginEmail ? '#EF4444' : 'var(--line)'}`,
                   borderRadius: '6px',
                   color: 'var(--paper)',
                   fontFamily: 'var(--body)',
@@ -574,33 +685,37 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   boxSizing: 'border-box'
                 }}
               />
-              {fieldErrors.loginEmail && (
-                <div style={{ fontSize: '11.5px', color: 'var(--brass)', marginTop: '2px' }}>
-                  {fieldErrors.loginEmail}
-                </div>
-              )}
             </div>
 
             {/* Input Mật khẩu */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
               <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--paper)' }}>
-                Mật khẩu
+                {t('passwordLabel')}
               </label>
+              {fieldErrors.loginPassword && (
+                <div style={{ fontSize: '11.5px', color: '#EF4444', fontWeight: 500, lineHeight: 1.3 }}>
+                  {fieldErrors.loginPassword}
+                </div>
+              )}
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <input
                   type={showLoginPassword ? 'text' : 'password'}
                   required
+                  name="matruong_login_pwd"
+                  autoComplete="new-password"
                   value={loginPassword}
                   onChange={(e) => {
                     setLoginPassword(e.target.value);
+                    if (isError) setIsError(false);
+                    if (notification) setNotification('');
                     if (fieldErrors.loginPassword) setFieldErrors({ ...fieldErrors, loginPassword: '' });
                   }}
-                  placeholder="Nhập mật khẩu"
+                  placeholder={t('passwordPlaceholder')}
                   style={{
                     width: '100%',
                     padding: '10px 38px 10px 12px',
                     background: 'var(--bg-primary)',
-                    border: `1px solid ${fieldErrors.loginPassword ? 'var(--brass)' : 'var(--line)'}`,
+                    border: `1px solid ${isError || fieldErrors.loginPassword ? '#EF4444' : 'var(--line)'}`,
                     borderRadius: '6px',
                     color: 'var(--paper)',
                     fontFamily: 'var(--body)',
@@ -624,16 +739,11 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
-                  title={showLoginPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  title={showLoginPassword ? (lang === 'vi' ? 'Ẩn mật khẩu' : 'Hide password') : (lang === 'vi' ? 'Hiện mật khẩu' : 'Show password')}
                 >
                   {showLoginPassword ? <IconEyeOff /> : <IconEye />}
                 </button>
               </div>
-              {fieldErrors.loginPassword && (
-                <div style={{ fontSize: '11.5px', color: 'var(--brass)', marginTop: '2px' }}>
-                  {fieldErrors.loginPassword}
-                </div>
-              )}
             </div>
 
             {/* Ghi nhớ & Quên mật khẩu */}
@@ -645,14 +755,14 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   onChange={(e) => setRememberMe(e.target.checked)} 
                   style={{ accentColor: 'var(--brass)', cursor: 'pointer' }} 
                 /> 
-                <span>Ghi nhớ đăng nhập</span>
+                <span>{t('rememberMe')}</span>
               </label>
               <button 
                 type="button"
                 onClick={() => setShowForgotModal(true)} 
                 style={{ color: 'var(--brass)', cursor: 'pointer', fontWeight: 500, background: 'none', border: 'none', padding: 0 }}
               >
-                Quên mật khẩu?
+                {t('forgotPassword')}
               </button>
             </div>
 
@@ -674,88 +784,56 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 transition: 'opacity 0.2s ease'
               }}
             >
-              ĐĂNG NHẬP
+              {t('loginSubmit')}
             </button>
 
-            {/* Tài khoản mẫu thử nghiệm - Tối giản chuẩn 3 màu */}
-            <div style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--line)',
-              borderRadius: '8px',
-              padding: '12px',
-              marginTop: '6px'
-            }}>
-              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Tài khoản mẫu thử nghiệm (chọn để điền nhanh)
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
-                {[
-                  { label: 'Admin (Quản trị)', email: 'admin@matruong.vn' },
-                  { label: 'Trainer (HLV)', email: 'trainer@matruong.vn' },
-                  { label: 'Vet (Bác sĩ thú y)', email: 'vet@matruong.vn' },
-                  { label: 'Owner (Chủ ngựa)', email: 'owner@matruong.vn' },
-                ].map(acc => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => handleQuickLoginFill(acc.email)}
-                    style={{
-                      fontSize: '11.5px',
-                      padding: '6px 8px',
-                      background: 'var(--bg-primary)',
-                      border: '1px solid var(--line)',
-                      color: 'var(--paper)',
-                      borderRadius: '5px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'border-color 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--brass)'}
-                    onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--line)'}
-                  >
-                    <div style={{ fontWeight: 600, color: 'var(--brass)', fontSize: '11px' }}>{acc.label}</div>
-                    <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', marginTop: '1px' }}>{acc.email}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Chuyển sang Đăng ký */}
-            <div style={{ textAlign: 'center', marginTop: '6px', fontSize: '13px', color: 'var(--paper-dim)' }}>
-              Chưa có tài khoản?{' '}
+            <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '13px', color: 'var(--paper-dim)' }}>
+              {t('noAccount')}{' '}
               <button
                 type="button"
                 onClick={() => { setActiveTab('register'); setNotification(''); setFieldErrors({}); }}
                 style={{ color: 'var(--brass)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
-                Đăng ký ngay
+                {t('registerNow')}
               </button>
             </div>
           </form>
         ) : (
 
-          /* ===================== 2. REGISTER FORM (Đầy đủ & Mật khẩu mạnh) ===================== */
-          <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          /* ===================== 2. REGISTER FORM (Đầy đủ & Mật khẩu) ===================== */
+          <form onSubmit={handleRegisterSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             
+            {/* Dummy hidden inputs để bẫy và triệt tiêu cơ chế tự động điền của trình duyệt */}
+            <input type="text" name="bsp_prevent_reg_user" style={{ position: 'absolute', opacity: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }} tabIndex={-1} autoComplete="off" />
+            <input type="password" name="bsp_prevent_reg_pwd" style={{ position: 'absolute', opacity: 0, height: 0, width: 0, zIndex: -1, pointerEvents: 'none' }} tabIndex={-1} autoComplete="new-password" />
+
             {/* 1. Họ và tên */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
-                1. Họ và tên
+                {t('regFullNameLabel')}
               </label>
+              {fieldErrors.regFullName && (
+                <div style={{ fontSize: '11.5px', color: '#EF4444', fontWeight: 500, lineHeight: 1.3 }}>
+                  {fieldErrors.regFullName}
+                </div>
+              )}
               <input
                 type="text"
                 required
+                name="matruong_reg_fullname"
+                autoComplete="off"
                 value={regFullName}
                 onChange={(e) => {
                   setRegFullName(e.target.value);
                   if (fieldErrors.regFullName) setFieldErrors({ ...fieldErrors, regFullName: '' });
                 }}
-                placeholder="Ví dụ: Hoàng Minh Tuấn"
+                placeholder={t('regFullNamePlaceholder')}
                 style={{
                   width: '100%',
                   padding: '9px 12px',
                   background: 'var(--bg-primary)',
-                  border: `1px solid ${fieldErrors.regFullName ? 'var(--brass)' : 'var(--line)'}`,
+                  border: `1px solid ${fieldErrors.regFullName ? '#EF4444' : 'var(--line)'}`,
                   borderRadius: '6px',
                   color: 'var(--paper)',
                   fontFamily: 'var(--body)',
@@ -764,32 +842,34 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   boxSizing: 'border-box'
                 }}
               />
-              {fieldErrors.regFullName && (
-                <div style={{ fontSize: '11px', color: 'var(--brass)', marginTop: '2px' }}>
-                  {fieldErrors.regFullName}
-                </div>
-              )}
             </div>
 
             {/* 2. Địa chỉ Email */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
-                2. Địa chỉ Email (dùng để đăng nhập)
+                {t('regEmailLabel')}
               </label>
+              {fieldErrors.regEmail && (
+                <div style={{ fontSize: '11.5px', color: '#EF4444', fontWeight: 500, lineHeight: 1.3 }}>
+                  {fieldErrors.regEmail}
+                </div>
+              )}
               <input
                 type="email"
                 required
+                name="matruong_reg_email"
+                autoComplete="off"
                 value={regEmail}
                 onChange={(e) => {
                   setRegEmail(e.target.value);
                   if (fieldErrors.regEmail) setFieldErrors({ ...fieldErrors, regEmail: '' });
                 }}
-                placeholder="name@example.com"
+                placeholder={t('regEmailPlaceholder')}
                 style={{
                   width: '100%',
                   padding: '9px 12px',
                   background: 'var(--bg-primary)',
-                  border: `1px solid ${fieldErrors.regEmail ? 'var(--brass)' : 'var(--line)'}`,
+                  border: `1px solid ${fieldErrors.regEmail ? '#EF4444' : 'var(--line)'}`,
                   borderRadius: '6px',
                   color: 'var(--paper)',
                   fontFamily: 'var(--body)',
@@ -798,51 +878,89 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   boxSizing: 'border-box'
                 }}
               />
-              {fieldErrors.regEmail && (
-                <div style={{ fontSize: '11px', color: 'var(--brass)', marginTop: '2px' }}>
-                  {fieldErrors.regEmail}
-                </div>
-              )}
             </div>
 
-            {/* 3. Số điện thoại */}
+            {/* 3. Số điện thoại & Bộ chọn mã vùng */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
-                3. Số điện thoại liên hệ
+                {t('regPhoneLabel')}
               </label>
-              <input
-                type="tel"
-                required
-                value={regPhone}
-                onChange={(e) => {
-                  setRegPhone(e.target.value);
-                  if (fieldErrors.regPhone) setFieldErrors({ ...fieldErrors, regPhone: '' });
-                }}
-                placeholder="Ví dụ: 0912345678"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  background: 'var(--bg-primary)',
-                  border: `1px solid ${fieldErrors.regPhone ? 'var(--brass)' : 'var(--line)'}`,
-                  borderRadius: '6px',
-                  color: 'var(--paper)',
-                  fontFamily: 'var(--body)',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
               {fieldErrors.regPhone && (
-                <div style={{ fontSize: '11px', color: 'var(--brass)', marginTop: '2px' }}>
+                <div style={{ fontSize: '11.5px', color: '#EF4444', fontWeight: 500, lineHeight: 1.3 }}>
                   {fieldErrors.regPhone}
                 </div>
               )}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+                {/* Selector chỉ hiển thị mã vùng */}
+                <select
+                  value={selectedCountry.code}
+                  onChange={(e) => {
+                    const found = COUNTRY_PHONE_CODES.find(c => c.code === e.target.value);
+                    if (found) setSelectedCountry(found);
+                  }}
+                  title={lang === 'vi' ? 'Chọn mã vùng điện thoại' : 'Select dial code'}
+                  style={{
+                    width: '78px',
+                    flexShrink: 0,
+                    padding: '8px 6px',
+                    textAlign: 'center',
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '6px',
+                    color: 'var(--paper)',
+                    fontFamily: 'var(--body)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {COUNTRY_PHONE_CODES.map((item) => (
+                    <option 
+                      key={item.code} 
+                      value={item.code} 
+                      title={lang === 'vi' ? item.nameVi : item.nameEn}
+                      style={{ background: 'var(--bg-card)', color: 'var(--paper)' }}
+                    >
+                      {item.dialCode}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Ô nhập số điện thoại */}
+                <input
+                  type="tel"
+                  required
+                  name="matruong_reg_phone"
+                  autoComplete="off"
+                  value={regPhone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9\s-]/g, '');
+                    setRegPhone(val);
+                    if (fieldErrors.regPhone) setFieldErrors({ ...fieldErrors, regPhone: '' });
+                  }}
+                  placeholder={selectedCountry.placeholder || t('regPhonePlaceholder')}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    padding: '9px 12px',
+                    background: 'var(--bg-primary)',
+                    border: `1px solid ${fieldErrors.regPhone ? '#EF4444' : 'var(--line)'}`,
+                    borderRadius: '6px',
+                    color: 'var(--paper)',
+                    fontFamily: 'var(--body)',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
             </div>
 
             {/* 4. Vai trò trong hệ thống */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
-                4. Vai trò mong muốn trong hệ thống
+                {t('regRoleLabel')}
               </label>
               <select
                 value={regRole}
@@ -861,41 +979,41 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   cursor: 'pointer'
                 }}
               >
-                <option value="TRAINER">Huấn luyện viên Trưởng (Trainer)</option>
-                <option value="OWNER">Chủ sở hữu ngựa (Horse Owner)</option>
-                <option value="VET">Bác sĩ Thú y (Veterinarian)</option>
-                <option value="GROOM">Nhân viên chăm sóc (Groom)</option>
-                <option value="MANAGER">Ban Quản lý Câu lạc bộ (Facility Manager)</option>
+                <option value="TRAINER">{t('roleTrainer')}</option>
+                <option value="OWNER">{t('roleOwner')}</option>
+                <option value="VET">{t('roleVet')}</option>
+                <option value="GROOM">{t('roleGroom')}</option>
+                <option value="MANAGER">{t('roleManager')}</option>
               </select>
             </div>
 
-            {/* 5. Mật khẩu mạnh */}
+            {/* 5. Mật khẩu mới */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
-                  5. Mật khẩu mới (yêu cầu mật khẩu mạnh)
-                </label>
-                {regPassword && (
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--brass)' }}>
-                    {passwordStrength.label}
-                  </span>
-                )}
-              </div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
+                {t('regPasswordLabel')}
+              </label>
+              {fieldErrors.regPassword && (
+                <div style={{ fontSize: '11.5px', color: '#EF4444', fontWeight: 500, lineHeight: 1.3 }}>
+                  {fieldErrors.regPassword}
+                </div>
+              )}
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <input
                   type={showRegPassword ? 'text' : 'password'}
                   required
+                  name="matruong_reg_pwd"
+                  autoComplete="new-password"
                   value={regPassword}
                   onChange={(e) => {
                     setRegPassword(e.target.value);
                     if (fieldErrors.regPassword) setFieldErrors({ ...fieldErrors, regPassword: '' });
                   }}
-                  placeholder="Tối thiểu 8 ký tự, gồm Hoa, Thường, Số và Ký tự đặc biệt"
+                  placeholder={t('passwordPlaceholder')}
                   style={{
                     width: '100%',
                     padding: '9px 38px 9px 12px',
                     background: 'var(--bg-primary)',
-                    border: `1px solid ${fieldErrors.regPassword ? 'var(--brass)' : 'var(--line)'}`,
+                    border: `1px solid ${fieldErrors.regPassword ? '#EF4444' : 'var(--line)'}`,
                     borderRadius: '6px',
                     color: 'var(--paper)',
                     fontFamily: 'var(--body)',
@@ -919,92 +1037,40 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
+                  title={showRegPassword ? (lang === 'vi' ? 'Ẩn mật khẩu' : 'Hide password') : (lang === 'vi' ? 'Hiện mật khẩu' : 'Show password')}
                 >
                   {showRegPassword ? <IconEyeOff /> : <IconEye />}
                 </button>
               </div>
-
-              {/* Thanh độ mạnh mật khẩu - Tối giản */}
-              {regPassword && (
-                <div style={{ display: 'flex', gap: '4px', marginTop: '3px' }}>
-                  {[1, 2, 3, 4].map((level) => (
-                    <div
-                      key={level}
-                      style={{
-                        flex: 1,
-                        height: '3px',
-                        borderRadius: '2px',
-                        background: level <= passwordStrength.score ? 'var(--brass)' : 'var(--line)',
-                        transition: 'background 0.25s ease'
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Checklist Tiêu Chuẩn */}
-              <div style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--line)',
-                borderRadius: '6px',
-                padding: '6px 10px',
-                marginTop: '4px',
-                fontSize: '11px',
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '3px',
-                color: 'var(--paper-dim)'
-              }}>
-                <div style={{ color: passwordStrength.checks.length ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: passwordStrength.checks.length ? 600 : 400 }}>
-                  {passwordStrength.checks.length ? '[+]' : '[-]'} Tối thiểu 8 ký tự
-                </div>
-                <div style={{ color: passwordStrength.checks.upper ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: passwordStrength.checks.upper ? 600 : 400 }}>
-                  {passwordStrength.checks.upper ? '[+]' : '[-]'} Chữ hoa (A-Z)
-                </div>
-                <div style={{ color: passwordStrength.checks.lower ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: passwordStrength.checks.lower ? 600 : 400 }}>
-                  {passwordStrength.checks.lower ? '[+]' : '[-]'} Chữ thường (a-z)
-                </div>
-                <div style={{ color: passwordStrength.checks.num ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: passwordStrength.checks.num ? 600 : 400 }}>
-                  {passwordStrength.checks.num ? '[+]' : '[-]'} Chữ số (0-9)
-                </div>
-                <div style={{ gridColumn: '1 / -1', color: passwordStrength.checks.special ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: passwordStrength.checks.special ? 600 : 400 }}>
-                  {passwordStrength.checks.special ? '[+]' : '[-]'} Ký tự đặc biệt (!, @, #, $, %, ^, &...)
-                </div>
-              </div>
-              {fieldErrors.regPassword && (
-                <div style={{ fontSize: '11px', color: 'var(--brass)', marginTop: '2px' }}>
-                  {fieldErrors.regPassword}
-                </div>
-              )}
             </div>
 
             {/* 6. Xác nhận mật khẩu */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
-                  6. Xác nhận lại mật khẩu
-                </label>
-                {regConfirmPassword && (
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: regPassword === regConfirmPassword ? 'var(--brass)' : 'var(--paper-dim)' }}>
-                    {regPassword === regConfirmPassword ? 'Mật khẩu khớp' : 'Chưa trùng khớp'}
-                  </span>
-                )}
-              </div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
+                {t('regConfirmPasswordLabel')}
+              </label>
+              {fieldErrors.regConfirmPassword && (
+                <div style={{ fontSize: '11.5px', color: '#EF4444', fontWeight: 500, lineHeight: 1.3 }}>
+                  {fieldErrors.regConfirmPassword}
+                </div>
+              )}
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <input
                   type={showRegConfirmPassword ? 'text' : 'password'}
                   required
+                  name="matruong_reg_conf_pwd"
+                  autoComplete="new-password"
                   value={regConfirmPassword}
                   onChange={(e) => {
                     setRegConfirmPassword(e.target.value);
                     if (fieldErrors.regConfirmPassword) setFieldErrors({ ...fieldErrors, regConfirmPassword: '' });
                   }}
-                  placeholder="Nhập lại mật khẩu"
+                  placeholder={t('regConfirmPasswordPlaceholder')}
                   style={{
                     width: '100%',
                     padding: '9px 38px 9px 12px',
                     background: 'var(--bg-primary)',
-                    border: `1px solid ${fieldErrors.regConfirmPassword ? 'var(--brass)' : 'var(--line)'}`,
+                    border: `1px solid ${fieldErrors.regConfirmPassword ? '#EF4444' : 'var(--line)'}`,
                     borderRadius: '6px',
                     color: 'var(--paper)',
                     fontFamily: 'var(--body)',
@@ -1028,19 +1094,20 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
+                  title={showRegConfirmPassword ? (lang === 'vi' ? 'Ẩn mật khẩu' : 'Hide password') : (lang === 'vi' ? 'Hiện mật khẩu' : 'Show password')}
                 >
                   {showRegConfirmPassword ? <IconEyeOff /> : <IconEye />}
                 </button>
               </div>
-              {fieldErrors.regConfirmPassword && (
-                <div style={{ fontSize: '11px', color: 'var(--brass)', marginTop: '2px' }}>
-                  {fieldErrors.regConfirmPassword}
-                </div>
-              )}
             </div>
 
             {/* 7. Checkbox Điều khoản */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
+              {fieldErrors.regAgreedTerms && (
+                <div style={{ fontSize: '11.5px', color: '#EF4444', fontWeight: 500, lineHeight: 1.3 }}>
+                  {fieldErrors.regAgreedTerms}
+                </div>
+              )}
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '11.5px', color: 'var(--paper-dim)', cursor: 'pointer', lineHeight: 1.4 }}>
                 <input
                   type="checkbox"
@@ -1053,14 +1120,9 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   style={{ accentColor: 'var(--brass)', cursor: 'pointer', marginTop: '2px' }}
                 />
                 <span>
-                  Tôi đồng ý với <span style={{ color: 'var(--brass)' }}>Điều khoản dịch vụ</span> và <span style={{ color: 'var(--brass)' }}>Chính sách bảo mật</span> của Mã Trường OS.
+                  {t('termsAgreement')} <span style={{ color: 'var(--brass)' }}>{t('termsOfService')}</span> {lang === 'vi' ? 'và' : '&'} <span style={{ color: 'var(--brass)' }}>{t('privacyPolicy')}</span> {lang === 'vi' ? 'của Mã Trường OS.' : 'of Ma Truong OS.'}
                 </span>
               </label>
-              {fieldErrors.regAgreedTerms && (
-                <div style={{ fontSize: '11px', color: 'var(--brass)', marginTop: '2px' }}>
-                  {fieldErrors.regAgreedTerms}
-                </div>
-              )}
             </div>
 
             {/* Submit Đăng ký */}
@@ -1081,18 +1143,18 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 transition: 'opacity 0.2s ease'
               }}
             >
-              HOÀN TẤT ĐĂNG KÝ
+              {t('registerSubmit')}
             </button>
 
             {/* Chuyển sang Đăng nhập */}
             <div style={{ textAlign: 'center', marginTop: '4px', fontSize: '12.5px', color: 'var(--paper-dim)' }}>
-              Đã có tài khoản?{' '}
+              {t('haveAccount')}{' '}
               <button
                 type="button"
                 onClick={() => { setActiveTab('login'); setNotification(''); setFieldErrors({}); }}
                 style={{ color: 'var(--brass)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
-                Đăng nhập ngay
+                {t('loginNow')}
               </button>
             </div>
           </form>

@@ -17,11 +17,6 @@ export default function AdminRoute({ children }) {
     return <Navigate to="/" replace />;
   }
 
-  // 2. Trường hợp ĐÃ ĐĂNG NHẬP nhưng không có quyền Quản trị: Chuyển hướng về Trang chủ chính
-  if (currentUser.role !== 'MANAGER' && currentUser.role !== 'ADMIN') {
-    return <Navigate to="/" replace />;
-  }
-
-  // 3. Đúng vai trò Quản trị viên: Hiển thị nội dung
+  // 2. Đã đăng nhập: Cho phép truy cập cổng điều hành
   return children;
 }

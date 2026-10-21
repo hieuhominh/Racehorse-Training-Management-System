@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { loginApi, registerApi, getUsersApi } from '../services/api';
 
 // Dữ liệu mẫu đồng bộ với CSDL Microsoft SQL Server (database/RacehorseDB.sql)
 export const SEED_USERS = [
@@ -128,24 +129,104 @@ export function AuthProvider({ children }) {
     }
   }, [usersList]);
 
-  // Đăng nhập
-  const login = (usernameOrEmail, password) => {
-    const cleanUser = usernameOrEmail.trim().toLowerCase();
-    const found = usersList.find(
-      u => (u.username.toLowerCase() === cleanUser || u.email.toLowerCase() === cleanUser)
+  // Nạp danh sách người dùng từ API Backend khi khởi động (merge với danh sách cục bộ để không mất user đã đăng ký)
+  useEffect(() => {
+    getUsersApi().then(res => {
+      if (res.isFromBackend && Array.isArray(res.data) && res.data.length > 0) {
+        const roleMap = {
+          'MANAGER': 'Quản lý Câu lạc bộ',
+          'TRAINER': 'Huấn luyện viên Trưởng',
+          'VET': 'Bác sĩ Thú y',
+          'GROOM': 'Nhân viên Chăm sóc',
+          'OWNER': 'Chủ sở hữu Ngựa'
+        };
+        const backendMapped = res.data.map(u => ({
+          user_id: u.userId,
+          username: u.username,
+          full_name: u.fullName,
+          email: u.email,
+          phone: u.phone,
+          role: u.roleCode,
+          role_name: roleMap[u.roleCode] || u.roleCode,
+          status: u.status
+        }));
+        
+        setUsersList(prev => {
+          const backendEmails = new Set(backendMapped.map(u => u.email?.toLowerCase()));
+          const localOnly = prev.filter(u => u.email && !backendEmails.has(u.email.toLowerCase()));
+          const merged = [...backendMapped, ...localOnly];
+          localStorage.setItem('matruong_users_list', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Đăng nhập kết hợp Backend API & Fallback
+  const login = async (usernameOrEmail, password) => {
+    const cleanUser = (usernameOrEmail || '').trim().toLowerCase();
+    const cleanPass = (password || '').toString();
+
+    // 1. Thử gọi API Backend Tomcat trước
+    try {
+      const apiRes = await loginApi(usernameOrEmail, password);
+      if (apiRes && apiRes.success && apiRes.user) {
+        const u = apiRes.user;
+        const roleMap = {
+          'MANAGER': 'Quản lý Câu lạc bộ',
+          'TRAINER': 'Huấn luyện viên Trưởng',
+          'VET': 'Bác sĩ Thú y',
+          'GROOM': 'Nhân viên Chăm sóc',
+          'OWNER': 'Chủ sở hữu Ngựa'
+        };
+        const appUser = {
+          user_id: u.userId,
+          username: u.username,
+          full_name: u.fullName,
+          email: u.email,
+          phone: u.phone,
+          role: u.roleCode,
+          role_name: roleMap[u.roleCode] || u.roleCode,
+          status: u.status
+        };
+        setCurrentUser(appUser);
+        return { success: true, user: appUser };
+      }
+    } catch {
+      // Backend offline -> Tiếp tục fallback sang dữ liệu cục bộ
+    }
+
+    // 2. Fallback sang dữ liệu cục bộ (Lấy trực tiếp từ localStorage để luôn có tài khoản vừa đăng ký)
+    let activeUsers = [];
+    try {
+      const stored = localStorage.getItem('matruong_users_list');
+      if (stored) {
+        activeUsers = JSON.parse(stored);
+      }
+    } catch {}
+    if (!Array.isArray(activeUsers) || activeUsers.length === 0) {
+      activeUsers = usersList && usersList.length > 0 ? usersList : SEED_USERS;
+    }
+
+    const found = activeUsers.find(
+      u => (u.username?.toLowerCase() === cleanUser || u.email?.toLowerCase() === cleanUser)
     );
 
     if (!found) {
-      return { success: false, error: 'Không tìm thấy tài khoản hoặc email này trong hệ thống!' };
+      return { success: false, error: 'Tài khoản hoặc mật khẩu không chính xác.' };
     }
 
-    if (found.status !== 'ACTIVE') {
+    if (found.status && found.status !== 'ACTIVE') {
       return { success: false, error: 'Tài khoản này hiện đang bị tạm khóa!' };
     }
 
-    // Kiểm tra mật khẩu (hỗ trợ pass 123 hoặc pass riêng của user)
-    if (found.password && found.password !== password && password !== '123' && password !== '123456') {
-      return { success: false, error: 'Mật khẩu không chính xác! (Mật khẩu mặc định: 123)' };
+    // Kiểm tra mật khẩu (hỗ trợ mật khẩu riêng đã tạo hoặc mật khẩu seed 123)
+    const isPasswordCorrect = found.password 
+      ? (String(found.password) === cleanPass || cleanPass === '123' || cleanPass === '123456')
+      : (cleanPass === '123' || cleanPass === '123456');
+
+    if (!isPasswordCorrect) {
+      return { success: false, error: 'Tài khoản hoặc mật khẩu không chính xác.' };
     }
 
     setCurrentUser(found);
@@ -157,8 +238,18 @@ export function AuthProvider({ children }) {
     setCurrentUser(null);
   };
 
-  // Đăng ký nhanh tài khoản mới với ID tuần tự (#1, #2, #3, ...)
+  // Đăng ký tài khoản mới kết hợp Backend API & Đồng bộ tức thì localStorage
   const registerUser = (userData) => {
+    // Gửi thông tin sang Backend API
+    registerApi({
+      username: userData.username || (userData.email ? userData.email.split('@')[0] : 'user_new'),
+      email: userData.email,
+      password: userData.password || '123',
+      fullName: userData.full_name || 'Người dùng mới',
+      phone: userData.phone || '0900000000',
+      role: (userData.role || 'OWNER').toUpperCase()
+    }).catch(() => {});
+
     const roleMap = {
       'MANAGER': 'Quản lý Câu lạc bộ',
       'TRAINER': 'Huấn luyện viên Trưởng',
@@ -167,20 +258,40 @@ export function AuthProvider({ children }) {
       'OWNER': 'Chủ sở hữu Ngựa'
     };
     const userRole = (userData.role || 'OWNER').toUpperCase();
-    const maxId = usersList.reduce((max, u) => Math.max(max, Number(u.user_id) || 0), 0);
+
+    // Đọc danh sách hiện tại từ localStorage
+    let currentUsers = [];
+    try {
+      const stored = localStorage.getItem('matruong_users_list');
+      if (stored) {
+        currentUsers = JSON.parse(stored);
+      }
+    } catch {}
+    if (!Array.isArray(currentUsers) || currentUsers.length === 0) {
+      currentUsers = usersList && usersList.length > 0 ? usersList : SEED_USERS;
+    }
+
+    const maxId = currentUsers.reduce((max, u) => Math.max(max, Number(u.user_id) || 0), 0);
     const nextId = maxId + 1;
+    const cleanEmail = userData.email.trim().toLowerCase();
+
     const newUser = {
       user_id: nextId,
-      username: userData.username || (userData.email ? userData.email.split('@')[0] : `user_${nextId}`),
+      username: userData.username || cleanEmail.split('@')[0],
       password: userData.password || '123',
       full_name: userData.full_name || 'Người dùng mới',
-      email: userData.email,
+      email: cleanEmail,
       phone: userData.phone || '0900000000',
       role: userRole,
       role_name: userData.role_name || roleMap[userRole] || 'Chủ sở hữu Ngựa',
       status: 'ACTIVE'
     };
-    setUsersList(prev => [...prev, newUser]);
+
+    // Cập nhật ngay vào localStorage để hàm login gọi tức thì có thể tìm thấy ngay
+    const updatedUsers = [...currentUsers.filter(u => u.email?.toLowerCase() !== cleanEmail), newUser];
+    localStorage.setItem('matruong_users_list', JSON.stringify(updatedUsers));
+    setUsersList(updatedUsers);
+
     return newUser;
   };
 

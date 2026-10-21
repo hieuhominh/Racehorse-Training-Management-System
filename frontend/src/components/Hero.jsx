@@ -1,8 +1,11 @@
 import React from 'react';
 import VitalsCard from './VitalsCard';
 import StatsStrip from './StatsStrip';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Hero({ onOpenAuth }) {
+  const { t } = useLanguage();
+
   return (
     <div className="hero">
       <div className="wrap">
@@ -10,13 +13,13 @@ export default function Hero({ onOpenAuth }) {
           <div>
             <div className="eyebrow">
               <span className="eyebrow-dot"></span>
-              Hệ thống Quản lý Huấn luyện Ngựa đua Chuyên nghiệp
+              {t('heroEyebrow')}
             </div>
             <h1>
-              Mỗi sải chân<em>đều được ghi lại</em>
+              {t('heroTitle1')} <em>{t('heroTitle2')}</em>
             </h1>
             <p className="lede">
-              Giáo án, nhịp tim viễn trắc, bệnh án thú y, khẩu phần dinh dưỡng và thành tích thi đấu của cả đàn ngựa được tích hợp trên một nền tảng thời gian thực.
+              {t('heroLede')}
             </p>
             <div className="hero-actions">
               <a 
@@ -29,9 +32,11 @@ export default function Hero({ onOpenAuth }) {
                   }
                 }}
               >
-                Vào hệ thống
+                {t('heroEnterSystem')}
               </a>
-              <a className="btn btn-ghost" href="#vai-tro">Chọn vai trò của bạn</a>
+              <a className="btn btn-ghost" href="#vai-tro">
+                {t('heroChooseRole')}
+              </a>
             </div>
           </div>
 

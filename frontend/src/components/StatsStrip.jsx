@@ -1,11 +1,14 @@
 import React from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function StatsStrip() {
+  const { t } = useLanguage();
+
   const stats = [
-    { value: '38', label: 'chiến mã đang quản lý' },
-    { value: '5', label: 'vai trò với quyền riêng biệt' },
-    { value: '24/7', label: 'giám sát thể lực và cảnh báo' },
-    { value: '100%', label: 'thao tác được ghi nhật ký' },
+    { value: '38', label: t('stat1Label') },
+    { value: '5', label: t('stat2Label') },
+    { value: '24/7', label: t('stat3Label') },
+    { value: '100%', label: t('stat4Label') },
   ];
 
   return (

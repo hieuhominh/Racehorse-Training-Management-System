@@ -1,8 +1,20 @@
 import React, { useState } from 'react';
 import { stallsData, scheduleData } from '../data/stallsData';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function StableSection() {
+  const { t, lang } = useLanguage();
   const [selectedStall, setSelectedStall] = useState(stallsData.find(s => s.code === 'A3'));
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'eligible': return t('stallsLegendEligible');
+      case 'watch': return t('stallsLegendWatch');
+      case 'hurt': return t('stallsLegendHurt');
+      case 'quar': return t('stallsLegendQuar');
+      default: return lang === 'vi' ? 'Chuồng trống' : 'Empty';
+    }
+  };
 
   return (
     <section style={{ background: 'var(--bg-secondary)', borderBlock: '1px solid var(--line)' }}>
@@ -18,6 +30,7 @@ export default function StableSection() {
                 if (stall.status === 'quar') extraClass = ' quar';
                 if (stall.status === 'empty') extraClass = ' empty';
                 const isSelected = selectedStall && selectedStall.code === stall.code;
+                const horseName = lang === 'en' ? (stall.englishName || stall.horse) : stall.horse;
 
                 return (
                   <div 
@@ -30,7 +43,7 @@ export default function StableSection() {
                       transform: isSelected ? 'scale(1.05)' : undefined,
                       transition: 'transform 0.15s, border-color 0.15s'
                     }}
-                    title={`${stall.code}: ${stall.horse} (${stall.label})`}
+                    title={`${stall.code}: ${horseName} (${getStatusLabel(stall.status)})`}
                   >
                     <i></i>
                     {stall.code}
@@ -39,29 +52,29 @@ export default function StableSection() {
               })}
             </div>
             <div className="legend">
-              <span><i style={{ background: 'var(--brass)' }}></i>Đủ điều kiện</span>
-              <span><i style={{ background: 'var(--paper-dim)' }}></i>Cần theo dõi</span>
-              <span><i style={{ background: 'var(--paper-muted)' }}></i>Chấn thương</span>
-              <span><i style={{ background: 'var(--line-strong)' }}></i>Cách ly</span>
+              <span><i style={{ background: 'var(--brass)' }}></i>{t('stallsLegendEligible')}</span>
+              <span><i style={{ background: 'var(--brass-dim)' }}></i>{t('stallsLegendWatch')}</span>
+              <span><i style={{ background: 'var(--paper-dim)' }}></i>{t('stallsLegendHurt')}</span>
+              <span><i style={{ background: 'var(--paper-muted)' }}></i>{t('stallsLegendQuar')}</span>
             </div>
 
             {selectedStall && (
               <div style={{ marginTop: '16px', padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', borderRadius: '6px', fontSize: '13px', color: 'var(--paper)' }}>
-                <b style={{ color: 'var(--brass)' }}>Chuồng {selectedStall.code}:</b> {selectedStall.horse} — <span style={{ color: 'var(--paper-dim)' }}>{selectedStall.label}</span>
+                <b style={{ color: 'var(--brass)' }}>{t('stallsStall')} {selectedStall.code}:</b>{' '}
+                {lang === 'en' ? (selectedStall.englishName || selectedStall.horse) : selectedStall.horse} —{' '}
+                <span style={{ color: 'var(--paper-dim)' }}>{getStatusLabel(selectedStall.status)}</span>
               </div>
             )}
           </div>
 
           <div>
-            <h2>Nhìn một lần biết cả tàu ngựa</h2>
-            <p>
-              Sơ đồ chuồng trại đổi màu theo trạng thái sức khỏe do bác sĩ thú y cập nhật. Chạm vào một ô là mở thẳng bệnh án, lịch tiêm phòng và diễn biến phục hồi của con ngựa đó.
-            </p>
+            <h2>{t('stallsHeading')}</h2>
+            <p>{t('stallsDesc')}</p>
             <ul>
-              <li>Bốn trạng thái chuẩn: đủ điều kiện, cần theo dõi, chấn thương, cách ly</li>
-              <li>Ngựa bị khóa huấn luyện tự động biến mất khỏi danh sách xếp bài tập nặng</li>
-              <li>Vị trí tổn thương đánh dấu trên mô hình cơ — xương 3D, lưu theo từng lần tái khám</li>
-              <li>Nhắc tự động lịch tiêm phòng, tẩy giun và kiểm tra móng</li>
+              <li>{t('stallsFeature1')}</li>
+              <li>{t('stallsFeature2')}</li>
+              <li>{t('stallsFeature3')}</li>
+              <li>{t('stallsFeature4')}</li>
             </ul>
           </div>
         </div>
@@ -70,24 +83,25 @@ export default function StableSection() {
         <div className="split rev">
           <div className="art">
             <div className="sched">
-              {scheduleData.map((item, idx) => (
-                <div key={idx} className="row">
-                  <span className="t">{item.time}</span>
-                  <div className={`bar ${item.barClass}`}>{item.title}</div>
-                </div>
-              ))}
+              {scheduleData.map((item, idx) => {
+                const title = lang === 'en' ? (item.titleEn || item.title) : (item.titleVi || item.title);
+                return (
+                  <div key={idx} className="row">
+                    <span className="t">{item.time}</span>
+                    <div className={`bar ${item.barClass}`}>{title}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div>
-            <h2>Giáo án xuống tới từng bữa ăn</h2>
-            <p>
-              HLV trưởng đặt mục tiêu cho giai đoạn, hệ thống rải thành lịch ngày cho từng người phụ trách. Nhân viên chăm sóc chỉ thấy đúng việc của mình và tích hoàn thành ngay trên điện thoại.
-            </p>
+            <h2>{t('scheduleHeading')}</h2>
+            <p>{t('scheduleDesc')}</p>
             <ul>
-              <li>Giáo án theo cự ly, khối lượng và mặt sân cho từng giai đoạn</li>
-              <li>Lịch tập, lượt chạy thử và người phụ trách gắn liền một dòng công việc</li>
-              <li>Cảnh báo vượt ngưỡng thể lực gửi thẳng cho HLV và thú y trực</li>
-              <li>Chủ ngựa xem lại video buổi đua thử và nhận xét sau mỗi buổi</li>
+              <li>{t('scheduleFeature1')}</li>
+              <li>{t('scheduleFeature2')}</li>
+              <li>{t('scheduleFeature3')}</li>
+              <li>{t('scheduleFeature4')}</li>
             </ul>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 
@@ -61,6 +62,7 @@ const IconMenu = () => (
 
 export default function AdminPage() {
   const { currentUser, usersList, updateUser, toggleUserStatus, registerUser, logout } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -266,7 +268,7 @@ export default function AdminPage() {
   const handleRequestSaveEditUser = (e) => {
     e.preventDefault();
     if (!editUserData.full_name?.trim() || !editUserData.username?.trim() || !editUserData.email?.trim()) {
-      alert('Vui lòng điền đầy đủ các thông tin bắt buộc!');
+      showToast('Vui lòng điền đầy đủ các thông tin bắt buộc!', 'CẢNH BÁO DỮ LIỆU', 'warning');
       return;
     }
     setShowConfirmEditModal(true);
@@ -771,20 +773,23 @@ export default function AdminPage() {
                           <div className="actions-left">
                             <button
                               className="facility-btn-action"
-                              onClick={() => alert(`Xem chi tiết hồ sơ mã ${h.name} (Chip: ${h.microchip})`)}
+                              onClick={() => showToast(`Xem chi tiết hồ sơ mã ${h.name} (Chip: ${h.microchip})`, 'HỒ SƠ CHIẾN MÃ')}
                             >
                               Xem chi tiết
                             </button>
                             <button
                               className={`facility-btn-action ${h.locked ? 'btn-danger' : ''}`}
-                              onClick={() => handleToggleHorseLock(h.id)}
+                              onClick={() => {
+                                handleToggleHorseLock(h.id);
+                                showToast(`Đã ${h.locked ? 'mở khóa huấn luyện' : 'khóa y tế khẩn cấp'} cho chiến mã ${h.name}`, 'CẬP NHẬT TRẠNG THÁI');
+                              }}
                             >
                               {h.locked ? 'Mở khóa' : 'Khóa y tế'}
                             </button>
                           </div>
                           <button
                             className="facility-link-action"
-                            onClick={() => alert(`Đang mở hồ sơ bệnh án thú y và chỉ số chạy của ${h.name}`)}
+                            onClick={() => showToast(`Đang mở hồ sơ bệnh án thú y và chỉ số chạy của ${h.name}`, 'HỒ SƠ BỆNH ÁN & VẬN TỐC')}
                           >
                             Chi tiết ô →
                           </button>

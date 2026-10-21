@@ -1,52 +1,72 @@
 export const flowsData = [
   {
     no: '1',
-    title: 'Quản lý hồ sơ & lý lịch ngựa',
+    titleVi: 'Quản lý hồ sơ & lý lịch ngựa',
+    titleEn: 'Horse Profile & Pedigree Management',
     vn: 'Horse Profile & Pedigree',
-    desc: 'Khai sinh hồ sơ một chiến mã: mã định danh, giống, dòng dõi ba đời, cân nặng, chủ sở hữu, vị trí chuồng. Mọi dữ liệu huấn luyện và y tế sau này đều móc vào hồ sơ này.',
-    badge: 'BẮT BUỘC',
+    descVi: 'Khai sinh hồ sơ một chiến mã: mã định danh, giống, dòng dõi ba đời, cân nặng, chủ sở hữu, vị trí chuồng. Mọi dữ liệu huấn luyện và y tế sau này đều móc vào hồ sơ này.',
+    descEn: 'Register a racehorse with official RFID chip identifier, breed, 3-generation pedigree tree, weight, ownership split, and assigned stall. All subsequent medical and training records link directly here.',
+    badgeVi: 'BẮT BUỘC',
+    badgeEn: 'REQUIRED',
     isReq: true,
     link: '/ho-so-ngua',
-    linkText: 'Vào hồ sơ ngựa'
+    linkTextVi: 'Vào hồ sơ ngựa',
+    linkTextEn: 'Open Horse Profiles'
   },
   {
     no: '2',
-    title: 'Lập & thực hiện giáo án huấn luyện',
+    titleVi: 'Lập & thực hiện giáo án huấn luyện',
+    titleEn: 'Curriculum & Workout Execution',
     vn: 'Training Program',
-    desc: 'HLV trưởng dựng giáo án theo giai đoạn, giao lịch xuống đội chăm sóc, theo dõi buổi tập bằng dữ liệu nhịp tim và vận tốc, rồi chấm phong độ kèm nhận xét chuyên môn.',
-    badge: 'BẮT BUỘC',
+    descVi: 'HLV trưởng dựng giáo án theo giai đoạn, giao lịch xuống đội chăm sóc, theo dõi buổi tập bằng dữ liệu nhịp tim và vận tốc, rồi chấm phong độ kèm nhận xét chuyên môn.',
+    descEn: 'Head trainers design phase programs, assign daily routines to stable crews, monitor workouts via telemetry heart rate and speed metrics, and grade performance with coaching notes.',
+    badgeVi: 'BẮT BUỘC',
+    badgeEn: 'REQUIRED',
     isReq: true,
     link: '/ho-so-ngua',
-    linkText: 'Vào giáo án'
+    linkTextVi: 'Vào giáo án',
+    linkTextEn: 'Open Curriculums'
   },
   {
     no: '3',
-    title: 'Quản lý y tế & xử lý chấn thương',
+    titleVi: 'Quản lý y tế & xử lý chấn thương',
+    titleEn: 'Veterinary Care & Injury Tracking',
     vn: 'Medical & Injury',
-    desc: 'Từ ca khám đầu tiên đến ngày trở lại đường chạy: chẩn đoán, đánh dấu vị trí tổn thương trên mô hình 3D, phác đồ điều trị, và lệnh khóa huấn luyện chặn mọi bài tập nặng.',
-    badge: 'BẮT BUỘC',
+    descVi: 'Từ ca khám đầu tiên đến ngày trở lại đường chạy: chẩn đoán, đánh dấu vị trí tổn thương trên mô hình 3D, phác đồ điều trị, và lệnh khóa huấn luyện chặn mọi bài tập nặng.',
+    descEn: 'From initial diagnostic checks to track return: clinical diagnoses, 3D anatomical musculoskeletal injury mapping, treatment protocols, and emergency training locks.',
+    badgeVi: 'BẮT BUỘC',
+    badgeEn: 'REQUIRED',
     isReq: true,
     link: '/ho-so-ngua',
-    linkText: 'Vào hồ sơ y tế'
+    linkTextVi: 'Vào hồ sơ y tế',
+    linkTextEn: 'Open Veterinary Records'
   },
   {
     no: '4',
-    title: 'Chăm sóc chuồng trại & dinh dưỡng',
+    titleVi: 'Chăm sóc chuồng trại & dinh dưỡng',
+    titleEn: 'Stable Management & Nutrition',
     vn: 'Daily Care & Nutrition',
-    desc: 'Lịch sinh hoạt, khẩu phần từng bữa, checklist công việc trong ngày và báo cáo sự cố kèm ảnh từ khu chuồng.',
-    badge: 'TÙY CHỌN',
+    descVi: 'Lịch sinh hoạt, khẩu phần từng bữa, checklist công việc trong ngày và báo cáo sự cố kèm ảnh từ khu chuồng.',
+    descEn: 'Daily stable schedules, balanced rations per meal, groom task checklists, and immediate photo-backed incident reporting from the barn.',
+    badgeVi: 'TÙY CHỌN',
+    badgeEn: 'OPTIONAL',
     isReq: false,
     link: '/chuong-trai',
-    linkText: 'Vào chuồng trại'
+    linkTextVi: 'Vào chuồng trại',
+    linkTextEn: 'Open Stables'
   },
   {
     no: '5',
-    title: 'Đăng ký thi đấu & báo cáo thành tích',
+    titleVi: 'Đăng ký thi đấu & báo cáo thành tích',
+    titleEn: 'Race Nominations & Purse Tracking',
     vn: 'Race Entry & Results',
-    desc: 'Chọn ngựa phù hợp với từng giải, nộp hồ sơ đăng ký, ghi kết quả và tổng hợp tiền thưởng về cho chủ sở hữu.',
-    badge: 'TÙY CHỌN',
+    descVi: 'Chọn ngựa phù hợp với từng giải, nộp hồ sơ đăng ký, ghi kết quả và tổng hợp tiền thưởng về cho chủ sở hữu.',
+    descEn: 'Select eligible horses for upcoming meets, submit official entries, record race results, and distribute purse dividends to syndicate owners.',
+    badgeVi: 'TÙY CHỌN',
+    badgeEn: 'OPTIONAL',
     isReq: false,
     link: '/thanh-tich',
-    linkText: 'Vào lịch giải'
+    linkTextVi: 'Vào lịch giải',
+    linkTextEn: 'Open Race Calendar'
   }
 ];

@@ -1,16 +1,19 @@
 import React from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Ticker({ onOpenAuth }) {
+  const { t } = useLanguage();
+
   return (
     <div className="ticker">
       <div className="wrap ticker-wrap">
         <div className="meet">
-          <b>Mùa giải 2026</b>
-          <span>Vòng loại Đại Nam — còn 12 ngày · 38 chiến mã đang trong giáo án</span>
+          <b>{t('tickerSeason')}</b>
+          <span>{t('tickerMeet')}</span>
         </div>
         <nav>
-          <a href="/ho-tro.html">Hỗ trợ</a>
-          <a href="/tai-lieu.html">Tài liệu</a>
+          <a href="/ho-tro.html">{t('tickerSupport')}</a>
+          <a href="/tai-lieu.html">{t('tickerDocs')}</a>
           <a 
             href="/dang-nhap.html"
             onClick={(e) => {
@@ -20,7 +23,7 @@ export default function Ticker({ onOpenAuth }) {
               }
             }}
           >
-            Đăng nhập
+            {t('tickerLogin')}
           </a>
         </nav>
       </div>

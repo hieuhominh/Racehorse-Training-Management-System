@@ -564,6 +564,13 @@ header.nav {
   letter-spacing: 0.02em;
 }
 
+.lang-toggle-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--paper);
+}
+
 .btn-role-trainer {
   background: #2563EB !important;
   border-color: #2563EB !important;
@@ -1583,37 +1590,54 @@ footer {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
+  .nav .wrap,
+  .ticker .wrap {
+    padding: 0 16px !important;
+    gap: 12px;
+  }
+
+  .nav-cta {
+    gap: 8px;
+  }
+
   .mainnav {
     display: none;
   }
 
   .mainnav.open {
     display: flex;
-    position: absolute;
+    position: fixed;
     top: 72px;
     left: 0;
     right: 0;
+    bottom: 0;
     flex-direction: column;
     gap: 0;
-    background: var(--bg-secondary);
+    background: var(--bg-secondary) !important;
     border-bottom: 1px solid var(--line);
-    padding: 8px 4vw 16px;
-    max-height: calc(100vh - 110px);
+    padding: 12px 18px 40px;
+    max-height: calc(100vh - 72px);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     box-shadow: var(--shadow-lg);
+    z-index: 999999;
   }
 
   .mainnav.open>a {
-    padding: 12px 0;
+    padding: 13px 0;
     border-bottom: 1px solid var(--line);
+    font-size: 16px;
+    font-weight: 600;
   }
 
   .navlink {
     width: 100%;
     justify-content: space-between;
-    padding: 12px 0;
+    padding: 13px 0;
     border-bottom: 1px solid var(--line);
+    font-size: 16px;
+    font-weight: 600;
   }
 
   .navlink:hover,
@@ -1624,11 +1648,12 @@ footer {
   .mega {
     position: static;
     box-shadow: none;
-    border-top: 1px solid #C9A227;
-    border-bottom: 1px solid #222222;
+    border-top: 1px solid var(--brass) !important;
+    border-bottom: 1px solid var(--line) !important;
     background: none !important;
     background-color: transparent !important;
     opacity: 1 !important;
+    padding: 0;
   }
 
   .navitem.open .mega {
@@ -1638,42 +1663,39 @@ footer {
   }
 
   .mega .wrap {
-    width: 100%;
+    width: 100% !important;
     grid-template-columns: 1fr;
-    gap: 24px;
-    padding: 20px 0 24px;
+    gap: 20px;
+    padding: 18px 0 20px !important;
     background: none !important;
     background-color: transparent !important;
   }
 
   .mega-intro {
     border-left: 2px solid var(--brass);
-    padding-left: 16px;
+    padding-left: 14px;
     background: none !important;
     background-color: transparent !important;
   }
 
   .mega-links {
     grid-template-columns: 1fr;
-    column-gap: 0;
+    gap: 10px;
     background: none !important;
     background-color: transparent !important;
   }
 
   .mega-links a {
     min-height: 0;
-    margin-left: 0;
-    padding-left: 0;
-  }
-
-  .mega-links a:hover {
-    background: none;
-    padding-left: 0;
+    padding: 12px 14px;
   }
 
   .burger {
-    display: block;
-    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+    flex-shrink: 0;
   }
 
   .nav-cta .btn-ghost {
@@ -1694,7 +1716,7 @@ footer {
   }
 
   .flow .no {
-    font-size: 44px;
+    font-size: 40px;
   }
 
   .flow .meta {
@@ -1702,11 +1724,101 @@ footer {
   }
 
   section {
-    padding: 72px 0;
+    padding: 56px 0;
   }
 
   .hero .wrap {
-    padding-top: 60px;
+    padding-top: 40px;
+  }
+
+  .band {
+    padding: 50px 0;
+  }
+
+  .band .wrap {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+  }
+
+  .band .hero-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .band .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .stalls {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .theme-toggle-label {
+    display: none !important;
+  }
+
+  .theme-toggle-btn {
+    padding: 0 10px;
+  }
+
+  .nav .wrap,
+  .ticker .wrap {
+    padding: 0 12px !important;
+  }
+
+  .brand .name {
+    font-size: 21px;
+  }
+
+  .brand .sub {
+    font-size: 9px;
+  }
+
+  .stalls {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .stall {
+    font-size: 10px;
+    padding: 6px;
+  }
+
+  .vitals-head .who {
+    font-size: 13.5px;
+  }
+
+  .readouts {
+    padding: 12px 8px;
+    gap: 6px;
+  }
+
+  .readouts b {
+    font-size: 19px;
+  }
+
+  .readouts span {
+    font-size: 9px;
+  }
+
+  .fgrid {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+
+  .fbot {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .auth-modal-content {
+    padding: 18px 14px !important;
   }
 }
 
@@ -7109,6 +7221,141 @@ h2.portal-page-title {
   .price-value {
     font-size: 13.5px;
   }
+}
+
+/* ========================================================
+   PREMIUM TOP-RIGHT STACKING TOAST NOTIFICATIONS (3 COLORS)
+   ======================================================== */
+.premium-toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  max-width: 440px;
+  width: calc(100vw - 48px);
+}
+
+.premium-toast-item {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 14px 18px 14px 16px;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.75), 0 0 18px rgba(212, 175, 55, 0.15);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transition: transform 0.25s ease, opacity 0.4s ease;
+}
+
+.premium-toast-item.fade-in {
+  animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.premium-toast-item.fade-out {
+  animation: toastSlideOut 0.4s ease forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(70px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(50px) scale(0.92);
+  }
+}
+
+.toast-accent-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--brass);
+}
+
+.toast-icon-wrap {
+  flex-shrink: 0;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast-text-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 4px;
+}
+
+.toast-msg {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--paper);
+  word-break: break-word;
+}
+
+.toast-dismiss-btn {
+  background: transparent;
+  border: none;
+  color: var(--paper-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+  margin-left: 6px;
+  border-radius: 4px;
+}
+
+.toast-dismiss-btn:hover {
+  color: var(--brass);
+  background: var(--line);
+}
+
+.toast-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--brass);
+  width: 100%;
+  animation: toastProgressBar 4s linear forwards;
+}
+
+@keyframes toastProgressBar {
+  from { width: 100%; }
+  to { width: 0%; }
 }
 
 

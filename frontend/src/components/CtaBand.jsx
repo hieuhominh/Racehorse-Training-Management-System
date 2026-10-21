@@ -1,14 +1,15 @@
 import React from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function CtaBand({ onOpenAuth }) {
+  const { t } = useLanguage();
+
   return (
     <div className="band">
       <div className="wrap">
         <div>
-          <h2>Sẵn sàng cho mùa giải tới</h2>
-          <p>
-            Đưa cả tàu ngựa lên hệ thống trong một buổi. Dữ liệu cũ nhập từ file, phân quyền theo vai trò có sẵn.
-          </p>
+          <h2>{t('ctaHeading')}</h2>
+          <p>{t('ctaDesc')}</p>
         </div>
         <div className="hero-actions">
           <a 
@@ -21,9 +22,11 @@ export default function CtaBand({ onOpenAuth }) {
               }
             }}
           >
-            Tạo tài khoản câu lạc bộ
+            {t('ctaRegisterBtn')}
           </a>
-          <a className="btn btn-ghost" href="/lien-he.html">Đặt lịch xem demo</a>
+          <a className="btn btn-ghost" href="/lien-he.html">
+            {t('ctaDemoBtn')}
+          </a>
         </div>
       </div>
     </div>

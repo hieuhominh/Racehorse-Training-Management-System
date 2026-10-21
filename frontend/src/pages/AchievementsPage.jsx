@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ownersList, ownedHorsesData, settlementStatementsData, raceHistoryLogs } from '../data/financialData';
+import { getRacesApi, getFinancialSettlementsApi } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 import StatementDetailModal from '../components/StatementDetailModal';
 import CtaBand from '../components/CtaBand';
 
@@ -39,10 +41,31 @@ const IconCash = ({ size = 18, color = 'currentColor' }) => (
 );
 
 export default function AchievementsPage({ onOpenAuth }) {
+  const { t, lang } = useLanguage();
   const [selectedOwnerId, setSelectedOwnerId] = useState('ALL');
   const [activeTab, setActiveTab] = useState('statements'); // 'statements' | 'races' | 'horses'
   const [statementViewMode, setStatementViewMode] = useState('cards'); // 'cards' | 'table'
   const [activeStatementForModal, setActiveStatementForModal] = useState(null);
+  const [statements, setStatements] = useState(settlementStatementsData);
+  const [races, setRaces] = useState(raceHistoryLogs);
+
+  // Nạp dữ liệu đối soát và giải đua từ Backend API
+  useEffect(() => {
+    let isMounted = true;
+    getFinancialSettlementsApi().then(res => {
+      if (isMounted && res.isFromBackend && Array.isArray(res.data) && res.data.length > 0) {
+        setStatements(res.data);
+      }
+    }).catch(() => {});
+
+    getRacesApi().then(res => {
+      if (isMounted && res.isFromBackend && Array.isArray(res.data) && res.data.length > 0) {
+        setRaces(res.data);
+      }
+    }).catch(() => {});
+
+    return () => { isMounted = false; };
+  }, []);
 
   // Filtered horses based on owner
   const filteredHorses = useMemo(() => {
@@ -54,21 +77,21 @@ export default function AchievementsPage({ onOpenAuth }) {
 
   // Filtered statements
   const filteredStatements = useMemo(() => {
-    if (selectedOwnerId === 'ALL') return settlementStatementsData;
+    if (selectedOwnerId === 'ALL') return statements;
     const owner = ownersList.find(o => o.id === selectedOwnerId);
-    if (!owner) return settlementStatementsData;
+    if (!owner) return statements;
     const ownerHorseIds = ownedHorsesData.filter(h => h.ownerName.includes(owner.name)).map(h => h.id);
-    return settlementStatementsData.filter(s => ownerHorseIds.includes(s.horseId));
-  }, [selectedOwnerId]);
+    return statements.filter(s => ownerHorseIds.includes(s.horseId));
+  }, [selectedOwnerId, statements]);
 
   // Filtered race logs
   const filteredRaces = useMemo(() => {
-    if (selectedOwnerId === 'ALL') return raceHistoryLogs;
+    if (selectedOwnerId === 'ALL') return races;
     const owner = ownersList.find(o => o.id === selectedOwnerId);
-    if (!owner) return raceHistoryLogs;
+    if (!owner) return races;
     const ownerHorseIds = ownedHorsesData.filter(h => h.ownerName.includes(owner.name)).map(h => h.id);
-    return raceHistoryLogs.filter(r => ownerHorseIds.includes(r.horseId));
-  }, [selectedOwnerId]);
+    return races.filter(r => ownerHorseIds.includes(r.horseId));
+  }, [selectedOwnerId, races]);
 
   // Aggregate totals
   const totalStats = useMemo(() => {
@@ -84,6 +107,9 @@ export default function AchievementsPage({ onOpenAuth }) {
   }, [filteredHorses]);
 
   const formatVND = (num) => {
+    if (lang === 'en') {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num / 25000);
+    }
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
   };
 
@@ -93,30 +119,30 @@ export default function AchievementsPage({ onOpenAuth }) {
       <div className="page-banner">
         <div className="wrap">
           <div className="breadcrumb">
-            <Link to="/" className="bc-item">Trang chủ</Link>
+            <Link to="/" className="bc-item">{t('home')}</Link>
             <span className="bc-sep">/</span>
-            <span className="bc-item active">Lịch sử thành tích & Đối soát tài chính</span>
+            <span className="bc-item active">{t('achieveBreadcrumb')}</span>
           </div>
 
           <div className="banner-flex">
             <div>
-              <span className="badge badge-gold">MINH BẠCH TÀI CHÍNH MÃ TRƯỜNG</span>
-              <h1 className="banner-title">LỊCH SỬ THÀNH TÍCH & ĐỐI SOÁT CHỦ SỞ HỮU</h1>
+              <span className="badge badge-gold">{t('achieveBadge')}</span>
+              <h1 className="banner-title">{t('achieveBannerTitle')}</h1>
               <p className="banner-desc">
-                Theo dõi chi tiết ngựa thuộc sở hữu, đối soát định kỳ chi phí nuôi dưỡng, viện phí thú y và <strong>phần trăm tiền thưởng giải đua</strong> theo tỉ lệ sở hữu minh bạch.
+                {t('achieveBannerDesc')}
               </p>
             </div>
 
             {/* Owner Selector Dropdown */}
             <div className="owner-select-card">
-              <label htmlFor="owner-dropdown">Chọn hồ sơ chủ sở hữu:</label>
+              <label htmlFor="owner-dropdown">{t('achieveFilterOwnerLabel')}</label>
               <select
                 id="owner-dropdown"
                 value={selectedOwnerId}
                 onChange={(e) => setSelectedOwnerId(e.target.value)}
                 className="owner-dropdown-select"
               >
-                <option value="ALL">Tất cả chủ sở hữu (Tổng quan)</option>
+                <option value="ALL">{t('achieveAllOwners')}</option>
                 {ownersList.map(owner => (
                   <option key={owner.id} value={owner.id}>
                     {owner.name} ({owner.farm})
@@ -131,15 +157,15 @@ export default function AchievementsPage({ onOpenAuth }) {
             <div className="fin-card">
               <div className="fin-icon"><IconHorse size={20} color="var(--brass)" /></div>
               <div>
-                <span className="fin-label">Ngựa thuộc sở hữu</span>
-                <span className="fin-val">{totalStats.horseCount} chiến mã</span>
+                <span className="fin-label">{lang === 'en' ? 'Owned Racehorses' : 'Ngựa thuộc sở hữu'}</span>
+                <span className="fin-val">{totalStats.horseCount} {t('ofHorsesCount')}</span>
               </div>
             </div>
 
             <div className="fin-card">
               <div className="fin-icon gold-icon"><IconTrophy size={20} color="var(--brass)" /></div>
               <div>
-                <span className="fin-label">Thưởng giải đua (% Hưởng)</span>
+                <span className="fin-label">{lang === 'en' ? 'Purses Won (Share)' : 'Thưởng giải đua (% Hưởng)'}</span>
                 <span className="fin-val gold-text">{formatVND(totalStats.totalPrize)}</span>
               </div>
             </div>
@@ -147,7 +173,7 @@ export default function AchievementsPage({ onOpenAuth }) {
             <div className="fin-card">
               <div className="fin-icon alert-icon"><IconReceipt size={20} color="var(--paper-dim)" /></div>
               <div>
-                <span className="fin-label">Chi phí nuôi & Thú y (% Gánh)</span>
+                <span className="fin-label">{lang === 'en' ? 'Board & Vet (Share)' : 'Chi phí nuôi & Thú y (% Gánh)'}</span>
                 <span className="fin-val alert-text">{formatVND(totalStats.totalExpenses)}</span>
               </div>
             </div>
@@ -155,7 +181,7 @@ export default function AchievementsPage({ onOpenAuth }) {
             <div className="fin-card highlight-fin-card">
               <div className="fin-icon green-icon"><IconCash size={20} color="var(--brass)" /></div>
               <div>
-                <span className="fin-label">Số dư ròng thực nhận</span>
+                <span className="fin-label">{t('summaryNetPayout')}</span>
                 <span className="fin-val green-text">{formatVND(totalStats.netBalance)}</span>
               </div>
             </div>
@@ -173,21 +199,21 @@ export default function AchievementsPage({ onOpenAuth }) {
               className={`sec-tab ${activeTab === 'statements' ? 'active' : ''}`}
               onClick={() => setActiveTab('statements')}
             >
-              Bản Đối Soát Tài Chính Định Kỳ ({filteredStatements.length})
+              {t('achieveTabStatements')} ({filteredStatements.length})
             </button>
             <button
               type="button"
               className={`sec-tab ${activeTab === 'races' ? 'active' : ''}`}
               onClick={() => setActiveTab('races')}
             >
-              Kỷ Lục & Thành Tích Giải Đua ({filteredRaces.length})
+              {t('achieveTabRaces')} ({filteredRaces.length})
             </button>
             <button
               type="button"
               className={`sec-tab ${activeTab === 'horses' ? 'active' : ''}`}
               onClick={() => setActiveTab('horses')}
             >
-              Ngựa Thuộc Sở Hữu & Tỉ Lệ (%) ({filteredHorses.length})
+              {t('achieveTabHorses')} ({filteredHorses.length})
             </button>
           </div>
 
@@ -196,8 +222,8 @@ export default function AchievementsPage({ onOpenAuth }) {
             <div className="tab-content-panel">
               <div className="panel-header-row">
                 <div>
-                  <h3>BẢNG ĐỐI SOÁT NGHĨA VỤ TÀI CHÍNH ĐỊNH KỲ</h3>
-                  <p>Minh bạch 100% về tiền thưởng giải đua, chi phí nuôi dưỡng và viện phí thú y theo từng tháng.</p>
+                  <h3>{lang === 'en' ? 'PERIODIC FINANCIAL AUDIT & SETTLEMENTS' : 'BẢNG ĐỐI SOÁT NGHĨA VỤ TÀI CHÍNH ĐỊNH KỲ'}</h3>
+                  <p>{lang === 'en' ? '100% transparent audit of race purses, training feeds, and medical expenses.' : 'Minh bạch 100% về tiền thưởng giải đua, chi phí nuôi dưỡng và viện phí thú y theo từng tháng.'}</p>
                 </div>
                 <div className="panel-actions-group">
                   <div className="view-mode-pill-toggle">
@@ -206,18 +232,18 @@ export default function AchievementsPage({ onOpenAuth }) {
                       className={`v-mode-btn ${statementViewMode === 'cards' ? 'active' : ''}`}
                       onClick={() => setStatementViewMode('cards')}
                     >
-                      Dạng Thẻ Đối Soát (Khuyên dùng)
+                      {lang === 'en' ? 'Cards (Recommended)' : 'Dạng Thẻ Đối Soát (Khuyên dùng)'}
                     </button>
                     <button
                       type="button"
                       className={`v-mode-btn ${statementViewMode === 'table' ? 'active' : ''}`}
                       onClick={() => setStatementViewMode('table')}
                     >
-                      Dạng Bảng Thu Gọn 100%
+                      {lang === 'en' ? 'Compact Table' : 'Dạng Bảng Thu Gọn 100%'}
                     </button>
                   </div>
                   <button type="button" className="btn btn-ghost" onClick={() => window.print()}>
-                    Xuất báo cáo
+                    {lang === 'en' ? 'Print Statement' : 'Xuất báo cáo'}
                   </button>
                 </div>
               </div>
@@ -231,7 +257,7 @@ export default function AchievementsPage({ onOpenAuth }) {
                       <div className="stmt-card-top">
                         <div className="stmt-period-group">
                           <span className="stmt-period-badge">{stmt.period}</span>
-                          <span className="stmt-date-text">Ngày phát hành: {stmt.date}</span>
+                          <span className="stmt-date-text">{lang === 'en' ? 'Issued:' : 'Ngày phát hành:'} {stmt.date}</span>
                         </div>
                         
                         <div className="stmt-horse-group">
@@ -240,11 +266,11 @@ export default function AchievementsPage({ onOpenAuth }) {
                         </div>
 
                         <div className="stmt-badges-group">
-                          <span className="badge badge-gold">SỞ HỮU {stmt.ownershipShare}%</span>
+                          <span className="badge badge-gold">{lang === 'en' ? 'SHARE' : 'SỞ HỮU'} {stmt.ownershipShare}%</span>
                           {stmt.status === 'paid' ? (
-                            <span className="badge badge-gold">{stmt.statusLabel}</span>
+                            <span className="badge badge-gold">{t('stmtPaid')}</span>
                           ) : (
-                            <span className="badge badge-slate">{stmt.statusLabel}</span>
+                            <span className="badge badge-slate">{t('stmtPending')}</span>
                           )}
                         </div>
                       </div>
@@ -252,33 +278,33 @@ export default function AchievementsPage({ onOpenAuth }) {
                       {/* Middle Grid */}
                       <div className="stmt-card-middle">
                         <div className="stmt-race-info">
-                          <span className="info-title">GIẢI ĐUA & THÀNH TÍCH:</span>
+                          <span className="info-title">{lang === 'en' ? 'RACE EVENT & RESULT:' : 'GIẢI ĐUA & THÀNH TÍCH:'}</span>
                           <div className="race-headline">{stmt.raceName}</div>
                           <div className="race-rank-pill">{stmt.raceRank}</div>
                         </div>
 
                         <div className="stmt-financial-breakdown-grid">
                           <div className="fin-box fin-box-prize">
-                            <span className="box-label">Thưởng giải (% Hưởng {stmt.ownershipShare}%):</span>
+                            <span className="box-label">{lang === 'en' ? `Purse Won (${stmt.ownershipShare}% Share):` : `Thưởng giải (% Hưởng ${stmt.ownershipShare}%):`}</span>
                             <span className="box-amount gold-text">+{formatVND(stmt.shareRacePrize)}</span>
-                            <span className="box-sub">Tổng giải: {formatVND(stmt.totalRacePrize)}</span>
+                            <span className="box-sub">{lang === 'en' ? 'Total Purse:' : 'Tổng giải:'} {formatVND(stmt.totalRacePrize)}</span>
                           </div>
 
                           <div className="fin-box fin-box-expense">
-                            <span className="box-label">Chi phí (% Gánh {stmt.ownershipShare}%):</span>
+                            <span className="box-label">{lang === 'en' ? `Expenses (${stmt.ownershipShare}% Share):` : `Chi phí (% Gánh ${stmt.ownershipShare}%):`}</span>
                             <span className="box-amount alert-text">-{formatVND(stmt.shareMonthExpense)}</span>
-                            <span className="box-sub">Nuôi {formatVND(stmt.careExpense)} • Y tế {formatVND(stmt.vetExpense)}</span>
+                            <span className="box-sub">{lang === 'en' ? 'Board' : 'Nuôi'} {formatVND(stmt.careExpense)} • {lang === 'en' ? 'Vet' : 'Y tế'} {formatVND(stmt.vetExpense)}</span>
                           </div>
 
                           <div className="fin-box fin-box-payout">
-                            <span className="box-label">SỐ DƯ RÒNG THỰC NHẬN:</span>
+                            <span className="box-label">{t('summaryNetPayout')}:</span>
                             <span className="box-amount green-text">+{formatVND(stmt.netPayout)}</span>
                             <button
                               type="button"
                               className="btn-pedigree-action btn-inspect-stmt"
                               onClick={() => setActiveStatementForModal(stmt)}
                             >
-                              Xem chi tiết hóa đơn & đối soát
+                              {t('stmtViewDetail')}
                             </button>
                           </div>
                         </div>
@@ -292,11 +318,11 @@ export default function AchievementsPage({ onOpenAuth }) {
                   <table className="clean-compact-table">
                     <thead>
                       <tr>
-                        <th style={{ width: '22%' }}>Kỳ đối soát & Chiến mã</th>
-                        <th style={{ width: '24%' }}>Giải đua & Thành tích</th>
-                        <th style={{ width: '24%' }}>Dòng tiền (% Hưởng / % Gánh)</th>
-                        <th style={{ width: '15%' }}>Thực nhận ròng</th>
-                        <th style={{ width: '15%' }} className="text-right">Trạng thái & Thao tác</th>
+                        <th style={{ width: '22%' }}>{t('stmtColCode')} & {t('colHorse')}</th>
+                        <th style={{ width: '24%' }}>{t('stmtColRace')}</th>
+                        <th style={{ width: '24%' }}>{lang === 'en' ? 'Cashflow (% Share)' : 'Dòng tiền (% Hưởng / % Gánh)'}</th>
+                        <th style={{ width: '15%' }}>{t('stmtColNet')}</th>
+                        <th style={{ width: '15%' }} className="text-right">{t('stmtColStatus')} & {t('stmtColAction')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -308,7 +334,7 @@ export default function AchievementsPage({ onOpenAuth }) {
                               <strong className="compact-name">{stmt.horseName}</strong>
                               <div className="compact-meta">
                                 <code className="compact-chip">CHIP: {stmt.chipId}</code>
-                                <span className="badge badge-gold mini-badge">{stmt.ownershipShare}% sở hữu</span>
+                                <span className="badge badge-gold mini-badge">{stmt.ownershipShare}% {lang === 'en' ? 'share' : 'sở hữu'}</span>
                               </div>
                             </div>
                           </td>
@@ -323,11 +349,11 @@ export default function AchievementsPage({ onOpenAuth }) {
                           <td>
                             <div className="cashflow-compact-cell">
                               <div className="cf-row gold-text">
-                                <span>Thưởng ({stmt.ownershipShare}%):</span>
+                                <span>{lang === 'en' ? 'Purse' : 'Thưởng'} ({stmt.ownershipShare}%):</span>
                                 <strong>+{formatVND(stmt.shareRacePrize)}</strong>
                               </div>
                               <div className="cf-row alert-text">
-                                <span>Chi phí ({stmt.ownershipShare}%):</span>
+                                <span>{lang === 'en' ? 'Cost' : 'Chi phí'} ({stmt.ownershipShare}%):</span>
                                 <strong>-{formatVND(stmt.shareMonthExpense)}</strong>
                               </div>
                             </div>
@@ -342,16 +368,16 @@ export default function AchievementsPage({ onOpenAuth }) {
                           <td className="text-right">
                             <div className="compact-action-cell">
                               {stmt.status === 'paid' ? (
-                                <span className="badge badge-gold">Đã thanh toán</span>
+                                <span className="badge badge-gold">{t('stmtPaid')}</span>
                               ) : (
-                                <span className="badge badge-slate">Đang chờ xác nhận</span>
+                                <span className="badge badge-slate">{t('stmtPending')}</span>
                               )}
                               <button
                                 type="button"
                                 className="btn-pedigree-action btn-sm"
                                 onClick={() => setActiveStatementForModal(stmt)}
                               >
-                                Xem đối soát
+                                {lang === 'en' ? 'Audit' : 'Xem đối soát'}
                               </button>
                             </div>
                           </td>
@@ -369,8 +395,8 @@ export default function AchievementsPage({ onOpenAuth }) {
             <div className="tab-content-panel">
               <div className="panel-header-row">
                 <div>
-                  <h3>NHẬT KÝ THÀNH TÍCH & KỶ LỤC GIẢI ĐUA</h3>
-                  <p>Tổng hợp lịch sử các giải đua đã tham dự, thứ hạng, kỷ lục thời gian và tiền thưởng nhận được.</p>
+                  <h3>{lang === 'en' ? 'RACE RESULTS & TROPHY LOGS' : 'NHẬT KÝ THÀNH TÍCH & KỶ LỤC GIẢI ĐUA'}</h3>
+                  <p>{lang === 'en' ? 'Comprehensive historical race starts, finishes, time records, and owner shares.' : 'Tổng hợp lịch sử các giải đua đã tham dự, thứ hạng, kỷ lục thời gian và tiền thưởng nhận được.'}</p>
                 </div>
               </div>
 
@@ -378,12 +404,12 @@ export default function AchievementsPage({ onOpenAuth }) {
                 <table className="clean-compact-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '12%' }}>Ngày đua</th>
-                      <th style={{ width: '18%' }}>Chiến mã</th>
-                      <th style={{ width: '28%' }}>Giải đua & Mặt sân</th>
-                      <th style={{ width: '14%' }}>Thứ hạng</th>
-                      <th style={{ width: '14%' }}>Kỷ lục thời gian</th>
-                      <th style={{ width: '14%' }} className="text-right">Tiền về chủ sở hữu</th>
+                      <th style={{ width: '12%' }}>{t('raceRecordColDate')}</th>
+                      <th style={{ width: '18%' }}>{t('raceRecordColHorse')}</th>
+                      <th style={{ width: '28%' }}>{t('raceRecordColName')} & {t('raceRecordColTrack')}</th>
+                      <th style={{ width: '14%' }}>{t('raceRecordColResult')}</th>
+                      <th style={{ width: '14%' }}>{lang === 'en' ? 'Time Record' : 'Kỷ lục thời gian'}</th>
+                      <th style={{ width: '14%' }} className="text-right">{lang === 'en' ? 'Purse to Owner' : 'Tiền về chủ sở hữu'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -404,7 +430,7 @@ export default function AchievementsPage({ onOpenAuth }) {
                         <td><code>{race.timeRecord}</code></td>
                         <td className="text-right gold-text">
                           <strong>+{formatVND(race.ownerShareAmount)}</strong>
-                          <small className="d-block text-dim">Tổng giải: {formatVND(race.prizeAmount)}</small>
+                          <small className="d-block text-dim">{lang === 'en' ? 'Total Purse:' : 'Tổng giải:'} {formatVND(race.prizeAmount)}</small>
                         </td>
                       </tr>
                     ))}
@@ -419,8 +445,8 @@ export default function AchievementsPage({ onOpenAuth }) {
             <div className="tab-content-panel">
               <div className="panel-header-row">
                 <div>
-                  <h3>DANH SÁCH CHIẾN MÃ THUỘC SỞ HỮU</h3>
-                  <p>Quản lý tỷ lệ sở hữu (%), chi phí nuôi dưỡng và số dư tài chính ròng của từng cá thể ngựa.</p>
+                  <h3>{lang === 'en' ? 'OWNED RACEHORSE SYNDICATE' : 'DANH SÁCH CHIẾN MÃ THUỘC SỞ HỮU'}</h3>
+                  <p>{lang === 'en' ? 'Manage equity stakes (%), boarding fees, and net balance for each individual horse.' : 'Quản lý tỷ lệ sở hữu (%), chi phí nuôi dưỡng và số dư tài chính ròng của từng cá thể ngựa.'}</p>
                 </div>
               </div>
 
@@ -430,7 +456,7 @@ export default function AchievementsPage({ onOpenAuth }) {
                     <div className="horse-card-header">
                       <img src={horse.avatar} alt={horse.name} className="card-avatar" />
                       <div className="card-status-badge">
-                        <span className="badge badge-gold">SỞ HỮU {horse.ownershipShare}%</span>
+                        <span className="badge badge-gold">{lang === 'en' ? 'SHARE' : 'SỞ HỮU'} {horse.ownershipShare}%</span>
                       </div>
                     </div>
 
@@ -440,32 +466,32 @@ export default function AchievementsPage({ onOpenAuth }) {
                         <span className="stall-code">{horse.trainer}</span>
                       </div>
 
-                      <h3 className="card-horse-name">{horse.name}</h3>
-                      <div className="card-eng-name">{horse.englishName} • {horse.breed}</div>
+                      <h3 className="card-horse-name">{lang === 'en' ? (horse.englishName || horse.name) : horse.name}</h3>
+                      <div className="card-eng-name">{(horse.englishName || horse.name)} • {horse.breed}</div>
 
                       <div className="owned-financial-summary">
                         <div className="fin-row">
-                          <span>Tiền thưởng (% Hưởng):</span>
+                          <span>{lang === 'en' ? 'Purses Won (Share):' : 'Tiền thưởng (% Hưởng):'}</span>
                           <strong className="gold-text">+{formatVND(horse.sharePrizeWon)}</strong>
                         </div>
                         <div className="fin-row">
-                          <span>Chi phí nuôi dưỡng (% Gánh):</span>
+                          <span>{lang === 'en' ? 'Care Expenses (Share):' : 'Chi phí nuôi dưỡng (% Gánh):'}</span>
                           <strong className="alert-text">-{formatVND(horse.shareExpenses)}</strong>
                         </div>
                         <div className="fin-row highlight-fin-row">
-                          <span>Số dư ròng thực nhận:</span>
+                          <span>{t('summaryNetPayout')}:</span>
                           <strong className="green-text">+{formatVND(horse.netProfit)}</strong>
                         </div>
                       </div>
 
                       <div className="card-wins-strip">
-                        <strong>THÀNH TÍCH:</strong> {horse.winsSummary}
+                        <strong>{lang === 'en' ? 'RECORD:' : 'THÀNH TÍCH:'}</strong> {horse.winsSummary}
                       </div>
                     </div>
 
                     <div className="horse-card-footer">
                       <Link to="/ho-so-ngua" className="btn btn-solid w-100">
-                        Xem phả hệ & Hồ sơ chi tiết
+                        {lang === 'en' ? 'View Pedigree & Full Profile' : 'Xem phả hệ & Hồ sơ chi tiết'}
                       </Link>
                     </div>
                   </div>
@@ -488,3 +514,4 @@ export default function AchievementsPage({ onOpenAuth }) {
     </main>
   );
 }
+

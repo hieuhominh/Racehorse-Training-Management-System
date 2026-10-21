@@ -306,10 +306,10 @@ export const initialStallsData = [
 export const stallsData = initialStallsData;
 
 export const scheduleData = [
-  { time: '05:30', barClass: 'c1', title: 'Cho ăn sáng · Khẩu phần yến mạch & Điện giải' },
-  { time: '06:30', barClass: 'c2', title: 'Huấn luyện · Chạy bền 3.000m & Đi bộ thả lỏng' },
-  { time: '08:30', barClass: 'c3', title: 'Chăm sóc · Tắm mát, chải lông & Ngâm chân đá 20 phút' },
-  { time: '10:30', barClass: 'c4', title: 'Thú y · Khám định kỳ & Bôi khoáng móng' },
-  { time: '14:30', barClass: 'c2', title: 'Huấn luyện · Bài tập nước rút 800m & Bơi hồ' },
-  { time: '17:30', barClass: 'c1', title: 'Cho ăn chiều · Dọn vệ sinh & Rải đệm chuồng' }
+  { time: '05:30', barClass: 'c1', title: 'Cho ăn sáng · Khẩu phần yến mạch & Điện giải', titleVi: 'Cho ăn sáng · Khẩu phần yến mạch & Điện giải', titleEn: 'Morning Feed · Oats & Electrolytes' },
+  { time: '06:30', barClass: 'c2', title: 'Huấn luyện · Chạy bền 3.000m & Đi bộ thả lỏng', titleVi: 'Huấn luyện · Chạy bền 3.000m & Đi bộ thả lỏng', titleEn: 'Training · 3,000m Endurance & Walking' },
+  { time: '08:30', barClass: 'c3', title: 'Chăm sóc · Tắm mát, chải lông & Ngâm chân đá 20 phút', titleVi: 'Chăm sóc · Tắm mát, chải lông & Ngâm chân đá 20 phút', titleEn: 'Grooming · Shower & 20m Ice Bath' },
+  { time: '10:30', barClass: 'c4', title: 'Thú y · Khám định kỳ & Bôi khoáng móng', titleVi: 'Thú y · Khám định kỳ & Bôi khoáng móng', titleEn: 'Veterinary · Routine Exam & Hoof Care' },
+  { time: '14:30', barClass: 'c2', title: 'Huấn luyện · Bài tập nước rút 800m & Bơi hồ', titleVi: 'Huấn luyện · Bài tập nước rút 800m & Bơi hồ', titleEn: 'Training · 800m Sprint & Swimming' },
+  { time: '17:30', barClass: 'c1', title: 'Cho ăn chiều · Dọn vệ sinh & Rải đệm chuồng', titleVi: 'Cho ăn chiều · Dọn vệ sinh & Rải đệm chuồng', titleEn: 'Evening Feed · Cleaning & Bedding' }
 ];

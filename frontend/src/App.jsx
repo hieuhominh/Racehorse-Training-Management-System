@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
+import { LanguageProvider } from './context/LanguageContext';
 import Ticker from './components/Ticker';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -109,14 +111,73 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
       {/* 3. Chỉ hiển thị Chân trang trên các trang Public */}
       {!isRolePortal && <Footer onOpenAuth={handleOpenAuth} />}
 
-      {/* Modal Đăng nhập & Đăng ký */}
-      <AuthModal 
-        isOpen={authModal.isOpen} 
-        onClose={handleCloseAuth} 
-        initialTab={authModal.tab} 
-      />
+      {/* Modal Đăng nhập & Đăng ký (khởi tạo chính xác tab khi bấm nút) */}
+      {authModal.isOpen && (
+        <AuthModal 
+          key={`${authModal.isOpen}-${authModal.tab}`}
+          isOpen={authModal.isOpen} 
+          onClose={handleCloseAuth} 
+          initialTab={authModal.tab} 
+        />
+      )}
     </div>
   );
+}
+
+// Error Boundary bảo vệ ứng dụng, không bao giờ để web bị màn hình đen
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('Lỗi giao diện:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0E0C0A',
+          color: '#EFECE6',
+          fontFamily: 'sans-serif',
+          padding: '20px',
+          textAlign: 'center'
+        }}>
+          <h2 style={{ color: '#D4AF37', marginBottom: '10px' }}>Hệ thống Mã Trường</h2>
+          <p style={{ color: '#888', maxWidth: '500px', marginBottom: '20px', fontSize: '14px', lineHeight: 1.5 }}>
+            Đã phát hiện sự cố tải giao diện. Vui lòng bấm vào nút bên dưới để khôi phục và tiếp tục sử dụng.
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false });
+              window.location.href = '/';
+            }}
+            style={{
+              padding: '10px 22px',
+              background: '#D4AF37',
+              border: 'none',
+              borderRadius: '6px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              color: '#14100A',
+              fontSize: '14px'
+            }}
+          >
+            Tải lại Trang chủ
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export default function App() {
@@ -131,17 +192,23 @@ export default function App() {
   };
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <ScrollToTop />
-          <AppShell 
-            authModal={authModal} 
-            handleOpenAuth={handleOpenAuth} 
-            handleCloseAuth={handleCloseAuth} 
-          />
-        </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <BrowserRouter>
+                <ScrollToTop />
+                <AppShell 
+                  authModal={authModal} 
+                  handleOpenAuth={handleOpenAuth} 
+                  handleCloseAuth={handleCloseAuth} 
+                />
+              </BrowserRouter>
+            </ToastProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
