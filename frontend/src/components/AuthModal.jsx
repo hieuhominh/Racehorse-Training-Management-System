@@ -38,6 +38,8 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
       navigate('/trainer');
     } else if (user.role === 'VET') {
       navigate('/vet');
+    } else if (user.role === 'GROOM' || user.role_code === 'GROOM') {
+      navigate('/groom');
     } else {
       navigate('/admin');
     }

@@ -11,6 +11,7 @@ import AuthModal from './components/AuthModal';
 import AdminRoute from './components/AdminRoute';
 import TrainerRoute from './components/TrainerRoute';
 import VetRoute from './components/VetRoute';
+import GroomRoute from './components/GroomRoute';
 
 import HomePage from './pages/HomePage';
 import HorsesPage from './pages/HorsesPage';
@@ -19,6 +20,7 @@ import StablesPage from './pages/StablesPage';
 import AdminPage from './pages/AdminPage';
 import TrainerPage from './pages/TrainerPage';
 import VetPage from './pages/VetPage';
+import GroomPage from './pages/GroomPage';
 
 // Helper component to auto scroll to top when changing routes
 function ScrollToTop() {
@@ -36,7 +38,9 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
     location.pathname.startsWith('/trainer') || 
     location.pathname.startsWith('/huan-luyen') ||
     location.pathname.startsWith('/vet') ||
-    location.pathname.startsWith('/thu-y');
+    location.pathname.startsWith('/thu-y') ||
+    location.pathname.startsWith('/groom') ||
+    location.pathname.startsWith('/cham-soc');
 
   return (
     <div className={`app-container ${isRolePortal ? 'in-portal' : ''}`}>
@@ -140,6 +144,40 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
             <VetRoute>
               <VetPage />
             </VetRoute>
+          } 
+        />
+
+        {/* CỔNG NHÂN VIÊN CHĂM SÓC GROOM BẢO MẬT (GROOM PORTAL) */}
+        <Route 
+          path="/groom" 
+          element={
+            <GroomRoute>
+              <GroomPage />
+            </GroomRoute>
+          } 
+        />
+        <Route 
+          path="/groom.html" 
+          element={
+            <GroomRoute>
+              <GroomPage />
+            </GroomRoute>
+          } 
+        />
+        <Route 
+          path="/cham-soc" 
+          element={
+            <GroomRoute>
+              <GroomPage />
+            </GroomRoute>
+          } 
+        />
+        <Route 
+          path="/cham-soc.html" 
+          element={
+            <GroomRoute>
+              <GroomPage />
+            </GroomRoute>
           } 
         />
 
