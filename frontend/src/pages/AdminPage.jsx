@@ -1054,6 +1054,12 @@ export default function AdminPage() {
             <IconGlobe size={15} />
             <span>{lang === 'en' ? 'View Public Site' : 'Xem trang Public'}</span>
           </Link>
+          <Link to="/vet" className="portal-public-link" style={{ marginTop: '6px', color: '#8B5CF6', borderColor: '#8B5CF6' }}>
+            <span>🩺 {lang === 'en' ? 'Veterinary Portal' : 'Cổng Bác sĩ Thú y'}</span>
+          </Link>
+          <Link to="/trainer" className="portal-public-link" style={{ marginTop: '6px' }}>
+            <span>🏇 {lang === 'en' ? 'Trainer Portal' : 'Cổng HLV Trưởng'}</span>
+          </Link>
         </div>
       </aside>
 
@@ -2161,7 +2167,7 @@ export default function AdminPage() {
 
                         <h3 className="facility-card-title">{u.full_name}</h3>
                         <p className="facility-card-desc">
-                          {lang === 'en' ? 'Account:' : 'Tài khoản:'} <b style={{ color: 'var(--paper)' }}>@{u.username}</b>. {lang === 'en' ? 'Standardized RBAC management privileges.' : 'Quyền hạn thao tác RBAC chuẩn hóa.'}
+                          {lang === 'en' ? 'Account:' : 'Tài khoản:'} <b style={{ color: 'var(--paper)' }}>@{u.username}</b>
                         </p>
 
                         <div className="facility-card-bullets">

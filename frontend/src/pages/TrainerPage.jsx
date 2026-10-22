@@ -555,6 +555,9 @@ export default function TrainerPage() {
             <IconGlobe size={15} />
             <span>{t('trainerPublicLink')}</span>
           </Link>
+          <Link to="/vet" className="portal-public-link" style={{ marginTop: '6px', color: '#8B5CF6', borderColor: '#8B5CF6' }}>
+            <span>🩺 {lang === 'en' ? 'Veterinary Portal' : 'Cổng Bác sĩ Thú y'}</span>
+          </Link>
         </div>
       </aside>
 

@@ -23,9 +23,9 @@ export const flowsData = [
     badgeVi: 'BẮT BUỘC',
     badgeEn: 'REQUIRED',
     isReq: true,
-    link: '/ho-so-ngua',
-    linkTextVi: 'Vào giáo án',
-    linkTextEn: 'Open Curriculums'
+    link: '/trainer',
+    linkTextVi: 'Vào giáo án HLV',
+    linkTextEn: 'Open Trainer Curriculums'
   },
   {
     no: '3',
@@ -37,9 +37,9 @@ export const flowsData = [
     badgeVi: 'BẮT BUỘC',
     badgeEn: 'REQUIRED',
     isReq: true,
-    link: '/ho-so-ngua',
-    linkTextVi: 'Vào hồ sơ y tế',
-    linkTextEn: 'Open Veterinary Records'
+    link: '/chuong-trai',
+    linkTextVi: 'Vào xử lý sự cố y tế',
+    linkTextEn: 'Open Medical & Incident Portal'
   },
   {
     no: '4',

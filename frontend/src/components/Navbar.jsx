@@ -197,6 +197,10 @@ export default function Navbar({ onOpenAuth }) {
                 <Link to="/trainer" className="btn btn-solid btn-role-trainer nav-role-btn" onClick={closeMenus}>
                   <span className="nav-btn-text">{t('trainerPortal')} ({currentUser.full_name || currentUser.username})</span>
                 </Link>
+              ) : currentUser.role === 'VET' ? (
+                <Link to="/vet" className="btn btn-solid nav-role-btn" style={{ background: '#8B5CF6', borderColor: '#8B5CF6', color: '#ffffff' }} onClick={closeMenus}>
+                  <span className="nav-btn-text">Cổng Bác sĩ Thú y ({currentUser.full_name || currentUser.username})</span>
+                </Link>
               ) : (
                 <Link to="/admin" className="btn btn-solid btn-role-admin nav-role-btn" onClick={closeMenus}>
                   <span className="nav-btn-text">{t('adminPortal')} ({currentUser.full_name || currentUser.username})</span>

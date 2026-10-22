@@ -10,6 +10,7 @@ import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
 import AdminRoute from './components/AdminRoute';
 import TrainerRoute from './components/TrainerRoute';
+import VetRoute from './components/VetRoute';
 
 import HomePage from './pages/HomePage';
 import HorsesPage from './pages/HorsesPage';
@@ -17,6 +18,7 @@ import AchievementsPage from './pages/AchievementsPage';
 import StablesPage from './pages/StablesPage';
 import AdminPage from './pages/AdminPage';
 import TrainerPage from './pages/TrainerPage';
+import VetPage from './pages/VetPage';
 
 // Helper component to auto scroll to top when changing routes
 function ScrollToTop() {
@@ -32,7 +34,9 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
   const isRolePortal = 
     location.pathname.startsWith('/admin') || 
     location.pathname.startsWith('/trainer') || 
-    location.pathname.startsWith('/huan-luyen');
+    location.pathname.startsWith('/huan-luyen') ||
+    location.pathname.startsWith('/vet') ||
+    location.pathname.startsWith('/thu-y');
 
   return (
     <div className={`app-container ${isRolePortal ? 'in-portal' : ''}`}>
@@ -105,6 +109,40 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
           } 
         />
 
+        {/* CỔNG BÁC SĨ THÚ Y BẢO MẬT (VETERINARY MEDICINE PORTAL) */}
+        <Route 
+          path="/vet" 
+          element={
+            <VetRoute>
+              <VetPage />
+            </VetRoute>
+          } 
+        />
+        <Route 
+          path="/vet.html" 
+          element={
+            <VetRoute>
+              <VetPage />
+            </VetRoute>
+          } 
+        />
+        <Route 
+          path="/thu-y" 
+          element={
+            <VetRoute>
+              <VetPage />
+            </VetRoute>
+          } 
+        />
+        <Route 
+          path="/thu-y.html" 
+          element={
+            <VetRoute>
+              <VetPage />
+            </VetRoute>
+          } 
+        />
+
         <Route path="*" element={<HomePage onOpenAuth={handleOpenAuth} />} />
       </Routes>
 
@@ -152,27 +190,68 @@ class ErrorBoundary extends React.Component {
           textAlign: 'center'
         }}>
           <h2 style={{ color: '#D4AF37', marginBottom: '10px' }}>Hệ thống Mã Trường</h2>
-          <p style={{ color: '#888', maxWidth: '500px', marginBottom: '20px', fontSize: '14px', lineHeight: 1.5 }}>
-            Đã phát hiện sự cố tải giao diện. Vui lòng bấm vào nút bên dưới để khôi phục và tiếp tục sử dụng.
+          <p style={{ color: '#888', maxWidth: '500px', marginBottom: '14px', fontSize: '14px', lineHeight: 1.5 }}>
+            Đã phát hiện sự cố tải giao diện.
           </p>
-          <button
-            onClick={() => {
-              this.setState({ hasError: false });
-              window.location.href = '/';
-            }}
-            style={{
-              padding: '10px 22px',
-              background: '#D4AF37',
-              border: 'none',
-              borderRadius: '6px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              color: '#14100A',
-              fontSize: '14px'
-            }}
-          >
-            Tải lại Trang chủ
-          </button>
+
+          {this.state.error && (
+            <div style={{
+              maxWidth: '650px',
+              width: '90%',
+              margin: '0 auto 20px',
+              padding: '12px 16px',
+              background: '#1F1414',
+              border: '1px solid #EF4444',
+              borderRadius: '8px',
+              textAlign: 'left',
+              color: '#F87171',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              overflowX: 'auto',
+              maxHeight: '180px'
+            }}>
+              <b>Chi tiết lỗi:</b> {this.state.error.toString()}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+              style={{
+                padding: '10px 20px',
+                background: '#D4AF37',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                color: '#14100A',
+                fontSize: '13.5px'
+              }}
+            >
+              Tải lại trang hiện tại
+            </button>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.href = '/';
+              }}
+              style={{
+                padding: '10px 20px',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid var(--line)',
+                borderRadius: '6px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                color: '#EFECE6',
+                fontSize: '13.5px'
+              }}
+            >
+              Về Trang chủ
+            </button>
+          </div>
         </div>
       );
     }

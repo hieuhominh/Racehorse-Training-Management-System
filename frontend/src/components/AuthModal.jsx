@@ -36,6 +36,8 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     if (!user) return;
     if (user.role === 'TRAINER') {
       navigate('/trainer');
+    } else if (user.role === 'VET') {
+      navigate('/vet');
     } else {
       navigate('/admin');
     }
@@ -156,12 +158,27 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     return /^\d{7,14}$/.test(clean);
   };
 
-  // Quick fill demo account for instant login testing
-  const handleQuickLoginFill = (emailPreset) => {
-    setLoginEmail(emailPreset);
-    setLoginPassword('123');
+  // Quick fill & instant login for demo roles
+  const handleQuickRoleLogin = async (username, pass = '123') => {
+    setLoginEmail(username);
+    setLoginPassword(pass);
     setFieldErrors({});
-    setNotification('');
+    setIsError(false);
+    setNotification(lang === 'vi' ? 'Đang xác thực và chuyển hướng...' : 'Authenticating and redirecting...');
+    
+    const res = await login(username, pass);
+    if (res && res.success) {
+      setIsError(false);
+      setNotification(`${t('loginSuccess')} (${res.user.full_name})`);
+      setTimeout(() => {
+        setNotification('');
+        onClose();
+        redirectToRolePortal(res.user);
+      }, 500);
+    } else {
+      setIsError(true);
+      setNotification(res?.error || t('loginInvalid'));
+    }
   };
 
   // Submit Đăng nhập (Hỗ trợ tài khoản admin hoặc Email & Mật khẩu)
@@ -689,6 +706,9 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   boxSizing: 'border-box'
                 }}
               />
+              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '3px', lineHeight: 1.4 }}>
+                💡 Gợi ý: <span style={{ color: 'var(--brass)' }}>admin</span> &bull; <span style={{ color: '#34D399' }}>vet_an</span> (Bác sĩ) &bull; <span style={{ color: '#60A5FA' }}>trainer_truong</span> (HLV) &bull; Mật khẩu: <span style={{ color: 'var(--brass)' }}>123</span>
+              </div>
             </div>
 
             {/* Input Mật khẩu */}
@@ -790,6 +810,167 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             >
               {t('loginSubmit')}
             </button>
+
+            {/* Khối Đăng nhập nhanh 1 chạm theo vai trò */}
+            <div style={{
+              marginTop: '12px',
+              padding: '12px',
+              background: 'rgba(255,255,255,0.03)',
+              borderRadius: '8px',
+              border: '1px solid var(--line)'
+            }}>
+              <div style={{
+                fontSize: '11.5px',
+                fontWeight: 600,
+                color: 'var(--brass)',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span>⚡</span> {lang === 'vi' ? 'Đăng nhập nhanh 1 chạm (Demo Roles)' : '1-Click Quick Demo Login'}
+              </div>
+              
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '6px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleLogin('vet_an', '123')}
+                  style={{
+                    padding: '8px 10px',
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    borderRadius: '5px',
+                    color: '#34D399',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Đăng nhập Bác sĩ Thú y (vet_an / 123) -> Chuyển thẳng Cổng Thú Y"
+                >
+                  <span>🩺</span>
+                  <div>
+                    <div>Bác sĩ Thú y</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>vet_an / 123</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleLogin('trainer_truong', '123')}
+                  style={{
+                    padding: '8px 10px',
+                    background: 'rgba(59, 130, 246, 0.12)',
+                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                    borderRadius: '5px',
+                    color: '#60A5FA',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Đăng nhập HLV Trưởng (trainer_truong / 123) -> Chuyển thẳng Cổng HLV"
+                >
+                  <span>🏇</span>
+                  <div>
+                    <div>HLV Trưởng</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>trainer_truong / 123</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleLogin('admin', '123')}
+                  style={{
+                    padding: '8px 10px',
+                    background: 'rgba(217, 119, 6, 0.12)',
+                    border: '1px solid rgba(217, 119, 6, 0.35)',
+                    borderRadius: '5px',
+                    color: '#FBBF24',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Đăng nhập Quản trị viên (admin / 123) -> Chuyển thẳng Cổng Quản trị"
+                >
+                  <span>⚙️</span>
+                  <div>
+                    <div>Quản trị viên</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>admin / 123</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleLogin('groom_nam', '123')}
+                  style={{
+                    padding: '8px 10px',
+                    background: 'rgba(168, 85, 247, 0.12)',
+                    border: '1px solid rgba(168, 85, 247, 0.35)',
+                    borderRadius: '5px',
+                    color: '#C084FC',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Đăng nhập Nhân viên Chăm sóc (groom_nam / 123)"
+                >
+                  <span>🌾</span>
+                  <div>
+                    <div>Chăm sóc</div>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>groom_nam / 123</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleLogin('owner_thanh', '123')}
+                  style={{
+                    gridColumn: 'span 2',
+                    padding: '8px 10px',
+                    background: 'rgba(236, 72, 153, 0.12)',
+                    border: '1px solid rgba(236, 72, 153, 0.35)',
+                    borderRadius: '5px',
+                    color: '#F472B6',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                  title="Đăng nhập Chủ sở hữu Ngựa (owner_thanh / 123)"
+                >
+                  <span>👑</span>
+                  <div>
+                    <span>Chủ sở hữu Ngựa</span> &nbsp;
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>(owner_thanh / 123)</span>
+                  </div>
+                </button>
+              </div>
+            </div>
 
             {/* Chuyển sang Đăng ký */}
             <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '13px', color: 'var(--paper-dim)' }}>

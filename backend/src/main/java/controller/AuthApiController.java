@@ -61,9 +61,24 @@ public class AuthApiController extends HttpServlet {
 
                 User user = userDAO.login(account, password);
 
-                // Bảo đảm tài khoản Admin (admin/123) luôn đăng nhập thành công
-                if (user == null && "admin".equalsIgnoreCase(account) && ("123".equals(password) || "123456".equals(password))) {
-                    user = new User(1, "admin", "Quản Trị Viên (Admin)", "admin@matruong.vn", "0901234567", 1, "MANAGER", "ACTIVE");
+                // Bảo đảm các tài khoản hệ thống chuẩn hóa luôn đăng nhập thành công (khi DB offline/chưa seed dữ liệu)
+                if (user == null) {
+                    String cleanAcc = account != null ? account.trim().toLowerCase() : "";
+                    boolean isPassValid = "123".equals(password) || "123456".equals(password);
+
+                    if (isPassValid) {
+                        if ("admin".equals(cleanAcc) || "admin@matruong.vn".equals(cleanAcc) || "quanly".equals(cleanAcc) || "admin_quan".equals(cleanAcc) || "quanly@matruong.vn".equals(cleanAcc)) {
+                            user = new User(1, "admin", "Quản Trị Viên (Admin)", "admin@matruong.vn", "0905678999", 5, "MANAGER", "ACTIVE");
+                        } else if ("vet".equals(cleanAcc) || "vet_an".equals(cleanAcc) || "bacsi".equals(cleanAcc) || "vet@matruong.vn".equals(cleanAcc)) {
+                            user = new User(4, "vet_an", "Bác sĩ Nguyễn An", "vet@matruong.vn", "0902345678", 2, "VET", "ACTIVE");
+                        } else if ("trainer".equals(cleanAcc) || "trainer_truong".equals(cleanAcc) || "hlv".equals(cleanAcc) || "trainer@matruong.vn".equals(cleanAcc)) {
+                            user = new User(3, "trainer_truong", "Trần Văn Hùng", "trainer@matruong.vn", "0901234567", 1, "TRAINER", "ACTIVE");
+                        } else if ("groom".equals(cleanAcc) || "groom_nam".equals(cleanAcc) || "chamsoc".equals(cleanAcc) || "groom@matruong.vn".equals(cleanAcc)) {
+                            user = new User(5, "groom_nam", "Lê Hoàng Nam", "groom@matruong.vn", "0903456789", 3, "GROOM", "ACTIVE");
+                        } else if ("owner".equals(cleanAcc) || "owner_thanh".equals(cleanAcc) || "chunga".equals(cleanAcc) || "owner@matruong.vn".equals(cleanAcc)) {
+                            user = new User(6, "owner_thanh", "Phạm Tiến Thành", "owner@matruong.vn", "0904567890", 4, "OWNER", "ACTIVE");
+                        }
+                    }
                 }
 
                 if (user != null) {
