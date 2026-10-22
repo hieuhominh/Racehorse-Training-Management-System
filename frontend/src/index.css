@@ -7430,4 +7430,20 @@ h2.portal-page-title {
   align-items: center;
   justify-content: center;
 }
+
+.facility-grid {
+  display: grid !important;
+  gap: 16px !important;
+}
+
+.facility-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.facility-card:hover {
+  border-color: rgba(212, 175, 55, 0.3);
+}
 

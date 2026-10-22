@@ -382,7 +382,7 @@ export default function VetPage() {
       handleToggleLock(horse, '');
     } else {
       setLockModalTarget(horse);
-      setLockReasonInput('Phát hiện dấu hiệu đau mỏi cơ gân chân, kích hoạt phong tỏa an toàn y tế.');
+      setLockReasonInput('Đau mỏi cơ gân chân sau tập luyện');
     }
   };
 
@@ -506,10 +506,10 @@ export default function VetPage() {
       />
 
       {/* ===================== 1. SIDEBAR NAVIGATION ===================== */}
-      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`}>
+      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`} style={{ width: '280px', minWidth: '280px' }}>
         <div className="portal-brand">
-          <div className="portal-brand-icon" style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)', color: '#ffffff' }}>
-            <IconStethoscope size={22} color="#ffffff" />
+          <div className="portal-brand-icon">
+            <IconStethoscope size={22} color="#14100A" />
           </div>
           <div className="portal-brand-text">
             <h3>Mã Trường OS</h3>
@@ -522,11 +522,12 @@ export default function VetPage() {
             type="button"
             className={`portal-nav-item ${activeTab === 'triage' ? 'active' : ''}`}
             onClick={() => { setActiveTab('triage'); setSidebarOpen(false); }}
+            title="Tiếp nhận & Xử lý Sự cố Lâm sàng"
           >
             <span className="portal-nav-icon"><IconAlert size={18} /></span>
-            <span className="portal-nav-label">Tiếp nhận Sự cố Lâm sàng</span>
+            <span className="portal-nav-label">Tiếp nhận sự cố</span>
             {incidents.filter(i => i.status === 'pending_vet').length > 0 && (
-              <span className="portal-nav-badge" style={{ background: '#EF4444', color: '#fff' }}>
+              <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14' }}>
                 {incidents.filter(i => i.status === 'pending_vet').length}
               </span>
             )}
@@ -536,19 +537,21 @@ export default function VetPage() {
             type="button"
             className={`portal-nav-item ${activeTab === 'anatomy' ? 'active' : ''}`}
             onClick={() => { setActiveTab('anatomy'); setSidebarOpen(false); }}
+            title="Bản đồ Giải phẫu Cơ xương khớp"
           >
             <span className="portal-nav-icon"><IconBone size={18} /></span>
-            <span className="portal-nav-label">Bản đồ Giải phẫu Cơ xương</span>
+            <span className="portal-nav-label">Bản đồ giải phẫu</span>
           </button>
 
           <button
             type="button"
             className={`portal-nav-item ${activeTab === 'lockout' ? 'active' : ''}`}
             onClick={() => { setActiveTab('lockout'); setSidebarOpen(false); }}
+            title="Quyền Khóa Y Tế Thú Y (Medical Safety Veto)"
           >
             <span className="portal-nav-icon"><IconShieldLock size={18} /></span>
-            <span className="portal-nav-label">Quyền Khóa Y Tế (Veto)</span>
-            <span className="portal-nav-badge" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>
+            <span className="portal-nav-label">Khóa y tế (Veto)</span>
+            <span className="portal-nav-badge">
               {horses.filter(h => h.locked).length} khóa
             </span>
           </button>
@@ -557,9 +560,10 @@ export default function VetPage() {
             type="button"
             className={`portal-nav-item ${activeTab === 'vaccines' ? 'active' : ''}`}
             onClick={() => { setActiveTab('vaccines'); setSidebarOpen(false); }}
+            title="Sổ Tiêm Chủng Vaccine & Tẩy Giun Định Kỳ"
           >
             <span className="portal-nav-icon"><IconSyringe size={18} /></span>
-            <span className="portal-nav-label">Sổ Tiêm chủng & Tẩy giun</span>
+            <span className="portal-nav-label">Sổ tiêm chủng</span>
             <span className="portal-nav-badge">{vaccines.length}</span>
           </button>
 
@@ -567,9 +571,10 @@ export default function VetPage() {
             type="button"
             className={`portal-nav-item ${activeTab === 'prescriptions' ? 'active' : ''}`}
             onClick={() => { setActiveTab('prescriptions'); setSidebarOpen(false); }}
+            title="Đơn Thuốc & Phác Đồ Điều Trị Lâm Sàng (Rx)"
           >
             <span className="portal-nav-icon"><IconPill size={18} /></span>
-            <span className="portal-nav-label">Đơn thuốc & Phác đồ Rx</span>
+            <span className="portal-nav-label">Đơn thuốc & Phác đồ</span>
             <span className="portal-nav-badge">{prescriptions.length}</span>
           </button>
 
@@ -577,30 +582,12 @@ export default function VetPage() {
             type="button"
             className={`portal-nav-item ${activeTab === 'clearance' ? 'active' : ''}`}
             onClick={() => { setActiveTab('clearance'); setSidebarOpen(false); }}
+            title="Phê Duyệt Y Tế Tham Gia Thi Đấu"
           >
             <span className="portal-nav-icon"><IconClipboardCheck size={18} /></span>
-            <span className="portal-nav-label">Phê duyệt Y tế Thi đấu</span>
+            <span className="portal-nav-label">Phê duyệt thi đấu</span>
           </button>
         </nav>
-
-        <div className="portal-sidebar-footer">
-          <div className="portal-sys-badge">
-            <div className="portal-sys-dot" style={{ background: '#8B5CF6' }} />
-            <div>
-              <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '12px' }}>Mã Trường OS</div>
-              <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>v2.4 Veterinary Hospital</div>
-            </div>
-          </div>
-          <Link to="/" className="portal-public-link" style={{ marginTop: '8px' }}>
-            <span>🌐 {lang === 'en' ? 'Public Site' : 'Trang chủ Public'}</span>
-          </Link>
-          <Link to="/admin" className="portal-public-link" style={{ marginTop: '4px' }}>
-            <span>⚙️ {lang === 'en' ? 'Admin Portal' : 'Cổng Quản trị'}</span>
-          </Link>
-          <Link to="/trainer" className="portal-public-link" style={{ marginTop: '4px' }}>
-            <span>🏇 {lang === 'en' ? 'Trainer Portal' : 'Cổng Huấn luyện'}</span>
-          </Link>
-        </div>
       </aside>
 
       {/* ===================== 2. MAIN CONTENT WRAPPER ===================== */}
@@ -617,9 +604,19 @@ export default function VetPage() {
               <IconStethoscope size={20} />
             </button>
             <div className="portal-title-box">
-              <h2 className="portal-page-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 className="portal-page-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span>CỔNG BÁC SĨ THÚ Y</span>
-                <span style={{ fontSize: '11px', background: '#8B5CF6', color: '#fff', padding: '2px 8px', borderRadius: '4px', textTransform: 'none', fontWeight: 600 }}>
+                <span style={{
+                  fontSize: '10.5px',
+                  background: 'rgba(212, 175, 55, 0.12)',
+                  color: 'var(--brass)',
+                  border: '1px solid var(--line-strong)',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em'
+                }}>
                   VETERINARY MEDICINE
                 </span>
               </h2>
@@ -632,12 +629,12 @@ export default function VetPage() {
           <div className="portal-topbar-right">
             <ThemeToggle />
             <div className="portal-user-badge">
-              <div className="portal-user-avatar" style={{ background: '#8B5CF6', color: '#ffffff' }}>
+              <div className="portal-user-avatar">
                 BS
               </div>
               <div className="portal-user-info">
                 <div className="portal-user-name">{currentUser?.full_name || 'Bác sĩ Nguyễn An'}</div>
-                <div className="portal-user-role" style={{ color: '#8B5CF6' }}>Bác sĩ Thú y Trưởng khoa</div>
+                <div className="portal-user-role">Bác sĩ Thú y Trưởng khoa</div>
               </div>
             </div>
             <button
@@ -664,35 +661,82 @@ export default function VetPage() {
                 </div>
               </div>
 
-              {/* Chỉ số nhanh */}
-              <div className="facility-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: '24px' }}>
-                <div className="facility-card" style={{ padding: '16px', borderLeft: '4px solid #EF4444' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>CHỜ BÁC SĨ KHÁM GẤP</div>
-                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#EF4444', margin: '6px 0' }}>
-                    {incidents.filter(i => i.status === 'pending_vet').length} CA
+              {/* Chỉ số nhanh (3 thẻ ngang cân đối chuẩn SaaS Dashboard theo đúng 3 màu chủ đạo) */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '16px',
+                marginBottom: '24px'
+              }}>
+                <div className="facility-card" style={{
+                  padding: '18px 20px',
+                  borderTop: '2px solid var(--brass)',
+                  background: 'var(--bg-card)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--brass)', textTransform: 'uppercase' }}>
+                      CHỜ BÁC SĨ KHÁM GẤP
+                    </div>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--brass)', boxShadow: '0 0 8px var(--brass-glow)' }} />
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Cần thăm khám trực tiếp tại chuồng</div>
+                  <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--brass)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
+                    {incidents.filter(i => i.status === 'pending_vet').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    Cần thăm khám trực tiếp tại ô chuồng
+                  </div>
                 </div>
 
-                <div className="facility-card" style={{ padding: '16px', borderLeft: '4px solid #F59E0B' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>ĐANG THEO DÕI ĐIỀU TRỊ</div>
-                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#F59E0B', margin: '6px 0' }}>
-                    {incidents.filter(i => i.status === 'in_review').length} CA
+                <div className="facility-card" style={{
+                  padding: '18px 20px',
+                  borderTop: '2px solid var(--line-strong)',
+                  background: 'var(--bg-card)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--paper)', textTransform: 'uppercase' }}>
+                      ĐANG THEO DÕI ĐIỀU TRỊ
+                    </div>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--paper-dim)' }} />
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Có phác đồ chăm sóc ban đầu</div>
+                  <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
+                    {incidents.filter(i => i.status === 'in_review').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    Có phác đồ chăm sóc ban đầu
+                  </div>
                 </div>
 
-                <div className="facility-card" style={{ padding: '16px', borderLeft: '4px solid #10B981' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>ĐÃ XỬ LÝ ỔN ĐỊNH</div>
-                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#10B981', margin: '6px 0' }}>
-                    {incidents.filter(i => i.status === 'resolved').length} CA
+                <div className="facility-card" style={{
+                  padding: '18px 20px',
+                  borderTop: '2px solid var(--line)',
+                  background: 'var(--bg-card)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--paper-dim)', textTransform: 'uppercase' }}>
+                      ĐÃ XỬ LÝ ỔN ĐỊNH
+                    </div>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--paper-muted)' }} />
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Được Bác sĩ Thú y ký hoàn tất</div>
+                  <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
+                    {incidents.filter(i => i.status === 'resolved').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    Bác sĩ Thú y đã ký duyệt hoàn tất
+                  </div>
                 </div>
               </div>
 
               {/* Danh sách thẻ sự cố */}
-              <div className="facility-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '18px' }}>
                 {incidents.map((inc) => {
                   const isPending = inc.status === 'pending_vet';
                   return (
@@ -700,8 +744,8 @@ export default function VetPage() {
                       key={inc.id}
                       className="facility-card"
                       style={{
-                        borderColor: isPending ? '#EF4444' : 'var(--line)',
-                        boxShadow: isPending ? '0 0 16px rgba(239, 68, 68, 0.15)' : 'none'
+                        borderColor: isPending ? 'var(--brass)' : 'var(--line)',
+                        boxShadow: isPending ? '0 0 16px var(--brass-glow)' : 'none'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
@@ -711,8 +755,9 @@ export default function VetPage() {
                             borderRadius: '4px',
                             fontSize: '11px',
                             fontWeight: 700,
-                            background: inc.severity === 'HIGH' || inc.severity === 'CRITICAL' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                            color: inc.severity === 'HIGH' || inc.severity === 'CRITICAL' ? '#EF4444' : '#F59E0B',
+                            background: isPending ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                            color: isPending ? 'var(--brass)' : 'var(--paper-dim)',
+                            border: `1px solid ${isPending ? 'var(--brass)' : 'var(--line)'}`,
                             marginRight: '8px'
                           }}>
                             {inc.severity}
@@ -730,7 +775,7 @@ export default function VetPage() {
                             style={{ width: '90px', height: '90px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--line)' }}
                           />
                         )}
-                        <div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--brass)' }}>
                             {inc.horseName} · <span style={{ color: 'var(--paper)' }}>Ô chuồng {inc.stallCode}</span>
                           </div>
@@ -752,8 +797,8 @@ export default function VetPage() {
                       </div>
 
                       {inc.vetDiagnosis && (
-                        <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', marginBottom: '14px' }}>
-                          <b style={{ color: '#8B5CF6' }}>Chẩn đoán BS Thú y:</b> {inc.vetDiagnosis}
+                        <div style={{ background: 'rgba(212, 175, 55, 0.08)', border: '1px solid rgba(212, 175, 55, 0.25)', padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', marginBottom: '14px' }}>
+                          <b style={{ color: 'var(--brass)' }}>Chẩn đoán BS Thú y:</b> {inc.vetDiagnosis}
                           {inc.actionTaken && <div style={{ color: 'var(--paper-dim)', marginTop: '4px' }}>• Xử lý: {inc.actionTaken}</div>}
                         </div>
                       )}
@@ -788,11 +833,11 @@ export default function VetPage() {
                           }}
                           style={{
                             padding: '8px 12px',
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            color: '#EF4444',
-                            fontWeight: 700,
+                            background: 'var(--bg-secondary)',
+                            color: 'var(--paper)',
+                            fontWeight: 600,
                             borderRadius: '6px',
-                            border: '1px solid #EF4444',
+                            border: '1px solid var(--line)',
                             cursor: 'pointer'
                           }}
                           title="Kích hoạt lệnh cấm tập nặng ngay lập tức"
@@ -829,7 +874,7 @@ export default function VetPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {ANATOMY_PARTS.map((part) => {
                       const isSelected = selectedAnatomy?.id === part.id;
-                      const riskColor = part.risk === 'CRITICAL' ? '#EF4444' : part.risk === 'HIGH' ? '#F59E0B' : part.risk === 'MEDIUM' ? '#3B82F6' : '#10B981';
+                      const isHighRisk = part.risk === 'CRITICAL' || part.risk === 'HIGH';
 
                       return (
                         <div
@@ -839,7 +884,7 @@ export default function VetPage() {
                             padding: '12px 14px',
                             borderRadius: '8px',
                             border: `1px solid ${isSelected ? 'var(--brass)' : 'var(--line)'}`,
-                            background: isSelected ? 'rgba(201, 162, 39, 0.1)' : 'var(--bg-secondary)',
+                            background: isSelected ? 'rgba(212, 175, 55, 0.1)' : 'var(--bg-secondary)',
                             cursor: 'pointer',
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -860,9 +905,9 @@ export default function VetPage() {
                             borderRadius: '4px',
                             fontSize: '11px',
                             fontWeight: 700,
-                            background: `${riskColor}22`,
-                            color: riskColor,
-                            border: `1px solid ${riskColor}`,
+                            background: isHighRisk ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-card)',
+                            color: isHighRisk ? 'var(--brass)' : 'var(--paper-dim)',
+                            border: `1px solid ${isHighRisk ? 'var(--brass)' : 'var(--line)'}`,
                             whiteSpace: 'nowrap',
                             marginLeft: '12px'
                           }}>
@@ -895,9 +940,9 @@ export default function VetPage() {
                   </h4>
 
                   {selectedAnatomy?.id === 'FETLOCK' ? (
-                    <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #EF4444', borderRadius: '8px', marginBottom: '14px' }}>
+                    <div style={{ padding: '12px', background: 'rgba(212, 175, 55, 0.08)', border: '1px solid rgba(212, 175, 55, 0.3)', borderRadius: '8px', marginBottom: '14px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <b style={{ color: '#EF4444' }}>Phi Yến (Ô A5)</b>
+                        <b style={{ color: 'var(--brass)' }}>Phi Yến (Ô A5)</b>
                         <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>MC-VN-2023-009</span>
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--paper)', marginTop: '4px' }}>
@@ -905,9 +950,9 @@ export default function VetPage() {
                       </div>
                     </div>
                   ) : selectedAnatomy?.id === 'GI_TRACT' ? (
-                    <div style={{ padding: '12px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid #F59E0B', borderRadius: '8px', marginBottom: '14px' }}>
+                    <div style={{ padding: '12px', background: 'rgba(212, 175, 55, 0.08)', border: '1px solid rgba(212, 175, 55, 0.3)', borderRadius: '8px', marginBottom: '14px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <b style={{ color: '#F59E0B' }}>Hắc Phong (Ô A3)</b>
+                        <b style={{ color: 'var(--brass)' }}>Hắc Phong (Ô A3)</b>
                         <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>MC-VN-2022-001</span>
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--paper)', marginTop: '4px' }}>
@@ -995,18 +1040,18 @@ export default function VetPage() {
                       const isLocked = h.locked;
 
                       return (
-                        <tr key={h.id} style={{ borderBottom: '1px solid var(--line)', background: isLocked ? 'rgba(239, 68, 68, 0.04)' : 'transparent' }}>
+                        <tr key={h.id} style={{ borderBottom: '1px solid var(--line)', background: isLocked ? 'rgba(212, 175, 55, 0.04)' : 'transparent' }}>
                           <td style={{ padding: '14px 18px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               {h.avatar && (
                                 <img
                                   src={h.avatar}
                                   alt={h.name}
-                                  style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: isLocked ? '2px solid #EF4444' : '1px solid var(--line)' }}
+                                  style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: isLocked ? '2px solid var(--brass)' : '1px solid var(--line)' }}
                                 />
                               )}
                               <div>
-                                <b style={{ fontSize: '14px', color: isLocked ? '#EF4444' : 'var(--brass)' }}>{h.name}</b>
+                                <b style={{ fontSize: '14px', color: 'var(--brass)' }}>{h.name}</b>
                                 <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>{h.breed}</div>
                               </div>
                             </div>
@@ -1023,16 +1068,16 @@ export default function VetPage() {
                               borderRadius: '4px',
                               fontSize: '11.5px',
                               fontWeight: 700,
-                              background: isLocked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                              color: isLocked ? '#EF4444' : '#10B981',
-                              border: `1px solid ${isLocked ? '#EF4444' : '#10B981'}`
+                              background: isLocked ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                              color: isLocked ? 'var(--brass)' : 'var(--paper-dim)',
+                              border: `1px solid ${isLocked ? 'var(--brass)' : 'var(--line)'}`
                             }}>
-                              {isLocked ? '🔴 KHÓA Y TẾ (CẤM TẬP NẶNG)' : '🟢 ĐỦ ĐIỀU KIỆN (FIT)'}
+                              {isLocked ? '🔒 KHÓA Y TẾ (VETO)' : 'ĐỦ ĐIỀU KIỆN (FIT)'}
                             </span>
                           </td>
                           <td style={{ padding: '14px 18px', fontSize: '12px', color: 'var(--paper)', maxWidth: '240px' }}>
                             {isLocked ? (
-                              <span style={{ color: '#EF4444' }}>{h.lockReason || 'Khám nghiệm Thú y ghi nhận chấn thương.'}</span>
+                              <span style={{ color: 'var(--brass)' }}>{h.lockReason || 'Khám nghiệm Thú y ghi nhận chấn thương.'}</span>
                             ) : (
                               <span style={{ color: 'var(--paper-dim)' }}>Sinh hiệu bình thường, không có lệnh cấm.</span>
                             )}
@@ -1047,12 +1092,12 @@ export default function VetPage() {
                                 fontWeight: 700,
                                 fontSize: '12px',
                                 cursor: 'pointer',
-                                background: isLocked ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                color: isLocked ? '#10B981' : '#EF4444',
-                                border: `1px solid ${isLocked ? '#10B981' : '#EF4444'}`
+                                background: isLocked ? 'var(--brass)' : 'var(--bg-secondary)',
+                                color: isLocked ? '#0A0D14' : 'var(--paper)',
+                                border: isLocked ? 'none' : '1px solid var(--line)'
                               }}
                             >
-                              {isLocked ? '🔓 MỞ KHÓA THI ĐẤU' : '🔒 KÍCH HOẠT KHÓA Y TẾ'}
+                              {isLocked ? '🔓 MỞ KHÓA Y TẾ' : '🔒 KHÓA Y TẾ'}
                             </button>
                           </td>
                         </tr>
@@ -1093,7 +1138,7 @@ export default function VetPage() {
                     {vaccines.map((v) => {
                       const isOverdue = v.status === 'OVERDUE';
                       const isDueSoon = v.status === 'DUE_SOON';
-                      const statusColor = isOverdue ? '#EF4444' : isDueSoon ? '#F59E0B' : '#10B981';
+                      const needsAttention = isOverdue || isDueSoon;
                       const statusText = isOverdue ? 'QUÁ HẠN TIÊM' : isDueSoon ? 'SẮP ĐẾN HẠN' : 'ĐÃ HOÀN TẤT';
 
                       return (
@@ -1101,16 +1146,16 @@ export default function VetPage() {
                           <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--brass)' }}>{v.horseName}</td>
                           <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{v.vaccineType}</td>
                           <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{v.dose}</td>
-                          <td style={{ padding: '14px 18px', fontWeight: 700, color: statusColor }}>{v.dueDate}</td>
+                          <td style={{ padding: '14px 18px', fontWeight: 700, color: needsAttention ? 'var(--brass)' : 'var(--paper)' }}>{v.dueDate}</td>
                           <td style={{ padding: '14px 18px' }}>
                             <span style={{
                               padding: '3px 8px',
                               borderRadius: '4px',
                               fontSize: '11px',
                               fontWeight: 700,
-                              background: `${statusColor}22`,
-                              color: statusColor,
-                              border: `1px solid ${statusColor}`
+                              background: needsAttention ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                              color: needsAttention ? 'var(--brass)' : 'var(--paper-dim)',
+                              border: `1px solid ${needsAttention ? 'var(--brass)' : 'var(--line)'}`
                             }}>
                               {statusText}
                             </span>
@@ -1135,7 +1180,7 @@ export default function VetPage() {
                                 Xác nhận đã tiêm
                               </button>
                             ) : (
-                              <span style={{ color: '#10B981', fontSize: '12px', fontWeight: 600 }}>✓ Hợp lệ</span>
+                              <span style={{ color: 'var(--paper-dim)', fontSize: '12px', fontWeight: 600 }}>✓ Hợp lệ</span>
                             )}
                           </td>
                         </tr>
@@ -1179,7 +1224,7 @@ export default function VetPage() {
                   <div key={rx.id} className="facility-card" style={{ padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ background: '#8B5CF6', color: '#fff', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>
+                        <span style={{ background: 'rgba(212, 175, 55, 0.15)', color: 'var(--brass)', border: '1px solid var(--line-strong)', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>
                           {rx.id}
                         </span>
                         <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{rx.horseName}</b>
@@ -1190,7 +1235,7 @@ export default function VetPage() {
 
                     <div style={{ marginBottom: '14px' }}>
                       <span style={{ color: 'var(--paper-dim)', fontSize: '13px' }}>Chẩn đoán y khoa: </span>
-                      <b style={{ color: '#EF4444', fontSize: '13.5px' }}>{rx.diagnosis}</b>
+                      <b style={{ color: 'var(--paper)', fontSize: '13.5px' }}>{rx.diagnosis}</b>
                     </div>
 
                     <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '14px' }}>
@@ -1203,7 +1248,7 @@ export default function VetPage() {
                       ))}
                     </div>
 
-                    <div style={{ fontSize: '12.5px', color: 'var(--paper)', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', padding: '10px 12px', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '12.5px', color: 'var(--paper)', background: 'rgba(212, 175, 55, 0.08)', border: '1px solid rgba(212, 175, 55, 0.25)', padding: '10px 12px', borderRadius: '6px' }}>
                       ⚠️ <b>Chế độ vận động & hạn chế:</b> {rx.restrictions}
                     </div>
                   </div>
@@ -1243,7 +1288,7 @@ export default function VetPage() {
                     {raceClearanceList.map((rc) => {
                       const isCleared = rc.vetStatus === 'CLEARED';
                       const isRejected = rc.vetStatus === 'REJECTED_INJURY';
-                      const statusColor = isCleared ? '#10B981' : isRejected ? '#EF4444' : '#F59E0B';
+                      const isPending = !isCleared && !isRejected;
                       const statusLabel = isCleared ? 'ĐÃ ĐƯỢC CẤP PHÉP' : isRejected ? 'BÁC BỎ DO CHẤN THƯƠNG' : 'CHỜ KHÁM LÂM SÀNG';
 
                       return (
@@ -1258,9 +1303,9 @@ export default function VetPage() {
                               borderRadius: '4px',
                               fontSize: '11px',
                               fontWeight: 700,
-                              background: `${statusColor}22`,
-                              color: statusColor,
-                              border: `1px solid ${statusColor}`
+                              background: isPending ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                              color: isPending ? 'var(--brass)' : 'var(--paper-dim)',
+                              border: `1px solid ${isPending ? 'var(--brass)' : 'var(--line)'}`
                             }}>
                               {statusLabel}
                             </span>
@@ -1274,11 +1319,11 @@ export default function VetPage() {
                                 type="button"
                                 onClick={() => handleApproveClearance(rc)}
                                 style={{
-                                  padding: '6px 10px',
+                                  padding: '6px 12px',
                                   borderRadius: '4px',
-                                  background: 'rgba(16, 185, 129, 0.15)',
-                                  color: '#10B981',
-                                  border: '1px solid #10B981',
+                                  background: 'var(--brass)',
+                                  color: '#0A0D14',
+                                  border: 'none',
                                   fontWeight: 700,
                                   cursor: 'pointer',
                                   fontSize: '11.5px'
@@ -1290,12 +1335,12 @@ export default function VetPage() {
                                 type="button"
                                 onClick={() => handleRejectClearance(rc)}
                                 style={{
-                                  padding: '6px 10px',
+                                  padding: '6px 12px',
                                   borderRadius: '4px',
-                                  background: 'rgba(239, 68, 68, 0.15)',
-                                  color: '#EF4444',
-                                  border: '1px solid #EF4444',
-                                  fontWeight: 700,
+                                  background: 'var(--bg-secondary)',
+                                  color: 'var(--paper)',
+                                  border: '1px solid var(--line)',
+                                  fontWeight: 600,
                                   cursor: 'pointer',
                                   fontSize: '11.5px'
                                 }}
@@ -1397,53 +1442,96 @@ export default function VetPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 2: KÍCH HOẠT LỆNH KHÓA AN TOÀN Y TẾ (MEDICAL SAFETY LOCK) */}
+      {/* MODAL 2: KHÓA AN TOÀN Y TẾ (COMPACT & CLEAN) */}
       {/* ========================================================================= */}
       {lockModalTarget && (
         <div className="modal-overlay" onClick={() => setLockModalTarget(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px', width: '90%', border: '2px solid #EF4444' }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              🔒 Kích hoạt Lệnh Khóa Y Tế Thú Y
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--paper)', lineHeight: '1.45', margin: '0 0 14px 0' }}>
-              Bạn đang thực thi <b>Quyền phủ quyết Y tế</b> đối với chiến mã <b>{lockModalTarget.name}</b> (Ô {lockModalTarget.stable}). Toàn bộ lịch tập nặng của Huấn luyện viên trưởng và quyền đăng ký thi đấu giải đua sẽ bị <b>phong tỏa ngay lập tức</b>.
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '440px',
+              width: '90%',
+              padding: '20px 22px',
+              border: '1px solid var(--line-strong)',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--brass)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🔒 Khóa Y Tế · {lockModalTarget.name}</span>
+                <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 600 }}>Ô {lockModalTarget.stable}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setLockModalTarget(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '18px', cursor: 'pointer', lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 14px', lineHeight: 1.4 }}>
+              Đình chỉ tập luyện và cấm thi đấu ngay lập tức.
             </p>
 
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px' }}>
-                Lý do y khoa kích hoạt lệnh khóa:
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--paper)', marginBottom: '6px' }}>
+                Lý do khóa:
               </label>
               <textarea
-                rows="3"
+                rows="2"
                 value={lockReasonInput}
                 onChange={(e) => setLockReasonInput(e.target.value)}
+                placeholder="Nhập lý do chấn thương hoặc cách ly..."
                 style={{
                   width: '100%',
-                  padding: '10px',
+                  padding: '9px 12px',
                   borderRadius: '6px',
-                  border: '1px solid #EF4444',
+                  border: '1px solid var(--line)',
                   background: 'var(--bg-secondary)',
                   color: 'var(--paper)',
-                  fontSize: '13px'
+                  fontFamily: 'inherit',
+                  fontSize: '12.5px',
+                  lineHeight: 1.45,
+                  resize: 'none'
                 }}
                 required
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 onClick={() => setLockModalTarget(null)}
-                style={{ padding: '8px 16px', borderRadius: '6px', background: 'transparent', color: 'var(--paper-dim)', border: '1px solid var(--line)', cursor: 'pointer' }}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  color: 'var(--paper-dim)',
+                  border: '1px solid var(--line)',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
               >
-                Hủy bỏ
+                Hủy
               </button>
               <button
                 type="button"
                 onClick={() => handleToggleLock(lockModalTarget, lockReasonInput)}
-                style={{ padding: '8px 18px', borderRadius: '6px', background: '#EF4444', color: '#ffffff', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+                style={{
+                  padding: '7px 18px',
+                  borderRadius: '6px',
+                  background: 'var(--brass)',
+                  color: '#0A0D14',
+                  fontWeight: 700,
+                  border: 'none',
+                  fontSize: '12.5px',
+                  cursor: 'pointer'
+                }}
               >
-                Xác nhận Ban hành Lệnh Khóa
+                Xác nhận khóa
               </button>
             </div>
           </div>

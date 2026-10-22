@@ -1041,26 +1041,6 @@ export default function AdminPage() {
             <span className="portal-nav-label">{t('adminTabAudit')}</span>
           </button>
         </nav>
-
-        <div className="portal-sidebar-footer">
-          <div className="portal-sys-badge">
-            <div className="portal-sys-dot" />
-            <div>
-              <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '12px' }}>Mã Trường OS</div>
-              <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>v2.4 Enterprise</div>
-            </div>
-          </div>
-          <Link to="/" className="portal-public-link" style={{ marginTop: '12px' }}>
-            <IconGlobe size={15} />
-            <span>{lang === 'en' ? 'View Public Site' : 'Xem trang Public'}</span>
-          </Link>
-          <Link to="/vet" className="portal-public-link" style={{ marginTop: '6px', color: '#8B5CF6', borderColor: '#8B5CF6' }}>
-            <span>🩺 {lang === 'en' ? 'Veterinary Portal' : 'Cổng Bác sĩ Thú y'}</span>
-          </Link>
-          <Link to="/trainer" className="portal-public-link" style={{ marginTop: '6px' }}>
-            <span>🏇 {lang === 'en' ? 'Trainer Portal' : 'Cổng HLV Trưởng'}</span>
-          </Link>
-        </div>
       </aside>
 
       {/* ===================== MAIN CONTENT WRAPPER ===================== */}
