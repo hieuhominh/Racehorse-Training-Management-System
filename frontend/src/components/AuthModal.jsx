@@ -164,17 +164,21 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     setNotification('');
   };
 
-  // Submit Đăng nhập (Chỉ dùng Email & Mật khẩu)
+  // Submit Đăng nhập (Hỗ trợ tài khoản admin hoặc Email & Mật khẩu)
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setIsError(false);
     setNotification('');
     const errors = {};
 
-    if (!loginEmail.trim()) {
-      errors.loginEmail = t('errEmailReq');
-    } else if (!isValidEmail(loginEmail)) {
-      errors.loginEmail = t('errEmailFormat');
+    const cleanAccount = (loginEmail || '').trim();
+    if (!cleanAccount) {
+      errors.loginEmail = lang === 'en' ? 'Please enter your username or email.' : 'Vui lòng nhập tài khoản hoặc email.';
+    } else {
+      const lower = cleanAccount.toLowerCase();
+      if (lower !== 'admin' && cleanAccount.includes('@') && !isValidEmail(cleanAccount)) {
+        errors.loginEmail = t('errEmailFormat');
+      }
     }
 
     if (!loginPassword) {
@@ -187,7 +191,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     }
 
     setFieldErrors({});
-    const res = await login(loginEmail, loginPassword);
+    const res = await login(cleanAccount, loginPassword);
     if (!res || !res.success) {
       setIsError(true);
       setNotification(res?.error || t('loginInvalid'));
@@ -660,9 +664,9 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 </div>
               )}
               <input
-                type="email"
+                type="text"
                 required
-                name="matruong_login_email"
+                name="matruong_login_account"
                 autoComplete="off"
                 value={loginEmail}
                 onChange={(e) => {

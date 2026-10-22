@@ -165,7 +165,25 @@ export function AuthProvider({ children }) {
   // Đăng nhập kết hợp Backend API & Fallback
   const login = async (usernameOrEmail, password) => {
     const cleanUser = (usernameOrEmail || '').trim().toLowerCase();
-    const cleanPass = (password || '').toString();
+    const cleanPass = (password || '').toString().trim();
+
+    // Đặc quyền đăng nhập cho tài khoản admin: username 'admin' hoặc 'admin@matruong.vn' với mật khẩu '123' (hoặc '123456')
+    if (cleanUser === 'admin' || cleanUser === 'admin@matruong.vn') {
+      if (cleanPass === '123' || cleanPass === '123456') {
+        const adminUser = {
+          user_id: 1,
+          username: 'admin',
+          full_name: 'Quản trị viên Hệ thống',
+          email: 'admin@matruong.vn',
+          phone: '0905678999',
+          role: 'MANAGER',
+          role_name: 'Quản lý Câu lạc bộ (Admin)',
+          status: 'ACTIVE'
+        };
+        setCurrentUser(adminUser);
+        return { success: true, user: adminUser };
+      }
+    }
 
     // 1. Thử gọi API Backend Tomcat trước
     try {
@@ -303,7 +321,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Xóa / Vô hiệu hóa người dùng
+  // Xóa / Vô hiệu hóa người dùng (Tạm khóa)
   const toggleUserStatus = (userId) => {
     setUsersList(prev => prev.map(u => {
       if (Number(u.user_id) === Number(userId)) {
@@ -311,6 +329,17 @@ export function AuthProvider({ children }) {
       }
       return u;
     }));
+  };
+
+  // Xóa vĩnh viễn người dùng khỏi danh sách (dành cho Admin)
+  const deleteUser = (userId) => {
+    setUsersList(prev => {
+      const nextList = prev.filter(u => Number(u.user_id) !== Number(userId));
+      try {
+        localStorage.setItem('matruong_users_list', JSON.stringify(nextList));
+      } catch {}
+      return nextList;
+    });
   };
 
   const isAdmin = currentUser && (currentUser.role === 'MANAGER' || currentUser.role === 'ADMIN');
@@ -324,6 +353,7 @@ export function AuthProvider({ children }) {
       logout,
       registerUser,
       updateUser,
+      deleteUser,
       toggleUserStatus
     }}>
       {children}

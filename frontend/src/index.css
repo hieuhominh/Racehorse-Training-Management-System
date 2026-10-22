@@ -6883,6 +6883,10 @@ h2.portal-page-title {
   border-color: var(--brass);
 }
 
+.facility-card:hover .stall-horse-banner-img {
+  transform: scale(1.06);
+}
+
 .facility-card-badge {
   display: inline-flex;
   align-items: center;

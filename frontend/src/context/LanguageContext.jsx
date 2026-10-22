@@ -111,8 +111,8 @@ export const translations = {
     systemSubtitle: 'Hệ thống Quản lý Huấn luyện Ngựa đua Chuyên nghiệp',
 
     // Login Form
-    emailLabel: 'Địa chỉ Email',
-    emailPlaceholder: 'name@matruong.vn',
+    emailLabel: 'Tên đăng nhập hoặc Email',
+    emailPlaceholder: 'Ví dụ: admin hoặc email của bạn',
     passwordLabel: 'Mật khẩu',
     passwordPlaceholder: 'Nhập mật khẩu',
     loginSubmit: 'ĐĂNG NHẬP',
@@ -618,8 +618,8 @@ export const translations = {
     systemSubtitle: 'Professional Racehorse Training Management System',
 
     // Login Form
-    emailLabel: 'Email Address',
-    emailPlaceholder: 'name@matruong.vn',
+    emailLabel: 'Username or Email Address',
+    emailPlaceholder: 'e.g. admin or your email',
     passwordLabel: 'Password',
     passwordPlaceholder: 'Enter your password',
     loginSubmit: 'LOG IN',
