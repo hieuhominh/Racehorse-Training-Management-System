@@ -93,6 +93,52 @@ export default function StablesPage({ onOpenAuth }) {
       }
     }).catch(() => {});
 
+    getStablesApi().then(res => {
+      if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
+        setStalls(prevStalls => {
+          // Merge thông tin từ API Backend với danh sách chuồng hiện tại
+          const apiStalls = res.data.map(apiStall => {
+            const existing = prevStalls.find(s => s.code === apiStall.stall_code);
+            const isOccupied = apiStall.status === 'OCCUPIED';
+            const statusMap = {
+              'OCCUPIED': 'eligible',
+              'AVAILABLE': 'empty',
+              'MAINTENANCE': 'quar'
+            };
+            return {
+              code: apiStall.stall_code,
+              zone: `Khu ${apiStall.block || 'A'} - Chuồng Huấn Luyện`,
+              status: existing ? existing.status : (statusMap[apiStall.status] || 'eligible'),
+              label: isOccupied ? (apiStall.horse || 'Đủ điều kiện') : 'Trống',
+              horse: isOccupied ? apiStall.horse : '(Trống)',
+              englishName: apiStall.horse,
+              chipId: existing ? existing.chipId : `CHIP-${apiStall.stall_code}`,
+              groom: existing ? existing.groom : 'Groom Trực Ban',
+              avatar: apiStall.horse_avatar || existing?.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80',
+              feedDiet: existing ? existing.feedDiet : '3.5kg Ngũ cốc yến mạch + 5kg Cỏ Alfalfa',
+              checklist: existing ? existing.checklist : {
+                feedMorning: true,
+                cleanStall: true,
+                iceBath: false,
+                medication: false,
+                feedEvening: false
+              },
+              dailyRoutine: existing ? existing.dailyRoutine : [
+                { time: '05:30', title: 'Cho ăn sáng · Khẩu phần yến mạch', category: 'feed', done: true },
+                { time: '08:00', title: 'Dọn chuồng & sát trùng', category: 'clean', done: true },
+                { time: '17:30', title: 'Cho ăn chiều', category: 'feed', done: false }
+              ]
+            };
+          });
+
+          // Giữ lại các ô chuồng chưa có trong API
+          const apiCodes = new Set(apiStalls.map(s => s.code));
+          const leftovers = prevStalls.filter(s => !apiCodes.has(s.code));
+          return [...apiStalls, ...leftovers];
+        });
+      }
+    }).catch(() => {});
+
     return () => { isMounted = false; };
   }, []);
 

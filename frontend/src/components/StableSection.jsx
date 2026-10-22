@@ -1,10 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { stallsData, scheduleData } from '../data/stallsData';
+import { getStablesApi } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function StableSection() {
   const { t, lang } = useLanguage();
+  const [stalls, setStalls] = useState(stallsData);
   const [selectedStall, setSelectedStall] = useState(stallsData.find(s => s.code === 'A3'));
+
+  useEffect(() => {
+    let isMounted = true;
+    getStablesApi().then(res => {
+      if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
+        setStalls(prev => {
+          const mapApi = new Map(res.data.map(item => [item.stall_code, item]));
+          return prev.map(s => {
+            if (mapApi.has(s.code)) {
+              const apiItem = mapApi.get(s.code);
+              const isOccupied = apiItem.status === 'OCCUPIED';
+              return {
+                ...s,
+                status: isOccupied ? (s.status === 'quar' ? 'quar' : 'eligible') : 'empty',
+                horse: isOccupied ? apiItem.horse : '(Trống)',
+                englishName: isOccupied ? (apiItem.horseEn || apiItem.horse) : 'Empty Stall'
+              };
+            }
+            return s;
+          });
+        });
+      }
+    }).catch(() => {});
+
+    return () => { isMounted = false; };
+  }, []);
 
   const getStatusLabel = (status) => {
     switch (status) {
@@ -23,7 +51,7 @@ export default function StableSection() {
         <div className="split">
           <div className="art">
             <div className="stalls">
-              {stallsData.map((stall) => {
+              {stalls.map((stall) => {
                 let extraClass = '';
                 if (stall.status === 'watch') extraClass = ' watch';
                 if (stall.status === 'hurt') extraClass = ' hurt';

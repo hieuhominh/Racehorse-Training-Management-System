@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import { initialHorsesData } from '../data/horsesData';
+import {
+  getHorsesApi,
+  createHorseApi,
+  toggleHorseLockApi,
+  getStablesApi,
+  createStallApi,
+  updateStallApi,
+  reassignStallHorseApi,
+  deleteStallApi
+} from '../services/api';
 
 // Minimalist SVG Icons
 const IconGlobe = ({ size = 15, color = 'currentColor' }) => (
@@ -236,11 +246,34 @@ export default function AdminPage() {
     { id: 5, time: '09/10/2026 10:00', user: 'admin (Ban Quản lý)', action: 'PHÊ DUYỆT NGÂN SÁCH GIẢI', detail: 'Duyệt kinh phí 500.000.000 ₫ cho Giải Đua Vô địch Đại Nam 2026' }
   ]);
 
+  // Nạp danh sách ngựa và chuồng từ API Backend (kết hợp LocalStorage persistence)
+  useEffect(() => {
+    let isMounted = true;
+    getHorsesApi().then(res => {
+      if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
+        setHorses(res.data);
+      }
+    }).catch(() => {});
+
+    getStablesApi().then(res => {
+      if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
+        setStables(res.data);
+      }
+    }).catch(() => {});
+
+    return () => { isMounted = false; };
+  }, []);
+
   // Thao tác khóa / mở y tế cho ngựa
   const handleToggleHorseLock = (horseId) => {
+    const target = horses.find(item => item.id === horseId);
+    const nextLocked = target ? !target.locked : false;
+
+    // Gửi yêu cầu cập nhật qua API
+    toggleHorseLockApi(horseId, nextLocked).catch(() => {});
+
     setHorses(prev => prev.map(h => {
       if (h.id === horseId) {
-        const nextLocked = !h.locked;
         return {
           ...h,
           locked: nextLocked,
@@ -253,7 +286,6 @@ export default function AdminPage() {
     }));
     setViewingHorseDetail(prev => {
       if (!prev || prev.id !== horseId) return prev;
-      const nextLocked = !prev.locked;
       return {
         ...prev,
         locked: nextLocked,
@@ -262,7 +294,6 @@ export default function AdminPage() {
         statusColor: nextLocked ? '#EF4444' : '#10B981'
       };
     });
-    const target = horses.find(item => item.id === horseId);
     if (target) {
       setAuditLogs(prev => [
         {
@@ -604,6 +635,9 @@ export default function AdminPage() {
       locked: false,
       desc: 'Chiến mã mới bổ sung vào trang trại, sẵn sàng bài tập nhập môn.'
     };
+    // Đồng bộ với API Backend
+    createHorseApi(newHorse).catch(() => {});
+
     setHorses(prev => [...prev, { ...newHorse, avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80' }]);
     setStables(prev => prev.map(s => s.stall_code === newHorseData.stable ? { ...s, status: 'OCCUPIED', horse: newHorseData.name, breed: newHorseData.breed, stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' } : s));
     setAuditLogs(prev => [
@@ -626,6 +660,7 @@ export default function AdminPage() {
       if (s.stall_code === stallCode) {
         const nextStatus = s.status === 'AVAILABLE' ? 'OCCUPIED' : s.status === 'OCCUPIED' ? 'MAINTENANCE' : 'AVAILABLE';
         const nextImage = nextStatus === 'OCCUPIED' ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg';
+        updateStallApi(stallCode, { status: nextStatus, stall_image: nextImage }).catch(() => {});
         return { ...s, status: nextStatus, stall_image: nextImage };
       }
       return s;
@@ -669,6 +704,9 @@ export default function AdminPage() {
       stall_image: isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg',
       horse_avatar: isOccupied ? 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' : null
     };
+
+    // Gửi yêu cầu tới Backend API
+    createStallApi(newStall).catch(() => {});
 
     setStables(prev => [...prev, newStall]);
 
@@ -714,6 +752,9 @@ export default function AdminPage() {
     const targetBlock = deleteTargetStall.block;
     const targetHorse = deleteTargetStall.horse;
     const isOccupied = deleteTargetStall.status === 'OCCUPIED';
+
+    // Gửi yêu cầu xóa tới Backend API
+    deleteStallApi(targetCode).catch(() => {});
 
     // Xóa khỏi danh sách stables
     setStables(prev => prev.filter(s => s.stall_code !== targetCode));
@@ -771,6 +812,9 @@ export default function AdminPage() {
     const stallCode = changeHorseStall.stall_code;
 
     if (selectedHorseOption === 'VACANT') {
+      // Làm trống ô chuồng qua API
+      reassignStallHorseApi(stallCode, '', 'Vacant').catch(() => {});
+
       // Làm trống ô chuồng
       setStables(prev => prev.map(s => {
         if (s.stall_code === stallCode) {
@@ -809,6 +853,9 @@ export default function AdminPage() {
       const hName = customHorseName.trim() || 'Chiến mã mới';
       const hBreed = customHorseBreed || 'Thoroughbred';
 
+      // Phân bổ qua API
+      reassignStallHorseApi(stallCode, hName, hBreed).catch(() => {});
+
       setStables(prev => prev.map(s => {
         if (s.stall_code === stallCode) {
           return {
@@ -844,6 +891,9 @@ export default function AdminPage() {
       const chosenHorse = horses.find(h => String(h.id) === String(selectedHorseOption));
       if (chosenHorse) {
         const oldStallOfHorse = chosenHorse.stable;
+
+        // Phân bổ qua API
+        reassignStallHorseApi(stallCode, chosenHorse.name, chosenHorse.breed, chosenHorse.microchip).catch(() => {});
 
         // Cập nhật stables:
         // 1. Ô chuồng cũ của con ngựa này (nếu khác ô hiện tại) sẽ thành AVAILABLE
@@ -1733,32 +1783,70 @@ export default function AdminPage() {
                           <h3 className="facility-card-title" style={{ margin: 0, fontSize: '16px' }}>
                             {lang === 'en' ? `Barn Stall ${s.stall_code}` : `Ô Chuồng ${s.stall_code}`}
                           </h3>
-                          <p className="facility-card-desc" style={{ margin: 0, fontSize: '13px' }}>
+                          <p className="facility-card-desc" style={{ margin: 0, fontSize: '13px', minHeight: '38px', lineHeight: '1.45' }}>
                             {isOccupied
                               ? (lang === 'en' ? `Housing racehorse ${s.horse}. Premium equine amenities.` : `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.`)
                               : (lang === 'en' ? 'Clean empty stall ready for horse intake.' : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.')}
                           </p>
 
-                          <div className="facility-card-bullets" style={{ margin: 0 }}>
-                            <div className="facility-bullet-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span className="bullet-dot" />
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {/* Khối thông tin Chiến mã & Khu chuồng định dạng cân bằng, chống gãy chữ */}
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            padding: '10px 12px',
+                            background: 'rgba(255, 255, 255, 0.025)',
+                            border: '1px solid var(--line)',
+                            borderRadius: '8px',
+                            margin: '2px 0'
+                          }}>
+                            {/* Hàng 1: Chiến mã lưu trú */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minHeight: '26px' }}>
+                              <span style={{ fontSize: '12.5px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span className="bullet-dot" style={{ flexShrink: 0 }} />
                                 {lang === 'en' ? 'Resident horse:' : 'Chiến mã lưu trú:'}
+                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', overflow: 'hidden' }}>
                                 {isOccupied && s.horse_avatar && (
                                   <img
                                     src={s.horse_avatar}
                                     alt={s.horse}
-                                    style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover', display: 'inline-block' }}
+                                    style={{
+                                      width: '22px',
+                                      height: '22px',
+                                      borderRadius: '50%',
+                                      objectFit: 'cover',
+                                      flexShrink: 0,
+                                      border: '1px solid var(--brass)'
+                                    }}
                                     onError={(e) => { e.target.style.display = 'none'; }}
                                   />
                                 )}
-                                <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)' }}>{s.horse}</b>
-                                {isOccupied && <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>({s.breed})</span>}
-                              </span>
+                                <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', whiteSpace: 'nowrap', fontSize: '13.5px' }}>
+                                  {s.horse}
+                                </b>
+                              </div>
                             </div>
-                            <div className="facility-bullet-item">
-                              <span className="bullet-dot" />
-                              <span>{lang === 'en' ? 'Barn block:' : 'Khu chuồng:'} <b>{s.block}</b></span>
+
+                            {/* Hàng 2: Khu chuồng & Giống loài */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12.5px', borderTop: '1px dashed var(--line)', paddingTop: '6px' }}>
+                              <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span className="bullet-dot" style={{ flexShrink: 0 }} />
+                                {lang === 'en' ? 'Barn block:' : 'Khu chuồng:'} <b style={{ color: 'var(--paper)' }}>{s.block}</b>
+                              </span>
+                              {isOccupied && s.breed && s.breed !== 'Vacant' && (
+                                <span style={{
+                                  fontSize: '11px',
+                                  color: 'var(--paper-dim)',
+                                  background: 'var(--bg-secondary)',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid var(--line)',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {s.breed}
+                                </span>
+                              )}
                             </div>
                           </div>
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loginApi, registerApi, getUsersApi } from '../services/api';
+import { loginApi, registerApi, getUsersApi, updateUserApi, deleteUserApi, createUserApi } from '../services/api';
 
 // Dữ liệu mẫu đồng bộ với CSDL Microsoft SQL Server (database/RacehorseDB.sql)
 export const SEED_USERS = [
@@ -315,6 +315,7 @@ export function AuthProvider({ children }) {
 
   // Cập nhật người dùng (dành cho Admin)
   const updateUser = (userId, updatedFields) => {
+    updateUserApi(userId, updatedFields).catch(() => {});
     setUsersList(prev => prev.map(u => Number(u.user_id) === Number(userId) ? { ...u, ...updatedFields } : u));
     if (currentUser && Number(currentUser.user_id) === Number(userId)) {
       setCurrentUser(prev => ({ ...prev, ...updatedFields }));
@@ -323,16 +324,22 @@ export function AuthProvider({ children }) {
 
   // Xóa / Vô hiệu hóa người dùng (Tạm khóa)
   const toggleUserStatus = (userId) => {
-    setUsersList(prev => prev.map(u => {
-      if (Number(u.user_id) === Number(userId)) {
-        return { ...u, status: u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' };
-      }
-      return u;
-    }));
+    setUsersList(prev => {
+      const nextList = prev.map(u => {
+        if (Number(u.user_id) === Number(userId)) {
+          const nextStatus = u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+          updateUserApi(userId, { status: nextStatus }).catch(() => {});
+          return { ...u, status: nextStatus };
+        }
+        return u;
+      });
+      return nextList;
+    });
   };
 
   // Xóa vĩnh viễn người dùng khỏi danh sách (dành cho Admin)
   const deleteUser = (userId) => {
+    deleteUserApi(userId).catch(() => {});
     setUsersList(prev => {
       const nextList = prev.filter(u => Number(u.user_id) !== Number(userId));
       try {

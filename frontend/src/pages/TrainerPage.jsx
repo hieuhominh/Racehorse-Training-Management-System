@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { getTrainingProgramsApi } from '../services/api';
+import { getTrainingProgramsApi, getHorsesApi } from '../services/api';
 import ThemeToggle from '../components/ThemeToggle';
 
 // Minimalist, high-end SVG icons (0 emojis, strict professional aesthetic)
@@ -204,7 +204,7 @@ export default function TrainerPage() {
     }
   ]);
 
-  // Nạp giáo án từ API Backend khi khởi động
+  // Nạp giáo án & danh sách chiến mã từ API Backend khi khởi động
   useEffect(() => {
     let isMounted = true;
     getTrainingProgramsApi().then(res => {
@@ -221,6 +221,31 @@ export default function TrainerPage() {
           status: p.status || 'ACTIVE'
         }));
         setPrograms(prev => [...mapped, ...prev.slice(mapped.length)]);
+      }
+    }).catch(() => {});
+
+    // Đồng bộ trạng thái khóa y tế chiến mã từ Backend
+    getHorsesApi().then(res => {
+      if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
+        setTrainerHorses(prev => {
+          const apiMap = new Map(res.data.map(h => [h.name.toLowerCase(), h]));
+          return prev.map(th => {
+            const matched = apiMap.get(th.name.toLowerCase());
+            if (matched) {
+              const isLocked = Boolean(matched.locked);
+              return {
+                ...th,
+                stall: matched.stable ? `Ô ${matched.stable}` : th.stall,
+                breed: matched.breed || th.breed,
+                isLockedByVet: isLocked,
+                status: isLocked ? 'INJURED' : (matched.status === 'WATCH' ? 'WATCH' : 'READY'),
+                statusText: isLocked ? 'Khóa tập bởi Thú y' : (matched.statusText || th.statusText),
+                vetNotice: isLocked ? 'Lệnh phong tỏa y tế Thú y đang hiệu lực - Tạm đình chỉ bài tập nặng!' : null
+              };
+            }
+            return th;
+          });
+        });
       }
     }).catch(() => {});
 
