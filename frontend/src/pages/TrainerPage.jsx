@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { getTrainingProgramsApi } from '../services/api';
 import ThemeToggle from '../components/ThemeToggle';
@@ -58,6 +59,7 @@ const IconMenu = ({ size = 18, color = 'currentColor' }) => (
 
 export default function TrainerPage() {
   const { currentUser, logout } = useAuth();
+  const { t, lang, toggleLang } = useLanguage();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -475,7 +477,7 @@ export default function TrainerPage() {
           </div>
           <div className="portal-brand-text">
             <h3>Mã Trường OS</h3>
-            <p>Trainer Management Hub</p>
+            <p>{t('trainerBrandSub')}</p>
           </div>
         </div>
 
@@ -485,7 +487,7 @@ export default function TrainerPage() {
             onClick={() => { setActiveTab('vitals'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconOverview size={18} /></span>
-            <span className="portal-nav-label">Thể lực tàu ngựa</span>
+            <span className="portal-nav-label">{t('trainerTabVitals')}</span>
             <span className="portal-nav-badge">{trainerHorses.length}</span>
           </button>
 
@@ -494,7 +496,7 @@ export default function TrainerPage() {
             onClick={() => { setActiveTab('programs'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconClipboard size={18} /></span>
-            <span className="portal-nav-label">Giáo án huấn luyện</span>
+            <span className="portal-nav-label">{t('trainerTabPrograms')}</span>
             <span className="portal-nav-badge">{programs.length}</span>
           </button>
 
@@ -503,7 +505,7 @@ export default function TrainerPage() {
             onClick={() => { setActiveTab('sessions'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconTimer size={18} /></span>
-            <span className="portal-nav-label">Buổi tập & Telemetry</span>
+            <span className="portal-nav-label">{t('trainerTabSessions')}</span>
             <span className="portal-nav-badge">{sessions.length}</span>
           </button>
 
@@ -512,7 +514,7 @@ export default function TrainerPage() {
             onClick={() => { setActiveTab('review'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconStar size={18} /></span>
-            <span className="portal-nav-label">Đánh giá & Ghi chú</span>
+            <span className="portal-nav-label">{t('trainerTabReview')}</span>
           </button>
         </nav>
 
@@ -526,7 +528,7 @@ export default function TrainerPage() {
           </div>
           <Link to="/" className="portal-public-link" style={{ marginTop: '12px' }}>
             <IconGlobe size={15} />
-            <span>Xem trang Public</span>
+            <span>{t('trainerPublicLink')}</span>
           </Link>
         </div>
       </aside>
@@ -546,37 +548,61 @@ export default function TrainerPage() {
             </button>
             <div className="portal-title-box">
               <h2 className="portal-page-title">
-                {activeTab === 'vitals' && 'Bảng Giám Sát Thể Lực Tàu Ngựa'}
-                {activeTab === 'programs' && 'Giáo Án & Kế Hoạch Huấn Luyện'}
-                {activeTab === 'sessions' && 'Nhật Ký Buổi Tập & Telemetry'}
-                {activeTab === 'review' && 'Đánh Giá Phong Độ & Chấm Điểm'}
+                {activeTab === 'vitals' && t('trainerTitleVitals')}
+                {activeTab === 'programs' && t('trainerTitlePrograms')}
+                {activeTab === 'sessions' && t('trainerTitleSessions')}
+                {activeTab === 'review' && t('trainerTitleReview')}
               </h2>
               <div className="portal-page-subtitle">
-                {activeTab === 'vitals' && 'Đo lường nhịp tim, vận tốc tối đa và chỉ định của Bác sĩ Thú y'}
-                {activeTab === 'programs' && 'Thiết kế theo cự ly, giai đoạn, khối lượng và loại mặt sân'}
-                {activeTab === 'sessions' && 'Giám sát viễn trắc nhịp tim thời gian thực và cảnh báo an toàn'}
-                {activeTab === 'review' && 'Chấm điểm (thang điểm 1-10), xác nhận bài tập và lưu nhật ký huấn luyện viên'}
+                {activeTab === 'vitals' && t('trainerSubVitals')}
+                {activeTab === 'programs' && t('trainerSubPrograms')}
+                {activeTab === 'sessions' && t('trainerSubSessions')}
+                {activeTab === 'review' && t('trainerSubReview')}
               </div>
             </div>
           </div>
 
           <div className="portal-topbar-right">
+            <button
+              type="button"
+              onClick={toggleLang}
+              className="portal-theme-btn"
+              title={lang === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '0 12px',
+                height: '38px',
+                borderRadius: '8px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--line)',
+                color: 'var(--paper)',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '12px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <IconGlobe size={15} color="var(--brass)" />
+              <span>{lang === 'vi' ? 'VI' : 'EN'}</span>
+            </button>
             <ThemeToggle />
             <div className="portal-user-badge">
               <div className="portal-user-avatar">
                 {getInitials(currentUser?.full_name)}
               </div>
               <div className="portal-user-info">
-                <div className="portal-user-name">{currentUser?.full_name || 'Huấn Luyện Viên'}</div>
-                <div className="portal-user-role">{currentUser?.role_name || 'Huấn Luyện Viên Trưởng'}</div>
+                <div className="portal-user-name">{currentUser?.full_name || (lang === 'en' ? 'Trainer' : 'Huấn Luyện Viên')}</div>
+                <div className="portal-user-role">{currentUser?.role_name || (lang === 'en' ? 'Head Trainer' : 'Huấn Luyện Viên Trưởng')}</div>
               </div>
             </div>
             <button
               onClick={handleLogout}
               className="portal-btn-logout"
-              title="Đăng xuất khỏi hệ thống"
+              title={t('trainerLogout')}
             >
-              Đăng xuất
+              {t('trainerLogout')}
             </button>
           </div>
         </header>
@@ -587,33 +613,51 @@ export default function TrainerPage() {
           {/* Quick KPI Header Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '24px' }}>
             <div className="facility-card" style={{ padding: '18px 20px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>TỔNG CHIẾN MÃ HUẤN LUYỆN</div>
-              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--paper)', margin: '6px 0 2px' }}>{trainerHorses.length} con</div>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Theo dõi telemetry định kỳ</div>
-            </div>
-
-            <div className="facility-card" style={{ padding: '18px 20px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>ĐỦ ĐIỀU KIỆN XUẤT TRẬN</div>
-              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--brass)', margin: '6px 0 2px' }}>
-                {trainerHorses.filter(h => h.status === 'READY').length} con
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+                {lang === 'en' ? 'TOTAL RACEHORSES' : 'TỔNG CHIẾN MÃ HUẤN LUYỆN'}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Sẵn sàng đăng ký giải đua</div>
-            </div>
-
-            <div className="facility-card" style={{ padding: '18px 20px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>KHÓA TẬP BỞI THÚ Y</div>
               <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--paper)', margin: '6px 0 2px' }}>
-                {trainerHorses.filter(h => h.isLockedByVet).length} con
+                {trainerHorses.length} {lang === 'en' ? 'horses' : 'con'}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Cấm bài chạy nước rút nặng</div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                {lang === 'en' ? 'Tracked with biometrics' : 'Theo dõi telemetry định kỳ'}
+              </div>
             </div>
 
             <div className="facility-card" style={{ padding: '18px 20px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>BUỔI TẬP ĐÃ HOÀN TẤT</div>
-              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--brass)', margin: '6px 0 2px' }}>
-                {sessions.length} lượt
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+                {lang === 'en' ? 'RACE READY' : 'ĐỦ ĐIỀU KIỆN XUẤT TRẬN'}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Dữ liệu lưu vết an toàn</div>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--brass)', margin: '6px 0 2px' }}>
+                {trainerHorses.filter(h => h.status === 'READY').length} {lang === 'en' ? 'horses' : 'con'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                {lang === 'en' ? 'Cleared for racing cup' : 'Sẵn sàng đăng ký giải đua'}
+              </div>
+            </div>
+
+            <div className="facility-card" style={{ padding: '18px 20px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+                {lang === 'en' ? 'LOCKED BY VET' : 'KHÓA TẬP BỞI THÚ Y'}
+              </div>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--paper)', margin: '6px 0 2px' }}>
+                {trainerHorses.filter(h => h.isLockedByVet).length} {lang === 'en' ? 'horses' : 'con'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                {lang === 'en' ? 'Heavy sprint restricted' : 'Cấm bài chạy nước rút nặng'}
+              </div>
+            </div>
+
+            <div className="facility-card" style={{ padding: '18px 20px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+                {lang === 'en' ? 'COMPLETED SESSIONS' : 'BUỔI TẬP ĐÃ HOÀN TẤT'}
+              </div>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--brass)', margin: '6px 0 2px' }}>
+                {sessions.length} {lang === 'en' ? 'workouts' : 'lượt'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                {lang === 'en' ? 'Safe telemetry telemetry logs' : 'Dữ liệu lưu vết an toàn'}
+              </div>
             </div>
           </div>
 
@@ -623,13 +667,13 @@ export default function TrainerPage() {
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button className="portal-pill-btn active">
-                    Tất cả đàn ngựa <span className="pill-count">{trainerHorses.length}</span>
+                    {lang === 'en' ? 'All Horses' : 'Tất cả đàn ngựa'} <span className="pill-count">{trainerHorses.length}</span>
                   </button>
                   <button className="portal-pill-btn" onClick={() => setActiveTab('programs')}>
-                    Giáo án <span className="pill-count">{programs.length}</span>
+                    {lang === 'en' ? 'Curriculums' : 'Giáo án'} <span className="pill-count">{programs.length}</span>
                   </button>
                   <button className="portal-pill-btn" onClick={() => setActiveTab('sessions')}>
-                    Buổi tập <span className="pill-count">{sessions.length}</span>
+                    {lang === 'en' ? 'Workouts' : 'Buổi tập'} <span className="pill-count">{sessions.length}</span>
                   </button>
                 </div>
 
@@ -638,13 +682,13 @@ export default function TrainerPage() {
                     className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
                     onClick={() => setViewMode('cards')}
                   >
-                    Lưới Thẻ
+                    {lang === 'en' ? 'Card Grid' : 'Lưới Thẻ'}
                   </button>
                   <button
                     className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
                     onClick={() => setViewMode('table')}
                   >
-                    Bảng Thông Số
+                    {lang === 'en' ? 'Data Table' : 'Bảng Thông Số'}
                   </button>
                 </div>
               </div>
@@ -653,6 +697,9 @@ export default function TrainerPage() {
                 <div className="portal-cards-grid">
                   {trainerHorses.map(horse => {
                     const badgeClass = horse.status === 'READY' ? 'badge-gold' : 'badge-slate';
+                    const displayStatus = horse.status === 'READY'
+                      ? (lang === 'en' ? 'Ready for Race' : 'Sẵn sàng thi đấu')
+                      : (lang === 'en' ? 'Under Observation' : 'Cần theo dõi');
                     return (
                       <div key={horse.id} className="facility-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -681,33 +728,33 @@ export default function TrainerPage() {
                             fontWeight: 600,
                             marginBottom: '10px'
                           }}>
-                            <span style={{ color: 'var(--brass)', fontWeight: 700 }}>CẢNH BÁO THÚ Y:</span> {horse.vetNotice}
+                            <span style={{ color: 'var(--brass)', fontWeight: 700 }}>{lang === 'en' ? 'VET WARNING:' : 'CẢNH BÁO THÚ Y:'}</span> {horse.vetNotice}
                           </div>
                         )}
 
                         <div className="facility-card-bullets">
                           <div className="facility-bullet-item">
                             <span className="bullet-dot" />
-                            <span>Quãng đường tích lũy: <b>{horse.totalDistanceKm} km</b></span>
+                            <span>{lang === 'en' ? 'Accumulated distance:' : 'Quãng đường tích lũy:'} <b>{horse.totalDistanceKm} km</b></span>
                           </div>
                           <div className="facility-bullet-item">
                             <span className="bullet-dot" />
-                            <span>Độ tuổi: <b>{horse.age}</b></span>
+                            <span>{lang === 'en' ? 'Age:' : 'Độ tuổi:'} <b>{horse.age}</b></span>
                           </div>
                         </div>
 
                         {/* 3-column specs */}
                         <div className="facility-specs-grid">
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Nhịp tim TB</span>
+                            <span className="spec-label">{lang === 'en' ? 'Avg HR' : 'Nhịp tim TB'}</span>
                             <span className="spec-val" style={{ color: 'var(--paper)' }}>{horse.avgHeartRate} bpm</span>
                           </div>
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Tốc độ đỉnh</span>
+                            <span className="spec-label">{lang === 'en' ? 'Peak Speed' : 'Tốc độ đỉnh'}</span>
                             <span className="spec-val" style={{ color: 'var(--paper)' }}>{horse.maxSpeed} km/h</span>
                           </div>
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Phong độ</span>
+                            <span className="spec-label">{lang === 'en' ? 'Condition' : 'Phong độ'}</span>
                             <span className="spec-val" style={{ color: 'var(--brass)' }}>{horse.condition}</span>
                           </div>
                         </div>
@@ -715,9 +762,9 @@ export default function TrainerPage() {
                         {/* Status/Price Box */}
                         <div className="facility-price-box">
                           <div>
-                            <div className="price-label">Trạng thái thi đấu</div>
+                            <div className="price-label">{lang === 'en' ? 'Training Status' : 'Trạng thái thi đấu'}</div>
                             <div className="price-value" style={{ fontSize: '15px', color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper)' }}>
-                              {horse.statusText}
+                              {displayStatus}
                             </div>
                           </div>
                           <span style={{
@@ -729,7 +776,7 @@ export default function TrainerPage() {
                             color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper-dim)',
                             border: horse.status === 'READY' ? '1px solid var(--brass)' : '1px solid var(--line)'
                           }}>
-                            {horse.isLockedByVet ? 'KHÓA' : 'SẴN SÀNG'}
+                            {horse.isLockedByVet ? (lang === 'en' ? 'LOCKED' : 'KHÓA') : (lang === 'en' ? 'READY' : 'SẴN SÀNG')}
                           </span>
                         </div>
 
@@ -743,7 +790,7 @@ export default function TrainerPage() {
                               }}
                               disabled={horse.isLockedByVet}
                             >
-                              {horse.isLockedByVet ? 'Đang khóa' : '+ Lên bài tập'}
+                              {horse.isLockedByVet ? (lang === 'en' ? 'Locked' : 'Đang khóa') : (lang === 'en' ? '+ Add Workout' : '+ Lên bài tập')}
                             </button>
                           </div>
                           <button
@@ -753,7 +800,7 @@ export default function TrainerPage() {
                               setActiveTab('review');
                             }}
                           >
-                            Xem đánh giá →
+                            {lang === 'en' ? 'View Review →' : 'Xem đánh giá →'}
                           </button>
                         </div>
                       </div>
@@ -765,62 +812,67 @@ export default function TrainerPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                        <th style={{ padding: '14px 18px' }}>Chiến Mã</th>
-                        <th style={{ padding: '14px 18px' }}>Ô Chuồng</th>
-                        <th style={{ padding: '14px 18px' }}>Nhịp Tim TB</th>
-                        <th style={{ padding: '14px 18px' }}>Tốc Độ Đỉnh</th>
-                        <th style={{ padding: '14px 18px' }}>Phong Độ</th>
-                        <th style={{ padding: '14px 18px' }}>Trạng Thái</th>
-                        <th style={{ padding: '14px 18px' }}>Thao Tác</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Racehorse' : 'Chiến Mã'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall' : 'Ô Chuồng'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Avg HR' : 'Nhịp Tim TB'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Peak Speed' : 'Tốc Độ Đỉnh'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Condition' : 'Phong Độ'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Status' : 'Trạng Thái'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Actions' : 'Thao Tác'}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {trainerHorses.map(horse => (
-                        <tr key={horse.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>
-                            <div>{horse.name}</div>
-                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{horse.microchip}</div>
-                          </td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{horse.stall}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.avgHeartRate} bpm</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.maxSpeed} km/h</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--brass)', fontWeight: 700 }}>{horse.condition}</td>
-                          <td style={{ padding: '14px 18px' }}>
-                            <span style={{
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11.5px',
-                              fontWeight: 700,
-                              background: horse.status === 'READY' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
-                              color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper-dim)',
-                              border: horse.status === 'READY' ? '1px solid var(--brass)' : '1px solid var(--line)'
-                            }}>
-                              {horse.statusText}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 18px' }}>
-                            <button
-                              onClick={() => {
-                                setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
-                                setShowAddSessionModal(true);
-                              }}
-                              disabled={horse.isLockedByVet}
-                              style={{
-                                padding: '6px 12px',
-                                background: horse.isLockedByVet ? 'var(--bg-secondary)' : 'var(--brass)',
-                                color: horse.isLockedByVet ? 'var(--paper-dim)' : '#14100A',
-                                border: horse.isLockedByVet ? '1px solid var(--line)' : 'none',
+                      {trainerHorses.map(horse => {
+                        const displayStatus = horse.status === 'READY'
+                          ? (lang === 'en' ? 'Ready for Race' : 'Sẵn sàng thi đấu')
+                          : (lang === 'en' ? 'Under Observation' : 'Cần theo dõi');
+                        return (
+                          <tr key={horse.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                            <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>
+                              <div>{horse.name}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{horse.microchip}</div>
+                            </td>
+                            <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{horse.stall}</td>
+                            <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.avgHeartRate} bpm</td>
+                            <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.maxSpeed} km/h</td>
+                            <td style={{ padding: '14px 18px', color: 'var(--brass)', fontWeight: 700 }}>{horse.condition}</td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <span style={{
+                                padding: '3px 8px',
                                 borderRadius: '4px',
-                                fontSize: '12px',
+                                fontSize: '11.5px',
                                 fontWeight: 700,
-                                cursor: horse.isLockedByVet ? 'not-allowed' : 'pointer'
-                              }}
-                            >
-                              {horse.isLockedByVet ? 'Đang bị khóa' : '+ Lên bài tập'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                                background: horse.status === 'READY' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
+                                color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper-dim)',
+                                border: horse.status === 'READY' ? '1px solid var(--brass)' : '1px solid var(--line)'
+                              }}>
+                                {displayStatus}
+                              </span>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <button
+                                onClick={() => {
+                                  setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
+                                  setShowAddSessionModal(true);
+                                }}
+                                disabled={horse.isLockedByVet}
+                                style={{
+                                  padding: '6px 12px',
+                                  background: horse.isLockedByVet ? 'var(--bg-secondary)' : 'var(--brass)',
+                                  color: horse.isLockedByVet ? 'var(--paper-dim)' : '#14100A',
+                                  border: horse.isLockedByVet ? '1px solid var(--line)' : 'none',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: horse.isLockedByVet ? 'not-allowed' : 'pointer'
+                                }}
+                              >
+                                {horse.isLockedByVet ? (lang === 'en' ? 'Locked' : 'Đang bị khóa') : (lang === 'en' ? '+ Workout' : '+ Lên bài tập')}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -834,7 +886,7 @@ export default function TrainerPage() {
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button className="portal-pill-btn active">
-                    Tất cả giáo án <span className="pill-count">{programs.length}</span>
+                    {lang === 'en' ? 'All Curriculums' : 'Tất cả giáo án'} <span className="pill-count">{programs.length}</span>
                   </button>
                 </div>
 
@@ -843,20 +895,20 @@ export default function TrainerPage() {
                     className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
                     onClick={() => setViewMode('cards')}
                   >
-                    Lưới Thẻ
+                    {lang === 'en' ? 'Card Grid' : 'Lưới Thẻ'}
                   </button>
                   <button
                     className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
                     onClick={() => setViewMode('table')}
                   >
-                    Bảng Danh Sách
+                    {lang === 'en' ? 'Curriculums List' : 'Bảng Danh Sách'}
                   </button>
                   <button
                     onClick={() => setShowAddProgramModal(true)}
                     className="portal-view-btn"
                     style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
                   >
-                    + Lập Giáo Án
+                    {t('trainerBtnAddProgram')}
                   </button>
                 </div>
               </div>
@@ -877,36 +929,36 @@ export default function TrainerPage() {
 
                       <h3 className="facility-card-title">{prog.title}</h3>
                       <p className="facility-card-desc">
-                        Chiến mã đảm nhận: <b style={{ color: 'var(--brass)' }}>{prog.horseName}</b>. Áp dụng chuẩn chuyên nghiệp.
+                        {lang === 'en' ? 'Assigned runner:' : 'Chiến mã đảm nhận:'} <b style={{ color: 'var(--brass)' }}>{prog.horseName}</b>. {lang === 'en' ? 'Active standard applied.' : 'Áp dụng chuẩn chuyên nghiệp.'}
                       </p>
 
                       <div className="facility-card-bullets">
                         <div className="facility-bullet-item">
                           <span className="bullet-dot" />
-                          <span>Thời gian: <b>{prog.startDate} → {prog.endDate}</b></span>
+                          <span>{lang === 'en' ? 'Duration:' : 'Thời gian:'} <b>{prog.startDate} → {prog.endDate}</b></span>
                         </div>
                       </div>
 
                       <div className="facility-specs-grid">
                         <div className="facility-spec-cell">
-                          <span className="spec-label">Chiến Mã</span>
+                          <span className="spec-label">{lang === 'en' ? 'Runner' : 'Chiến Mã'}</span>
                           <span className="spec-val" style={{ color: 'var(--paper)' }}>{prog.horseName}</span>
                         </div>
                         <div className="facility-spec-cell">
-                          <span className="spec-label">Cự ly mục tiêu</span>
+                          <span className="spec-label">{lang === 'en' ? 'Target Dist' : 'Cự ly mục tiêu'}</span>
                           <span className="spec-val">{prog.targetDistance} m</span>
                         </div>
                         <div className="facility-spec-cell">
-                          <span className="spec-label">Mặt sân</span>
+                          <span className="spec-label">{lang === 'en' ? 'Surface' : 'Mặt sân'}</span>
                           <span className="spec-val">{prog.surface.split(' ')[0]}</span>
                         </div>
                       </div>
 
                       <div className="facility-price-box">
                         <div>
-                          <div className="price-label">Trạng thái giáo án</div>
+                          <div className="price-label">{lang === 'en' ? 'Curriculum Status' : 'Trạng thái giáo án'}</div>
                           <div className="price-value" style={{ fontSize: '15px', color: 'var(--brass)' }}>
-                            Đang thực hiện tích cực
+                            {lang === 'en' ? 'Active Progression' : 'Đang thực hiện tích cực'}
                           </div>
                         </div>
                         <span style={{
@@ -931,11 +983,11 @@ export default function TrainerPage() {
                               setShowAddSessionModal(true);
                             }}
                           >
-                            Chạy bài này
+                            {lang === 'en' ? 'Run Workout' : 'Chạy bài này'}
                           </button>
                         </div>
                         <span className="facility-link-action" style={{ cursor: 'default' }}>
-                          Cự ly {prog.targetDistance}m →
+                          {lang === 'en' ? `Target ${prog.targetDistance}m →` : `Cự ly ${prog.targetDistance}m →`}
                         </span>
                       </div>
                     </div>
@@ -946,13 +998,13 @@ export default function TrainerPage() {
                   <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                        <th style={{ padding: '14px 18px' }}>Chiến mã</th>
-                        <th style={{ padding: '14px 18px' }}>Tên giáo án</th>
-                        <th style={{ padding: '14px 18px' }}>Giai đoạn</th>
-                        <th style={{ padding: '14px 18px' }}>Cự ly mục tiêu</th>
-                        <th style={{ padding: '14px 18px' }}>Mặt sân</th>
-                        <th style={{ padding: '14px 18px' }}>Thời gian</th>
-                        <th style={{ padding: '14px 18px', textAlign: 'center' }}>Trạng thái</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Horse' : 'Chiến mã'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Curriculum Title' : 'Tên giáo án'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Phase' : 'Giai đoạn'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Target Dist' : 'Cự ly mục tiêu'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Surface' : 'Mặt sân'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Duration' : 'Thời gian'}</th>
+                        <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'en' ? 'Status' : 'Trạng thái'}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -974,7 +1026,7 @@ export default function TrainerPage() {
                               color: 'var(--brass)',
                               border: '1px solid var(--brass)'
                             }}>
-                              Đang thực hiện
+                              {lang === 'en' ? 'Active' : 'Đang thực hiện'}
                             </span>
                           </td>
                         </tr>
@@ -992,7 +1044,7 @@ export default function TrainerPage() {
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button className="portal-pill-btn active">
-                    Tất cả buổi tập <span className="pill-count">{sessions.length}</span>
+                    {lang === 'en' ? 'All Workouts' : 'Tất cả buổi tập'} <span className="pill-count">{sessions.length}</span>
                   </button>
                   <button
                     className="portal-pill-btn"
@@ -1001,7 +1053,7 @@ export default function TrainerPage() {
                       setActiveTab('review');
                     }}
                   >
-                    Hoàn thành <span className="pill-count">{sessions.filter(s => s.status === 'COMPLETED').length}</span>
+                    {t('trainerStatusCompleted')} <span className="pill-count">{sessions.filter(s => s.status === 'COMPLETED').length}</span>
                   </button>
                   <button
                     className="portal-pill-btn"
@@ -1010,7 +1062,7 @@ export default function TrainerPage() {
                       setActiveTab('review');
                     }}
                   >
-                    Chưa đạt <span className="pill-count">{sessions.filter(s => s.status === 'INCOMPLETE').length}</span>
+                    {t('trainerStatusIncomplete')} <span className="pill-count">{sessions.filter(s => s.status === 'INCOMPLETE').length}</span>
                   </button>
                 </div>
 
@@ -1020,7 +1072,7 @@ export default function TrainerPage() {
                     className="portal-view-btn"
                     style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
                   >
-                    + Ghi Nhận Buổi Tập
+                    {t('trainerBtnAddSession')}
                   </button>
                 </div>
               </div>
@@ -1029,15 +1081,15 @@ export default function TrainerPage() {
                 <table style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                      <th style={{ padding: '14px 18px' }}>Thời gian</th>
-                      <th style={{ padding: '14px 18px' }}>Chiến mã & Giáo án</th>
-                      <th style={{ padding: '14px 18px' }}>Quãng đường</th>
-                      <th style={{ padding: '14px 18px' }}>Vận tốc TB</th>
-                      <th style={{ padding: '14px 18px' }}>Nhịp tim</th>
-                      <th style={{ padding: '14px 18px' }}>Cảnh báo</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>Trạng thái bài tập</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>Điểm đánh giá</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>Thao tác</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Timestamp' : 'Thời gian'}</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Horse & Curriculum' : 'Chiến mã & Giáo án'}</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Distance' : 'Quãng đường'}</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Avg Speed' : 'Vận tốc TB'}</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Heart Rate' : 'Nhịp tim'}</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Alert' : 'Cảnh báo'}</th>
+                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'en' ? 'Workout Status' : 'Trạng thái bài tập'}</th>
+                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'en' ? 'Score' : 'Điểm đánh giá'}</th>
+                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'en' ? 'Actions' : 'Thao tác'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1068,7 +1120,7 @@ export default function TrainerPage() {
                                 fontSize: '11.5px',
                                 fontWeight: 700
                               }}>
-                                Quá tải (&gt;210)
+                                {lang === 'en' ? 'Overload (>210)' : 'Quá tải (>210)'}
                               </span>
                             ) : (
                               <span style={{
@@ -1080,14 +1132,14 @@ export default function TrainerPage() {
                                 fontSize: '11.5px',
                                 fontWeight: 600
                               }}>
-                                Bình thường
+                                {lang === 'en' ? 'Normal' : 'Bình thường'}
                               </span>
                             )}
                           </td>
                           <td style={{ padding: '14px 18px', textAlign: 'center' }}>
                             <button
                               onClick={() => handleToggleSessionStatus(sess.id)}
-                              title="Nhấp để đổi trạng thái bài tập"
+                              title={lang === 'en' ? 'Click to toggle status' : 'Nhấp để đổi trạng thái bài tập'}
                               style={{
                                 padding: '5px 12px',
                                 borderRadius: '20px',
@@ -1100,7 +1152,7 @@ export default function TrainerPage() {
                                 transition: 'all 0.2s ease'
                               }}
                             >
-                              {isCompleted ? 'Hoàn thành' : 'Chưa đạt'}
+                              {isCompleted ? (lang === 'en' ? 'Completed' : 'Hoàn thành') : (lang === 'en' ? 'Incomplete' : 'Chưa đạt')}
                             </button>
                           </td>
                           <td style={{ padding: '14px 18px', textAlign: 'center' }}>
@@ -1130,7 +1182,7 @@ export default function TrainerPage() {
                                 cursor: 'pointer'
                               }}
                             >
-                              Đánh giá
+                              {lang === 'en' ? 'Review' : 'Đánh giá'}
                             </button>
                           </td>
                         </tr>
@@ -1148,7 +1200,7 @@ export default function TrainerPage() {
               <div className="portal-filter-bar">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>Chiến mã:</span>
+                    <span style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>{t('trainerFilterHorse')}</span>
                     <select
                       value={filterHorse}
                       onChange={(e) => setFilterHorse(e.target.value)}
@@ -1161,7 +1213,7 @@ export default function TrainerPage() {
                         fontSize: '13px'
                       }}
                     >
-                      <option value="ALL">Tất cả chiến mã</option>
+                      <option value="ALL">{lang === 'en' ? 'All racehorses' : 'Tất cả chiến mã'}</option>
                       {trainerHorses.map(h => (
                         <option key={h.id} value={h.name}>{h.name}</option>
                       ))}
@@ -1169,7 +1221,7 @@ export default function TrainerPage() {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>Trạng thái:</span>
+                    <span style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>{t('trainerFilterStatus')}</span>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
@@ -1182,9 +1234,9 @@ export default function TrainerPage() {
                         fontSize: '13px'
                       }}
                     >
-                      <option value="ALL">Tất cả trạng thái</option>
-                      <option value="COMPLETED">Hoàn thành</option>
-                      <option value="INCOMPLETE">Chưa đạt</option>
+                      <option value="ALL">{lang === 'en' ? 'All statuses' : 'Tất cả trạng thái'}</option>
+                      <option value="COMPLETED">{t('trainerStatusCompleted')}</option>
+                      <option value="INCOMPLETE">{t('trainerStatusIncomplete')}</option>
                     </select>
                   </div>
                 </div>
@@ -1195,7 +1247,7 @@ export default function TrainerPage() {
                     className="portal-view-btn"
                     style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
                   >
-                    + Ghi Nhận Mới
+                    {lang === 'en' ? '+ New Session' : '+ Ghi Nhận Mới'}
                   </button>
                 </div>
               </div>
@@ -1212,8 +1264,12 @@ export default function TrainerPage() {
                   <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
                     <IconClipboard size={32} color="var(--paper-dim)" />
                   </div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)' }}>Không tìm thấy bài tập nào phù hợp</div>
-                  <div style={{ fontSize: '13px', marginTop: '4px' }}>Hãy điều chỉnh lại bộ lọc hoặc ghi nhận thêm bài tập.</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)' }}>
+                    {lang === 'en' ? 'No matching workout sessions found' : 'Không tìm thấy bài tập nào phù hợp'}
+                  </div>
+                  <div style={{ fontSize: '13px', marginTop: '4px' }}>
+                    {lang === 'en' ? 'Please adjust filters or log a new workout session.' : 'Hãy điều chỉnh lại bộ lọc hoặc ghi nhận thêm bài tập.'}
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1244,7 +1300,7 @@ export default function TrainerPage() {
                                 fontSize: '12px',
                                 fontWeight: 700
                               }}>
-                                {isCompleted ? 'ĐÃ HOÀN THÀNH' : 'CHƯA ĐẠT'}
+                                {isCompleted ? (lang === 'en' ? 'COMPLETED' : 'ĐÃ HOÀN THÀNH') : (lang === 'en' ? 'INCOMPLETE' : 'CHƯA ĐẠT')}
                               </span>
                               <span style={{
                                 padding: '3px 8px',
@@ -1260,13 +1316,13 @@ export default function TrainerPage() {
                             </div>
 
                             <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
-                              <span>Giáo án: <b style={{ color: 'var(--paper)' }}>{sess.programTitle}</b></span>
+                              <span>{lang === 'en' ? 'Curriculum:' : 'Giáo án:'} <b style={{ color: 'var(--paper)' }}>{sess.programTitle}</b></span>
                               <span>|</span>
-                              <span>Cự ly: <b style={{ color: 'var(--paper)' }}>{sess.distanceRun}m</b></span>
+                              <span>{lang === 'en' ? 'Distance:' : 'Cự ly:'} <b style={{ color: 'var(--paper)' }}>{sess.distanceRun}m</b></span>
                               <span>|</span>
-                              <span>Tốc độ: <b style={{ color: 'var(--paper)' }}>{sess.avgSpeed} km/h</b></span>
+                              <span>{lang === 'en' ? 'Velocity:' : 'Tốc độ:'} <b style={{ color: 'var(--paper)' }}>{sess.avgSpeed} km/h</b></span>
                               <span>|</span>
-                              <span>Nhịp tim: <b style={{ color: sess.isOverLimit ? 'var(--brass)' : 'var(--paper)' }}>{sess.maxHeartRate} bpm</b></span>
+                              <span>{lang === 'en' ? 'Heart Rate:' : 'Nhịp tim:'} <b style={{ color: sess.isOverLimit ? 'var(--brass)' : 'var(--paper)' }}>{sess.maxHeartRate} bpm</b></span>
                             </div>
 
                             <div style={{
@@ -1282,9 +1338,9 @@ export default function TrainerPage() {
                               lineHeight: 1.6
                             }}>
                               <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '4px', fontWeight: 600 }}>
-                                Nhận xét & Ghi chú của Huấn luyện viên:
+                                {lang === 'en' ? 'Head Trainer Technical Feedback & Notes:' : 'Nhận xét & Ghi chú của Huấn luyện viên:'}
                               </div>
-                              <div>"{sess.feedback || 'Chưa có ghi chú.'}"</div>
+                              <div>"{sess.feedback || (lang === 'en' ? 'No remarks logged.' : 'Chưa có ghi chú.')}"</div>
                             </div>
                           </div>
 
@@ -1302,7 +1358,7 @@ export default function TrainerPage() {
                                 cursor: 'pointer'
                               }}
                             >
-                              {isCompleted ? 'Đổi sang: Chưa đạt' : 'Đổi sang: Hoàn thành'}
+                              {isCompleted ? (lang === 'en' ? 'Mark: Incomplete' : 'Đổi sang: Chưa đạt') : (lang === 'en' ? 'Mark: Completed' : 'Đổi sang: Hoàn thành')}
                             </button>
 
                             <button
@@ -1318,7 +1374,7 @@ export default function TrainerPage() {
                                 cursor: 'pointer'
                               }}
                             >
-                              Sửa điểm & Ghi chú
+                              {lang === 'en' ? 'Edit Score & Notes' : 'Sửa điểm & Ghi chú'}
                             </button>
                           </div>
                         </div>
@@ -1358,14 +1414,18 @@ export default function TrainerPage() {
             color: 'var(--paper)',
             boxShadow: 'var(--shadow)'
           }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>Lập Giáo Án Huấn Luyện Mới</h3>
+            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>
+              {lang === 'en' ? 'Create New Training Curriculum' : 'Lập Giáo Án Huấn Luyện Mới'}
+            </h3>
             <form onSubmit={handleCreateProgram} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Tên giáo án</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Curriculum Title' : 'Tên giáo án'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ví dụ: Rèn thể lực cự ly trung bình 1.800m"
+                  placeholder={lang === 'en' ? 'e.g. Mid-distance Endurance 1,800m' : 'Ví dụ: Rèn thể lực cự ly trung bình 1.800m'}
                   value={newProgramData.title}
                   onChange={(e) => setNewProgramData({ ...newProgramData, title: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
@@ -1373,7 +1433,9 @@ export default function TrainerPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Chọn chiến mã áp dụng</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Target Racehorse' : 'Chọn chiến mã áp dụng'}
+                </label>
                 <select
                   value={newProgramData.horseName}
                   onChange={(e) => setNewProgramData({ ...newProgramData, horseName: e.target.value })}
@@ -1386,22 +1448,26 @@ export default function TrainerPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Giai đoạn huấn luyện</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Training Phase' : 'Giai đoạn huấn luyện'}
+                </label>
                 <select
                   value={newProgramData.phase}
                   onChange={(e) => setNewProgramData({ ...newProgramData, phase: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
-                  <option value="Nước rút (Sprint)">Nước rút (Sprint - Tốc độ cao)</option>
-                  <option value="Thể lực nền (Endurance)">Thể lực nền (Endurance - Sức bền)</option>
-                  <option value="Kỹ thuật (Gate & Pace)">Kỹ thuật (Gate & Pace - Bứt tốc & mở máy)</option>
-                  <option value="Phục hồi (Recovery)">Phục hồi (Recovery - Vận động nhẹ)</option>
+                  <option value="Nước rút (Sprint)">{lang === 'en' ? 'Sprint (High-velocity bursts)' : 'Nước rút (Sprint - Tốc độ cao)'}</option>
+                  <option value="Thể lực nền (Endurance)">{lang === 'en' ? 'Endurance (Aerobic stamina)' : 'Thể lực nền (Endurance - Sức bền)'}</option>
+                  <option value="Kỹ thuật (Gate & Pace)">{lang === 'en' ? 'Gate & Pace (Breakout & steering)' : 'Kỹ thuật (Gate & Pace - Bứt tốc & mở máy)'}</option>
+                  <option value="Phục hồi (Recovery)">{lang === 'en' ? 'Recovery (Low-strain walking)' : 'Phục hồi (Recovery - Vận động nhẹ)'}</option>
                 </select>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Cự ly mục tiêu (m)</label>
+                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                    {lang === 'en' ? 'Target Distance (m)' : 'Cự ly mục tiêu (m)'}
+                  </label>
                   <input
                     type="number"
                     required
@@ -1411,14 +1477,16 @@ export default function TrainerPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Mặt sân tập</label>
+                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                    {lang === 'en' ? 'Track Surface' : 'Mặt sân tập'}
+                  </label>
                   <select
                     value={newProgramData.surface}
                     onChange={(e) => setNewProgramData({ ...newProgramData, surface: e.target.value })}
                     style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                   >
-                    <option value="SAND (Sân cát)">SAND (Sân cát)</option>
-                    <option value="GRASS (Sân cỏ)">GRASS (Sân cỏ)</option>
+                    <option value="SAND (Sân cát)">{lang === 'en' ? 'SAND (Sand Track)' : 'SAND (Sân cát)'}</option>
+                    <option value="GRASS (Sân cỏ)">{lang === 'en' ? 'TURF (Grass Track)' : 'GRASS (Sân cỏ)'}</option>
                   </select>
                 </div>
               </div>
@@ -1429,13 +1497,13 @@ export default function TrainerPage() {
                   onClick={() => setShowAddProgramModal(false)}
                   style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Hủy
+                  {lang === 'en' ? 'Cancel' : 'Hủy'}
                 </button>
                 <button
                   type="submit"
                   style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Lưu Giáo Án
+                  {lang === 'en' ? 'Save Curriculum' : 'Lưu Giáo Án'}
                 </button>
               </div>
             </form>
@@ -1468,10 +1536,14 @@ export default function TrainerPage() {
             color: 'var(--paper)',
             boxShadow: 'var(--shadow)'
           }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>Ghi Nhận Buổi Tập & Telemetry Mới</h3>
+            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>
+              {lang === 'en' ? 'Log Workout Session & Telemetry' : 'Ghi Nhận Buổi Tập & Telemetry Mới'}
+            </h3>
             <form onSubmit={handleCreateSession} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Chiến mã tập luyện</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Racehorse' : 'Chiến mã tập luyện'}
+                </label>
                 <select
                   value={newSessionData.horseName}
                   onChange={(e) => setNewSessionData({ ...newSessionData, horseName: e.target.value })}
@@ -1484,11 +1556,13 @@ export default function TrainerPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Tên bài tập / Giáo án</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Curriculum / Workout Title' : 'Tên bài tập / Giáo án'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ví dụ: Rèn sức bền 2.000m sân cát"
+                  placeholder={lang === 'en' ? 'e.g. Endurance build 2,000m sand' : 'Ví dụ: Rèn sức bền 2.000m sân cát'}
                   value={newSessionData.programTitle}
                   onChange={(e) => setNewSessionData({ ...newSessionData, programTitle: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
@@ -1497,7 +1571,9 @@ export default function TrainerPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Quãng đường chạy (m)</label>
+                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                    {lang === 'en' ? 'Distance Run (m)' : 'Quãng đường chạy (m)'}
+                  </label>
                   <input
                     type="number"
                     required
@@ -1507,7 +1583,9 @@ export default function TrainerPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Vận tốc TB (km/h)</label>
+                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                    {lang === 'en' ? 'Avg Velocity (km/h)' : 'Vận tốc TB (km/h)'}
+                  </label>
                   <input
                     type="number"
                     step="0.1"
@@ -1521,31 +1599,37 @@ export default function TrainerPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Nhịp tim tối đa (bpm)</label>
+                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                    {lang === 'en' ? 'Peak Heart Rate (bpm)' : 'Nhịp tim tối đa (bpm)'}
+                  </label>
                   <input
                     type="number"
                     required
-                    placeholder="Ngưỡng an toàn <= 210"
+                    placeholder={lang === 'en' ? 'Safe threshold <= 210' : 'Ngưỡng an toàn <= 210'}
                     value={newSessionData.maxHeartRate}
                     onChange={(e) => setNewSessionData({ ...newSessionData, maxHeartRate: e.target.value })}
                     style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Trạng thái bài tập</label>
+                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                    {lang === 'en' ? 'Workout Status' : 'Trạng thái bài tập'}
+                  </label>
                   <select
                     value={newSessionData.status}
                     onChange={(e) => setNewSessionData({ ...newSessionData, status: e.target.value })}
                     style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                   >
-                    <option value="COMPLETED">Hoàn thành bài tập</option>
-                    <option value="INCOMPLETE">Không hoàn thành bài tập</option>
+                    <option value="COMPLETED">{lang === 'en' ? 'Workout Completed' : 'Hoàn thành bài tập'}</option>
+                    <option value="INCOMPLETE">{lang === 'en' ? 'Workout Incomplete' : 'Không hoàn thành bài tập'}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Chấm điểm đánh giá (thang điểm 1.0 - 10.0)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Performance Rating (1.0 - 10.0 scale)' : 'Chấm điểm đánh giá (thang điểm 1.0 - 10.0)'}
+                </label>
                 <input
                   type="number"
                   step="0.1"
@@ -1559,10 +1643,12 @@ export default function TrainerPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Ghi chú bài tập & Nhận xét của HLV</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Trainer Remarks & Field Notes' : 'Ghi chú bài tập & Nhận xét của HLV'}
+                </label>
                 <textarea
                   rows="3"
-                  placeholder="Ghi nhận xét về phong độ, độ giãn bước, sức bền hoặc lý do nếu bài tập chưa hoàn thành..."
+                  placeholder={lang === 'en' ? 'Note stride fluidity, breathing recovery or reason if incomplete...' : 'Ghi nhận xét về phong độ, độ giãn bước, sức bền hoặc lý do nếu bài tập chưa hoàn thành...'}
                   value={newSessionData.feedback}
                   onChange={(e) => setNewSessionData({ ...newSessionData, feedback: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box', resize: 'vertical' }}
@@ -1575,13 +1661,13 @@ export default function TrainerPage() {
                   onClick={() => setShowAddSessionModal(false)}
                   style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Hủy
+                  {lang === 'en' ? 'Cancel' : 'Hủy'}
                 </button>
                 <button
                   type="submit"
                   style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Lưu Bài Tập
+                  {lang === 'en' ? 'Save Workout' : 'Lưu Bài Tập'}
                 </button>
               </div>
             </form>
@@ -1617,10 +1703,10 @@ export default function TrainerPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
               <div>
                 <h3 style={{ fontSize: '18px', margin: '0 0 4px', color: 'var(--paper)' }}>
-                  Đánh Giá & Ghi Chú Bài Tập
+                  {lang === 'en' ? 'Performance Review & Coaching Notes' : 'Đánh Giá & Ghi Chú Bài Tập'}
                 </h3>
                 <div style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>
-                  Chiến mã: <b style={{ color: 'var(--paper)' }}>{selectedSession.horseName}</b> • {selectedSession.time}
+                  {lang === 'en' ? 'Runner:' : 'Chiến mã:'} <b style={{ color: 'var(--paper)' }}>{selectedSession.horseName}</b> • {selectedSession.time}
                 </div>
               </div>
               <button
@@ -1633,14 +1719,16 @@ export default function TrainerPage() {
             </div>
 
             <div style={{ background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12.5px', color: 'var(--paper-dim)', border: '1px solid var(--line)' }}>
-              <div>Giáo án: <b style={{ color: 'var(--paper)' }}>{selectedSession.programTitle}</b></div>
-              <div style={{ marginTop: '3px' }}>Cự ly: <b style={{ color: 'var(--paper)' }}>{selectedSession.distanceRun}m</b> • Vận tốc: <b style={{ color: 'var(--paper)' }}>{selectedSession.avgSpeed} km/h</b> • Tim: <b style={{ color: selectedSession.isOverLimit ? 'var(--brass)' : 'var(--paper)' }}>{selectedSession.maxHeartRate} bpm</b></div>
+              <div>{lang === 'en' ? 'Curriculum:' : 'Giáo án:'} <b style={{ color: 'var(--paper)' }}>{selectedSession.programTitle}</b></div>
+              <div style={{ marginTop: '3px' }}>
+                {lang === 'en' ? 'Distance:' : 'Cự ly:'} <b style={{ color: 'var(--paper)' }}>{selectedSession.distanceRun}m</b> • {lang === 'en' ? 'Velocity:' : 'Vận tốc:'} <b style={{ color: 'var(--paper)' }}>{selectedSession.avgSpeed} km/h</b> • {lang === 'en' ? 'HR:' : 'Tim:'} <b style={{ color: selectedSession.isOverLimit ? 'var(--brass)' : 'var(--paper)' }}>{selectedSession.maxHeartRate} bpm</b>
+              </div>
             </div>
 
             <form onSubmit={handleUpdateFeedback} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
-                  1. Xác nhận hoàn thành bài tập:
+                  {lang === 'en' ? '1. Confirm Workout Completion:' : '1. Xác nhận hoàn thành bài tập:'}
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <button
@@ -1661,7 +1749,7 @@ export default function TrainerPage() {
                       gap: '4px'
                     }}
                   >
-                    <span>Hoàn thành bài tập</span>
+                    <span>{lang === 'en' ? 'Completed' : 'Hoàn thành bài tập'}</span>
                   </button>
 
                   <button
@@ -1682,7 +1770,7 @@ export default function TrainerPage() {
                       gap: '4px'
                     }}
                   >
-                    <span>Không hoàn thành</span>
+                    <span>{lang === 'en' ? 'Incomplete' : 'Không hoàn thành'}</span>
                   </button>
                 </div>
               </div>
@@ -1690,7 +1778,7 @@ export default function TrainerPage() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <label style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>
-                    2. Chấm điểm đánh giá (Thang 1.0 - 10.0):
+                    {lang === 'en' ? '2. Grade Performance (1.0 - 10.0 scale):' : '2. Chấm điểm đánh giá (Thang 1.0 - 10.0):'}
                   </label>
                   <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--brass)' }}>
                     {selectedSession.score || 8.0}/10
@@ -1732,12 +1820,12 @@ export default function TrainerPage() {
 
               <div>
                 <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
-                  3. Ghi chú bài tập & Nhận xét của HLV:
+                  {lang === 'en' ? '3. Coaching Remarks & Observations:' : '3. Ghi chú bài tập & Nhận xét của HLV:'}
                 </label>
                 <textarea
                   rows="4"
                   required
-                  placeholder="Ghi nhận xét chi tiết..."
+                  placeholder={lang === 'en' ? 'Log detailed observations...' : 'Ghi nhận xét chi tiết...'}
                   value={selectedSession.feedback || ''}
                   onChange={(e) => setSelectedSession({ ...selectedSession, feedback: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }}
@@ -1750,13 +1838,13 @@ export default function TrainerPage() {
                   onClick={() => setShowEditFeedbackModal(false)}
                   style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Hủy
+                  {lang === 'en' ? 'Cancel' : 'Hủy'}
                 </button>
                 <button
                   type="submit"
                   style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Lưu Đánh Giá & Ghi Chú
+                  {lang === 'en' ? 'Save Review & Notes' : 'Lưu Đánh Giá & Ghi Chú'}
                 </button>
               </div>
             </form>

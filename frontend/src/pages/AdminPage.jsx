@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 
 // Minimalist SVG Icons
+const IconGlobe = ({ size = 15, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="2" y1="12" x2="22" y2="12" />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z" />
+  </svg>
+);
+
 const IconShield = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" />
@@ -62,6 +71,7 @@ const IconMenu = () => (
 
 export default function AdminPage() {
   const { currentUser, usersList, updateUser, toggleUserStatus, registerUser, logout } = useAuth();
+  const { t, lang, toggleLang } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -403,7 +413,7 @@ export default function AdminPage() {
           </div>
           <div className="portal-brand-text">
             <h3>Mã Trường OS</h3>
-            <p>Facility & Club Manager</p>
+            <p>{t('adminBrandSub')}</p>
           </div>
         </div>
 
@@ -413,7 +423,7 @@ export default function AdminPage() {
             onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconOverview /></span>
-            <span className="portal-nav-label">Tổng quan cơ sở</span>
+            <span className="portal-nav-label">{t('adminTabOverview')}</span>
           </button>
 
           <button
@@ -421,7 +431,7 @@ export default function AdminPage() {
             onClick={() => { setActiveTab('horses'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconHorse /></span>
-            <span className="portal-nav-label">Quản lý ô ngựa</span>
+            <span className="portal-nav-label">{t('adminTabHorses')}</span>
             <span className="portal-nav-badge">{horses.length}</span>
           </button>
 
@@ -430,8 +440,8 @@ export default function AdminPage() {
             onClick={() => { setActiveTab('stables'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconStable /></span>
-            <span className="portal-nav-label">Quản lý chuồng trại</span>
-            <span className="portal-nav-badge">{stables.filter(s => s.status === 'AVAILABLE').length} trống</span>
+            <span className="portal-nav-label">{t('adminTabStables')}</span>
+            <span className="portal-nav-badge">{stables.filter(s => s.status === 'AVAILABLE').length} {lang === 'en' ? 'free' : 'trống'}</span>
           </button>
 
           <button
@@ -439,7 +449,7 @@ export default function AdminPage() {
             onClick={() => { setActiveTab('users'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconUsers /></span>
-            <span className="portal-nav-label">Phân công nhân sự</span>
+            <span className="portal-nav-label">{t('adminTabUsers')}</span>
             <span className="portal-nav-badge">{usersList.length}</span>
           </button>
 
@@ -448,7 +458,7 @@ export default function AdminPage() {
             onClick={() => { setActiveTab('audit'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconAudit /></span>
-            <span className="portal-nav-label">Nhật ký & Báo cáo</span>
+            <span className="portal-nav-label">{t('adminTabAudit')}</span>
           </button>
         </nav>
 
@@ -461,7 +471,8 @@ export default function AdminPage() {
             </div>
           </div>
           <Link to="/" className="portal-public-link" style={{ marginTop: '12px' }}>
-            <span>Xem trang Public</span>
+            <IconGlobe size={15} />
+            <span>{lang === 'en' ? 'View Public Site' : 'Xem trang Public'}</span>
           </Link>
         </div>
       </aside>
@@ -481,39 +492,63 @@ export default function AdminPage() {
             </button>
             <div className="portal-title-box">
               <h2 className="portal-page-title">
-                {activeTab === 'overview' && 'Facility Overview'}
-                {activeTab === 'horses' && 'Quản Lý Danh Mục Chiến Mã'}
-                {activeTab === 'stables' && 'Sơ Đồ Phân Bổ Chuồng Trại'}
-                {activeTab === 'users' && 'Quản Lý Nhân Sự & RBAC'}
-                {activeTab === 'audit' && 'Nhật Ký Thao Tác Hệ Thống'}
+                {activeTab === 'overview' && t('adminTitleOverview')}
+                {activeTab === 'horses' && t('adminTitleHorses')}
+                {activeTab === 'stables' && t('adminTitleStables')}
+                {activeTab === 'users' && t('adminTitleUsers')}
+                {activeTab === 'audit' && t('adminTitleAudit')}
               </h2>
               <div className="portal-page-subtitle">
-                {activeTab === 'overview' && 'Trung tâm giám sát tài nguyên, đàn ngựa & cơ sở vật chất'}
-                {activeTab === 'horses' && 'Giám sát mã định danh chip, hồ sơ giống & khóa y tế Thú y'}
-                {activeTab === 'stables' && 'Hiện trạng 12 ô chuồng nuôi dưỡng Block A và Block B'}
-                {activeTab === 'users' && 'Bảo mật đa tầng phân quyền 5 vai trò nhân sự'}
-                {activeTab === 'audit' && 'Kiểm toán minh bạch mọi hành vi tác nghiệp thời gian thực'}
+                {activeTab === 'overview' && t('adminSubOverview')}
+                {activeTab === 'horses' && t('adminSubHorses')}
+                {activeTab === 'stables' && t('adminSubStables')}
+                {activeTab === 'users' && t('adminSubUsers')}
+                {activeTab === 'audit' && t('adminSubAudit')}
               </div>
             </div>
           </div>
 
           <div className="portal-topbar-right">
+            <button
+              type="button"
+              onClick={toggleLang}
+              className="portal-theme-btn"
+              title={lang === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '0 12px',
+                height: '38px',
+                borderRadius: '8px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--line)',
+                color: 'var(--paper)',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '12px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <IconGlobe size={15} color="var(--brass)" />
+              <span>{lang === 'vi' ? 'VI' : 'EN'}</span>
+            </button>
             <ThemeToggle />
             <div className="portal-user-badge">
               <div className="portal-user-avatar">
                 {getInitials(currentUser?.full_name)}
               </div>
               <div className="portal-user-info">
-                <div className="portal-user-name">{currentUser?.full_name || 'Quản Trị Viên'}</div>
-                <div className="portal-user-role">{currentUser?.role_name || 'Ban Quản Trị & Quản Lý'}</div>
+                <div className="portal-user-name">{currentUser?.full_name || (lang === 'en' ? 'Administrator' : 'Quản Trị Viên')}</div>
+                <div className="portal-user-role">{currentUser?.role_name || (lang === 'en' ? 'Facility Manager' : 'Ban Quản Trị & Quản Lý')}</div>
               </div>
             </div>
             <button
               onClick={handleLogout}
               className="portal-btn-logout"
-              title="Đăng xuất khỏi hệ thống"
+              title={lang === 'en' ? 'Logout from system' : 'Đăng xuất khỏi hệ thống'}
             >
-              <span>Đăng xuất</span>
+              <span>{lang === 'en' ? 'Logout' : 'Đăng xuất'}</span>
             </button>
           </div>
         </header>
@@ -528,16 +563,16 @@ export default function AdminPage() {
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button className="portal-pill-btn active">
-                    Tất cả cơ sở <span className="pill-count">100%</span>
+                    {t('adminFilterAll')} <span className="pill-count">100%</span>
                   </button>
                   <button className="portal-pill-btn" onClick={() => setActiveTab('horses')}>
-                    Chiến mã <span className="pill-count">{horses.length}</span>
+                    {t('adminFilterHorses')} <span className="pill-count">{horses.length}</span>
                   </button>
                   <button className="portal-pill-btn" onClick={() => setActiveTab('stables')}>
-                    Ô chuồng <span className="pill-count">{stables.length}</span>
+                    {t('adminFilterStables')} <span className="pill-count">{stables.length}</span>
                   </button>
                   <button className="portal-pill-btn" onClick={() => setActiveTab('users')}>
-                    Nhân sự <span className="pill-count">{usersList.length}</span>
+                    {t('adminFilterUsers')} <span className="pill-count">{usersList.length}</span>
                   </button>
                 </div>
               </div>
@@ -546,53 +581,53 @@ export default function AdminPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '18px', marginBottom: '28px' }}>
                 <div className="facility-card" style={{ padding: '22px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>TỔNG ĐÀN CHIẾN MÃ</span>
+                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'TOTAL RACEHORSES' : 'TỔNG ĐÀN CHIẾN MÃ'}</span>
                     <span style={{ color: 'var(--brass)' }}><IconHorse /></span>
                   </div>
                   <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    {horses.length} con
+                    {horses.length} {lang === 'en' ? 'horses' : 'con'}
                   </div>
                   <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    2 Đủ điều kiện · 1 Theo dõi · 1 Tạm khóa
+                    {lang === 'en' ? '2 Cleared · 1 Monitored · 1 Locked' : '2 Đủ điều kiện · 1 Theo dõi · 1 Tạm khóa'}
                   </div>
                 </div>
 
                 <div className="facility-card" style={{ padding: '22px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>CÔNG SUẤT CHUỒNG TRẠI</span>
+                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'BARN OCCUPANCY RATE' : 'CÔNG SUẤT CHUỒNG TRẠI'}</span>
                     <span style={{ color: 'var(--brass)' }}><IconStable /></span>
                   </div>
                   <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    {stables.filter(s => s.status === 'OCCUPIED').length} / {stables.length} ô
+                    {stables.filter(s => s.status === 'OCCUPIED').length} / {stables.length} {lang === 'en' ? 'stalls' : 'ô'}
                   </div>
                   <div style={{ fontSize: '12.5px', color: 'var(--brass)', fontWeight: 500 }}>
-                    Lấp đầy: 91.7% (1 chuồng trống)
+                    {lang === 'en' ? 'Occupancy: 91.7% (1 stall vacant)' : 'Lấp đầy: 91.7% (1 chuồng trống)'}
                   </div>
                 </div>
 
                 <div className="facility-card" style={{ padding: '22px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>TỔNG NHÂN SỰ RBAC</span>
+                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'TOTAL STAFF USERS (RBAC)' : 'TỔNG NHÂN SỰ RBAC'}</span>
                     <span style={{ color: 'var(--brass)' }}><IconUsers /></span>
                   </div>
                   <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    {usersList.length} tài khoản
+                    {usersList.length} {lang === 'en' ? 'accounts' : 'tài khoản'}
                   </div>
                   <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    Phân quyền 5 nhóm chức năng
+                    {lang === 'en' ? 'Delegated across 5 functional tiers' : 'Phân quyền 5 nhóm chức năng'}
                   </div>
                 </div>
 
                 <div className="facility-card" style={{ padding: '22px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>QUỸ GIẢI ĐẤU & HOẠT ĐỘNG</span>
+                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'PRIZE PURSE & OPS FUND' : 'QUỸ GIẢI ĐẤU & HOẠT ĐỘNG'}</span>
                     <span style={{ color: 'var(--brass)' }}><IconShield /></span>
                   </div>
                   <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--brass)', margin: '12px 0 6px' }}>
                     500.000.000 ₫
                   </div>
                   <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    Giải Vô địch Quốc gia 2026 (Đã duyệt)
+                    {lang === 'en' ? 'National Championship 2026 (Approved)' : 'Giải Vô địch Quốc gia 2026 (Đã duyệt)'}
                   </div>
                 </div>
               </div>
@@ -654,25 +689,25 @@ export default function AdminPage() {
                     className={`portal-pill-btn ${horseFilter === 'ALL' ? 'active' : ''}`}
                     onClick={() => setHorseFilter('ALL')}
                   >
-                    Tất cả <span className="pill-count">{horses.length}</span>
+                    {lang === 'en' ? 'All Horses' : 'Tất cả'} <span className="pill-count">{horses.length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${horseFilter === 'ELIGIBLE' ? 'active' : ''}`}
                     onClick={() => setHorseFilter('ELIGIBLE')}
                   >
-                    Đủ điều kiện <span className="pill-count">{horses.filter(h => h.status === 'ELIGIBLE' && !h.locked).length}</span>
+                    {t('adminHorseEligible')} <span className="pill-count">{horses.filter(h => h.status === 'ELIGIBLE' && !h.locked).length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${horseFilter === 'WATCH' ? 'active' : ''}`}
                     onClick={() => setHorseFilter('WATCH')}
                   >
-                    Cần theo dõi <span className="pill-count">{horses.filter(h => h.status === 'WATCH').length}</span>
+                    {t('adminHorseWatch')} <span className="pill-count">{horses.filter(h => h.status === 'WATCH').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${horseFilter === 'LOCKED' ? 'active' : ''}`}
                     onClick={() => setHorseFilter('LOCKED')}
                   >
-                    Khóa Y Tế <span className="pill-count">{horses.filter(h => h.locked || h.status === 'INJURED').length}</span>
+                    {lang === 'en' ? 'Vet Locked' : 'Khóa Y Tế'} <span className="pill-count">{horses.filter(h => h.locked || h.status === 'INJURED').length}</span>
                   </button>
                 </div>
 
@@ -681,20 +716,20 @@ export default function AdminPage() {
                     className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
                     onClick={() => setViewMode('cards')}
                   >
-                    Lưới thẻ
+                    {lang === 'en' ? 'Card Grid' : 'Lưới thẻ'}
                   </button>
                   <button
                     className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
                     onClick={() => setViewMode('table')}
                   >
-                    Bảng dữ liệu
+                    {lang === 'en' ? 'Data Table' : 'Bảng dữ liệu'}
                   </button>
                   <button
                     onClick={() => setShowAddHorseModal(true)}
                     className="portal-view-btn"
                     style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
                   >
-                    + Thêm Ngựa
+                    {t('adminBtnAddHorse')}
                   </button>
                 </div>
               </div>
@@ -704,6 +739,11 @@ export default function AdminPage() {
                 <div className="portal-cards-grid">
                   {filteredHorses.map((h) => {
                     const badgeClass = h.breed === 'Thoroughbred' ? 'badge-gold' : 'badge-slate';
+                    const genderDisplay = h.gender.includes('đực')
+                      ? (lang === 'en' ? 'Stallion' : 'Đực')
+                      : h.gender.includes('thiến')
+                        ? (lang === 'en' ? 'Gelding' : 'Thiến')
+                        : (lang === 'en' ? 'Mare' : 'Cái');
                     return (
                       <div key={h.id} className="facility-card">
                         {/* Top Badge */}
@@ -723,26 +763,26 @@ export default function AdminPage() {
                         <div className="facility-card-bullets">
                           <div className="facility-bullet-item">
                             <span className="bullet-dot" />
-                            <span>Mã chip định danh: <b>{h.microchip}</b></span>
+                            <span>{lang === 'en' ? 'RFID Microchip:' : 'Mã chip định danh:'} <b>{h.microchip}</b></span>
                           </div>
                           <div className="facility-bullet-item">
                             <span className="bullet-dot" />
-                            <span>Chuồng nuôi dưỡng: <b>Ô {h.stable}</b></span>
+                            <span>{lang === 'en' ? 'Assigned Barn Stall:' : 'Chuồng nuôi dưỡng:'} <b>{lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}</b></span>
                           </div>
                         </div>
 
                         {/* 3-column specs grid */}
                         <div className="facility-specs-grid">
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Giới tính</span>
-                            <span className="spec-val">{h.gender.includes('đực') ? 'Đực' : h.gender.includes('thiến') ? 'Thiến' : 'Cái'}</span>
+                            <span className="spec-label">{lang === 'en' ? 'Gender' : 'Giới tính'}</span>
+                            <span className="spec-val">{genderDisplay}</span>
                           </div>
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Ô Chuồng</span>
-                            <span className="spec-val" style={{ color: 'var(--brass)', fontWeight: 700 }}>Ô {h.stable}</span>
+                            <span className="spec-label">{lang === 'en' ? 'Stall' : 'Ô Chuồng'}</span>
+                            <span className="spec-val" style={{ color: 'var(--brass)', fontWeight: 700 }}>{lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}</span>
                           </div>
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Chủ sở hữu</span>
+                            <span className="spec-label">{lang === 'en' ? 'Owner' : 'Chủ sở hữu'}</span>
                             <span className="spec-val" style={{ fontSize: '11.5px' }}>{h.owner.split(' ').slice(-1)[0]}</span>
                           </div>
                         </div>
@@ -750,7 +790,7 @@ export default function AdminPage() {
                         {/* Status/Price Box */}
                         <div className="facility-price-box">
                           <div>
-                            <div className="price-label">Trạng thái sức khỏe</div>
+                            <div className="price-label">{lang === 'en' ? 'Health Status' : 'Trạng thái sức khỏe'}</div>
                             <div className="price-value" style={{ fontSize: '15px', color: 'var(--paper)' }}>
                               {h.statusText}
                             </div>
@@ -764,7 +804,7 @@ export default function AdminPage() {
                             color: h.locked ? 'var(--paper-dim)' : 'var(--brass)',
                             border: '1px solid var(--line)'
                           }}>
-                            {h.locked ? 'TẠM KHÓA' : 'KHẢ DỤNG'}
+                            {h.locked ? (lang === 'en' ? 'LOCKED' : 'TẠM KHÓA') : (lang === 'en' ? 'ACTIVE' : 'KHẢ DỤNG')}
                           </span>
                         </div>
 
@@ -773,25 +813,25 @@ export default function AdminPage() {
                           <div className="actions-left">
                             <button
                               className="facility-btn-action"
-                              onClick={() => showToast(`Xem chi tiết hồ sơ mã ${h.name} (Chip: ${h.microchip})`, 'HỒ SƠ CHIẾN MÃ')}
+                              onClick={() => showToast(lang === 'en' ? `Viewing file of ${h.name} (Chip: ${h.microchip})` : `Xem chi tiết hồ sơ mã ${h.name} (Chip: ${h.microchip})`, lang === 'en' ? 'HORSE PROFILE' : 'HỒ SƠ CHIẾN MÃ')}
                             >
-                              Xem chi tiết
+                              {lang === 'en' ? 'View Details' : 'Xem chi tiết'}
                             </button>
                             <button
                               className={`facility-btn-action ${h.locked ? 'btn-danger' : ''}`}
                               onClick={() => {
                                 handleToggleHorseLock(h.id);
-                                showToast(`Đã ${h.locked ? 'mở khóa huấn luyện' : 'khóa y tế khẩn cấp'} cho chiến mã ${h.name}`, 'CẬP NHẬT TRẠNG THÁI');
+                                showToast(h.locked ? (lang === 'en' ? `Training unlocked for ${h.name}` : `Đã mở khóa huấn luyện cho chiến mã ${h.name}`) : (lang === 'en' ? `Emergency veterinary lock enabled for ${h.name}` : `Đã khóa y tế khẩn cấp cho chiến mã ${h.name}`), lang === 'en' ? 'STATUS UPDATE' : 'CẬP NHẬT TRẠNG THÁI');
                               }}
                             >
-                              {h.locked ? 'Mở khóa' : 'Khóa y tế'}
+                              {h.locked ? (lang === 'en' ? 'Unlock' : 'Mở khóa') : (lang === 'en' ? 'Lock (Vet)' : 'Khóa y tế')}
                             </button>
                           </div>
                           <button
                             className="facility-link-action"
-                            onClick={() => showToast(`Đang mở hồ sơ bệnh án thú y và chỉ số chạy của ${h.name}`, 'HỒ SƠ BỆNH ÁN & VẬN TỐC')}
+                            onClick={() => showToast(lang === 'en' ? `Opening vet medical records and velocities of ${h.name}` : `Đang mở hồ sơ bệnh án thú y và chỉ số chạy của ${h.name}`, lang === 'en' ? 'VET & TELEMETRY RECORDS' : 'HỒ SƠ BỆNH ÁN & VẬN TỐC')}
                           >
-                            Chi tiết ô →
+                            {lang === 'en' ? 'Stall Info →' : 'Chi tiết ô →'}
                           </button>
                         </div>
                       </div>
@@ -804,13 +844,13 @@ export default function AdminPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                        <th style={{ padding: '14px 18px' }}>Mã Chip / Tên Ngựa</th>
-                        <th style={{ padding: '14px 18px' }}>Giống loài & Giới tính</th>
-                        <th style={{ padding: '14px 18px' }}>Chuồng phân bổ</th>
-                        <th style={{ padding: '14px 18px' }}>Chủ sở hữu</th>
-                        <th style={{ padding: '14px 18px' }}>Trạng thái Sức khỏe</th>
-                        <th style={{ padding: '14px 18px' }}>Khóa Y Tế Thú Y</th>
-                        <th style={{ padding: '14px 18px' }}>Hành động</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'RFID Chip / Horse Name' : 'Mã Chip / Tên Ngựa'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Breed & Gender' : 'Giống loài & Giới tính'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Allocation' : 'Chuồng phân bổ'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Owner' : 'Chủ sở hữu'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Health Status' : 'Trạng thái Sức khỏe'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Vet Lock' : 'Khóa Y Tế Thú Y'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action' : 'Hành động'}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -826,7 +866,7 @@ export default function AdminPage() {
                           </td>
                           <td style={{ padding: '14px 18px' }}>
                             <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '4px', fontWeight: 600 }}>
-                              Ô {h.stable}
+                              {lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}
                             </span>
                           </td>
                           <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{h.owner}</td>
@@ -846,11 +886,11 @@ export default function AdminPage() {
                           <td style={{ padding: '14px 18px' }}>
                             {h.locked ? (
                               <span style={{ color: 'var(--brass)', fontWeight: 600, fontSize: '12px' }}>
-                                Tạm khóa y tế
+                                {lang === 'en' ? 'Vet Locked' : 'Tạm khóa y tế'}
                               </span>
                             ) : (
                               <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>
-                                Bình thường
+                                {lang === 'en' ? 'Normal' : 'Bình thường'}
                               </span>
                             )}
                           </td>
@@ -868,7 +908,7 @@ export default function AdminPage() {
                                 fontWeight: 500
                               }}
                             >
-                              {h.locked ? 'Mở Khóa' : 'Khóa Y Tế'}
+                              {h.locked ? (lang === 'en' ? 'Unlock' : 'Mở Khóa') : (lang === 'en' ? 'Vet Lock' : 'Khóa Y Tế')}
                             </button>
                           </td>
                         </tr>
@@ -889,19 +929,19 @@ export default function AdminPage() {
                     className={`portal-pill-btn ${stableFilter === 'ALL' ? 'active' : ''}`}
                     onClick={() => setStableFilter('ALL')}
                   >
-                    Tất cả 12 ô <span className="pill-count">{stables.length}</span>
+                    {lang === 'en' ? 'All 12 Stalls' : 'Tất cả 12 ô'} <span className="pill-count">{stables.length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${stableFilter === 'AVAILABLE' ? 'active' : ''}`}
                     onClick={() => setStableFilter('AVAILABLE')}
                   >
-                    Còn trống <span className="pill-count">{stables.filter(s => s.status === 'AVAILABLE').length}</span>
+                    {lang === 'en' ? 'Available' : 'Còn trống'} <span className="pill-count">{stables.filter(s => s.status === 'AVAILABLE').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${stableFilter === 'OCCUPIED' ? 'active' : ''}`}
                     onClick={() => setStableFilter('OCCUPIED')}
                   >
-                    Đã lấp đầy <span className="pill-count">{stables.filter(s => s.status === 'OCCUPIED').length}</span>
+                    {lang === 'en' ? 'Occupied' : 'Đã lấp đầy'} <span className="pill-count">{stables.filter(s => s.status === 'OCCUPIED').length}</span>
                   </button>
                 </div>
 
@@ -910,13 +950,13 @@ export default function AdminPage() {
                     className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
                     onClick={() => setViewMode('cards')}
                   >
-                    Lưới thẻ
+                    {lang === 'en' ? 'Card Grid' : 'Lưới thẻ'}
                   </button>
                   <button
                     className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
                     onClick={() => setViewMode('table')}
                   >
-                    Bảng danh sách
+                    {lang === 'en' ? 'Data Table' : 'Bảng danh sách'}
                   </button>
                 </div>
               </div>
@@ -939,42 +979,48 @@ export default function AdminPage() {
                           </span>
                         </div>
 
-                        <h3 className="facility-card-title">Ô Chuồng {s.stall_code}</h3>
+                        <h3 className="facility-card-title">{lang === 'en' ? `Barn Stall ${s.stall_code}` : `Ô Chuồng ${s.stall_code}`}</h3>
                         <p className="facility-card-desc">
-                          {isOccupied ? `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.` : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.'}
+                          {isOccupied
+                            ? (lang === 'en' ? `Housing racehorse ${s.horse}. Premium equine amenities.` : `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.`)
+                            : (lang === 'en' ? 'Clean empty stall ready for horse intake.' : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.')}
                         </p>
 
                         <div className="facility-card-bullets">
                           <div className="facility-bullet-item">
                             <span className="bullet-dot" />
-                            <span>Chiến mã lưu trú: <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)' }}>{s.horse}</b></span>
+                            <span>{lang === 'en' ? 'Resident horse:' : 'Chiến mã lưu trú:'} <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)' }}>{s.horse}</b></span>
                           </div>
                           <div className="facility-bullet-item">
                             <span className="bullet-dot" />
-                            <span>Khu chuồng: <b>{s.block}</b></span>
+                            <span>{lang === 'en' ? 'Barn block:' : 'Khu chuồng:'} <b>{s.block}</b></span>
                           </div>
                         </div>
 
                         <div className="facility-specs-grid">
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Diện tích</span>
+                            <span className="spec-label">{lang === 'en' ? 'Area' : 'Diện tích'}</span>
                             <span className="spec-val">{s.area || '14 m²'}</span>
                           </div>
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Kích thước</span>
+                            <span className="spec-label">{lang === 'en' ? 'Dimensions' : 'Kích thước'}</span>
                             <span className="spec-val">{s.dim || '3.8 x 3.8m'}</span>
                           </div>
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Tiêu chuẩn</span>
+                            <span className="spec-label">{lang === 'en' ? 'Standard' : 'Tiêu chuẩn'}</span>
                             <span className="spec-val">Pro Stall</span>
                           </div>
                         </div>
 
                         <div className="facility-price-box">
                           <div>
-                            <div className="price-label">Trạng thái ô</div>
+                            <div className="price-label">{lang === 'en' ? 'Stall Status' : 'Trạng thái ô'}</div>
                             <div className="price-value" style={{ fontSize: '14.5px', color: isOccupied ? 'var(--brass)' : 'var(--paper)' }}>
-                              {isOccupied ? 'Đang nuôi dưỡng' : isAvailable ? 'Còn trống sẵn sàng' : 'Đang bảo dưỡng'}
+                              {isOccupied
+                                ? (lang === 'en' ? 'Currently Occupied' : 'Đang nuôi dưỡng')
+                                : isAvailable
+                                  ? (lang === 'en' ? 'Available & Ready' : 'Còn trống sẵn sàng')
+                                  : (lang === 'en' ? 'Under Maintenance' : 'Đang bảo dưỡng')}
                             </div>
                           </div>
                           <span style={{
@@ -986,7 +1032,11 @@ export default function AdminPage() {
                             color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)',
                             border: '1px solid var(--line)'
                           }}>
-                            {isOccupied ? 'LẤP ĐẦY' : isAvailable ? 'TRỐNG' : 'BẢO TRÌ'}
+                            {isOccupied
+                              ? (lang === 'en' ? 'OCCUPIED' : 'LẤP ĐẦY')
+                              : isAvailable
+                                ? (lang === 'en' ? 'VACANT' : 'TRỐNG')
+                                : (lang === 'en' ? 'SERVICE' : 'BẢO TRÌ')}
                           </span>
                         </div>
 
@@ -996,7 +1046,7 @@ export default function AdminPage() {
                               className="facility-btn-action"
                               onClick={() => handleToggleStable(s.stall_code)}
                             >
-                              Đổi trạng thái
+                              {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
                             </button>
                           </div>
                           <span className="facility-link-action" style={{ cursor: 'default' }}>
@@ -1012,11 +1062,11 @@ export default function AdminPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                        <th style={{ padding: '14px 18px' }}>Mã Ô Chuồng</th>
-                        <th style={{ padding: '14px 18px' }}>Khu Vực</th>
-                        <th style={{ padding: '14px 18px' }}>Chiến Mã Đang Ở</th>
-                        <th style={{ padding: '14px 18px' }}>Trạng Thái</th>
-                        <th style={{ padding: '14px 18px' }}>Thao Tác</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Code' : 'Mã Ô Chuồng'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Barn Block' : 'Khu Vực'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Resident Runner' : 'Chiến Mã Đang Ở'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Status' : 'Trạng Thái'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action' : 'Thao Tác'}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1025,7 +1075,7 @@ export default function AdminPage() {
                         const isAvailable = s.status === 'AVAILABLE';
                         return (
                           <tr key={s.stall_code} style={{ borderBottom: '1px solid var(--line)' }}>
-                            <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>Ô {s.stall_code}</td>
+                            <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{lang === 'en' ? 'Stall ' : 'Ô '}{s.stall_code}</td>
                             <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{s.block}</td>
                             <td style={{ padding: '14px 18px', color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 600 }}>{s.horse}</td>
                             <td style={{ padding: '14px 18px' }}>
@@ -1038,7 +1088,7 @@ export default function AdminPage() {
                                 color: isOccupied ? 'var(--brass)' : 'var(--paper)',
                                 border: '1px solid var(--line)'
                               }}>
-                                {isOccupied ? 'Đang dùng' : isAvailable ? 'Còn trống' : 'Bảo trì'}
+                                {isOccupied ? (lang === 'en' ? 'Occupied' : 'Đang dùng') : isAvailable ? (lang === 'en' ? 'Available' : 'Còn trống') : (lang === 'en' ? 'Maintenance' : 'Bảo trì')}
                               </span>
                             </td>
                             <td style={{ padding: '14px 18px' }}>
@@ -1054,7 +1104,7 @@ export default function AdminPage() {
                                   cursor: 'pointer'
                                 }}
                               >
-                                Đổi trạng thái
+                                {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
                               </button>
                             </td>
                           </tr>
@@ -1076,31 +1126,31 @@ export default function AdminPage() {
                     className={`portal-pill-btn ${userFilter === 'ALL' ? 'active' : ''}`}
                     onClick={() => setUserFilter('ALL')}
                   >
-                    Tất cả <span className="pill-count">{usersList.length}</span>
+                    {lang === 'en' ? 'All Staff' : 'Tất cả'} <span className="pill-count">{usersList.length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'TRAINER' ? 'active' : ''}`}
                     onClick={() => setUserFilter('TRAINER')}
                   >
-                    Huấn Luyện Viên <span className="pill-count">{usersList.filter(u => u.role === 'TRAINER').length}</span>
+                    {lang === 'en' ? 'Trainers' : 'Huấn Luyện Viên'} <span className="pill-count">{usersList.filter(u => u.role === 'TRAINER').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'VET' ? 'active' : ''}`}
                     onClick={() => setUserFilter('VET')}
                   >
-                    Bác Sĩ Thú Y <span className="pill-count">{usersList.filter(u => u.role === 'VET').length}</span>
+                    {lang === 'en' ? 'Veterinarians' : 'Bác Sĩ Thú Y'} <span className="pill-count">{usersList.filter(u => u.role === 'VET').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'GROOM' ? 'active' : ''}`}
                     onClick={() => setUserFilter('GROOM')}
                   >
-                    Chăm Sóc Groom <span className="pill-count">{usersList.filter(u => u.role === 'GROOM').length}</span>
+                    {lang === 'en' ? 'Stable Grooms' : 'Chăm Sóc Groom'} <span className="pill-count">{usersList.filter(u => u.role === 'GROOM').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'OWNER' ? 'active' : ''}`}
                     onClick={() => setUserFilter('OWNER')}
                   >
-                    Chủ Ngựa <span className="pill-count">{usersList.filter(u => u.role === 'OWNER').length}</span>
+                    {lang === 'en' ? 'Horse Owners' : 'Chủ Ngựa'} <span className="pill-count">{usersList.filter(u => u.role === 'OWNER').length}</span>
                   </button>
                 </div>
 
@@ -1109,20 +1159,20 @@ export default function AdminPage() {
                     className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
                     onClick={() => setViewMode('cards')}
                   >
-                    Lưới thẻ
+                    {lang === 'en' ? 'Card Grid' : 'Lưới thẻ'}
                   </button>
                   <button
                     className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
                     onClick={() => setViewMode('table')}
                   >
-                    Bảng danh sách
+                    {lang === 'en' ? 'Data Table' : 'Bảng danh sách'}
                   </button>
                   <button
                     onClick={() => setShowAddUserModal(true)}
                     className="portal-view-btn"
                     style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
                   >
-                    + Thêm Nhân Sự
+                    {t('adminBtnAddUser')}
                   </button>
                 </div>
               </div>
@@ -1145,7 +1195,7 @@ export default function AdminPage() {
 
                         <h3 className="facility-card-title">{u.full_name}</h3>
                         <p className="facility-card-desc">
-                          Tài khoản: <b style={{ color: 'var(--paper)' }}>@{u.username}</b>. Quyền hạn thao tác RBAC chuẩn hóa.
+                          {lang === 'en' ? 'Account:' : 'Tài khoản:'} <b style={{ color: 'var(--paper)' }}>@{u.username}</b>. {lang === 'en' ? 'Standardized RBAC management privileges.' : 'Quyền hạn thao tác RBAC chuẩn hóa.'}
                         </p>
 
                         <div className="facility-card-bullets">
@@ -1161,26 +1211,26 @@ export default function AdminPage() {
 
                         <div className="facility-specs-grid">
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Mã ID</span>
+                            <span className="spec-label">{lang === 'en' ? 'User ID' : 'Mã ID'}</span>
                             <span className="spec-val">#{u.user_id}</span>
                           </div>
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Vai trò</span>
+                            <span className="spec-label">{lang === 'en' ? 'RBAC Role' : 'Vai trò'}</span>
                             <span className="spec-val" style={{ fontSize: '11.5px' }}>{u.role}</span>
                           </div>
                           <div className="facility-spec-cell">
-                            <span className="spec-label">Trạng thái</span>
+                            <span className="spec-label">{lang === 'en' ? 'Status' : 'Trạng thái'}</span>
                             <span className="spec-val" style={{ color: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)' }}>
-                              {u.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'}
+                              {u.status === 'ACTIVE' ? (lang === 'en' ? 'Active' : 'Hoạt động') : (lang === 'en' ? 'Suspended' : 'Tạm khóa')}
                             </span>
                           </div>
                         </div>
 
                         <div className="facility-price-box">
                           <div>
-                            <div className="price-label">Trạng thái tài khoản</div>
+                            <div className="price-label">{lang === 'en' ? 'Access Status' : 'Trạng thái tài khoản'}</div>
                             <div className="price-value" style={{ fontSize: '14.5px', color: 'var(--paper)' }}>
-                              {u.status === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm khóa truy cập'}
+                              {u.status === 'ACTIVE' ? (lang === 'en' ? 'Active Account' : 'Đang hoạt động') : (lang === 'en' ? 'Access Suspended' : 'Tạm khóa truy cập')}
                             </div>
                           </div>
                           <span style={{
@@ -1197,14 +1247,14 @@ export default function AdminPage() {
                               className="facility-btn-action"
                               onClick={() => handleOpenEditUser(u)}
                             >
-                              Sửa
+                              {lang === 'en' ? 'Edit' : 'Sửa'}
                             </button>
                             {u.username !== 'admin' && (
                               <button
                                 className={`facility-btn-action ${u.status === 'ACTIVE' ? 'btn-danger' : ''}`}
                                 onClick={() => toggleUserStatus(u.user_id)}
                               >
-                                {u.status === 'ACTIVE' ? 'Khóa' : 'Mở'}
+                                {u.status === 'ACTIVE' ? (lang === 'en' ? 'Lock' : 'Khóa') : (lang === 'en' ? 'Unlock' : 'Mở')}
                               </button>
                             )}
                           </div>
@@ -1212,7 +1262,7 @@ export default function AdminPage() {
                             className="facility-link-action"
                             onClick={() => handleOpenEditUser(u)}
                           >
-                            Hồ sơ →
+                            {lang === 'en' ? 'Profile →' : 'Hồ sơ →'}
                           </button>
                         </div>
                       </div>
@@ -1225,11 +1275,11 @@ export default function AdminPage() {
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
                         <th style={{ padding: '14px 18px' }}>ID</th>
-                        <th style={{ padding: '14px 18px' }}>Tài khoản / Họ Tên</th>
-                        <th style={{ padding: '14px 18px' }}>Email & Điện thoại</th>
-                        <th style={{ padding: '14px 18px' }}>Vai trò Nghiệp vụ (Role)</th>
-                        <th style={{ padding: '14px 18px' }}>Trạng thái</th>
-                        <th style={{ padding: '14px 18px' }}>Hành động</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Account / Full Name' : 'Tài khoản / Họ Tên'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Email & Phone' : 'Email & Điện thoại'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'RBAC Role' : 'Vai trò Nghiệp vụ (Role)'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Status' : 'Trạng thái'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Actions' : 'Hành động'}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1268,14 +1318,14 @@ export default function AdminPage() {
                                 color: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)'
                               }}>
                                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)' }} />
-                                {u.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm khóa'}
+                                {u.status === 'ACTIVE' ? (lang === 'en' ? 'Active' : 'Hoạt động') : (lang === 'en' ? 'Suspended' : 'Tạm khóa')}
                               </span>
                             </td>
                             <td style={{ padding: '14px 18px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                 <button
                                   onClick={() => handleOpenEditUser(u)}
-                                  title="Sửa thông tin nhân sự"
+                                  title={lang === 'en' ? 'Edit staff profile' : 'Sửa thông tin nhân sự'}
                                   style={{
                                     padding: '5px 12px',
                                     background: 'var(--bg-secondary)',
@@ -1287,7 +1337,7 @@ export default function AdminPage() {
                                     fontWeight: 500
                                   }}
                                 >
-                                  Sửa
+                                  {lang === 'en' ? 'Edit' : 'Sửa'}
                                 </button>
                                 {u.username !== 'admin' && (
                                   <button
@@ -1302,7 +1352,7 @@ export default function AdminPage() {
                                       cursor: 'pointer'
                                     }}
                                   >
-                                    {u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}
+                                    {u.status === 'ACTIVE' ? (lang === 'en' ? 'Suspend' : 'Khóa tài khoản') : (lang === 'en' ? 'Reactivate' : 'Mở khóa')}
                                   </button>
                                 )}
                               </div>
@@ -1323,7 +1373,7 @@ export default function AdminPage() {
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button className="portal-pill-btn active">
-                    Tất cả sự kiện <span className="pill-count">{auditLogs.length}</span>
+                    {lang === 'en' ? 'All Audit Events' : 'Tất cả sự kiện'} <span className="pill-count">{auditLogs.length}</span>
                   </button>
                 </div>
               </div>
@@ -1332,10 +1382,10 @@ export default function AdminPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                      <th style={{ padding: '14px 18px' }}>Thời gian</th>
-                      <th style={{ padding: '14px 18px' }}>Người thực hiện</th>
-                      <th style={{ padding: '14px 18px' }}>Hành động</th>
-                      <th style={{ padding: '14px 18px' }}>Nội dung chi tiết</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Timestamp' : 'Thời gian'}</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Actor / Operator' : 'Người thực hiện'}</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action Type' : 'Hành động'}</th>
+                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Transaction Details' : 'Nội dung chi tiết'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1393,25 +1443,31 @@ export default function AdminPage() {
             color: 'var(--paper)',
             boxShadow: 'var(--shadow)'
           }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>Thêm Nhân Sự / Người Dùng Mới</h3>
+            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>
+              {lang === 'en' ? 'Add New Staff / User' : 'Thêm Nhân Sự / Người Dùng Mới'}
+            </h3>
             <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Họ và tên</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Full Name' : 'Họ và tên'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ví dụ: Hoàng Văn Bảo"
+                  placeholder={lang === 'en' ? 'e.g. David Miller' : 'Ví dụ: Hoàng Văn Bảo'}
                   value={newUserData.full_name}
                   onChange={(e) => setNewUserData({ ...newUserData, full_name: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Tên đăng nhập (Username)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Username' : 'Tên đăng nhập (Username)'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ví dụ: trainer_bao"
+                  placeholder={lang === 'en' ? 'e.g. trainer_miller' : 'Ví dụ: trainer_bao'}
                   value={newUserData.username}
                   onChange={(e) => setNewUserData({ ...newUserData, username: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
@@ -1429,28 +1485,32 @@ export default function AdminPage() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Số điện thoại</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Phone Number' : 'Số điện thoại'}
+                </label>
                 <input
                   type="tel"
                   required
-                  placeholder="Ví dụ: 0901234567"
+                  placeholder={lang === 'en' ? 'e.g. 0901234567' : 'Ví dụ: 0901234567'}
                   value={newUserData.phone}
                   onChange={(e) => setNewUserData({ ...newUserData, phone: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Vai trò Nghiệp vụ (RBAC)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'RBAC Role' : 'Vai trò Nghiệp vụ (RBAC)'}
+                </label>
                 <select
                   value={newUserData.role}
                   onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
-                  <option value="TRAINER">Huấn luyện viên Trưởng (Trainer)</option>
-                  <option value="VET">Bác sĩ Thú y (Veterinarian)</option>
-                  <option value="GROOM">Nhân viên Chăm sóc (Groom)</option>
-                  <option value="OWNER">Chủ sở hữu Ngựa (Owner)</option>
-                  <option value="MANAGER">Ban Quản lý Câu lạc bộ (Club Manager)</option>
+                  <option value="TRAINER">{lang === 'en' ? 'Head Trainer' : 'Huấn luyện viên Trưởng (Trainer)'}</option>
+                  <option value="VET">{lang === 'en' ? 'Veterinarian (Vet)' : 'Bác sĩ Thú y (Veterinarian)'}</option>
+                  <option value="GROOM">{lang === 'en' ? 'Groom / Caretaker' : 'Nhân viên Chăm sóc (Groom)'}</option>
+                  <option value="OWNER">{lang === 'en' ? 'Horse Owner' : 'Chủ sở hữu Ngựa (Owner)'}</option>
+                  <option value="MANAGER">{lang === 'en' ? 'Club Manager' : 'Ban Quản lý Câu lạc bộ (Club Manager)'}</option>
                 </select>
               </div>
 
@@ -1460,13 +1520,13 @@ export default function AdminPage() {
                   onClick={() => setShowAddUserModal(false)}
                   style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Hủy
+                  {lang === 'en' ? 'Cancel' : 'Hủy'}
                 </button>
                 <button
                   type="submit"
                   style={{ flex: 1, padding: '10px', background: 'var(--brass, #C9A227)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Lưu Nhân Sự
+                  {lang === 'en' ? 'Save User' : 'Lưu Nhân Sự'}
                 </button>
               </div>
             </form>
@@ -1501,7 +1561,7 @@ export default function AdminPage() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
               <h3 style={{ fontSize: '18px', margin: 0, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Sửa Thông Tin Nhân Sự
+                {lang === 'en' ? 'Edit Staff Profile' : 'Sửa Thông Tin Nhân Sự'}
               </h3>
               <span style={{ fontSize: '12px', background: 'rgba(201, 162, 39, 0.12)', color: 'var(--brass)', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--brass)', fontWeight: 600 }}>
                 ID: #{editUserData.user_id}
@@ -1510,11 +1570,13 @@ export default function AdminPage() {
 
             <form onSubmit={handleRequestSaveEditUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Họ và tên</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Full Name' : 'Họ và tên'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="Họ và tên nhân sự"
+                  placeholder={lang === 'en' ? 'Staff full name' : 'Họ và tên nhân sự'}
                   value={editUserData.full_name}
                   onChange={(e) => setEditUserData({ ...editUserData, full_name: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
@@ -1522,7 +1584,9 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Tên đăng nhập (Username)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Username' : 'Tên đăng nhập (Username)'}
+                </label>
                 <input
                   type="text"
                   required
@@ -1546,11 +1610,13 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Số điện thoại</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Phone Number' : 'Số điện thoại'}
+                </label>
                 <input
                   type="tel"
                   required
-                  placeholder="Số điện thoại"
+                  placeholder={lang === 'en' ? 'Phone number' : 'Số điện thoại'}
                   value={editUserData.phone}
                   onChange={(e) => setEditUserData({ ...editUserData, phone: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
@@ -1558,29 +1624,33 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Vai trò Nghiệp vụ (RBAC Role)</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'RBAC Role' : 'Vai trò Nghiệp vụ (RBAC Role)'}
+                </label>
                 <select
                   value={editUserData.role}
                   onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
-                  <option value="TRAINER">Huấn luyện viên Trưởng (Trainer)</option>
-                  <option value="VET">Bác sĩ Thú y (Veterinarian)</option>
-                  <option value="GROOM">Nhân viên Chăm sóc (Groom)</option>
-                  <option value="OWNER">Chủ sở hữu Ngựa (Owner)</option>
-                  <option value="MANAGER">Ban Quản lý Câu lạc bộ (Club Manager)</option>
+                  <option value="TRAINER">{lang === 'en' ? 'Head Trainer' : 'Huấn luyện viên Trưởng (Trainer)'}</option>
+                  <option value="VET">{lang === 'en' ? 'Veterinarian (Vet)' : 'Bác sĩ Thú y (Veterinarian)'}</option>
+                  <option value="GROOM">{lang === 'en' ? 'Groom / Caretaker' : 'Nhân viên Chăm sóc (Groom)'}</option>
+                  <option value="OWNER">{lang === 'en' ? 'Horse Owner' : 'Chủ sở hữu Ngựa (Owner)'}</option>
+                  <option value="MANAGER">{lang === 'en' ? 'Club Manager' : 'Ban Quản lý Câu lạc bộ (Club Manager)'}</option>
                 </select>
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Trạng thái tài khoản</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Account Status' : 'Trạng thái tài khoản'}
+                </label>
                 <select
                   value={editUserData.status}
                   onChange={(e) => setEditUserData({ ...editUserData, status: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
-                  <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
-                  <option value="INACTIVE">Tạm khóa (INACTIVE)</option>
+                  <option value="ACTIVE">{lang === 'en' ? 'Active (ACTIVE)' : 'Đang hoạt động (ACTIVE)'}</option>
+                  <option value="INACTIVE">{lang === 'en' ? 'Suspended (INACTIVE)' : 'Tạm khóa (INACTIVE)'}</option>
                 </select>
               </div>
 
@@ -1590,13 +1660,13 @@ export default function AdminPage() {
                   onClick={() => { setShowEditUserModal(false); setEditUserData(null); }}
                   style={{ flex: 1, padding: '11px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
                 >
-                  Hủy
+                  {lang === 'en' ? 'Cancel' : 'Hủy'}
                 </button>
                 <button
                   type="submit"
                   style={{ flex: 1, padding: '11px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Lưu thay đổi
+                  {lang === 'en' ? 'Save Changes' : 'Lưu thay đổi'}
                 </button>
               </div>
             </form>
@@ -1633,18 +1703,18 @@ export default function AdminPage() {
             </div>
             
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--paper)', marginBottom: '12px' }}>
-              Xác nhận sửa thông tin
+              {lang === 'en' ? 'Confirm Profile Changes' : 'Xác nhận sửa thông tin'}
             </h3>
 
             <p style={{ fontSize: '15px', color: 'var(--paper)', lineHeight: '1.5', margin: '0 0 16px', fontWeight: 500 }}>
-              Bạn có chắc chắn sửa thông tin này không?
+              {lang === 'en' ? 'Are you sure you want to update this staff profile?' : 'Bạn có chắc chắn sửa thông tin này không?'}
             </p>
 
             <div style={{ background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '22px', textAlign: 'left', fontSize: '13px' }}>
-              <div style={{ color: 'var(--paper-dim)', marginBottom: '4px' }}>Nhân sự ID: <b style={{ color: 'var(--paper)' }}>#{editUserData.user_id}</b></div>
-              <div style={{ color: 'var(--paper-dim)', marginBottom: '4px' }}>Họ tên mới: <b style={{ color: 'var(--paper)' }}>{editUserData.full_name}</b></div>
+              <div style={{ color: 'var(--paper-dim)', marginBottom: '4px' }}>{lang === 'en' ? 'Staff ID: ' : 'Nhân sự ID: '}<b style={{ color: 'var(--paper)' }}>#{editUserData.user_id}</b></div>
+              <div style={{ color: 'var(--paper-dim)', marginBottom: '4px' }}>{lang === 'en' ? 'New Name: ' : 'Họ tên mới: '}<b style={{ color: 'var(--paper)' }}>{editUserData.full_name}</b></div>
               <div style={{ color: 'var(--paper-dim)', marginBottom: '4px' }}>Email: <b style={{ color: 'var(--paper)' }}>{editUserData.email}</b></div>
-              <div style={{ color: 'var(--paper-dim)' }}>Số điện thoại: <b style={{ color: 'var(--paper)' }}>{editUserData.phone}</b></div>
+              <div style={{ color: 'var(--paper-dim)' }}>{lang === 'en' ? 'Phone: ' : 'Số điện thoại: '}<b style={{ color: 'var(--paper)' }}>{editUserData.phone}</b></div>
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
@@ -1663,7 +1733,7 @@ export default function AdminPage() {
                   fontSize: '13.5px'
                 }}
               >
-                Hủy bỏ
+                {lang === 'en' ? 'Cancel' : 'Hủy bỏ'}
               </button>
               <button
                 type="button"
@@ -1680,7 +1750,7 @@ export default function AdminPage() {
                   fontSize: '13.5px'
                 }}
               >
-                Có, xác nhận sửa
+                {lang === 'en' ? 'Yes, Confirm' : 'Có, xác nhận sửa'}
               </button>
             </div>
           </div>
@@ -1712,41 +1782,49 @@ export default function AdminPage() {
             color: 'var(--paper)',
             boxShadow: 'var(--shadow)'
           }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>Thêm Hồ Sơ Chiến Mã Mới</h3>
+            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>
+              {lang === 'en' ? 'Register New Racehorse Profile' : 'Thêm Hồ Sơ Chiến Mã Mới'}
+            </h3>
             <form onSubmit={handleCreateHorse} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Tên chiến mã</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Horse Name' : 'Tên chiến mã'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ví dụ: Dạ Báo"
+                  placeholder={lang === 'en' ? 'e.g. Night Cheetah' : 'Ví dụ: Dạ Báo'}
                   value={newHorseData.name}
                   onChange={(e) => setNewHorseData({ ...newHorseData, name: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Giống loài</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Breed' : 'Giống loài'}
+                </label>
                 <select
                   value={newHorseData.breed}
                   onChange={(e) => setNewHorseData({ ...newHorseData, breed: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
-                  <option value="Thoroughbred">Thoroughbred (Thuần chủng Anh)</option>
-                  <option value="Arabian">Arabian (Ả Rập)</option>
+                  <option value="Thoroughbred">{lang === 'en' ? 'Thoroughbred' : 'Thoroughbred (Thuần chủng Anh)'}</option>
+                  <option value="Arabian">{lang === 'en' ? 'Arabian' : 'Arabian (Ả Rập)'}</option>
                   <option value="Quarter Horse">Quarter Horse</option>
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Phân bổ vào ô chuồng</label>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'en' ? 'Assign Stall' : 'Phân bổ vào ô chuồng'}
+                </label>
                 <select
                   value={newHorseData.stable}
                   onChange={(e) => setNewHorseData({ ...newHorseData, stable: e.target.value })}
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                 >
-                  <option value="B6">Ô B6 (Đang còn trống)</option>
-                  <option value="A1">Ô A1</option>
-                  <option value="B1">Ô B1</option>
+                  <option value="B6">{lang === 'en' ? 'Stall B6 (Vacant)' : 'Ô B6 (Đang còn trống)'}</option>
+                  <option value="A1">{lang === 'en' ? 'Stall A1' : 'Ô A1'}</option>
+                  <option value="B1">{lang === 'en' ? 'Stall B1' : 'Ô B1'}</option>
                 </select>
               </div>
 
@@ -1756,13 +1834,13 @@ export default function AdminPage() {
                   onClick={() => setShowAddHorseModal(false)}
                   style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Hủy
+                  {lang === 'en' ? 'Cancel' : 'Hủy'}
                 </button>
                 <button
                   type="submit"
                   style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
-                  Lưu Chiến Mã
+                  {lang === 'en' ? 'Save Horse' : 'Lưu Chiến Mã'}
                 </button>
               </div>
             </form>

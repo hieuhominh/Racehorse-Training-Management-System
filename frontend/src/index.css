@@ -76,6 +76,8 @@ html {
   background-color: var(--bg-body) !important;
   background: var(--bg-body) !important;
   color-scheme: dark light;
+  overflow-x: clip;
+  max-width: 100vw;
 }
 
 body {
@@ -88,6 +90,17 @@ body {
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.25s ease, color 0.25s ease;
+  overflow-x: clip;
+  max-width: 100vw;
+  position: relative;
+}
+
+#root {
+  overflow-x: clip;
+  max-width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 a {
@@ -144,16 +157,18 @@ p {
   border-bottom: 1px solid var(--line);
   font-size: 13px;
   transition: background-color 0.25s ease, border-color 0.25s ease;
+  overflow: hidden;
+  width: 100%;
 }
 
 .ticker .wrap {
   width: 100% !important;
-  max-width: 100% !important;
-  margin: 0 !important;
-  padding: 0 40px !important;
+  max-width: 1440px !important;
+  margin: 0 auto !important;
+  padding: 0 clamp(16px, 2.5vw, 40px) !important;
   box-sizing: border-box !important;
   display: flex;
-  gap: 18px;
+  gap: 16px;
   align-items: center;
   justify-content: space-between;
   height: 38px;
@@ -166,11 +181,14 @@ p {
   gap: 10px;
   align-items: center;
   min-width: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
 }
 
 .ticker .meet b {
   color: var(--brass);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .ticker .meet span {
@@ -184,6 +202,7 @@ p {
   gap: 18px;
   color: var(--paper-dim);
   flex: none;
+  white-space: nowrap;
 }
 
 .ticker nav a:hover {
@@ -197,6 +216,7 @@ header.nav {
   left: 0;
   right: 0;
   width: 100% !important;
+  max-width: 100vw;
   z-index: 99999;
   background-color: var(--nav-bg) !important;
   background: var(--nav-bg) !important;
@@ -209,13 +229,14 @@ header.nav {
 
 .nav .wrap {
   width: 100% !important;
-  max-width: 100% !important;
-  margin: 0 !important;
-  padding: 0 40px !important;
+  max-width: 1440px !important;
+  margin: 0 auto !important;
+  padding: 0 clamp(16px, 2.5vw, 40px) !important;
   box-sizing: border-box !important;
   display: flex;
   align-items: center;
-  gap: 28px;
+  justify-content: space-between;
+  gap: clamp(10px, 1.5vw, 24px);
   height: 72px;
   background: transparent !important;
 }
@@ -223,7 +244,7 @@ header.nav {
 .brand {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   flex: none;
 }
 
@@ -233,13 +254,13 @@ header.nav {
 
 .brand .name {
   font-family: var(--display);
-  font-size: 25px;
+  font-size: 24px;
   letter-spacing: .02em;
   line-height: 1;
 }
 
 .brand .sub {
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: .16em;
   color: var(--paper-dim);
   line-height: 1;
@@ -248,12 +269,14 @@ header.nav {
 
 .mainnav {
   display: flex;
-  gap: 26px;
+  align-items: center;
+  gap: clamp(8px, 1.3vw, 20px);
   margin-left: auto;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   background: transparent !important;
   background-color: transparent !important;
+  min-width: 0;
 }
 
 .mainnav>a {
@@ -261,6 +284,7 @@ header.nav {
   border-bottom: 2px solid transparent;
   color: var(--paper);
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .mainnav>a:hover,
@@ -1590,15 +1614,16 @@ footer {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1140px) {
   .nav .wrap,
   .ticker .wrap {
-    padding: 0 16px !important;
+    padding: 0 clamp(14px, 2.5vw, 24px) !important;
     gap: 12px;
   }
 
   .nav-cta {
     gap: 8px;
+    margin-left: auto;
   }
 
   .mainnav {
@@ -1705,7 +1730,9 @@ footer {
   .ticker nav a:not(:last-child) {
     display: none;
   }
+}
 
+@media (max-width: 768px) {
   .role-grid {
     grid-template-columns: 1fr;
   }

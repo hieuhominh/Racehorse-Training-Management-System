@@ -46,13 +46,13 @@ export default function Navbar({ onOpenAuth }) {
   };
 
   const handleMouseEnter = (id) => {
-    if (window.innerWidth > 760) {
+    if (window.innerWidth > 1140) {
       setActiveMega(id);
     }
   };
 
   const handleMouseLeave = () => {
-    if (window.innerWidth > 760) {
+    if (window.innerWidth > 1140) {
       setActiveMega(null);
     }
   };
@@ -137,8 +137,6 @@ export default function Navbar({ onOpenAuth }) {
               </div>
             );
           })}
-
-          <Link to="/ho-so-ngua" onClick={closeMenus} className={location.pathname === '/ho-so-ngua' ? 'active' : ''}>{t('horses')}</Link>
         </nav>
 
         <div className="nav-cta">

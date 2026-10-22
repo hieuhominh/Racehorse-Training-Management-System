@@ -25,7 +25,7 @@ export default function FlowsSection() {
               <div className="no">{flow.no}</div>
               <div>
                 <h3>{title}</h3>
-                <div className="vn">{flow.vn}</div>
+                <div className="vn">{lang === 'en' ? flow.titleVi : (flow.titleEn || flow.vn)}</div>
                 <p>{desc}</p>
               </div>
               <div className="meta">

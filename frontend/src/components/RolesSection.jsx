@@ -25,7 +25,7 @@ export default function RolesSection() {
               <Link key={idx} className="role" to={role.link}>
                 <div className="tag">{tag}</div>
                 <h3>{title}</h3>
-                <div className="vn">{role.vn}</div>
+                <div className="vn">{lang === 'en' ? role.titleVi : (role.titleEn || role.vn)}</div>
                 <ul>
                   {duties.map((duty, dIdx) => (
                     <li key={dIdx}>{duty}</li>
