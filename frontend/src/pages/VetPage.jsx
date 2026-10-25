@@ -8,7 +8,12 @@ import {
   getHorsesApi,
   toggleHorseLockApi,
   getIncidentsApi,
-  reportIncidentApi
+  reportIncidentApi,
+  getVetMedicalLogsApi,
+  createMedicalLogApi,
+  getVaccinationSchedulesApi,
+  recordVaccinationApi,
+  getVetHealthOverviewApi
 } from '../services/api';
 
 // Minimalist High-End SVG Icons for Veterinary Medical Portal

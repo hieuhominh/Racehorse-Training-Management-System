@@ -4,6 +4,17 @@ import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import {
+  getOwnerHorsesApi,
+  registerOwnerHorseApi,
+  getOwnerTelemetryApi,
+  getOpenTournamentsApi,
+  getOwnerRacesApi,
+  registerRaceTournamentApi,
+  updateRaceNominationStatusApi,
+  getOwnerFinancialStatementsApi,
+  getOwnerVetLogsApi
+} from '../services/api';
 
 // Minimalist High-End SVG Icons for Owner Portal (Strict 3-Color Palette)
 const IconCrown = ({ size = 18, color = 'currentColor' }) => (
@@ -474,6 +485,9 @@ export default function OwnerPage() {
       }
     };
 
+    // Gọi API Đăng ký ngựa của Chủ sở hữu
+    registerOwnerHorseApi(ownerKey, newHorse).catch(() => {});
+
     setMyHorses(prev => [newHorse, ...prev]);
 
     // Tạo bản ghi theo dõi thể lực khởi điểm
@@ -562,6 +576,9 @@ export default function OwnerPage() {
       notes: `Chủ sở hữu đăng ký trực tiếp. Kỵ mã: ${raceRegForm.jockey}. ${raceRegForm.notes}`
     };
 
+    // Gọi API Ghi danh giải đấu của Chủ sở hữu
+    registerRaceTournamentApi(ownerKey, newNomination).catch(() => {});
+
     setRaceNominations(prev => [newNomination, ...prev]);
     setShowRaceRegisterModal(false);
     showToast(`Đã ghi danh chiến mã "${selectedHorse.name}" vào ${tournament.name} thành công!`, 'GHI DANH GIẢI ĐUA', 'info');
@@ -570,6 +587,9 @@ export default function OwnerPage() {
 
   // Duyệt hoặc rút lui giải đấu
   const handleToggleNomination = (id, newStatus) => {
+    // Gọi API cập nhật trạng thái giải đua của Chủ sở hữu
+    updateRaceNominationStatusApi(ownerKey, id, newStatus).catch(() => {});
+
     setRaceNominations(prev => prev.map(r => {
       if (r.id === id) {
         return {

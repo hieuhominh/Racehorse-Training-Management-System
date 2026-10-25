@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Link, useNavigate } from 'react-router-dom';
-import { getTrainingProgramsApi, getHorsesApi } from '../services/api';
-import ThemeToggle from '../components/ThemeToggle';
+import { 
+  getTrainingProgramsApi, 
+  saveTrainingProgramApi, 
+  getTelemetrySessionsApi, 
+  recordTelemetryApi, 
+  getHorsesApi 
+} from '../services/api';
 
 // Minimalist, high-end SVG icons (0 emojis, strict professional aesthetic)
 const IconHorse = ({ size = 18, color = 'currentColor' }) => (

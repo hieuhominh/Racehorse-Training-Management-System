@@ -659,3 +659,504 @@ export async function getFinancialSettlementsApi() {
   } catch (err) {}
   return { isFromBackend: false, data: settlementStatementsData };
 }
+
+
+// =========================================================================
+// 7. VAI TRÒ 1: QUẢN TRỊ VIÊN / QUẢN LÝ (ADMIN / MANAGER API)
+// =========================================================================
+
+export async function getAdminOverviewApi() {
+  try {
+    const res = await fetch('/api/admin/overview');
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const { data: horses } = await getHorsesApi();
+  const { data: stables } = await getStablesApi();
+  const { data: incidents } = await getIncidentsApi();
+  const users = getLocalData(STORAGE_KEYS.USERS, SEED_USERS);
+
+  return {
+    totalHorses: horses.length,
+    eligibleHorses: horses.filter(h => !h.locked && h.status === 'eligible').length,
+    lockedHorses: horses.filter(h => h.locked).length,
+    totalStalls: stables.length,
+    occupiedStalls: stables.filter(s => s.status === 'OCCUPIED').length,
+    availableStalls: stables.filter(s => s.status === 'AVAILABLE').length,
+    totalUsers: users.length,
+    activeIncidents: incidents.filter(i => i.status !== 'RESOLVED').length,
+    totalPrizePool: '3.500.000.000 VNĐ'
+  };
+}
+
+
+// =========================================================================
+// 8. VAI TRÒ 2: HUẤN LUYỆN VIÊN TRƯỞNG (TRAINER API)
+// =========================================================================
+
+export async function getTrainerHorsesApi(trainerId = 'TRAINER') {
+  try {
+    const res = await fetch(`/api/trainer/horses?trainerId=${trainerId}`);
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const { data: allHorses } = await getHorsesApi();
+  return allHorses;
+}
+
+export async function saveTrainingProgramApi(programData) {
+  try {
+    const res = await fetch('/api/training/programs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(programData)
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const key = 'matruong_trainer_programs';
+  const local = getLocalData(key, []);
+  const newProgram = { ...programData, id: programData.id || `PROG-${Date.now()}` };
+  setLocalData(key, [newProgram, ...local]);
+  return newProgram;
+}
+
+export async function recordTelemetryApi(telemetryData) {
+  try {
+    const res = await fetch('/api/training/telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(telemetryData)
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const key = 'matruong_training_telemetry';
+  const local = getLocalData(key, []);
+  const newEntry = { ...telemetryData, id: Date.now() };
+  setLocalData(key, [newEntry, ...local]);
+  return newEntry;
+}
+
+export async function getTrainerNominationsApi() {
+  try {
+    const res = await fetch('/api/trainer/nominations');
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  return getLocalData('matruong_trainer_nominations', [
+    {
+      id: 'RN-TR-01',
+      raceName: 'Giải Vô Địch Cúp Derby Mùa Thu 2026',
+      horseName: 'Bạch Long',
+      distance: '2.400m',
+      status: 'APPROVED',
+      trainerNotes: 'Chiến mã đạt phong độ 9.6/10. Đề cử làn chạy số 3.'
+    },
+    {
+      id: 'RN-TR-02',
+      raceName: 'Cúp Nước Rút Tốc Độ Sprint Cup 1.200m',
+      horseName: 'Lôi Chấn',
+      distance: '1.200m',
+      status: 'PENDING',
+      trainerNotes: 'Nước rút tốt, cần Chủ ngựa xác nhận kinh phí.'
+    }
+  ]);
+}
+
+export async function updateTrainerFeedbackApi(horseId, feedback) {
+  try {
+    const res = await fetch(`/api/trainer/feedback/${horseId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feedback })
+    });
+    if (res.ok) return true;
+  } catch (err) {}
+
+  const key = `matruong_trainer_feedback_${horseId}`;
+  setLocalData(key, { feedback, updatedAt: new Date().toISOString() });
+  return true;
+}
+
+
+// =========================================================================
+// 9. VAI TRÒ 3: BÁC SĨ THÚ Y (VETERINARY MEDICINE API)
+// =========================================================================
+
+export async function getVetMedicalLogsApi() {
+  try {
+    const res = await fetch('/api/vet/medical-logs');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  return getLocalData('matruong_vet_medical_logs', [
+    {
+      id: 1,
+      horseName: 'Phi Yến',
+      chipId: 'MC-VN-2023-009',
+      issue: 'Giãn gân trước trái cấp độ 2',
+      severity: 'CRITICAL',
+      diagnosisBy: 'Bác sĩ Nguyễn An (Trưởng khoa)',
+      medications: 'Phenylbutazone 20% tiêm IV + Băng ép Cryo',
+      status: 'UNDER_TREATMENT',
+      statusText: 'Đang điều trị tích cực',
+      locked: true,
+      date: '09/10/2026',
+      vetNote: 'Đã kích hoạt Lệnh Khóa Y Tế. Cấm chạy nước rút tối thiểu 3 tuần.'
+    },
+    {
+      id: 2,
+      horseName: 'Bạch Long',
+      chipId: 'MC-VN-2024-003',
+      issue: 'Kiểm tra sinh hiệu định kỳ & Gọt móng',
+      severity: 'NORMAL',
+      diagnosisBy: 'Bác sĩ Nguyễn An',
+      medications: 'Vaccine Cúm ngựa (Equine Influenza)',
+      status: 'CLEARED',
+      statusText: 'Khỏe mạnh xuất sắc',
+      locked: false,
+      date: '10/10/2026',
+      vetNote: 'Thể lực hoàn hảo, nhịp tim nghỉ 37 bpm. Đủ điều kiện xuất phát.'
+    }
+  ]);
+}
+
+export async function createMedicalLogApi(logData) {
+  try {
+    const res = await fetch('/api/vet/medical-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(logData)
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const key = 'matruong_vet_medical_logs';
+  const existing = await getVetMedicalLogsApi();
+  const newLog = { ...logData, id: Date.now() };
+  setLocalData(key, [newLog, ...existing]);
+  return newLog;
+}
+
+export async function getVaccinationSchedulesApi() {
+  try {
+    const res = await fetch('/api/vet/vaccines');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  return getLocalData('matruong_vet_vaccines', [
+    { id: 1, horseName: 'Xích Thố', vaccineType: 'Cúm ngựa (Equine Influenza) liều 2', scheduledDate: '15/11/2026', status: 'SCHEDULED' },
+    { id: 2, horseName: 'Hắc Phong', vaccineType: 'Phòng uốn ván (Tetanus Toxoid)', scheduledDate: '20/11/2026', status: 'SCHEDULED' },
+    { id: 3, horseName: 'Bạch Long', vaccineType: 'Viêm não ngựa (EHV-1)', scheduledDate: '05/12/2026', status: 'PENDING' }
+  ]);
+}
+
+export async function recordVaccinationApi(vaccineData) {
+  try {
+    const res = await fetch('/api/vet/vaccines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(vaccineData)
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const key = 'matruong_vet_vaccines';
+  const existing = await getVaccinationSchedulesApi();
+  const created = { ...vaccineData, id: Date.now(), status: 'COMPLETED' };
+  setLocalData(key, [created, ...existing]);
+  return created;
+}
+
+export async function getVetHealthOverviewApi() {
+  try {
+    const res = await fetch('/api/vet/overview');
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  return {
+    totalChecked: 12,
+    fitForRace: 10,
+    medicalLocked: 1,
+    inRehab: 1,
+    emergencyAlerts: 0
+  };
+}
+
+
+// =========================================================================
+// 10. VAI TRÒ 4: NHÂN VIÊN CHĂM SÓC (GROOM PORTAL API)
+// =========================================================================
+
+export async function getGroomAssignmentsApi(groomId = 'groom_nam') {
+  try {
+    const res = await fetch(`/api/groom/assignments?groomId=${groomId}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  return getLocalData('matruong_groom_assignments', [
+    { stallCode: 'A1', horseName: 'Xích Thố', block: 'Block A', beddingStatus: 'CLEAN', lastMucked: '06:30 - Sáng nay', waterBucketClean: true },
+    { stallCode: 'A2', horseName: 'Bạch Long', block: 'Block A', beddingStatus: 'CLEAN', lastMucked: '07:00 - Sáng nay', waterBucketClean: true },
+    { stallCode: 'A3', horseName: 'Hắc Phong', block: 'Block A', beddingStatus: 'CLEAN', lastMucked: '07:15 - Sáng nay', waterBucketClean: true },
+    { stallCode: 'A4', horseName: 'Lôi Chấn', block: 'Block A', beddingStatus: 'ATTENTION', lastMucked: 'Hôm qua', waterBucketClean: false },
+    { stallCode: 'A5', horseName: 'Phi Yến', block: 'Block A', beddingStatus: 'CLEAN (Y TẾ)', lastMucked: '06:00 - Sáng nay', waterBucketClean: true }
+  ]);
+}
+
+export async function getFeedingSchedulesApi() {
+  try {
+    const res = await fetch('/api/groom/feeding');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  return getLocalData('matruong_groom_feeding', [
+    { id: 1, meal: 'Bữa Sáng (06:00)', ration: '3.5kg Yến mạch + 5kg Cỏ Timothy + Điện giải', status: 'COMPLETED', timeCompleted: '06:15' },
+    { id: 2, meal: 'Bữa Trưa (11:30)', ration: '4kg Cỏ tươi Alfalfa + Men tiêu hóa', status: 'PENDING', timeCompleted: null },
+    { id: 3, meal: 'Bữa Chiều Tối (17:00)', ration: '3kg Ngũ cốc đậm đặc + Bổ sung Canxi & Khớp', status: 'PENDING', timeCompleted: null }
+  ]);
+}
+
+export async function updateFeedingStatusApi(scheduleId, isCompleted) {
+  try {
+    const res = await fetch(`/api/groom/feeding/${scheduleId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isCompleted })
+    });
+    if (res.ok) return true;
+  } catch (err) {}
+
+  const key = 'matruong_groom_feeding';
+  const schedules = await getFeedingSchedulesApi();
+  const updated = schedules.map(s => s.id === scheduleId ? {
+    ...s,
+    status: isCompleted ? 'COMPLETED' : 'PENDING',
+    timeCompleted: isCompleted ? new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null
+  } : s);
+  setLocalData(key, updated);
+  return true;
+}
+
+export async function getCareLogsApi() {
+  return getLocalData('matruong_groom_care_logs', [
+    { id: 1, task: 'Tắm xả cơ bắp bằng vòi lạnh & sấy khô', horseName: 'Bạch Long', groomName: 'Lê Hoàng Nam', date: '24/10/2026', status: 'DONE' },
+    { id: 2, task: 'Vệ sinh hốc móng & thoa dầu móng chống nứt', horseName: 'Xích Thố', groomName: 'Lê Hoàng Nam', date: '24/10/2026', status: 'DONE' },
+    { id: 3, task: 'Băng ép lạnh khớp gân theo chỉ định bác sĩ', horseName: 'Phi Yến', groomName: 'Lê Hoàng Nam', date: '24/10/2026', status: 'DONE' }
+  ]);
+}
+
+export async function recordCareActivityApi(activityData) {
+  const key = 'matruong_groom_care_logs';
+  const list = await getCareLogsApi();
+  const newActivity = { ...activityData, id: Date.now(), status: 'DONE', date: new Date().toLocaleDateString('vi-VN') };
+  setLocalData(key, [newActivity, ...list]);
+  return newActivity;
+}
+
+export async function getSuppliesInventoryApi() {
+  try {
+    const res = await fetch('/api/groom/supplies');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  return getLocalData('matruong_groom_supplies', [
+    { name: 'Rơm khô lót chuồng khử khuẩn', inStock: '45 bao', minAlert: '10 bao', status: 'SUFFICIENT' },
+    { name: 'Cỏ khô Timothy nhập khẩu', inStock: '32 kiện', minAlert: '8 kiện', status: 'SUFFICIENT' },
+    { name: 'Yến mạch dinh dưỡng thi đấu', inStock: '12 bao', minAlert: '5 bao', status: 'SUFFICIENT' },
+    { name: 'Dầu móng dưỡng ẩm cao cấp', inStock: '4 chai', minAlert: '5 chai', status: 'LOW' }
+  ]);
+}
+
+export async function requestSupplyRestockApi(supplyName, quantity) {
+  const key = 'matruong_groom_restock_requests';
+  const requests = getLocalData(key, []);
+  const newReq = { id: Date.now(), supplyName, quantity, status: 'SUBMITTED', date: new Date().toLocaleDateString('vi-VN') };
+  setLocalData(key, [newReq, ...requests]);
+  return newReq;
+}
+
+
+// =========================================================================
+// 11. VAI TRÒ 5: CHỦ SỞ HỮU NGỰA (RACEHORSE OWNER API)
+// =========================================================================
+
+export async function getOwnerHorsesApi(ownerKey) {
+  try {
+    const res = await fetch(`/api/owner/horses?ownerKey=${ownerKey}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  const storageKey = `matruong_owner_horses_${ownerKey}`;
+  return getLocalData(storageKey, []);
+}
+
+export async function registerOwnerHorseApi(ownerKey, horseData) {
+  try {
+    const res = await fetch('/api/owner/horses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerKey, ...horseData })
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const storageKey = `matruong_owner_horses_${ownerKey}`;
+  const existing = getLocalData(storageKey, []);
+  const newHorse = {
+    ...horseData,
+    id: horseData.id || Date.now(),
+    status: 'ELIGIBLE',
+    statusText: 'Đủ chuẩn thi đấu',
+    winCount: 0,
+    totalStarts: 0,
+    totalPrizeEarned: 0
+  };
+  setLocalData(storageKey, [newHorse, ...existing]);
+  return newHorse;
+}
+
+export async function getOwnerTelemetryApi(ownerKey) {
+  const key = `matruong_owner_telemetry_${ownerKey}`;
+  return getLocalData(key, []);
+}
+
+export async function getOpenTournamentsApi() {
+  try {
+    const res = await fetch('/api/owner/tournaments');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  return [
+    {
+      id: 'TOURN-2026-01',
+      name: 'Giải Vô Địch Cúp Derby Mùa Thu 2026 (Group 1)',
+      track: 'Trường đua Quốc tế Phú Thọ',
+      surface: 'Sân cỏ Tự nhiên (Turf)',
+      distance: '2.400m',
+      date: '15/11/2026',
+      entryDeadline: '01/11/2026',
+      totalPurse: 1500000000,
+      entryFee: 10000000,
+      description: 'Giải đấu danh giá nhất năm dành cho các chiến mã 3-5 tuổi.'
+    },
+    {
+      id: 'TOURN-2026-02',
+      name: 'Cúp Nước Rút Tốc Độ Sprint Cup 2026 (Group 2)',
+      track: 'Trường đua Cát Thể Thao',
+      surface: 'Sân cát Nén (Dirt)',
+      distance: '1.200m',
+      date: '28/11/2026',
+      entryDeadline: '10/11/2026',
+      totalPurse: 800000000,
+      entryFee: 5000000,
+      description: 'Thử thách guồng chân tốc độ cực đại, yêu cầu bứt phá 60 km/h.'
+    },
+    {
+      id: 'TOURN-2026-03',
+      name: 'Giải Tranh Cúp Chiến Mã Trẻ Mùa Mới (Group 3)',
+      track: 'Trường đua Quốc tế Phú Thọ',
+      surface: 'Sân cỏ Tự nhiên (Turf)',
+      distance: '1.600m',
+      date: '08/12/2026',
+      entryDeadline: '20/11/2026',
+      totalPurse: 500000000,
+      entryFee: 3000000,
+      description: 'Dành riêng cho ngựa đua 3 tuổi mới gia nhập chuồng trại.'
+    },
+    {
+      id: 'TOURN-2026-04',
+      name: 'Cúp Mùa Đông Toàn Quốc Listed Cup',
+      track: 'Trường đua Cao nguyên',
+      surface: 'Sân cát Nén (Dirt)',
+      distance: '1.800m',
+      date: '24/12/2026',
+      entryDeadline: '05/12/2026',
+      totalPurse: 400000000,
+      entryFee: 2500000,
+      description: 'Giải đấu thử nghiệm sức bền thể lực cuối năm.'
+    }
+  ];
+}
+
+export async function getOwnerRacesApi(ownerKey) {
+  try {
+    const res = await fetch(`/api/owner/races?ownerKey=${ownerKey}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  const key = `matruong_owner_races_${ownerKey}`;
+  return getLocalData(key, []);
+}
+
+export async function registerRaceTournamentApi(ownerKey, nominationData) {
+  try {
+    const res = await fetch('/api/owner/races', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerKey, ...nominationData })
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const key = `matruong_owner_races_${ownerKey}`;
+  const list = getLocalData(key, []);
+  const newNom = {
+    ...nominationData,
+    id: `RN-REG-${Date.now().toString().slice(-4)}`,
+    nominationStatus: 'APPROVED'
+  };
+  setLocalData(key, [newNom, ...list]);
+  return newNom;
+}
+
+export async function updateRaceNominationStatusApi(ownerKey, nominationId, newStatus) {
+  const key = `matruong_owner_races_${ownerKey}`;
+  const list = getLocalData(key, []);
+  const updated = list.map(r => r.id === nominationId ? { ...r, nominationStatus: newStatus } : r);
+  setLocalData(key, updated);
+  return true;
+}
+
+export async function getOwnerFinancialStatementsApi(ownerKey) {
+  try {
+    const res = await fetch(`/api/owner/statements?ownerKey=${ownerKey}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  const key = `matruong_owner_stmts_${ownerKey}`;
+  return getLocalData(key, []);
+}
+
+export async function getOwnerVetLogsApi(ownerKey) {
+  const key = `matruong_owner_health_${ownerKey}`;
+  return getLocalData(key, []);
+}
+
