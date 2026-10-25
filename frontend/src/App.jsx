@@ -12,6 +12,7 @@ import AdminRoute from './components/AdminRoute';
 import TrainerRoute from './components/TrainerRoute';
 import VetRoute from './components/VetRoute';
 import GroomRoute from './components/GroomRoute';
+import OwnerRoute from './components/OwnerRoute';
 
 import HomePage from './pages/HomePage';
 import HorsesPage from './pages/HorsesPage';
@@ -21,6 +22,7 @@ import AdminPage from './pages/AdminPage';
 import TrainerPage from './pages/TrainerPage';
 import VetPage from './pages/VetPage';
 import GroomPage from './pages/GroomPage';
+import OwnerPage from './pages/OwnerPage';
 
 // Helper component to auto scroll to top when changing routes
 function ScrollToTop() {
@@ -40,7 +42,9 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
     location.pathname.startsWith('/vet') ||
     location.pathname.startsWith('/thu-y') ||
     location.pathname.startsWith('/groom') ||
-    location.pathname.startsWith('/cham-soc');
+    location.pathname.startsWith('/cham-soc') ||
+    location.pathname.startsWith('/owner') ||
+    location.pathname.startsWith('/chu-ngua');
 
   return (
     <div className={`app-container ${isRolePortal ? 'in-portal' : ''}`}>
@@ -178,6 +182,40 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
             <GroomRoute>
               <GroomPage />
             </GroomRoute>
+          } 
+        />
+
+        {/* CỔNG CHỦ SỞ HỮU NGỰA BẢO MẬT (HORSE OWNER PORTAL) */}
+        <Route 
+          path="/owner" 
+          element={
+            <OwnerRoute>
+              <OwnerPage />
+            </OwnerRoute>
+          } 
+        />
+        <Route 
+          path="/owner.html" 
+          element={
+            <OwnerRoute>
+              <OwnerPage />
+            </OwnerRoute>
+          } 
+        />
+        <Route 
+          path="/chu-ngua" 
+          element={
+            <OwnerRoute>
+              <OwnerPage />
+            </OwnerRoute>
+          } 
+        />
+        <Route 
+          path="/chu-ngua.html" 
+          element={
+            <OwnerRoute>
+              <OwnerPage />
+            </OwnerRoute>
           } 
         />
 
