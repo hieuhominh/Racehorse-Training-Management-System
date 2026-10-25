@@ -287,12 +287,40 @@ export default function OwnerPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState('horses'); // 'horses' | 'training' | 'races' | 'finance' | 'vet'
+  const [activeTab, setActiveTab] = useState('horses'); // 'horses' | 'training' | 'races' | 'finance' | 'vet' | 'membership'
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Kiểm tra tài khoản Demo hay tài khoản mới đăng ký
   const ownerKey = currentUser?.user_id || currentUser?.username || currentUser?.email || 'new_owner';
   const isDemoVip = currentUser?.username === 'owner_thanh' || currentUser?.email === 'owner@matruong.vn';
+
+  // Quản lý gói Hội viên: 'FREE' (Horse 0 Đồng) hoặc 'PREMIUM' (Horse Premium VIP)
+  const [membershipTier, setMembershipTier] = useState(() => {
+    try {
+      const stored = localStorage.getItem(`matruong_owner_tier_${ownerKey}`);
+      if (stored) return stored;
+      return isDemoVip ? 'PREMIUM' : 'FREE';
+    } catch {
+      return isDemoVip ? 'PREMIUM' : 'FREE';
+    }
+  });
+
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [billingCycle, setBillingCycle] = useState('year'); // 'month' | 'year'
+
+  // Xử lý kích hoạt / đổi gói 1-chạm
+  const handleSelectTier = (newTier) => {
+    setMembershipTier(newTier);
+    try {
+      localStorage.setItem(`matruong_owner_tier_${ownerKey}`, newTier);
+    } catch {}
+    if (newTier === 'PREMIUM') {
+      showToast('Chúc mừng bạn đã kích hoạt gói HORSE PREMIUM VIP thành công!', 'NÂNG CẤP THÀNH CÔNG', 'info');
+    } else {
+      showToast('Đã chuyển về gói Horse 0 Đồng (Cơ bản).', 'GÓI HỘI VIÊN', 'info');
+    }
+    setShowMembershipModal(false);
+  };
 
   // State 1: Danh sách ngựa của Chủ sở hữu (Lưu riêng theo từng tài khoản)
   const [myHorses, setMyHorses] = useState(() => {
@@ -701,6 +729,23 @@ export default function OwnerPage() {
             <span className="portal-nav-icon"><IconShieldHeart size={18} /></span>
             <span className="portal-nav-label">Minh bạch y tế</span>
           </button>
+
+          <button
+            type="button"
+            className={`portal-nav-item ${activeTab === 'membership' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('membership'); setSidebarOpen(false); }}
+            title="Đăng Ký Quyền Lợi & Gói Hội Viên"
+          >
+            <span className="portal-nav-icon"><IconCrown size={18} /></span>
+            <span className="portal-nav-label">Hội viên & Gói quyền lợi</span>
+            <span className="portal-nav-badge" style={{
+              background: membershipTier === 'PREMIUM' ? 'var(--brass)' : 'var(--bg-secondary)',
+              color: membershipTier === 'PREMIUM' ? '#0A0D14' : 'var(--paper-dim)',
+              fontWeight: 800
+            }}>
+              {membershipTier === 'PREMIUM' ? 'PREMIUM' : 'FREE'}
+            </span>
+          </button>
         </nav>
       </aside>
 
@@ -747,8 +792,60 @@ export default function OwnerPage() {
                 {currentUser?.full_name ? currentUser.full_name.charAt(0).toUpperCase() : 'VIP'}
               </div>
               <div className="portal-user-info">
-                <div className="portal-user-name">{currentUser?.full_name || 'Chủ Sở Hữu Ngựa'}</div>
-                <div className="portal-user-role">Chủ sở hữu (Racehorse Owner)</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div className="portal-user-name">{currentUser?.full_name || 'Chủ Sở Hữu Ngựa'}</div>
+                  {membershipTier === 'PREMIUM' ? (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: 'rgba(212, 175, 55, 0.15)',
+                      color: 'var(--brass)',
+                      border: '1px solid var(--brass)',
+                      borderRadius: '4px',
+                      padding: '2px 8px',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      letterSpacing: '0.04em'
+                    }}>
+                      <span>👑</span> HORSE PREMIUM
+                    </span>
+                  ) : (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--paper-dim)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '4px',
+                      padding: '2px 8px',
+                      fontSize: '11px',
+                      fontWeight: 600
+                    }}>
+                      HORSE 0 ĐỒNG
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                  <div className="portal-user-role">Chủ sở hữu (Racehorse Owner)</div>
+                  <button
+                    type="button"
+                    onClick={() => setShowMembershipModal(true)}
+                    style={{
+                      background: membershipTier === 'PREMIUM' ? 'transparent' : 'var(--brass)',
+                      color: membershipTier === 'PREMIUM' ? 'var(--brass)' : '#0A0D14',
+                      border: membershipTier === 'PREMIUM' ? '1px solid var(--brass)' : 'none',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      lineHeight: 1.2
+                    }}
+                  >
+                    {membershipTier === 'PREMIUM' ? 'Đổi gói' : '⚡ Nâng cấp VIP'}
+                  </button>
+                </div>
               </div>
             </div>
             <button
@@ -1524,6 +1621,277 @@ export default function OwnerPage() {
               )}
             </div>
           )}
+
+          {/* ========================================================================= */}
+          {/* TAB 6: HỘI VIÊN & GÓI QUYỀN LỢI (MEMBERSHIP & PRIVILEGES) */}
+          {/* ========================================================================= */}
+          {activeTab === 'membership' && (
+            <div className="tab-pane">
+              <div className="pane-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h2 className="pane-title">Gói Hội Viên & Đặc Quyền Chủ Sở Hữu (Membership Privileges)</h2>
+                  <p className="pane-desc">Lựa chọn giải pháp tối ưu cho đàn chiến mã: Tiết kiệm chi phí lưu chuồng và tối đa hóa lợi nhuận tiền thưởng giải đua.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMembershipModal(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    fontWeight: 700,
+                    border: 'none',
+                    fontSize: '12.5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <IconCrown size={16} color="#0A0D14" />
+                  <span>{membershipTier === 'PREMIUM' ? 'Đổi chu kỳ thanh toán' : 'Nâng cấp gói Premium'}</span>
+                </button>
+              </div>
+
+              {/* Thẻ trạng thái gói hiện tại */}
+              <div style={{
+                background: 'var(--bg-card)',
+                border: `1.5px solid ${membershipTier === 'PREMIUM' ? 'var(--brass)' : 'var(--line)'}`,
+                borderRadius: '8px',
+                padding: '20px 24px',
+                marginBottom: '24px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                    GÓI DỊCH VỤ HIỆN TẠI
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                    <b style={{ fontSize: '22px', color: membershipTier === 'PREMIUM' ? 'var(--brass)' : 'var(--paper)' }}>
+                      {membershipTier === 'PREMIUM' ? '👑 HORSE PREMIUM (VIP ĐẶC QUYỀN)' : 'HORSE 0 ĐỒNG (TIÊU CHUẨN)'}
+                    </b>
+                    <span style={{
+                      padding: '3px 10px',
+                      borderRadius: '4px',
+                      fontSize: '11.5px',
+                      fontWeight: 800,
+                      background: membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                      color: membershipTier === 'PREMIUM' ? 'var(--brass)' : 'var(--paper-dim)',
+                      border: `1px solid ${membershipTier === 'PREMIUM' ? 'var(--brass)' : 'var(--line)'}`
+                    }}>
+                      {membershipTier === 'PREMIUM' ? 'ĐANG HIỆU LỰC' : 'MIỄN PHÍ'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                    {membershipTier === 'PREMIUM' 
+                      ? 'Đặc quyền: Không giới hạn chiến mã, hoa hồng trích thưởng 5%, chuồng VIP Block A/B, IoT Real-time.' 
+                      : 'Đang dùng gói cơ bản: Tối đa 2 chiến mã, hoa hồng trích thưởng giải 15%-20%, chuồng Block C.'}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {membershipTier === 'FREE' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTier('PREMIUM')}
+                      style={{
+                        padding: '10px 22px',
+                        borderRadius: '6px',
+                        background: 'var(--brass)',
+                        color: '#0A0D14',
+                        fontWeight: 700,
+                        border: 'none',
+                        fontSize: '13px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⚡ Kích Hoạt Premium 1-Chạm
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTier('FREE')}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--paper-dim)',
+                        fontWeight: 600,
+                        border: '1px solid var(--line)',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Hạ cấp về gói 0 Đồng
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Bảng so sánh 2 gói: Horse 0 Đồng vs Horse Premium */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+                {/* CỘT 1: HORSE 0 ĐỒNG */}
+                <div className="facility-card" style={{
+                  padding: '24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  borderTop: '3px solid var(--line-strong)',
+                  background: 'var(--bg-card)'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <b style={{ fontSize: '18px', color: 'var(--paper)' }}>Horse 0 Đồng</b>
+                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--line)' }}>TIÊU CHUẨN</span>
+                    </div>
+                    <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 14px' }}>
+                      Dành cho chủ sở hữu mới gia nhập hoặc cổ phần Syndicate nhỏ lẻ.
+                    </p>
+                    <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--paper)', margin: '0 0 16px', fontFamily: 'var(--display)' }}>
+                      0 VNĐ <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--paper-dim)' }}>/ TRỌN ĐỜI</span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12.5px', color: 'var(--paper)', borderTop: '1px solid var(--line)', paddingTop: '14px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>•</span>
+                        <div>Giới hạn: <b>Tối đa 02 chiến mã</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>•</span>
+                        <div>Chuồng trại: <b>Ô tiêu chuẩn Block C (14 m²)</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>•</span>
+                        <div>Báo cáo huấn luyện: <b>Tóm tắt cuối tuần</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>•</span>
+                        <div>Hoa hồng trích thưởng giải: <b>CLB giữ 15% – 20%</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>•</span>
+                        <div>Y tế & Khám bệnh: Khám kiểm dịch cơ bản</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>•</span>
+                        <div>Khán đài trường đua: Vé khán đài tiêu chuẩn</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '20px' }}>
+                    <button
+                      type="button"
+                      disabled={membershipTier === 'FREE'}
+                      onClick={() => handleSelectTier('FREE')}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '6px',
+                        background: membershipTier === 'FREE' ? 'var(--bg-secondary)' : 'transparent',
+                        color: membershipTier === 'FREE' ? 'var(--paper-dim)' : 'var(--paper)',
+                        border: '1px solid var(--line)',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        cursor: membershipTier === 'FREE' ? 'default' : 'pointer'
+                      }}
+                    >
+                      {membershipTier === 'FREE' ? 'Gói Bạn Đang Dùng' : 'Hạ Cấp Về Gói 0 Đồng'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* CỘT 2: HORSE PREMIUM (VIP) */}
+                <div className="facility-card" style={{
+                  padding: '24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  borderTop: '3px solid var(--brass)',
+                  border: '1px solid var(--line-strong)',
+                  background: 'var(--bg-card)',
+                  boxShadow: '0 8px 24px rgba(212, 175, 55, 0.08)'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <IconCrown size={20} color="var(--brass)" />
+                        <b style={{ fontSize: '18px', color: 'var(--brass)' }}>Horse Premium</b>
+                      </div>
+                      <span style={{ fontSize: '11px', color: '#0A0D14', background: 'var(--brass)', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>VIP ĐẶC QUYỀN</span>
+                    </div>
+                    <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 14px' }}>
+                      Giải pháp cao cấp nhất cho chủ sở hữu độc quyền & trại ngựa chuyên nghiệp.
+                    </p>
+                    <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--brass)', margin: '0 0 16px', fontFamily: 'var(--display)' }}>
+                      9.900.000 VNĐ <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--paper-dim)' }}>/ THÁNG</span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12.5px', color: 'var(--paper)', borderTop: '1px solid var(--line)', paddingTop: '14px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <div>Giới hạn: <b style={{ color: 'var(--brass)' }}>Không giới hạn số lượng chiến mã</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <div>Chuồng trại: <b>Ô VIP Block A/B (16–18 m²) có đệm rơm khử khuẩn</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <div>Viễn trắc: <b>IoT Real-time đo nhịp tim & gia tốc từng mét chạy</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <div>Huấn luyện: <b>Chỉ định HLV Trưởng & thiết lập giáo án 1-kèm-1</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <div>Hoa hồng giải đua: <b style={{ color: 'var(--brass)' }}>Chỉ thu 5% – 8% (Chủ nhận 92% – 95%)</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <div>Chiết khấu: <b>Giảm 15% tổng hóa đơn lưu chuồng & chăm sóc</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <div>Y tế: <b>Bác sĩ Thú y trưởng trực tiếp hội chẩn & miễn phí công khám</b></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <div>Trường đua: <b>Thẻ VIP Lounge & Quyền vào khu cách ly Paddock</b></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '20px' }}>
+                    <button
+                      type="button"
+                      disabled={membershipTier === 'PREMIUM'}
+                      onClick={() => handleSelectTier('PREMIUM')}
+                      style={{
+                        width: '100%',
+                        padding: '11px',
+                        borderRadius: '6px',
+                        background: membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.15)' : 'var(--brass)',
+                        color: membershipTier === 'PREMIUM' ? 'var(--brass)' : '#0A0D14',
+                        border: membershipTier === 'PREMIUM' ? '1px solid var(--brass)' : 'none',
+                        fontWeight: 800,
+                        fontSize: '13px',
+                        cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
+                      }}
+                    >
+                      {membershipTier === 'PREMIUM' ? 'Đặc Quyền VIP Đang Hoạt Động ✓' : '⚡ Kích Hoạt Gói Premium Ngay'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
@@ -2183,6 +2551,244 @@ export default function OwnerPage() {
                 onClick={() => setSelectedHorsePedigree(null)}
                 style={{
                   padding: '7px 16px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--paper)',
+                  border: '1px solid var(--line)',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* MODAL 5: ĐĂNG KÝ / NÂNG CẤP GÓI HỘI VIÊN (MEMBERSHIP UPGRADE MODAL) */}
+      {/* ========================================================================= */}
+      {showMembershipModal && (
+        <div className="modal-overlay" onClick={() => setShowMembershipModal(false)}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '680px',
+              width: '92%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              border: '1px solid var(--line-strong)',
+              boxShadow: '0 20px 48px rgba(0, 0, 0, 0.6)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--brass)' }}><IconCrown size={22} /></span>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--brass)' }}>
+                  Đăng Ký Quyền Lợi & Gói Hội Viên Chủ Ngựa
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMembershipModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 16px', lineHeight: 1.45 }}>
+              Chủ động nâng cấp hoặc hạ cấp quyền lợi bất kỳ lúc nào. Không ràng buộc thời hạn tối thiểu.
+            </p>
+
+            {/* Bộ chọn chu kỳ đóng phí */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'var(--bg-secondary)',
+              padding: '4px',
+              borderRadius: '8px',
+              width: 'fit-content',
+              margin: '0 auto 20px',
+              border: '1px solid var(--line)'
+            }}>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('month')}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '6px',
+                  background: billingCycle === 'month' ? 'var(--bg-card)' : 'transparent',
+                  color: billingCycle === 'month' ? 'var(--paper)' : 'var(--paper-dim)',
+                  border: billingCycle === 'month' ? '1px solid var(--line)' : 'none',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Đóng Theo Tháng
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('year')}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '6px',
+                  background: billingCycle === 'year' ? 'var(--brass)' : 'transparent',
+                  color: billingCycle === 'year' ? '#0A0D14' : 'var(--paper-dim)',
+                  border: 'none',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>Đóng Theo Năm</span>
+                <span style={{ fontSize: '10px', background: billingCycle === 'year' ? '#0A0D14' : 'var(--brass)', color: billingCycle === 'year' ? 'var(--brass)' : '#0A0D14', padding: '1px 5px', borderRadius: '3px' }}>-25%</span>
+              </button>
+            </div>
+
+            {/* Bảng so sánh 2 cột */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+              {/* Gói 0 Đồng */}
+              <div style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--line)',
+                borderRadius: '8px',
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)', marginBottom: '4px' }}>
+                    Horse 0 Đồng
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '12px' }}>
+                    Gói khởi đầu miễn phí trọn đời
+                  </div>
+                  <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--paper)', marginBottom: '14px', fontFamily: 'var(--display)' }}>
+                    0 VNĐ
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', color: 'var(--paper-dim)', borderTop: '1px solid var(--line)', paddingTop: '12px' }}>
+                    <div>• Tối đa <b>02 chiến mã</b></div>
+                    <div>• Ô chuồng Block C tiêu chuẩn</div>
+                    <div>• Báo cáo huấn luyện tóm tắt</div>
+                    <div>• Trích thưởng giải: <b>CLB giữ 15% – 20%</b></div>
+                    <div>• Không chiết khấu phí lưu chuồng</div>
+                    <div>• Vé khán đài tiêu chuẩn</div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '18px' }}>
+                  <button
+                    type="button"
+                    disabled={membershipTier === 'FREE'}
+                    onClick={() => handleSelectTier('FREE')}
+                    style={{
+                      width: '100%',
+                      padding: '9px',
+                      borderRadius: '6px',
+                      background: membershipTier === 'FREE' ? 'rgba(255,255,255,0.05)' : 'transparent',
+                      color: membershipTier === 'FREE' ? 'var(--paper-dim)' : 'var(--paper)',
+                      border: '1px solid var(--line)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: membershipTier === 'FREE' ? 'default' : 'pointer'
+                    }}
+                  >
+                    {membershipTier === 'FREE' ? 'Đang Dùng Gói Này' : 'Chuyển Về 0 Đồng'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Gói Horse Premium */}
+              <div style={{
+                background: 'rgba(212, 175, 55, 0.04)',
+                border: '1.5px solid var(--brass)',
+                borderRadius: '8px',
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                position: 'relative'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '-10px',
+                  right: '16px',
+                  background: 'var(--brass)',
+                  color: '#0A0D14',
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '3px',
+                  letterSpacing: '0.04em'
+                }}>
+                  KHUYÊN DÙNG (VIP)
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--brass)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>👑</span> Horse Premium
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '12px' }}>
+                    Đặc quyền cao cấp & tối ưu thưởng
+                  </div>
+                  <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--brass)', marginBottom: '14px', fontFamily: 'var(--display)' }}>
+                    {billingCycle === 'year' ? '89.000.000 VNĐ' : '9.900.000 VNĐ'}
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper-dim)' }}>{billingCycle === 'year' ? ' / NĂM' : ' / THÁNG'}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', color: 'var(--paper)', borderTop: '1px solid var(--line)', paddingTop: '12px' }}>
+                    <div>✓ <b style={{ color: 'var(--brass)' }}>Không giới hạn số lượng chiến mã</b></div>
+                    <div>✓ Chuồng VIP Block A/B đệm rơm khử khuẩn</div>
+                    <div>✓ <b>Viễn trắc IoT Real-time từng mét bứt tốc</b></div>
+                    <div>✓ Chỉ định HLV Trưởng & giáo án 1-kèm-1</div>
+                    <div>✓ <b style={{ color: 'var(--brass)' }}>Hoa hồng thưởng chỉ 5% (Chủ nhận 95%)</b></div>
+                    <div>✓ <b>Giảm 15% tổng chi phí lưu chuồng</b></div>
+                    <div>✓ Bác sĩ thú y trưởng trực tiếp hội chẩn</div>
+                    <div>✓ Thẻ VIP Lounge & Vào khu cách ly Paddock</div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '18px' }}>
+                  <button
+                    type="button"
+                    disabled={membershipTier === 'PREMIUM'}
+                    onClick={() => handleSelectTier('PREMIUM')}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      borderRadius: '6px',
+                      background: membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.2)' : 'var(--brass)',
+                      color: membershipTier === 'PREMIUM' ? 'var(--brass)' : '#0A0D14',
+                      border: membershipTier === 'PREMIUM' ? '1px solid var(--brass)' : 'none',
+                      fontSize: '12.5px',
+                      fontWeight: 800,
+                      cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
+                    }}
+                  >
+                    {membershipTier === 'PREMIUM' ? 'Đặc Quyền VIP Đang Kích Hoạt ✓' : '⚡ Kích Hoạt Gói Premium Ngay'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowMembershipModal(false)}
+                style={{
+                  padding: '7px 18px',
                   borderRadius: '6px',
                   background: 'var(--bg-secondary)',
                   color: 'var(--paper)',
