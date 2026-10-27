@@ -101,7 +101,7 @@ export default function GroomPage() {
       temp: '26.8°C',
       humidity: '63%',
       lastCleaned: '08:00 Sáng nay',
-      image: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=400&q=80'
+      image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
     },
     {
       code: 'A3',

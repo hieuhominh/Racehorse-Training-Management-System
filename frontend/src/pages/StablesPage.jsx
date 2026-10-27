@@ -77,7 +77,7 @@ export default function StablesPage({ onOpenAuth }) {
       symptoms: ['Móng bị xước / Rạn guốc'],
       severity: 'MEDIUM',
       description: 'Phát hiện vết rạn móng nhẹ ở guốc sau phải sau buổi tập trên sân cát. Đã làm sạch móng, ngâm đá & chờ Thú y kiểm tra.',
-      imageUrl: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=600&q=80',
+      imageUrl: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80',
       reportedBy: 'Groom Phạm Minh Tiến',
       timestamp: '09:15 - 08/10/2026',
       status: 'in_review'

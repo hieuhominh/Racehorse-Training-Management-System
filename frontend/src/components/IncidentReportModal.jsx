@@ -15,7 +15,7 @@ export default function IncidentReportModal({ isOpen, onClose, activeStall, stal
       ? 'Racehorse refused 1/3 of afternoon Alfalfa hay. Minor superficial crack detected on front-left hoof, requiring immediate veterinary assessment.'
       : 'Chiến mã có biểu hiện bỏ ăn chiều, ăn không hết 1/3 khẩu phần cỏ Alfalfa. Phát hiện vết xước nông ở móng trước bên trái, cần Thú y kiểm tra gấp.'
   );
-  const [attachedImage, setAttachedImage] = useState('https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=600&q=80');
+  const [attachedImage, setAttachedImage] = useState('https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80');
   const [isSuccessToast, setIsSuccessToast] = useState(false);
 
   // Active Stall object preview
@@ -67,7 +67,7 @@ export default function IncidentReportModal({ isOpen, onClose, activeStall, stal
   const samplePhotos = useMemo(() => [
     {
       title: lang === 'en' ? 'Photo 1: Foreleg hoof crack' : 'Ảnh 1: Vết xước móng trước',
-      url: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=600&q=80'
+      url: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80'
     },
     {
       title: lang === 'en' ? 'Photo 2: Uneaten hay ration' : 'Ảnh 2: Khẩu phần cỏ còn thừa',

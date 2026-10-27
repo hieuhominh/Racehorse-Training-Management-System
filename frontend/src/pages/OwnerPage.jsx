@@ -7,6 +7,8 @@ import ThemeToggle from '../components/ThemeToggle';
 import {
   getOwnerHorsesApi,
   registerOwnerHorseApi,
+  updateOwnerHorseApi,
+  deleteOwnerHorseApi,
   getOwnerTelemetryApi,
   getOpenTournamentsApi,
   getOwnerRacesApi,
@@ -28,6 +30,29 @@ const IconHorse = ({ size = 18, color = 'currentColor' }) => (
     <path d="M22 17v1c0 .5-.5 1-1 1H3c-.5 0-1-.5-1-1v-1" />
     <path d="M2 17l2-11c.2-1.1 1.2-2 2.3-2h3.4c1 0 1.9.7 2.2 1.6L13 9h4c1.7 0 3 1.3 3 3v2" />
     <circle cx="7" cy="8" r="1" />
+  </svg>
+);
+
+const IconCamera = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+    <circle cx="12" cy="13" r="4" />
+  </svg>
+);
+
+const IconEdit = ({ size = 15, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+
+const IconTrash = ({ size = 15, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="14" y1="11" x2="14" y2="17" />
   </svg>
 );
 
@@ -143,7 +168,7 @@ const DEMO_HORSES_VIP = [
     winCount: 4,
     totalStarts: 6,
     totalPrizeEarned: 580000000,
-    avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=600&q=80',
+    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
     pedigree: {
       sire: 'Deep Impact (JPN)',
       dam: 'Northern Dancer (USA)',
@@ -210,7 +235,10 @@ const DEMO_RACES_VIP = [
     date: '15/11/2026',
     estimatedPurse: 800000000,
     nominationStatus: 'APPROVED',
-    notes: 'HLV Trần Văn Hùng đề cử vào lượt chạy số 3 (Barrier 3).'
+    notes: 'Chủ sở hữu đăng ký trực tiếp. Kỵ mã: Nguyễn Văn Tài',
+    trainerFeedback: 'Đạt chuẩn thể lực cự ly 2.400m, nhịp tim ổn định 38 bpm. HLV Trưởng phê duyệt đủ điều kiện xuất phát.',
+    reviewedBy: 'HLV Trưởng Trần Văn Hùng',
+    reviewedAt: '21/10/2026 09:30'
   },
   {
     id: 'RN-2026-02',
@@ -220,8 +248,11 @@ const DEMO_RACES_VIP = [
     distance: '1.200m (Sân cát)',
     date: '28/11/2026',
     estimatedPurse: 450000000,
-    nominationStatus: 'PENDING',
-    notes: 'Cần Chủ ngựa xác nhận đăng ký thi đấu trước 30/10/2026.'
+    nominationStatus: 'PENDING_TRAINER',
+    notes: 'Chủ sở hữu đăng ký tham gia cúp nước rút. Đang chờ HLV trưởng thẩm định thể lực.',
+    trainerFeedback: '',
+    reviewedBy: null,
+    reviewedAt: null
   }
 ];
 
@@ -326,8 +357,19 @@ export default function OwnerPage() {
   const [myHorses, setMyHorses] = useState(() => {
     try {
       const stored = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
-      if (stored) return JSON.parse(stored);
-      // Nếu là tài khoản Demo VIP thì nạp dữ liệu mẫu ban đầu, ngược lại tài khoản mới đăng ký thì rỗng hoàn toàn []
+      if (stored) {
+        // Tự động làm sạch URL ảnh cũ bị lỗi (404)
+        const sanitized = stored.replace(/photo-1598974357801-cbca10065444/g, 'photo-1534447677768-be436bb09401');
+        const parsed = JSON.parse(sanitized);
+        const fixed = parsed.map(item => {
+          if (item.name === 'Bạch Long' && (!item.avatar || item.avatar.includes('photo-1598974357801-cbca10065444'))) {
+            return { ...item, avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80' };
+          }
+          return item;
+        });
+        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(fixed));
+        return fixed;
+      }
       return isDemoVip ? DEMO_HORSES_VIP : [];
     } catch {
       return isDemoVip ? DEMO_HORSES_VIP : [];
@@ -448,7 +490,7 @@ export default function OwnerPage() {
     stable: 'Ô A1 (Khu Huấn luyện)',
     sire: '',
     dam: '',
-    avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=600&q=80'
+    avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80'
   });
 
   // Form State: Đăng ký giải đấu
@@ -478,6 +520,52 @@ export default function OwnerPage() {
       }));
     }
     setShowRaceRegisterModal(true);
+  };
+
+  const PRESET_HORSE_AVATARS = [
+    { label: 'Hắc mã', url: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80' },
+    { label: 'Xích thố', url: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80' },
+    { label: 'Bạch mã', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80' },
+    { label: 'Kim quy', url: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=600&q=80' }
+  ];
+
+  const handleHorseImageUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP)!', 'LỖI ĐỊNH DẠNG', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setHorseForm(prev => ({ ...prev, avatar: optimizedDataUrl }));
+        showToast('Đã tải ảnh chiến mã thành công!', 'TẢI ẢNH XONG', 'info');
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 
   // Xử lý tạo ngựa mới
@@ -568,10 +656,145 @@ export default function OwnerPage() {
       stable: 'Ô A1 (Khu Huấn luyện)',
       sire: '',
       dam: '',
-      avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=600&q=80'
+      avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80'
     });
 
     showToast(`Đã đăng ký chiến mã "${newHorse.name}" vào chuồng thành công!`, 'ĐĂNG KÝ CHIẾN MÃ', 'info');
+  };
+
+  // State: Modal Chỉnh Sửa Thông Tin Chiến Mã
+  const [showEditHorseModal, setShowEditHorseModal] = useState(false);
+  const [editingHorse, setEditingHorse] = useState(null);
+  const [editHorseForm, setEditHorseForm] = useState({
+    id: null,
+    name: '',
+    englishName: '',
+    breed: 'Thoroughbred',
+    gender: 'Ngựa đực (Stallion)',
+    microchip: '',
+    ownershipShare: 100,
+    trainer: 'Trần Văn Hùng (HLV Trưởng)',
+    stable: 'Ô A1 (Khu Huấn luyện)',
+    sire: '',
+    dam: '',
+    avatar: ''
+  });
+
+  const handleOpenEditHorseModal = (horse) => {
+    setEditingHorse(horse);
+    setEditHorseForm({
+      id: horse.id,
+      name: horse.name || '',
+      englishName: horse.englishName || '',
+      breed: horse.breed || 'Thoroughbred',
+      gender: horse.gender || 'Ngựa đực (Stallion)',
+      microchip: horse.microchip || '',
+      ownershipShare: horse.ownershipShare || 100,
+      trainer: horse.trainer || 'Trần Văn Hùng (HLV Trưởng)',
+      stable: horse.stable || 'Ô A1',
+      sire: horse.pedigree?.sire || '',
+      dam: horse.pedigree?.dam || '',
+      avatar: horse.avatar || ''
+    });
+    setShowEditHorseModal(true);
+  };
+
+  const handleEditHorseImageUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP)!', 'LỖI ĐỊNH DẠNG', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setEditHorseForm(prev => ({ ...prev, avatar: optimizedDataUrl }));
+        showToast('Đã tải ảnh mới thành công!', 'TẢI ẢNH XONG', 'info');
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpdateHorseSubmit = (e) => {
+    e.preventDefault();
+    if (!editHorseForm.name.trim()) {
+      showToast('Vui lòng nhập tên chiến mã!', 'THIẾU THÔNG TIN', 'error');
+      return;
+    }
+
+    const updatedHorse = {
+      ...editingHorse,
+      name: editHorseForm.name.trim(),
+      englishName: editHorseForm.englishName.trim() || editHorseForm.name.trim(),
+      breed: editHorseForm.breed,
+      gender: editHorseForm.gender,
+      microchip: editHorseForm.microchip.trim() || editingHorse.microchip,
+      ownershipShare: Number(editHorseForm.ownershipShare) || 100,
+      ownershipType: Number(editHorseForm.ownershipShare) === 100 ? 'Độc quyền (100%)' : `Đồng sở hữu (${editHorseForm.ownershipShare}%)`,
+      trainer: editHorseForm.trainer,
+      stable: editHorseForm.stable,
+      avatar: editHorseForm.avatar || editingHorse.avatar,
+      pedigree: {
+        ...editingHorse.pedigree,
+        sire: editHorseForm.sire.trim() || editingHorse.pedigree?.sire || 'Đang cập nhật',
+        dam: editHorseForm.dam.trim() || editingHorse.pedigree?.dam || 'Đang cập nhật'
+      }
+    };
+
+    updateOwnerHorseApi(ownerKey, updatedHorse).catch(() => {});
+    setMyHorses(prev => prev.map(h => h.id === editingHorse.id ? updatedHorse : h));
+    setShowEditHorseModal(false);
+    showToast(`Đã cập nhật thông tin chiến mã "${updatedHorse.name}" thành công!`, 'CẬP NHẬT HỒ SƠ', 'success');
+  };
+
+  // State: Modal Xác Minh Xóa Chiến Mã
+  const [showDeleteHorseModal, setShowDeleteHorseModal] = useState(false);
+  const [deletingHorse, setDeletingHorse] = useState(null);
+  const [deleteVerificationInput, setDeleteVerificationInput] = useState('');
+
+  const handleOpenDeleteHorseModal = (horse) => {
+    setDeletingHorse(horse);
+    setDeleteVerificationInput('');
+    setShowDeleteHorseModal(true);
+  };
+
+  const handleConfirmDeleteHorse = () => {
+    if (!deletingHorse) return;
+
+    if (deleteVerificationInput.trim().toLowerCase() !== deletingHorse.name.trim().toLowerCase()) {
+      showToast(`Vui lòng nhập chính xác tên chiến mã "${deletingHorse.name}" để xác nhận xóa!`, 'XÁC MINH CHƯA ĐÚNG', 'warning');
+      return;
+    }
+
+    deleteOwnerHorseApi(ownerKey, deletingHorse.id).catch(() => {});
+    setMyHorses(prev => prev.filter(h => h.id !== deletingHorse.id));
+    setShowDeleteHorseModal(false);
+    showToast(`Đã hoàn tất xóa chiến mã "${deletingHorse.name}" khỏi chuồng nuôi dưỡng!`, 'XÓA THÀNH CÔNG', 'info');
+    setDeletingHorse(null);
+    setDeleteVerificationInput('');
   };
 
   // Xử lý nộp đơn đăng ký giải đấu
@@ -592,16 +815,26 @@ export default function OwnerPage() {
       return;
     }
 
+    const now = new Date();
+    const timeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
     const newNomination = {
       id: `RN-REG-${Date.now().toString().slice(-4)}`,
       raceName: tournament.name,
       track: tournament.track,
       horseName: selectedHorse.name,
+      ownerName: currentUser?.full_name || 'Chủ sở hữu',
+      ownerKey: ownerKey,
       distance: `${tournament.distance} (${tournament.surface})`,
       date: tournament.date,
       estimatedPurse: tournament.totalPurse,
-      nominationStatus: 'APPROVED', // Chủ tự đăng ký -> Trạng thái đã duyệt
-      notes: `Chủ sở hữu đăng ký trực tiếp. Kỵ mã: ${raceRegForm.jockey}. ${raceRegForm.notes}`
+      nominationStatus: 'PENDING_TRAINER', // Chờ HLV trưởng phê duyệt
+      jockey: raceRegForm.jockey || 'Chưa chỉ định',
+      notes: `Chủ sở hữu đăng ký. Kỵ mã: ${raceRegForm.jockey || 'Chưa chỉ định'}. ${raceRegForm.notes || ''}`,
+      registeredAt: timeStr,
+      trainerFeedback: '',
+      reviewedBy: null,
+      reviewedAt: null
     };
 
     // Gọi API Ghi danh giải đấu của Chủ sở hữu
@@ -609,7 +842,7 @@ export default function OwnerPage() {
 
     setRaceNominations(prev => [newNomination, ...prev]);
     setShowRaceRegisterModal(false);
-    showToast(`Đã ghi danh chiến mã "${selectedHorse.name}" vào ${tournament.name} thành công!`, 'GHI DANH GIẢI ĐUA', 'info');
+    showToast(`Đã gửi đơn ghi danh chiến mã "${selectedHorse.name}"! Đang chờ Huấn luyện viên trưởng phê duyệt.`, 'GHI DANH GIẢI ĐUA', 'info');
     setActiveTab('races');
   };
 
@@ -792,62 +1025,71 @@ export default function OwnerPage() {
                 {currentUser?.full_name ? currentUser.full_name.charAt(0).toUpperCase() : 'VIP'}
               </div>
               <div className="portal-user-info">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div className="portal-user-name">{currentUser?.full_name || 'Chủ Sở Hữu Ngựa'}</div>
                   {membershipTier === 'PREMIUM' ? (
                     <span style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '4px',
-                      background: 'rgba(212, 175, 55, 0.15)',
+                      gap: '3px',
+                      background: 'rgba(212, 175, 55, 0.12)',
                       color: 'var(--brass)',
-                      border: '1px solid var(--brass)',
+                      border: '1px solid rgba(212, 175, 55, 0.6)',
                       borderRadius: '4px',
-                      padding: '2px 8px',
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      letterSpacing: '0.04em'
+                      padding: '1px 6px',
+                      fontSize: '9.5px',
+                      fontWeight: 700,
+                      letterSpacing: '0.03em',
+                      lineHeight: 1.3
                     }}>
-                      <span>👑</span> HORSE PREMIUM
+                      <span style={{ fontSize: '9px' }}>👑</span> PREMIUM
                     </span>
                   ) : (
                     <span style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      background: 'var(--bg-secondary)',
+                      background: 'rgba(255, 255, 255, 0.05)',
                       color: 'var(--paper-dim)',
                       border: '1px solid var(--line)',
                       borderRadius: '4px',
-                      padding: '2px 8px',
-                      fontSize: '11px',
-                      fontWeight: 600
+                      padding: '1px 6px',
+                      fontSize: '9.5px',
+                      fontWeight: 600,
+                      lineHeight: 1.3
                     }}>
-                      HORSE 0 ĐỒNG
+                      FREE 0Đ
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
-                  <div className="portal-user-role">Chủ sở hữu (Racehorse Owner)</div>
-                  <button
-                    type="button"
-                    onClick={() => setShowMembershipModal(true)}
-                    style={{
-                      background: membershipTier === 'PREMIUM' ? 'transparent' : 'var(--brass)',
-                      color: membershipTier === 'PREMIUM' ? 'var(--brass)' : '#0A0D14',
-                      border: membershipTier === 'PREMIUM' ? '1px solid var(--brass)' : 'none',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      fontSize: '10.5px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      lineHeight: 1.2
-                    }}
-                  >
-                    {membershipTier === 'PREMIUM' ? 'Đổi gói' : '⚡ Nâng cấp VIP'}
-                  </button>
-                </div>
+                <div className="portal-user-role" style={{ marginTop: '2px' }}>Chủ sở hữu (Racehorse Owner)</div>
               </div>
             </div>
+
+            {/* NÚT ĐỔI GÓI CHUYỂN RA BÊN NGOÀI USER BADGE */}
+            <button
+              type="button"
+              onClick={() => setShowMembershipModal(true)}
+              title="Quản lý & thay đổi gói quyền lợi thành viên"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.1)' : 'var(--brass)',
+                color: membershipTier === 'PREMIUM' ? 'var(--brass)' : '#0A0D14',
+                border: membershipTier === 'PREMIUM' ? '1px solid var(--brass)' : 'none',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                boxShadow: membershipTier === 'PREMIUM' ? 'none' : '0 2px 8px rgba(212, 175, 55, 0.25)'
+              }}
+            >
+              <IconCrown size={13} color={membershipTier === 'PREMIUM' ? 'var(--brass)' : '#0A0D14'} />
+              <span>{membershipTier === 'PREMIUM' ? 'Đổi gói' : 'Nâng cấp VIP'}</span>
+            </button>
             <button
               onClick={handleLogout}
               className="portal-btn-logout"
@@ -1084,27 +1326,78 @@ export default function OwnerPage() {
                     <div key={h.id} className="facility-card" style={{ padding: '20px' }}>
                       <div style={{ display: 'flex', gap: '14px', marginBottom: '14px' }}>
                         <img
-                          src={h.avatar}
+                          src={h.avatar || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'}
                           alt={h.name}
                           style={{ width: '84px', height: '84px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
+                          onError={(e) => {
+                            e.target.src = h.name === 'Bạch Long'
+                              ? 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'
+                              : 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+                          }}
                         />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{h.name}</b>
-                            <span style={{
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              background: h.status === 'ELIGIBLE' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                              color: h.status === 'ELIGIBLE' ? 'var(--brass)' : 'var(--paper-dim)',
-                              border: `1px solid ${h.status === 'ELIGIBLE' ? 'var(--brass)' : 'var(--line)'}`
-                            }}>
-                              {h.statusText}
-                            </span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                            <div>
+                              <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{h.name}</b>
+                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', margin: '2px 0 0' }}>{h.englishName} · {h.breed}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                              <span style={{
+                                padding: '2px 7px',
+                                borderRadius: '4px',
+                                fontSize: '10.5px',
+                                fontWeight: 700,
+                                background: h.status === 'ELIGIBLE' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                                color: h.status === 'ELIGIBLE' ? 'var(--brass)' : 'var(--paper-dim)',
+                                border: `1px solid ${h.status === 'ELIGIBLE' ? 'var(--brass)' : 'var(--line)'}`
+                              }}>
+                                {h.statusText}
+                              </span>
+                              <button
+                                type="button"
+                                title="Chỉnh sửa thông tin chiến mã"
+                                onClick={() => handleOpenEditHorseModal(h)}
+                                style={{
+                                  background: 'var(--bg-secondary)',
+                                  border: '1px solid var(--line)',
+                                  color: 'var(--paper-dim)',
+                                  borderRadius: '5px',
+                                  padding: '4px 6px',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--brass)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--paper-dim)'; e.currentTarget.style.borderColor = 'var(--line)'; }}
+                              >
+                                <IconEdit size={13} color="currentColor" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Xóa chiến mã (Yêu cầu xác minh)"
+                                onClick={() => handleOpenDeleteHorseModal(h)}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.08)',
+                                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                                  color: '#EF4444',
+                                  borderRadius: '5px',
+                                  padding: '4px 6px',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; }}
+                              >
+                                <IconTrash size={13} color="#EF4444" />
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)', margin: '3px 0' }}>{h.englishName} · {h.breed}</div>
-                          <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>{h.microchip}</div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', fontFamily: 'monospace', marginTop: '4px' }}>{h.microchip}</div>
                         </div>
                       </div>
 
@@ -1127,26 +1420,51 @@ export default function OwnerPage() {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--line)', paddingTop: '12px' }}>
-                        <div style={{ fontSize: '12.5px' }}>
-                          <span style={{ color: 'var(--paper-dim)' }}>Thắng giải: </span>
-                          <b style={{ color: 'var(--brass)' }}>{h.winCount || 0} / {h.totalStarts || 0}</b>
-                          <span style={{ color: 'var(--paper-dim)', margin: '0 6px' }}>·</span>
-                          <b style={{ color: 'var(--paper)' }}>{formatVND(h.totalPrizeEarned)}</b>
+                      <div style={{
+                        borderTop: '1px solid var(--line)',
+                        paddingTop: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          fontSize: '12.5px'
+                        }}>
+                          <div>
+                            <span style={{ color: 'var(--paper-dim)' }}>Thắng giải: </span>
+                            <b style={{ color: 'var(--brass)' }}>{h.winCount || 0} / {h.totalStarts || 0}</b>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--paper-dim)' }}>Tiền thưởng: </span>
+                            <b style={{ color: 'var(--paper)' }}>{formatVND(h.totalPrizeEarned)}</b>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
+
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1.2fr',
+                          gap: '8px'
+                        }}>
                           <button
                             type="button"
                             onClick={() => setSelectedHorsePedigree(h)}
                             style={{
-                              padding: '5px 10px',
-                              borderRadius: '4px',
+                              padding: '7px 10px',
+                              borderRadius: '6px',
                               background: 'var(--bg-secondary)',
                               color: 'var(--brass)',
                               border: '1px solid var(--line)',
-                              fontSize: '11.5px',
+                              fontSize: '12px',
                               fontWeight: 600,
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              textAlign: 'center',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
                             }}
                           >
                             Phả hệ
@@ -1159,14 +1477,20 @@ export default function OwnerPage() {
                               setShowRaceRegisterModal(true);
                             }}
                             style={{
-                              padding: '5px 12px',
-                              borderRadius: '4px',
+                              padding: '7px 12px',
+                              borderRadius: '6px',
                               background: 'var(--brass)',
                               color: '#0A0D14',
                               fontWeight: 700,
                               border: 'none',
-                              fontSize: '11.5px',
-                              cursor: 'pointer'
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              textAlign: 'center',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 2px 6px rgba(212, 175, 55, 0.2)'
                             }}
                           >
                             Ghi danh đua
@@ -1381,13 +1705,14 @@ export default function OwnerPage() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {raceNominations.map((r) => {
-                      const isApproved = r.nominationStatus === 'APPROVED';
+                      const isApproved = r.nominationStatus === 'APPROVED' || r.nominationStatus === 'CONFIRMED';
                       const isWithdrawn = r.nominationStatus === 'WITHDRAWN';
-                      const isPending = r.nominationStatus === 'PENDING';
+                      const isRejected = r.nominationStatus === 'REJECTED' || r.nominationStatus === 'DECLINED';
+                      const isPendingTrainer = r.nominationStatus === 'PENDING_TRAINER' || r.nominationStatus === 'PENDING' || (!isApproved && !isWithdrawn && !isRejected);
 
                       return (
-                        <div key={r.id} className="facility-card" style={{ padding: '20px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <div key={r.id} className="facility-card" style={{ padding: '22px', border: isApproved ? '1px solid rgba(16, 185, 129, 0.4)' : isRejected ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--line)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                             <div>
                               <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{r.raceName}</b>
                               <div style={{ fontSize: '12.5px', color: 'var(--brass)', fontWeight: 600, marginTop: '2px' }}>
@@ -1395,21 +1720,87 @@ export default function OwnerPage() {
                               </div>
                             </div>
                             <span style={{
-                              padding: '3px 10px',
+                              padding: '4px 12px',
                               borderRadius: '4px',
                               fontSize: '11px',
                               fontWeight: 700,
-                              background: isApproved ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                              color: isApproved ? 'var(--brass)' : 'var(--paper-dim)',
-                              border: `1px solid ${isApproved ? 'var(--brass)' : 'var(--line)'}`
+                              letterSpacing: '0.03em',
+                              background: isApproved 
+                                ? 'rgba(16, 185, 129, 0.15)' 
+                                : isRejected
+                                ? 'rgba(239, 68, 68, 0.15)'
+                                : isWithdrawn
+                                ? 'var(--bg-secondary)'
+                                : 'rgba(212, 175, 55, 0.15)',
+                              color: isApproved 
+                                ? '#10B981' 
+                                : isRejected
+                                ? '#EF4444'
+                                : isWithdrawn
+                                ? 'var(--paper-dim)'
+                                : 'var(--brass)',
+                              border: `1px solid ${isApproved ? '#10B981' : isRejected ? '#EF4444' : isWithdrawn ? 'var(--line)' : 'var(--brass)'}`
                             }}>
-                              {isApproved ? 'ĐÃ ĐĂNG KÝ / DUYỆT THAM GIA' : isWithdrawn ? 'ĐÃ RÚT LUI' : 'CHỜ DUYỆT'}
+                              {isApproved 
+                                ? '✓ HLV TRƯỞNG ĐÃ PHÊ DUYỆT' 
+                                : isRejected
+                                ? '✗ HLV YÊU CẦU RÈN THÊM'
+                                : isWithdrawn 
+                                ? 'ĐÃ RÚT LUI' 
+                                : '⏳ CHỜ HLV TRƯỞNG PHÊ DUYỆT'}
                             </span>
                           </div>
 
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', marginBottom: '12px' }}>
+                          {/* KHỐI THÔNG BÁO TIẾN ĐỘ DUYỆT CỦA HUẤN LUYỆN VIÊN TRƯỞNG */}
+                          {isPendingTrainer && (
+                            <div style={{
+                              background: 'rgba(212, 175, 55, 0.08)',
+                              border: '1px solid rgba(212, 175, 55, 0.25)',
+                              borderRadius: '6px',
+                              padding: '10px 14px',
+                              fontSize: '12.5px',
+                              color: 'var(--paper)',
+                              marginBottom: '12px',
+                              lineHeight: 1.5
+                            }}>
+                              <b style={{ color: 'var(--brass)' }}>Đang thẩm định thể lực:</b> Hồ sơ đăng ký đã chuyển đến Huấn luyện viên trưởng. HLV sẽ kiểm tra chỉ số sinh trắc (nhịp tim, vận tốc tập luyện gần nhất) trước khi phê duyệt quyền xuất phát chính thức.
+                            </div>
+                          )}
+
+                          {isApproved && (
+                            <div style={{
+                              background: 'rgba(16, 185, 129, 0.08)',
+                              border: '1px solid rgba(16, 185, 129, 0.25)',
+                              borderRadius: '6px',
+                              padding: '10px 14px',
+                              fontSize: '12.5px',
+                              color: 'var(--paper)',
+                              marginBottom: '12px',
+                              lineHeight: 1.5
+                            }}>
+                              <b style={{ color: '#10B981' }}>HLV Trưởng ({r.reviewedBy || 'Trần Văn Hùng'}):</b> {r.trainerFeedback || 'Chiến mã đạt 100% phong độ thể lực, chỉ số viễn trắc ổn định. Đã phê duyệt cấp phép xuất phát chính thức.'}
+                            </div>
+                          )}
+
+                          {isRejected && (
+                            <div style={{
+                              background: 'rgba(239, 68, 68, 0.08)',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              borderRadius: '6px',
+                              padding: '10px 14px',
+                              fontSize: '12.5px',
+                              color: 'var(--paper)',
+                              marginBottom: '12px',
+                              lineHeight: 1.5
+                            }}>
+                              <b style={{ color: '#EF4444' }}>Ý kiến HLV Trưởng ({r.reviewedBy || 'Trần Văn Hùng'}):</b> {r.trainerFeedback || 'Chiến mã cần rèn luyện thêm bài tập thể lực trên sân cát và theo dõi nhịp tim phục hồi trước khi thi đấu.'}
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                             <div>Ngày thi đấu: <b style={{ color: 'var(--paper)' }}>{r.date}</b></div>
-                            <div>Tổng giải thưởng dự kiến: <b style={{ color: 'var(--brass)' }}>{formatVND(r.estimatedPurse)}</b></div>
+                            <div>Kỵ mã: <b style={{ color: 'var(--paper)' }}>{r.jockey || 'Chưa chỉ định'}</b></div>
+                            <div>Tổng giải thưởng: <b style={{ color: 'var(--brass)' }}>{formatVND(r.estimatedPurse)}</b></div>
                           </div>
 
                           <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '14px' }}>
@@ -1417,45 +1808,48 @@ export default function OwnerPage() {
                           </div>
 
                           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                            {isPending ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleNomination(r.id, 'WITHDRAWN')}
-                                  style={{
-                                    padding: '7px 14px',
-                                    borderRadius: '6px',
-                                    background: 'transparent',
-                                    color: 'var(--paper-dim)',
-                                    border: '1px solid var(--line)',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  Rút lui
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleNomination(r.id, 'APPROVED')}
-                                  style={{
-                                    padding: '7px 18px',
-                                    borderRadius: '6px',
-                                    background: 'var(--brass)',
-                                    color: '#0A0D14',
-                                    fontWeight: 700,
-                                    border: 'none',
-                                    fontSize: '12px',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  ✓ Phê duyệt tham gia
-                                </button>
-                              </>
-                            ) : (
+                            {isPendingTrainer && (
                               <button
                                 type="button"
-                                onClick={() => handleToggleNomination(r.id, isApproved ? 'WITHDRAWN' : 'APPROVED')}
+                                onClick={() => handleToggleNomination(r.id, 'WITHDRAWN')}
+                                style={{
+                                  padding: '7px 14px',
+                                  borderRadius: '6px',
+                                  background: 'transparent',
+                                  color: 'var(--paper-dim)',
+                                  border: '1px solid var(--line)',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Rút đơn đăng ký
+                              </button>
+                            )}
+
+                            {isRejected && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleNomination(r.id, 'PENDING_TRAINER')}
+                                style={{
+                                  padding: '7px 16px',
+                                  borderRadius: '6px',
+                                  background: 'var(--brass)',
+                                  color: '#0A0D14',
+                                  fontWeight: 700,
+                                  border: 'none',
+                                  fontSize: '12px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ⚡ Yêu cầu HLV thẩm định lại
+                              </button>
+                            )}
+
+                            {isApproved && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleNomination(r.id, 'WITHDRAWN')}
                                 style={{
                                   padding: '6px 14px',
                                   borderRadius: '6px',
@@ -1467,7 +1861,26 @@ export default function OwnerPage() {
                                   cursor: 'pointer'
                                 }}
                               >
-                                {isApproved ? 'Hủy / Rút lui giải đấu' : 'Đăng ký lại'}
+                                Hủy / Rút lui giải đấu
+                              </button>
+                            )}
+
+                            {isWithdrawn && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleNomination(r.id, 'PENDING_TRAINER')}
+                                style={{
+                                  padding: '6px 14px',
+                                  borderRadius: '6px',
+                                  background: 'var(--brass)',
+                                  color: '#0A0D14',
+                                  fontWeight: 700,
+                                  border: 'none',
+                                  fontSize: '12px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Gửi đăng ký lại cho HLV
                               </button>
                             )}
                           </div>
@@ -1934,6 +2347,92 @@ export default function OwnerPage() {
             </p>
 
             <form onSubmit={handleCreateHorseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Khu vực Đăng / Chọn Hình Ảnh Chiến Mã */}
+              <div style={{
+                background: 'var(--bg-secondary)',
+                border: '1px dashed var(--line-strong)',
+                borderRadius: '8px',
+                padding: '12px 14px'
+              }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <IconCamera size={16} color="var(--brass)" />
+                  <span>Hình ảnh nhận diện chiến mã</span>
+                </label>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', width: '74px', height: '74px', flexShrink: 0 }}>
+                    <img
+                      src={horseForm.avatar || 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80'}
+                      alt="Ảnh chiến mã"
+                      style={{
+                        width: '74px',
+                        height: '74px',
+                        borderRadius: '8px',
+                        objectFit: 'cover',
+                        border: '2px solid var(--brass)',
+                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.4)'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: '220px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
+                      <label
+                        htmlFor="horse-avatar-file-input"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          background: 'var(--brass)',
+                          color: '#0A0D14',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span>📁 Chọn ảnh từ thiết bị</span>
+                      </label>
+                      <input
+                        id="horse-avatar-file-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleHorseImageUpload}
+                        style={{ display: 'none' }}
+                      />
+                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                        (JPG, PNG, WEBP tự động tối ưu)
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Hoặc chọn mẫu:</span>
+                      {PRESET_HORSE_AVATARS.map((p, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setHorseForm(prev => ({ ...prev, avatar: p.url }))}
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: horseForm.avatar === p.url ? 'rgba(212, 175, 55, 0.2)' : 'var(--bg-card)',
+                            border: `1px solid ${horseForm.avatar === p.url ? 'var(--brass)' : 'var(--line)'}`,
+                            color: horseForm.avatar === p.url ? 'var(--brass)' : 'var(--paper-dim)',
+                            fontSize: '11px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
@@ -2204,6 +2703,552 @@ export default function OwnerPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: CHỈNH SỬA THÔNG TIN CHIẾN MÃ (EDIT HORSE MODAL) */}
+      {/* ========================================================================= */}
+      {showEditHorseModal && editingHorse && (
+        <div className="modal-overlay" onClick={() => setShowEditHorseModal(false)}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '560px',
+              width: '92%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              border: '1px solid var(--line-strong)',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--brass)' }}><IconEdit size={20} /></span>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--brass)' }}>
+                  Chỉnh Sửa Hồ Sơ: {editingHorse.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditHorseModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 16px', lineHeight: 1.4 }}>
+              Cập nhật các thông số định danh, phân bổ ô chuồng và huấn luyện viên phụ trách.
+            </p>
+
+            <form onSubmit={handleUpdateHorseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Khu vực Đổi Hình Ảnh */}
+              <div style={{
+                background: 'var(--bg-secondary)',
+                border: '1px dashed var(--line-strong)',
+                borderRadius: '8px',
+                padding: '12px 14px'
+              }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                  <IconCamera size={16} color="var(--brass)" />
+                  <span>Hình ảnh nhận diện chiến mã</span>
+                </label>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', width: '74px', height: '74px', flexShrink: 0 }}>
+                    <img
+                      src={editHorseForm.avatar || editingHorse.avatar || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'}
+                      alt="Ảnh chiến mã"
+                      style={{
+                        width: '74px',
+                        height: '74px',
+                        borderRadius: '8px',
+                        objectFit: 'cover',
+                        border: '2px solid var(--brass)',
+                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.4)'
+                      }}
+                      onError={(e) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: '220px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
+                      <label
+                        htmlFor="edit-horse-avatar-file-input"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          background: 'var(--brass)',
+                          color: '#0A0D14',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)'
+                        }}
+                      >
+                        <span>📁 Đổi ảnh từ máy</span>
+                      </label>
+                      <input
+                        id="edit-horse-avatar-file-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleEditHorseImageUpload}
+                        style={{ display: 'none' }}
+                      />
+                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                        (Tự động nén & tối ưu)
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Chọn mẫu:</span>
+                      {PRESET_HORSE_AVATARS.map((p, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setEditHorseForm(prev => ({ ...prev, avatar: p.url }))}
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: editHorseForm.avatar === p.url ? 'rgba(212, 175, 55, 0.2)' : 'var(--bg-card)',
+                            border: `1px solid ${editHorseForm.avatar === p.url ? 'var(--brass)' : 'var(--line)'}`,
+                            color: editHorseForm.avatar === p.url ? 'var(--brass)' : 'var(--paper-dim)',
+                            fontSize: '11px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Tên chiến mã <span style={{ color: 'var(--brass)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editHorseForm.name}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, name: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Tên quốc tế (tiếng Anh)
+                  </label>
+                  <input
+                    type="text"
+                    value={editHorseForm.englishName}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, englishName: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Giống ngựa
+                  </label>
+                  <select
+                    value={editHorseForm.breed}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, breed: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="Thoroughbred">Thoroughbred (Thuần chủng Anh)</option>
+                    <option value="Quarter Horse">Quarter Horse (Nước rút cự ly ngắn)</option>
+                    <option value="Arabian">Arabian (Ả Rập sức bền)</option>
+                    <option value="Standardbred">Standardbred (Đua xe kéo nước kiệu)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Giới tính & Tuổi
+                  </label>
+                  <select
+                    value={editHorseForm.gender}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, gender: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="Ngựa đực (Stallion)">Ngựa đực (Stallion)</option>
+                    <option value="Ngựa đực thiến (Gelding)">Ngựa đực thiến (Gelding)</option>
+                    <option value="Ngựa cái (Mare)">Ngựa cái (Mare)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Mã vi chip định danh RFID
+                  </label>
+                  <input
+                    type="text"
+                    value={editHorseForm.microchip}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, microchip: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--brass)',
+                      fontFamily: 'monospace',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Tỷ lệ cổ phần sở hữu (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={editHorseForm.ownershipShare}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, ownershipShare: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Chọn HLV Trưởng gửi gắm
+                  </label>
+                  <select
+                    value={editHorseForm.trainer}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, trainer: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="Trần Văn Hùng (HLV Trưởng)">Trần Văn Hùng (HLV Trưởng)</option>
+                    <option value="Lê Trọng Nghĩa (HLV Cự Ly Dài)">Lê Trọng Nghĩa (HLV Cự Ly Dài)</option>
+                    <option value="Phạm Quốc Anh (HLV Nước Rút)">Phạm Quốc Anh (HLV Nước Rút)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Vị trí ô chuồng
+                  </label>
+                  <select
+                    value={editHorseForm.stable}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, stable: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="Ô A1">Ô A1 (Khu Huấn luyện A)</option>
+                    <option value="Ô A2">Ô A2 (Khu Huấn luyện A)</option>
+                    <option value="Ô A3">Ô A3 (Khu Huấn luyện A)</option>
+                    <option value="Ô A4">Ô A4 (Khu Huấn luyện A)</option>
+                    <option value="Ô B1">Ô B1 (Khu Chuồng trại VIP)</option>
+                    <option value="Ô B2">Ô B2 (Khu Chuồng trại VIP)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Dòng bố (Sire)
+                  </label>
+                  <input
+                    type="text"
+                    value={editHorseForm.sire}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, sire: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Dòng mẹ (Dam)
+                  </label>
+                  <input
+                    type="text"
+                    value={editHorseForm.dam}
+                    onChange={(e) => setEditHorseForm({ ...editHorseForm, dam: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEditHorseModal(false)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: 'transparent',
+                    color: 'var(--paper-dim)',
+                    border: '1px solid var(--line)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '6px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    fontWeight: 700,
+                    border: 'none',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Lưu Thay Đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: XÁC MINH BẢO MẬT XÓA CHIẾN MÃ (DELETE HORSE VERIFICATION MODAL) */}
+      {/* ========================================================================= */}
+      {showDeleteHorseModal && deletingHorse && (
+        <div className="modal-overlay" onClick={() => setShowDeleteHorseModal(false)}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '480px',
+              width: '92%',
+              padding: '24px',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.15)',
+                color: '#EF4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px',
+                flexShrink: 0
+              }}>
+                ⚠️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: '#EF4444' }}>
+                  Xác Nhận Xóa Chiến Mã Khỏi Chuồng
+                </h3>
+                <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                  Hành động này không thể hoàn tác sau khi xác nhận
+                </span>
+              </div>
+            </div>
+
+            {/* Thông tin chiến mã sắp xóa */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--line)',
+              borderRadius: '8px',
+              padding: '12px 14px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <img
+                src={deletingHorse.avatar || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'}
+                alt={deletingHorse.name}
+                style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
+                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80'; }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--paper)' }}>
+                  {deletingHorse.name} <span style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 400 }}>({deletingHorse.englishName})</span>
+                </div>
+                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                  Vị trí: <b style={{ color: 'var(--paper)' }}>{deletingHorse.stable}</b> · Vi chip: <span style={{ fontFamily: 'monospace' }}>{deletingHorse.microchip}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bước xác minh bắt buộc */}
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.05)',
+              border: '1px dashed rgba(239, 68, 68, 0.3)',
+              borderRadius: '8px',
+              padding: '14px',
+              marginBottom: '18px'
+            }}>
+              <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '6px', lineHeight: 1.4 }}>
+                Bước xác minh: Nhập chính xác tên <b style={{ color: '#EF4444' }}>"{deletingHorse.name}"</b> vào ô bên dưới để mở khóa quyền xóa:
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={deleteVerificationInput}
+                onChange={(e) => setDeleteVerificationInput(e.target.value)}
+                placeholder={`Nhập chính xác "${deletingHorse.name}"...`}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  background: 'var(--bg-card)',
+                  border: deleteVerificationInput.trim().toLowerCase() === deletingHorse.name.trim().toLowerCase()
+                    ? '1.5px solid #EF4444'
+                    : '1px solid var(--line)',
+                  borderRadius: '6px',
+                  color: 'var(--paper)',
+                  fontSize: '13.5px',
+                  fontWeight: 600
+                }}
+              />
+              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '6px' }}>
+                {deleteVerificationInput.trim().toLowerCase() === deletingHorse.name.trim().toLowerCase()
+                  ? <span style={{ color: '#10B981', fontWeight: 600 }}>✓ Đã xác minh trùng khớp. Bạn có thể tiến hành xóa.</span>
+                  : <span>*(Nút xác nhận xóa sẽ được kích hoạt khi tên nhập hoàn toàn chính xác)*</span>
+                }
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowDeleteHorseModal(false)}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  color: 'var(--paper-dim)',
+                  border: '1px solid var(--line)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={deleteVerificationInput.trim().toLowerCase() !== deletingHorse.name.trim().toLowerCase()}
+                onClick={handleConfirmDeleteHorse}
+                style={{
+                  padding: '9px 20px',
+                  borderRadius: '6px',
+                  background: deleteVerificationInput.trim().toLowerCase() === deletingHorse.name.trim().toLowerCase() ? '#EF4444' : 'rgba(239, 68, 68, 0.2)',
+                  color: deleteVerificationInput.trim().toLowerCase() === deletingHorse.name.trim().toLowerCase() ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
+                  fontWeight: 700,
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: deleteVerificationInput.trim().toLowerCase() === deletingHorse.name.trim().toLowerCase() ? 'pointer' : 'not-allowed',
+                  boxShadow: deleteVerificationInput.trim().toLowerCase() === deletingHorse.name.trim().toLowerCase() ? '0 4px 12px rgba(239, 68, 68, 0.35)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                🗑️ Xác Nhận Xóa Vĩnh Viễn
+              </button>
+            </div>
           </div>
         </div>
       )}

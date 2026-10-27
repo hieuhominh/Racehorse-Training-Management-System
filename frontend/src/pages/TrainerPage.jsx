@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { 
@@ -6,7 +8,9 @@ import {
   saveTrainingProgramApi, 
   getTelemetrySessionsApi, 
   recordTelemetryApi, 
-  getHorsesApi 
+  getHorsesApi,
+  getSystemTournamentNominationsApi,
+  trainerReviewNominationApi
 } from '../services/api';
 
 // Minimalist, high-end SVG icons (0 emojis, strict professional aesthetic)
@@ -61,6 +65,30 @@ const IconMenu = ({ size = 18, color = 'currentColor' }) => (
   </svg>
 );
 
+const IconTrophy = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2" />
+    <path d="M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2" />
+    <path d="M4 22h16" />
+    <path d="M10 14.66V17c0 .55-.45 1-1 1H7" />
+    <path d="M14 14.66V17c0 .55.45 1 1 1h2" />
+    <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
+  </svg>
+);
+
+const IconCheck = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const IconX = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
 export default function TrainerPage() {
   const { currentUser, logout } = useAuth();
   const { t, lang, toggleLang } = useLanguage();
@@ -71,9 +99,81 @@ export default function TrainerPage() {
     navigate('/');
   };
 
-  const [activeTab, setActiveTab] = useState('vitals'); // 'vitals' | 'programs' | 'sessions' | 'review'
+  const [activeTab, setActiveTab] = useState('vitals'); // 'vitals' | 'programs' | 'sessions' | 'review' | 'approvals'
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
+
+  // 5. Danh sách đề cử giải đấu từ Chủ sở hữu ngựa
+  const [nominations, setNominations] = useState([]);
+  const [approvalFilter, setApprovalFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
+  const [approvalSearch, setApprovalSearch] = useState('');
+  const [rejectModalData, setRejectModalData] = useState({ isOpen: false, item: null, reason: '' });
+
+  // Tải danh sách đề cử giải đấu
+  useEffect(() => {
+    getSystemTournamentNominationsApi().then(data => {
+      if (Array.isArray(data)) setNominations(data);
+    });
+  }, []);
+
+  const pendingCount = nominations.filter(n => n.nominationStatus === 'PENDING_TRAINER' || n.nominationStatus === 'PENDING').length;
+
+  // Xử lý HLV duyệt đề cử thi đấu
+  const handleTrainerApprove = async (item) => {
+    const trainerName = currentUser?.full_name || 'HLV Trưởng';
+    const feedback = 'Chiến mã đạt 100% phong độ thể lực, chỉ số viễn trắc ổn định. Đã phê duyệt cấp phép xuất phát chính thức.';
+    
+    await trainerReviewNominationApi(item.id, {
+      status: 'APPROVED',
+      feedback,
+      trainerName
+    });
+
+    setNominations(prev => prev.map(n => n.id === item.id ? {
+      ...n,
+      nominationStatus: 'APPROVED',
+      trainerFeedback: feedback,
+      reviewedBy: trainerName,
+      reviewedAt: 'Hôm nay'
+    } : n));
+
+    showToast(`Đã phê duyệt đề cử thi đấu cho "${item.horseName}" tham gia ${item.raceName}!`, 'HLV PHÊ DUYỆT', 'info');
+  };
+
+  // Mở modal từ chối / yêu cầu rèn thêm
+  const handleOpenRejectModal = (item) => {
+    setRejectModalData({
+      isOpen: true,
+      item,
+      reason: 'Nhịp tim phục hồi sau bài tập cự ly dài chưa đạt chuẩn an toàn (< 190 bpm). Yêu cầu rèn thêm thể lực sân cát 2 tuần.'
+    });
+  };
+
+  // Xác nhận từ chối / yêu cầu rèn thêm
+  const handleConfirmReject = async (e) => {
+    e.preventDefault();
+    if (!rejectModalData.item) return;
+
+    const trainerName = currentUser?.full_name || 'HLV Trưởng';
+    const reason = rejectModalData.reason.trim() || 'Yêu cầu hoàn thiện bài tập thể lực trước khi tham gia giải.';
+
+    await trainerReviewNominationApi(rejectModalData.item.id, {
+      status: 'REJECTED',
+      feedback: reason,
+      trainerName
+    });
+
+    setNominations(prev => prev.map(n => n.id === rejectModalData.item.id ? {
+      ...n,
+      nominationStatus: 'REJECTED',
+      trainerFeedback: reason,
+      reviewedBy: trainerName,
+      reviewedAt: 'Hôm nay'
+    } : n));
+
+    showToast(`Đã gửi yêu cầu rèn luyện thêm cho chủ ngựa của "${rejectModalData.item.horseName}".`, 'YÊU CẦU RÈN THÊM', 'warning');
+    setRejectModalData({ isOpen: false, item: null, reason: '' });
+  };
 
   // 1. Danh sách chiến mã quản lý huấn luyện
   const [trainerHorses, setTrainerHorses] = useState([
@@ -545,6 +645,22 @@ export default function TrainerPage() {
             <span className="portal-nav-icon"><IconStar size={18} /></span>
             <span className="portal-nav-label">{t('trainerTabReview')}</span>
           </button>
+
+          <button
+            className={`portal-nav-item ${activeTab === 'approvals' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('approvals'); setSidebarOpen(false); }}
+            style={{ position: 'relative' }}
+          >
+            <span className="portal-nav-icon"><IconTrophy size={18} color={activeTab === 'approvals' ? 'var(--brass)' : 'currentColor'} /></span>
+            <span className="portal-nav-label">{lang === 'en' ? 'Race Approvals' : 'Phê Duyệt Thi Đấu'}</span>
+            {pendingCount > 0 ? (
+              <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14', fontWeight: 800 }}>
+                {pendingCount}
+              </span>
+            ) : (
+              <span className="portal-nav-badge">{nominations.length}</span>
+            )}
+          </button>
         </nav>
       </aside>
 
@@ -567,12 +683,14 @@ export default function TrainerPage() {
                 {activeTab === 'programs' && t('trainerTitlePrograms')}
                 {activeTab === 'sessions' && t('trainerTitleSessions')}
                 {activeTab === 'review' && t('trainerTitleReview')}
+                {activeTab === 'approvals' && (lang === 'en' ? 'Tournament Nominations & Approvals' : 'Thẩm Định & Phê Duyệt Đăng Ký Thi Đấu')}
               </h2>
               <div className="portal-page-subtitle">
                 {activeTab === 'vitals' && t('trainerSubVitals')}
                 {activeTab === 'programs' && t('trainerSubPrograms')}
                 {activeTab === 'sessions' && t('trainerSubSessions')}
                 {activeTab === 'review' && t('trainerSubReview')}
+                {activeTab === 'approvals' && (lang === 'en' ? 'Review horse owner nominations, evaluate cardiovascular fitness and authorize official barrier draw' : 'Thẩm định hồ sơ đăng ký giải đấu từ Chủ sở hữu ngựa, đánh giá thể lực & cấp phép xuất phát')}
               </div>
             </div>
           </div>
@@ -679,6 +797,52 @@ export default function TrainerPage() {
           {/* ===================== TAB 1: THỂ LỰC & TRẠNG THÁI ===================== */}
           {activeTab === 'vitals' && (
             <div>
+              {pendingCount > 0 && (
+                <div
+                  onClick={() => setActiveTab('approvals')}
+                  style={{
+                    background: 'rgba(212, 175, 55, 0.1)',
+                    border: '1px solid var(--brass)',
+                    borderRadius: '8px',
+                    padding: '14px 20px',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <IconTrophy size={24} color="var(--brass)" />
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>
+                        {pendingCount} đề cử giải đấu từ Chủ sở hữu ngựa đang chờ Huấn luyện viên trưởng phê duyệt
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                        Đánh giá chỉ số thể lực, nhịp tim và cấp phép xuất phát chính thức.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    style={{
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      border: 'none',
+                      padding: '7px 16px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Thẩm định ngay →
+                  </button>
+                </div>
+              )}
+
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button className="portal-pill-btn active">
@@ -1401,6 +1565,377 @@ export default function TrainerPage() {
             </div>
           )}
 
+          {/* ===================== TAB 5: PHÊ DUYỆT ĐĂNG KÝ THI ĐẤU (CHỦ NGỰA ĐỀ CỬ) ===================== */}
+          {activeTab === 'approvals' && (
+            <div>
+              {/* STATS OVERVIEW */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '22px' }}>
+                <div className="facility-card" style={{ padding: '18px 20px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+                    {lang === 'en' ? 'TOTAL NOMINATIONS' : 'TỔNG ĐỀ CỬ GIẢI ĐẤU'}
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--paper)', margin: '6px 0 2px' }}>
+                    {nominations.length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    {lang === 'en' ? 'From registered horse owners' : 'Từ các chủ sở hữu ngựa'}
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '18px 20px', border: '1px solid var(--brass)', background: 'rgba(212, 175, 55, 0.06)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700, textTransform: 'uppercase' }}>
+                    {lang === 'en' ? 'PENDING TRAINER REVIEW' : 'CHỜ HLV TRƯỞNG PHÊ DUYỆT'}
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--brass)', margin: '6px 0 2px' }}>
+                    {pendingCount}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    {lang === 'en' ? 'Requires physical clearance' : 'Cần thẩm định phong độ thể lực'}
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '18px 20px' }}>
+                  <div style={{ fontSize: '12px', color: '#10B981', fontWeight: 600, textTransform: 'uppercase' }}>
+                    {lang === 'en' ? 'OFFICIALLY APPROVED' : 'ĐÃ PHÊ DUYỆT XUẤT PHÁT'}
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#10B981', margin: '6px 0 2px' }}>
+                    {nominations.filter(n => n.nominationStatus === 'APPROVED' || n.nominationStatus === 'CONFIRMED').length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    {lang === 'en' ? 'Eligible for official barrier draw' : 'Đủ điều kiện bốc thăm xuất phát'}
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '18px 20px' }}>
+                  <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, textTransform: 'uppercase' }}>
+                    {lang === 'en' ? 'MORE TRAINING REQUIRED' : 'YÊU CẦU RÈN THÊM'}
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#EF4444', margin: '6px 0 2px' }}>
+                    {nominations.filter(n => n.nominationStatus === 'REJECTED').length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    {lang === 'en' ? 'Pending stamina adjustments' : 'Chưa đạt chuẩn nhịp tim hoặc cự ly'}
+                  </div>
+                </div>
+              </div>
+
+              {/* FILTER BAR & SEARCH */}
+              <div className="portal-filter-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+                <div className="portal-filter-pills">
+                  <button
+                    className={`portal-pill-btn ${approvalFilter === 'ALL' ? 'active' : ''}`}
+                    onClick={() => setApprovalFilter('ALL')}
+                  >
+                    {lang === 'en' ? 'All' : 'Tất cả'} <span className="pill-count">{nominations.length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${approvalFilter === 'PENDING' ? 'active' : ''}`}
+                    onClick={() => setApprovalFilter('PENDING')}
+                  >
+                    {lang === 'en' ? 'Pending' : 'Chờ HLV duyệt'} <span className="pill-count" style={{ background: 'var(--brass)', color: '#0A0D14' }}>{pendingCount}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${approvalFilter === 'APPROVED' ? 'active' : ''}`}
+                    onClick={() => setApprovalFilter('APPROVED')}
+                  >
+                    {lang === 'en' ? 'Approved' : 'Đã duyệt'} <span className="pill-count">{nominations.filter(n => n.nominationStatus === 'APPROVED' || n.nominationStatus === 'CONFIRMED').length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${approvalFilter === 'REJECTED' ? 'active' : ''}`}
+                    onClick={() => setApprovalFilter('REJECTED')}
+                  >
+                    {lang === 'en' ? 'More Training' : 'Yêu cầu rèn thêm'} <span className="pill-count">{nominations.filter(n => n.nominationStatus === 'REJECTED').length}</span>
+                  </button>
+                </div>
+
+                <div style={{ minWidth: '240px' }}>
+                  <input
+                    type="text"
+                    placeholder={lang === 'en' ? 'Search by horse or owner...' : 'Tìm kiếm theo tên ngựa, chủ ngựa...'}
+                    value={approvalSearch}
+                    onChange={(e) => setApprovalSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 14px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      borderRadius: '6px',
+                      fontSize: '12.5px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* LIST OF NOMINATIONS */}
+              {(() => {
+                const filtered = nominations.filter(item => {
+                  const isPending = item.nominationStatus === 'PENDING_TRAINER' || item.nominationStatus === 'PENDING';
+                  const isApproved = item.nominationStatus === 'APPROVED' || item.nominationStatus === 'CONFIRMED';
+                  const isRejected = item.nominationStatus === 'REJECTED';
+
+                  if (approvalFilter === 'PENDING' && !isPending) return false;
+                  if (approvalFilter === 'APPROVED' && !isApproved) return false;
+                  if (approvalFilter === 'REJECTED' && !isRejected) return false;
+
+                  if (approvalSearch.trim()) {
+                    const q = approvalSearch.toLowerCase();
+                    const matchHorse = (item.horseName || '').toLowerCase().includes(q);
+                    const matchOwner = (item.ownerName || '').toLowerCase().includes(q);
+                    const matchRace = (item.raceName || '').toLowerCase().includes(q);
+                    return matchHorse || matchOwner || matchRace;
+                  }
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="facility-card" style={{ padding: '48px 20px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+                        <IconTrophy size={36} color="var(--paper-dim)" />
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--paper)' }}>
+                        {lang === 'en' ? 'No tournament nominations found' : 'Không tìm thấy hồ sơ đăng ký thi đấu nào'}
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                        {lang === 'en' ? 'Adjust your filter or wait for horse owners to submit new race entries.' : 'Hãy thay đổi bộ lọc hoặc chờ Chủ sở hữu ngựa nộp hồ sơ thi đấu mới.'}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {filtered.map(nom => {
+                      const isPending = nom.nominationStatus === 'PENDING_TRAINER' || nom.nominationStatus === 'PENDING';
+                      const isApproved = nom.nominationStatus === 'APPROVED' || nom.nominationStatus === 'CONFIRMED';
+                      const isRejected = nom.nominationStatus === 'REJECTED';
+
+                      const matchedHorse = trainerHorses.find(h => (nom.horseName || '').toLowerCase().includes((h.name || '').toLowerCase())) || trainerHorses[0];
+
+                      return (
+                        <div
+                          key={nom.id}
+                          className="facility-card"
+                          style={{
+                            padding: '24px',
+                            border: isApproved 
+                              ? '1px solid rgba(16, 185, 129, 0.4)' 
+                              : isRejected 
+                              ? '1px solid rgba(239, 68, 68, 0.4)' 
+                              : '1px solid var(--brass)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '17px', fontWeight: 800, color: 'var(--paper)' }}>
+                                  {nom.raceName}
+                                </span>
+                                <span style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  background: 'var(--bg-secondary)',
+                                  border: '1px solid var(--line)',
+                                  color: 'var(--brass)',
+                                  fontSize: '11px',
+                                  fontWeight: 700
+                                }}>
+                                  Mã: {nom.id}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                                {nom.track} · Cự ly: <b style={{ color: 'var(--paper)' }}>{nom.distance}</b> · Ngày đua: <b style={{ color: 'var(--brass)' }}>{nom.date}</b>
+                              </div>
+                            </div>
+
+                            <span style={{
+                              padding: '5px 14px',
+                              borderRadius: '4px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              letterSpacing: '0.03em',
+                              background: isApproved 
+                                ? 'rgba(16, 185, 129, 0.15)' 
+                                : isRejected
+                                ? 'rgba(239, 68, 68, 0.15)'
+                                : 'rgba(212, 175, 55, 0.15)',
+                              color: isApproved 
+                                ? '#10B981' 
+                                : isRejected
+                                ? '#EF4444'
+                                : 'var(--brass)',
+                              border: `1px solid ${isApproved ? '#10B981' : isRejected ? '#EF4444' : 'var(--brass)'}`
+                            }}>
+                              {isApproved 
+                                ? '✓ HLV ĐÃ PHÊ DUYỆT XUẤT PHÁT' 
+                                : isRejected
+                                ? '✗ HLV YÊU CẦU RÈN THÊM'
+                                : '⏳ CHỜ HLV TRƯỞNG PHÊ DUYỆT'}
+                            </span>
+                          </div>
+
+                          {/* GRID THÔNG TIN CHIẾN MÃ & CHỦ NGỰA */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', background: 'var(--bg-secondary)', padding: '14px 16px', borderRadius: '8px', marginBottom: '14px', fontSize: '13px' }}>
+                            <div>
+                              <div style={{ color: 'var(--paper-dim)', fontSize: '11.5px', marginBottom: '2px' }}>Chiến mã đăng ký:</div>
+                              <b style={{ color: 'var(--brass)', fontSize: '15px' }}>{nom.horseName}</b>
+                              <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}> ({matchedHorse?.stall || 'Ô A2'})</span>
+                            </div>
+                            <div>
+                              <div style={{ color: 'var(--paper-dim)', fontSize: '11.5px', marginBottom: '2px' }}>Chủ sở hữu:</div>
+                              <b style={{ color: 'var(--paper)' }}>{nom.ownerName || 'Chủ sở hữu'}</b>
+                            </div>
+                            <div>
+                              <div style={{ color: 'var(--paper-dim)', fontSize: '11.5px', marginBottom: '2px' }}>Kỵ mã chỉ định:</div>
+                              <b style={{ color: 'var(--paper)' }}>{nom.jockey || 'Chưa chỉ định'}</b>
+                            </div>
+                            <div>
+                              <div style={{ color: 'var(--paper-dim)', fontSize: '11.5px', marginBottom: '2px' }}>Tổng giải thưởng cúp:</div>
+                              <b style={{ color: 'var(--brass)' }}>{typeof nom.estimatedPurse === 'number' ? nom.estimatedPurse.toLocaleString('vi-VN') + ' đ' : (nom.estimatedPurse || '800.000.000 đ')}</b>
+                            </div>
+                          </div>
+
+                          {/* THẨM ĐỊNH THỂ LỰC & CHỈ SỐ SINH TRẮC HỌC TỪ HLV */}
+                          <div style={{ border: '1px solid var(--line)', borderRadius: '8px', padding: '14px 16px', marginBottom: '14px', background: 'rgba(255, 255, 255, 0.02)' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>🔬</span> {lang === 'en' ? 'Biometrics & Fitness Evaluation:' : 'Chỉ số Thể lực & Viễn trắc gần nhất:'}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', fontSize: '12.5px' }}>
+                              <div>
+                                <span style={{ color: 'var(--paper-dim)' }}>Nhịp tim tải tập: </span>
+                                <b style={{ color: (matchedHorse?.avgHeartRate || 108) > 190 ? '#EF4444' : '#10B981' }}>{matchedHorse?.avgHeartRate || 108} bpm</b>
+                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}> (Ngưỡng: &le; 210)</span>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--paper-dim)' }}>Vận tốc max: </span>
+                                <b style={{ color: 'var(--brass)' }}>{matchedHorse?.maxSpeed || 68.2} km/h</b>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--paper-dim)' }}>Thể trạng chung: </span>
+                                <b style={{ color: 'var(--paper)' }}>{matchedHorse?.condition || '96%'}</b>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--paper-dim)' }}>Lệnh Khóa Y Tế: </span>
+                                <b style={{ color: matchedHorse?.isLockedByVet ? '#EF4444' : '#10B981' }}>
+                                  {matchedHorse?.isLockedByVet ? 'Đang Khóa Y Tế' : 'Không có (An toàn)'}
+                                </b>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* GHI CHÚ CHỦ NGỰA & Ý KIẾN HLV */}
+                          <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '14px', lineHeight: 1.5 }}>
+                            <div><b>Ghi chú từ Chủ ngựa:</b> "{nom.notes || 'Chủ sở hữu đăng ký tham gia thi đấu chính thức.'}"</div>
+                            {nom.trainerFeedback && (
+                              <div style={{ marginTop: '6px', color: isApproved ? '#10B981' : '#EF4444' }}>
+                                <b>Ý kiến phê duyệt của HLV ({nom.reviewedBy || 'Trần Văn Hùng'} - {nom.reviewedAt || 'Gần đây'}):</b> "{nom.trainerFeedback}"
+                              </div>
+                            )}
+                          </div>
+
+                          {/* ACTION BUTTONS */}
+                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            {isPending && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRejectModal(nom)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '8px 16px',
+                                    background: 'transparent',
+                                    color: '#EF4444',
+                                    border: '1px solid #EF4444',
+                                    borderRadius: '6px',
+                                    fontSize: '12.5px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <IconX size={15} color="#EF4444" />
+                                  <span>Yêu cầu rèn thêm</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleTrainerApprove(nom)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '8px 20px',
+                                    background: 'var(--brass)',
+                                    color: '#0A0D14',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '12.5px',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)'
+                                  }}
+                                >
+                                  <IconCheck size={16} color="#0A0D14" />
+                                  <span>Phê duyệt đủ điều kiện xuất phát</span>
+                                </button>
+                              </>
+                            )}
+
+                            {isApproved && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRejectModal(nom)}
+                                style={{
+                                  padding: '7px 16px',
+                                  background: 'var(--bg-secondary)',
+                                  color: 'var(--paper-dim)',
+                                  border: '1px solid var(--line)',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Thu hồi phê duyệt / Yêu cầu tập thêm
+                              </button>
+                            )}
+
+                            {isRejected && (
+                              <button
+                                type="button"
+                                onClick={() => handleTrainerApprove(nom)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '7px 18px',
+                                  background: 'var(--brass)',
+                                  color: '#0A0D14',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <IconCheck size={15} color="#0A0D14" />
+                                <span>Thẩm định lại & Cấp phép xuất phát</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
         </main>
       </div>
 
@@ -1860,6 +2395,113 @@ export default function TrainerPage() {
                   style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
                 >
                   {lang === 'en' ? 'Save Review & Notes' : 'Lưu Đánh Giá & Ghi Chú'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== MODAL YÊU CẦU RÈN THÊM / TỪ CHỐI ===================== */}
+      {rejectModalData.isOpen && rejectModalData.item && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 999999
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--line)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '520px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '28px',
+            color: 'var(--paper)',
+            boxShadow: 'var(--shadow)'
+          }}>
+            <h3 style={{ fontSize: '18px', marginBottom: '8px', color: 'var(--paper)' }}>
+              {lang === 'en' ? 'Require Additional Conditioning / Reject Entry' : 'Yêu Cầu Rèn Thêm / Chưa Cấp Phép Thi Đấu'}
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--paper-dim)', marginBottom: '16px', lineHeight: 1.5 }}>
+              Chiến mã: <b style={{ color: 'var(--brass)' }}>{rejectModalData.item.horseName}</b> · Giải: <b style={{ color: 'var(--paper)' }}>{rejectModalData.item.raceName}</b>
+            </p>
+
+            <form onSubmit={handleConfirmReject} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+                  Nhận xét chuyên môn & Lý do của Huấn luyện viên trưởng:
+                </label>
+                <textarea
+                  rows="4"
+                  required
+                  placeholder="Ghi rõ lý do thể lực chưa đạt (ví dụ: nhịp tim phục hồi cao, cần tăng thêm bài chạy 2.000m sân cát)..."
+                  value={rejectModalData.reason}
+                  onChange={(e) => setRejectModalData({ ...rejectModalData, reason: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper)',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box',
+                    fontSize: '13px',
+                    lineHeight: 1.5,
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* GỢI Ý LÝ DO NHANH */}
+              <div>
+                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginBottom: '6px' }}>Gợi ý lý do chuyên môn nhanh:</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {[
+                    'Nhịp tim phục hồi sau cự ly 1.800m còn cao (> 190 bpm).',
+                    'Cần bổ sung thêm 2 tuần rèn sức bền nền trên sân cát.',
+                    'Phong độ nước rút cuối chưa ổn định, cần rèn kỹ thuật bứt tốc.'
+                  ].map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setRejectModalData({ ...rejectModalData, reason: preset })}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--paper-dim)',
+                        borderRadius: '4px',
+                        fontSize: '11.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setRejectModalData({ isOpen: false, item: null, reason: '' })}
+                  style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{ flex: 1, padding: '10px', background: '#EF4444', border: 'none', color: '#ffffff', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                >
+                  Xác nhận yêu cầu rèn thêm
                 </button>
               </div>
             </form>

@@ -22,7 +22,13 @@ const STORAGE_KEYS = {
 function getLocalData(key, defaultVal) {
   try {
     const saved = localStorage.getItem(key);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const sanitized = saved.replace(/photo-1598974357801-cbca10065444/g, 'photo-1535083783855-76ae62b2914e');
+      if (sanitized !== saved) {
+        localStorage.setItem(key, sanitized);
+      }
+      return JSON.parse(sanitized);
+    }
   } catch (e) {}
   return defaultVal;
 }
@@ -256,16 +262,16 @@ export async function getStablesApi() {
 
   const defaultStables = [
     { stall_code: 'A1', block: 'Block A', status: 'OCCUPIED', horse: 'Xích Thố', breed: 'Arabian', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A2', block: 'Block A', status: 'OCCUPIED', horse: 'Bạch Long', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A2', block: 'Block A', status: 'OCCUPIED', horse: 'Bạch Long', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
     { stall_code: 'A3', block: 'Block A', status: 'OCCUPIED', horse: 'Hắc Phong', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
     { stall_code: 'A4', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Vũ', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A5', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Yến', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A5', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Yến', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=300&q=80' },
     { stall_code: 'A6', block: 'Block A', status: 'OCCUPIED', horse: 'Kim Kê', breed: 'Quarter Horse', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B1', block: 'Block B', status: 'OCCUPIED', horse: 'Thanh Vân', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B1', block: 'Block B', status: 'OCCUPIED', horse: 'Thanh Vân', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=300&q=80' },
     { stall_code: 'B2', block: 'Block B', status: 'OCCUPIED', horse: 'Lôi Chấn', breed: 'Quarter Horse', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
     { stall_code: 'B3', block: 'Block B', status: 'OCCUPIED', horse: 'Hồng Sa', breed: 'Arabian', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
     { stall_code: 'B4', block: 'Block B', status: 'OCCUPIED', horse: 'Thiên Lý', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B5', block: 'Block B', status: 'OCCUPIED', horse: 'Bảo Mã', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B5', block: 'Block B', status: 'OCCUPIED', horse: 'Bảo Mã', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=300&q=80' },
     { stall_code: 'B6', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
   ];
 
@@ -1034,6 +1040,38 @@ export async function registerOwnerHorseApi(ownerKey, horseData) {
   return newHorse;
 }
 
+export async function updateOwnerHorseApi(ownerKey, horseData) {
+  try {
+    const res = await fetch(`/api/owner/horses/${horseData.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ownerKey, ...horseData })
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const storageKey = `matruong_owner_horses_${ownerKey}`;
+  const existing = getLocalData(storageKey, []);
+  const updated = existing.map(h => String(h.id) === String(horseData.id) ? { ...h, ...horseData } : h);
+  setLocalData(storageKey, updated);
+  return horseData;
+}
+
+export async function deleteOwnerHorseApi(ownerKey, horseId) {
+  try {
+    const res = await fetch(`/api/owner/horses/${horseId}?ownerKey=${ownerKey}`, {
+      method: 'DELETE'
+    });
+    if (res.ok) return true;
+  } catch (err) {}
+
+  const storageKey = `matruong_owner_horses_${ownerKey}`;
+  const existing = getLocalData(storageKey, []);
+  const filtered = existing.filter(h => String(h.id) !== String(horseId));
+  setLocalData(storageKey, filtered);
+  return true;
+}
+
 export async function getOwnerTelemetryApi(ownerKey) {
   const key = `matruong_owner_telemetry_${ownerKey}`;
   return getLocalData(key, []);
@@ -1113,6 +1151,112 @@ export async function getOwnerRacesApi(ownerKey) {
   return getLocalData(key, []);
 }
 
+const SYSTEM_NOMINATIONS_KEY = 'matruong_tournament_nominations_system';
+
+export async function getSystemTournamentNominationsApi() {
+  try {
+    const res = await fetch('/api/trainer/nominations');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {}
+
+  const defaultSeed = [
+    {
+      id: 'RN-2026-01',
+      raceName: 'Giải Vô Địch Cúp Derby Mùa Thu 2026',
+      track: 'Trường đua Quốc tế Phú Thọ',
+      horseName: 'Bạch Long',
+      ownerName: 'Lê Minh Tuấn (VIP)',
+      ownerKey: 'owner_tuan',
+      distance: '2.400m (Sân cỏ)',
+      date: '15/11/2026',
+      estimatedPurse: 800000000,
+      nominationStatus: 'APPROVED',
+      jockey: 'Kỵ mã Nguyễn Văn Tài',
+      notes: 'Chủ sở hữu đề xuất lượt chạy số 3. Thể lực sung mãn.',
+      registeredAt: '20/10/2026 14:00',
+      trainerFeedback: 'Đạt chuẩn thể lực cự ly 2.400m, nhịp tim ổn định 38 bpm. Phê duyệt đủ điều kiện xuất phát.',
+      reviewedBy: 'HLV Trưởng Trần Văn Hùng',
+      reviewedAt: '21/10/2026 09:30'
+    },
+    {
+      id: 'RN-2026-02',
+      raceName: 'Cúp Nước Rút Tốc Độ Sprint Cup 1.200m',
+      track: 'Trường đua Cát Thể Thao',
+      horseName: 'Lôi Chấn',
+      ownerName: 'Hoàng Long Vũ',
+      ownerKey: 'owner_vu',
+      distance: '1.200m (Sân cát)',
+      date: '28/11/2026',
+      estimatedPurse: 450000000,
+      nominationStatus: 'PENDING_TRAINER',
+      jockey: 'Kỵ mã Trần Quốc Bảo',
+      notes: 'Chủ ngựa đề cử tham gia tranh tài cúp nước rút cự ly ngắn.',
+      registeredAt: '26/10/2026 10:15',
+      trainerFeedback: '',
+      reviewedBy: null,
+      reviewedAt: null
+    }
+  ];
+
+  return getLocalData(SYSTEM_NOMINATIONS_KEY, defaultSeed);
+}
+
+export async function trainerReviewNominationApi(nominationId, { status, feedback, trainerName }) {
+  try {
+    const res = await fetch('/api/trainer/nominations/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nominationId, status, feedback, trainerName })
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {}
+
+  const systemList = await getSystemTournamentNominationsApi();
+  let updatedOwnerKey = null;
+  const now = new Date();
+  const timeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+  const updatedSystem = systemList.map(item => {
+    if (item.id === nominationId) {
+      updatedOwnerKey = item.ownerKey;
+      return {
+        ...item,
+        nominationStatus: status,
+        trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
+        reviewedBy: trainerName || 'HLV Trưởng',
+        reviewedAt: timeStr
+      };
+    }
+    return item;
+  });
+
+  setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSystem);
+
+  // Đồng bộ sang kho dữ liệu giải của Chủ ngựa tương ứng
+  if (updatedOwnerKey) {
+    const ownerRacesKey = `matruong_owner_races_${updatedOwnerKey}`;
+    const ownerList = getLocalData(ownerRacesKey, []);
+    const updatedOwnerList = ownerList.map(r => {
+      if (r.id === nominationId) {
+        return {
+          ...r,
+          nominationStatus: status,
+          trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
+          reviewedBy: trainerName || 'HLV Trưởng',
+          reviewedAt: timeStr
+        };
+      }
+      return r;
+    });
+    setLocalData(ownerRacesKey, updatedOwnerList);
+  }
+
+  return true;
+}
+
 export async function registerRaceTournamentApi(ownerKey, nominationData) {
   try {
     const res = await fetch('/api/owner/races', {
@@ -1127,10 +1271,16 @@ export async function registerRaceTournamentApi(ownerKey, nominationData) {
   const list = getLocalData(key, []);
   const newNom = {
     ...nominationData,
-    id: `RN-REG-${Date.now().toString().slice(-4)}`,
-    nominationStatus: 'APPROVED'
+    id: nominationData.id || `RN-REG-${Date.now().toString().slice(-4)}`,
+    nominationStatus: 'PENDING_TRAINER', // Chờ HLV trưởng phê duyệt
+    ownerKey: ownerKey
   };
   setLocalData(key, [newNom, ...list]);
+
+  // Đồng bộ vào kho chung của Huấn luyện viên trưởng
+  const systemList = await getSystemTournamentNominationsApi();
+  setLocalData(SYSTEM_NOMINATIONS_KEY, [newNom, ...systemList.filter(s => s.id !== newNom.id)]);
+
   return newNom;
 }
 
@@ -1139,6 +1289,12 @@ export async function updateRaceNominationStatusApi(ownerKey, nominationId, newS
   const list = getLocalData(key, []);
   const updated = list.map(r => r.id === nominationId ? { ...r, nominationStatus: newStatus } : r);
   setLocalData(key, updated);
+
+  // Đồng bộ vào kho chung của HLV
+  const systemList = await getSystemTournamentNominationsApi();
+  const updatedSys = systemList.map(r => r.id === nominationId ? { ...r, nominationStatus: newStatus } : r);
+  setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSys);
+
   return true;
 }
 

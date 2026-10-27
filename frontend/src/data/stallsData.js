@@ -36,7 +36,7 @@ export const initialStallsData = [
     englishName: 'White Dragon',
     chipId: '982-000-348-192-002',
     groom: 'Phạm Minh Tiến',
-    avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=400&q=80',
+    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80',
     feedDiet: '3.0kg Ngũ cốc mầm + 6kg Cỏ khô cao cấp + Khoáng chất Canxi',
     checklist: {
       feedMorning: true,
@@ -166,7 +166,7 @@ export const initialStallsData = [
     englishName: 'Galaxy Star',
     chipId: '982-000-348-192-007',
     groom: 'Trần Bảo Nam',
-    avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=400&q=80',
+    avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=400&q=80',
     feedDiet: '3.2kg Ngũ cốc yến mạch + Cỏ khô Pháp + Vitamin tổng hợp',
     checklist: {
       feedMorning: true,
@@ -264,7 +264,7 @@ export const initialStallsData = [
     englishName: 'Flash Lightning',
     chipId: '982-000-348-192-011',
     groom: 'Trần Bảo Nam',
-    avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=400&q=80',
+    avatar: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=400&q=80',
     feedDiet: '3.4kg Ngũ cốc + Cỏ tươi',
     checklist: {
       feedMorning: true,

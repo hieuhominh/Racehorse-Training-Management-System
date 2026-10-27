@@ -119,7 +119,7 @@ export const initialHorsesData = [
     statusLabel: 'Đủ điều kiện thi đấu',
     winsCount: '16 trận (8 Nhất, 5 Nhì, 2 Ba)',
     totalEarnings: '1.820.000.000 VNĐ',
-    avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=400&q=80',
+    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80',
     pedigree: {
       g1: {
         id: 'H002',
@@ -624,7 +624,7 @@ export const initialHorsesData = [
     statusLabel: 'Đủ điều kiện thi đấu',
     winsCount: '11 trận (7 Nhất, 2 Nhì, 1 Ba)',
     totalEarnings: '1.420.000.000 VNĐ',
-    avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=400&q=80',
+    avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=400&q=80',
     pedigree: {
       g1: {
         id: 'H007',

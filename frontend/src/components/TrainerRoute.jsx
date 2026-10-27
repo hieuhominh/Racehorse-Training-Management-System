@@ -17,8 +17,14 @@ export default function TrainerRoute({ children }) {
     return <Navigate to="/" replace />;
   }
 
-  // 2. Trường hợp ĐÃ ĐĂNG NHẬP nhưng không có quyền Huấn luyện viên: Chuyển hướng về Trang chủ chính
-  if (currentUser.role !== 'TRAINER') {
+  // 2. Cho phép TRAINER và ADMIN/MANAGER truy cập
+  const hasAccess = 
+    currentUser.role === 'TRAINER' || 
+    currentUser.role_code === 'TRAINER' || 
+    currentUser.role === 'MANAGER' || 
+    currentUser.role === 'ADMIN';
+
+  if (!hasAccess) {
     return <Navigate to="/" replace />;
   }
 

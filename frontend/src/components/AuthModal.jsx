@@ -34,16 +34,19 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
 
   const redirectToRolePortal = (user) => {
     if (!user) return;
-    if (user.role === 'TRAINER') {
+    const r = (user.role || user.role_code || '').toUpperCase();
+    if (r === 'TRAINER') {
       navigate('/trainer');
-    } else if (user.role === 'VET') {
+    } else if (r === 'VET') {
       navigate('/vet');
-    } else if (user.role === 'GROOM' || user.role_code === 'GROOM') {
+    } else if (r === 'GROOM') {
       navigate('/groom');
-    } else if (user.role === 'OWNER' || user.role_code === 'OWNER') {
+    } else if (r === 'OWNER') {
       navigate('/owner');
-    } else {
+    } else if (r === 'MANAGER' || r === 'ADMIN') {
       navigate('/admin');
+    } else {
+      navigate('/owner');
     }
   };
 
@@ -710,9 +713,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   boxSizing: 'border-box'
                 }}
               />
-              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '3px', lineHeight: 1.4 }}>
-                💡 Gợi ý: <span style={{ color: 'var(--brass)' }}>admin</span> &bull; <span style={{ color: '#34D399' }}>vet_an</span> (Bác sĩ) &bull; <span style={{ color: '#60A5FA' }}>trainer_truong</span> (HLV) &bull; Mật khẩu: <span style={{ color: 'var(--brass)' }}>123</span>
-              </div>
             </div>
 
             {/* Input Mật khẩu */}

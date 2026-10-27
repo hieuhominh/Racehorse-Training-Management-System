@@ -31,7 +31,7 @@ export const ownedHorsesData = [
     englishName: 'White Dragon',
     chipId: '982-000-348-192-002',
     breed: 'Thoroughbred lai Arabian',
-    avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=400&q=80',
+    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80',
     ownerName: 'Trần Hoàng Lâm',
     ownershipShare: 30, // 30% share
     trainer: 'HLV Phạm Hoàng Nam',

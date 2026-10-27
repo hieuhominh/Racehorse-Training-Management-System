@@ -180,7 +180,7 @@ export default function VetPage() {
       lastExamDate: '10/10/2026',
       restingHeartRate: '37 bpm',
       tempCelsius: 37.9,
-      avatar: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=400&q=80'
+      avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
     }
   ]);
 
@@ -209,7 +209,7 @@ export default function VetPage() {
       symptoms: ['Móng bị xước / Rạn guốc'],
       severity: 'MEDIUM',
       description: 'Phát hiện vết rạn móng nhẹ ở guốc sau phải sau buổi tập trên sân cát. Đã làm sạch móng, ngâm đá & chờ Thú y kiểm tra.',
-      imageUrl: 'https://images.unsplash.com/photo-1598974357801-cbca10065444?auto=format&fit=crop&w=600&q=80',
+      imageUrl: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80',
       reportedBy: 'Groom Phạm Minh Tiến',
       timestamp: '09:15 - 08/10/2026',
       status: 'in_review',
@@ -778,6 +778,9 @@ export default function VetPage() {
                             src={inc.imageUrl}
                             alt="Ảnh hiện trường"
                             style={{ width: '90px', height: '90px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--line)' }}
+                            onError={(e) => {
+                              e.target.src = 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80';
+                            }}
                           />
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1053,6 +1056,11 @@ export default function VetPage() {
                                   src={h.avatar}
                                   alt={h.name}
                                   style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: isLocked ? '2px solid var(--brass)' : '1px solid var(--line)' }}
+                                  onError={(e) => {
+                                    e.target.src = h.name === 'Bạch Long'
+                                      ? 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
+                                      : 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80';
+                                  }}
                                 />
                               )}
                               <div>
