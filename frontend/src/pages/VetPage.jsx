@@ -1,19 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import {
   getHorsesApi,
   toggleHorseLockApi,
-  getIncidentsApi,
-  reportIncidentApi,
-  getVetMedicalLogsApi,
-  createMedicalLogApi,
-  getVaccinationSchedulesApi,
-  recordVaccinationApi,
-  getVetHealthOverviewApi
+  getIncidentsApi
 } from '../services/api';
 
 // Minimalist High-End SVG Icons for Veterinary Medical Portal
@@ -86,7 +79,6 @@ const ANATOMY_PARTS = [
 
 export default function VetPage() {
   const { currentUser, logout } = useAuth();
-  const { t, lang } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
 

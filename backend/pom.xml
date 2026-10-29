@@ -26,18 +26,18 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Microsoft SQL Server JDBC Driver (Tương thích JDK 17 & SQL Server 2019) -->
+        <!-- Microsoft SQL Server JDBC Driver (Bản vá bảo mật mới nhất cho JDK 17 & SQL Server 2019) -->
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>mssql-jdbc</artifactId>
-            <version>12.4.2.jre11</version>
+            <version>12.8.1.jre11</version>
         </dependency>
 
         <!-- Google Gson để chuyển đổi Object thành JSON trả về cho ReactJS -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.10.1</version>
+            <version>2.11.0</version>
         </dependency>
 
         <!-- JSTL cho JSP nếu cần dùng JSP -->
@@ -54,7 +54,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
-                <version>3.3.2</version>
+                <version>3.4.0</version>
             </plugin>
         </plugins>
     </build>

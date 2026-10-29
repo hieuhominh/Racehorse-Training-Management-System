@@ -5,9 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { 
   getTrainingProgramsApi, 
-  saveTrainingProgramApi, 
-  getTelemetrySessionsApi, 
-  recordTelemetryApi, 
   getHorsesApi,
   getSystemTournamentNominationsApi,
   trainerReviewNominationApi
@@ -431,7 +428,7 @@ export default function TrainerPage() {
 
   // Modal lập giáo án mới
   const [showAddProgramModal, setShowAddProgramModal] = useState(false);
-  const [newProgramData, setNewProgramData] = useState({
+  const [newProgramData, setNewProgramData] = useState(() => ({
     title: '',
     horseName: 'Hắc Phong',
     phase: 'Nước rút (Sprint)',
@@ -439,7 +436,7 @@ export default function TrainerPage() {
     surface: 'SAND (Sân cát)',
     startDate: new Date().toISOString().split('T')[0],
     endDate: ''
-  });
+  }));
 
   // Modal ghi nhận buổi tập mới
   const [showAddSessionModal, setShowAddSessionModal] = useState(false);

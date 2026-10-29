@@ -3,8 +3,6 @@ import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function IncidentReportModal({ isOpen, onClose, activeStall, stallsList, onSubmitIncident }) {
-  if (!isOpen) return null;
-
   const { showToast } = useToast();
   const { t, lang } = useLanguage();
   const [selectedStallCode, setSelectedStallCode] = useState(activeStall ? activeStall.code : 'A1');
@@ -20,7 +18,8 @@ export default function IncidentReportModal({ isOpen, onClose, activeStall, stal
 
   // Active Stall object preview
   const currentStallObj = useMemo(() => {
-    return stallsList.find(s => s.code === selectedStallCode) || activeStall || stallsList[0];
+    const safeList = Array.isArray(stallsList) ? stallsList : [];
+    return safeList.find(s => s.code === selectedStallCode) || activeStall || safeList[0] || {};
   }, [stallsList, selectedStallCode, activeStall]);
 
   // Symptoms list with clean typography
@@ -78,6 +77,8 @@ export default function IncidentReportModal({ isOpen, onClose, activeStall, stal
       url: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=600&q=80'
     }
   ], [lang]);
+
+  if (!isOpen) return null;
 
   const toggleSymptom = (label) => {
     if (selectedSymptoms.includes(label)) {

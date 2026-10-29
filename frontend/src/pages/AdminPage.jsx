@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import { initialHorsesData } from '../data/horsesData';
 import {
@@ -13,9 +13,7 @@ import {
   createStallApi,
   updateStallApi,
   reassignStallHorseApi,
-  deleteStallApi,
-  getAdminOverviewApi,
-  getIncidentsApi
+  deleteStallApi
 } from '../services/api';
 
 // Minimalist SVG Icons

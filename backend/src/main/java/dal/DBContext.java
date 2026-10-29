@@ -6,47 +6,63 @@ import java.sql.SQLException;
 
 /**
  * Lớp kết nối Cơ sở dữ liệu Microsoft SQL Server 2019 qua JDBC Driver
- * Hỗ trợ JDK 17 và kết nối container Docker trên cổng 1433
+ * Hỗ trợ cấu hình qua biến môi trường (Environment Variables) và chế độ mô phỏng an toàn khi chưa bật SQL Server.
  */
 public class DBContext {
+    private static volatile long lastFailedAttemptMs = 0L;
+    private static final long RETRY_COOLDOWN_MS = 15_000L;
+
     protected Connection connection;
 
     public DBContext() {
-        try {
-            // Tên server và cổng mặc định của SQL Server
-            String serverName = "localhost";
-            String portNumber = "1433";
-            String databaseName = "RacehorseDB";
-            
-            // Tài khoản SA mặc định đã cấu hình trong docker-compose.yml
-            String userID = "sa";
-            String password = "Password123@#";
+        initConnection();
+    }
 
-            // Chuỗi kết nối JDBC cho SQL Server 2019
-            // Lưu ý: với JDK 17 cần encrypt=true;trustServerCertificate=true; để tránh lỗi SSL Handshake
-            String url = "jdbc:sqlserver://" + serverName + ":" + portNumber 
-                    + ";databaseName=" + databaseName 
-                    + ";encrypt=true;trustServerCertificate=true;";
+    private void initConnection() {
+        if (System.currentTimeMillis() - lastFailedAttemptMs < RETRY_COOLDOWN_MS) {
+            return;
+        }
+        try {
+            String serverName = getEnvOrDefault("DB_HOST", "localhost");
+            String portNumber = getEnvOrDefault("DB_PORT", "1433");
+            String databaseName = getEnvOrDefault("DB_NAME", "RacehorseDB");
+            String userID = getEnvOrDefault("DB_USER", "sa");
+            String password = getEnvOrDefault("DB_PASSWORD", "Password123@#");
+
+            String url = "jdbc:sqlserver://" + serverName + ":" + portNumber
+                    + ";databaseName=" + databaseName
+                    + ";encrypt=true;trustServerCertificate=true;loginTimeout=2;";
 
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            DriverManager.setLoginTimeout(2);
             connection = DriverManager.getConnection(url, userID, password);
         } catch (ClassNotFoundException | SQLException ex) {
-            System.err.println("Lỗi kết nối CSDL SQL Server: " + ex.getMessage());
-            ex.printStackTrace();
+            lastFailedAttemptMs = System.currentTimeMillis();
+            connection = null;
+        }
+    }
+
+    private static String getEnvOrDefault(String key, String fallback) {
+        String val = System.getenv(key);
+        if (val != null && !val.trim().isEmpty()) {
+            return val.trim();
+        }
+        String prop = System.getProperty(key);
+        if (prop != null && !prop.trim().isEmpty()) {
+            return prop.trim();
+        }
+        return fallback;
+    }
+
+    public boolean hasConnection() {
+        try {
+            return connection != null && !connection.isClosed();
+        } catch (SQLException e) {
+            return false;
         }
     }
 
     public Connection getConnection() {
         return connection;
-    }
-
-    // Phương thức test kết nối
-    public static void main(String[] args) {
-        DBContext db = new DBContext();
-        if (db.getConnection() != null) {
-            System.out.println("Kết nối tới SQL Server 2019 thành công!");
-        } else {
-            System.out.println("Kết nối thất bại. Hãy kiểm tra container Docker hoặc SQL Server service.");
-        }
     }
 }

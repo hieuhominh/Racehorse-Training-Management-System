@@ -10,7 +10,7 @@ export default function HorseListSection() {
   const { t, lang } = useLanguage();
   const [horses, setHorses] = useState(initialHorsesData);
   const [isFromBackend, setIsFromBackend] = useState(false);
-  const [isLoadingApi, setIsLoadingApi] = useState(false);
+  const [isLoadingApi, setIsLoadingApi] = useState(true);
   const [searchChip, setSearchChip] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -21,7 +21,7 @@ export default function HorseListSection() {
   // Gọi API kết nối với Backend Java Servlet khi component mount
   useEffect(() => {
     let isMounted = true;
-    setIsLoadingApi(true);
+
 
     getHorsesApi()
       .then((res) => {

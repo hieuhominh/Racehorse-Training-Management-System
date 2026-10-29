@@ -1,17 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import {
-  getStablesApi,
-  getIncidentsApi,
-  reportIncidentApi,
-  getGroomAssignmentsApi,
-  getFeedingSchedulesApi,
-  updateFeedingStatusApi,
-  getSuppliesInventoryApi
+  reportIncidentApi
 } from '../services/api';
 
 // Minimalist High-End SVG Icons for Groom Portal
@@ -63,13 +56,11 @@ const IconStall = ({ size = 18, color = 'currentColor' }) => (
 
 export default function GroomPage() {
   const { currentUser, logout } = useAuth();
-  const { lang } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('stalls'); // 'stalls' | 'checklist' | 'incident' | 'nutrition' | 'supplies'
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   // 1. Dữ liệu các ô chuồng Groom phụ trách (Block A)
   const [assignedStalls, setAssignedStalls] = useState([
@@ -246,7 +237,7 @@ export default function GroomPage() {
   });
 
   // 4. Nhật ký Dinh dưỡng & Thức ăn
-  const [feedLogs, setFeedLogs] = useState([
+  const [feedLogs] = useState([
     { id: 1, horse: 'Xích Thố (A1)', hayKg: '8 kg', grainKg: '3.5 kg', waterL: '45 L', intakeRate: '100% (Ăn hết)', note: 'Thể lực rất tốt' },
     { id: 2, horse: 'Bạch Long (A2)', hayKg: '7.5 kg', grainKg: '3.0 kg', waterL: '42 L', intakeRate: '100% (Ăn hết)', note: 'Bình thường' },
     { id: 3, horse: 'Hắc Phong (A3)', hayKg: '5.0 kg', grainKg: '1.5 kg', waterL: '30 L', intakeRate: '35% (Bỏ ăn trưa)', note: 'Đã báo Thú Y theo dõi tiêu hóa' },
@@ -255,7 +246,7 @@ export default function GroomPage() {
   ]);
 
   // 5. Tủ vật tư & Dụng cụ chuồng trại
-  const [suppliesList, setSuppliesList] = useState([
+  const [suppliesList] = useState([
     { id: 1, name: 'Băng quấn chân bảo vệ gân', qty: '12 cuộn', status: 'GOOD', statusLabel: 'Đầy đủ' },
     { id: 2, name: 'Ủng đá lạnh phục hồi Cryo', qty: '8 bộ', status: 'GOOD', statusLabel: 'Đầy đủ' },
     { id: 3, name: 'Thuốc xịt sát trùng móng Blue Kote', qty: '3 chai', status: 'LOW', statusLabel: 'Sắp hết' },

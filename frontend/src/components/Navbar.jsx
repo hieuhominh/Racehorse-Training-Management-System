@@ -6,8 +6,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function Navbar({ onOpenAuth }) {
-  const { currentUser, isAdmin, logout } = useAuth();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { currentUser, logout } = useAuth();
+  const { toggleTheme, isDark } = useTheme();
   const { lang, toggleLang, t } = useLanguage();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

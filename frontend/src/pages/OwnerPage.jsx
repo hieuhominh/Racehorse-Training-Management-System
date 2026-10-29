@@ -1,21 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import {
-  getOwnerHorsesApi,
   registerOwnerHorseApi,
   updateOwnerHorseApi,
   deleteOwnerHorseApi,
-  getOwnerTelemetryApi,
-  getOpenTournamentsApi,
-  getOwnerRacesApi,
   registerRaceTournamentApi,
-  updateRaceNominationStatusApi,
-  getOwnerFinancialStatementsApi,
-  getOwnerVetLogsApi
+  updateRaceNominationStatusApi
 } from '../services/api';
 
 // Minimalist High-End SVG Icons for Owner Portal (Strict 3-Color Palette)
@@ -314,7 +307,6 @@ const DEMO_HEALTH_VIP = [
 
 export default function OwnerPage() {
   const { currentUser, logout } = useAuth();
-  const { lang } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -426,7 +418,7 @@ export default function OwnerPage() {
   });
 
   // State 4: Báo cáo tài chính
-  const [statements, setStatements] = useState(() => {
+  const [statements] = useState(() => {
     try {
       const stored = localStorage.getItem(`matruong_owner_stmts_${ownerKey}`);
       if (stored) return JSON.parse(stored);
@@ -476,7 +468,7 @@ export default function OwnerPage() {
   const [selectedTournamentToRegister, setSelectedTournamentToRegister] = useState(null);
 
   // Form State: Đăng ký ngựa mới
-  const [horseForm, setHorseForm] = useState({
+  const [horseForm, setHorseForm] = useState(() => ({
     name: '',
     englishName: '',
     breed: 'Thoroughbred',
@@ -491,7 +483,7 @@ export default function OwnerPage() {
     sire: '',
     dam: '',
     avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80'
-  });
+  }));
 
   // Form State: Đăng ký giải đấu
   const [raceRegForm, setRaceRegForm] = useState({

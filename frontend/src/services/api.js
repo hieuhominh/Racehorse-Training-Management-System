@@ -7,7 +7,6 @@
  */
 
 import { initialHorsesData } from '../data/horsesData';
-import { initialStallsData } from '../data/stallsData';
 import { SEED_USERS } from '../context/AuthContext';
 import { settlementStatementsData, raceHistoryLogs } from '../data/financialData';
 
@@ -29,14 +28,37 @@ function getLocalData(key, defaultVal) {
       }
       return JSON.parse(sanitized);
     }
-  } catch (e) {}
+  } catch {
+    // Ignore storage read errors
+  }
   return defaultVal;
 }
 
 function setLocalData(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
-  } catch (e) {}
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function getAuthHeaders(includeJson = false) {
+  const headers = {};
+  if (includeJson) {
+    headers['Content-Type'] = 'application/json';
+  }
+  try {
+    const raw = localStorage.getItem('matruong_auth_user');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.token) {
+        headers['Authorization'] = `Bearer ${parsed.token}`;
+      }
+    }
+  } catch {
+    // Ignore token parse errors
+  }
+  return headers;
 }
 
 
@@ -49,7 +71,10 @@ function setLocalData(key, val) {
  */
 export async function getHorsesApi() {
   try {
-    const res = await fetch('/api/horses');
+    const res = await fetch('/api/horses', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -105,7 +130,7 @@ export async function getHorsesApi() {
         };
       }
     }
-  } catch (err) {
+  } catch {
     // Backend offline -> Fallback
   }
   return { isFromBackend: false, data: getLocalData(STORAGE_KEYS.HORSES, initialHorsesData) };
@@ -116,12 +141,17 @@ export async function getHorsesApi() {
  */
 export async function getHorseDetailApi(horseId) {
   try {
-    const res = await fetch(`/api/horses/${horseId}`);
+    const res = await fetch(`/api/horses/${horseId}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       return { success: true, isFromBackend: true, data };
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const localHorses = getLocalData(STORAGE_KEYS.HORSES, initialHorsesData);
   const found = localHorses.find(h => String(h.id) === String(horseId) || h.chipId === horseId || h.name === horseId);
@@ -136,13 +166,16 @@ export async function createHorseApi(horseData) {
   try {
     const res = await fetch('/api/horses', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(horseData)
     });
     if (res.ok) {
       created = await res.json();
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   // Cập nhật bộ nhớ cục bộ
   const localHorses = getLocalData(STORAGE_KEYS.HORSES, initialHorsesData);
@@ -181,13 +214,15 @@ export async function updateHorseApi(horseData) {
   try {
     const res = await fetch(`/api/horses/${horseData.id || horseData.horseId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(horseData)
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
-  // Fallback
   const localHorses = getLocalData(STORAGE_KEYS.HORSES, initialHorsesData);
   const updated = localHorses.map(h => String(h.id) === String(horseData.id) ? { ...h, ...horseData } : h);
   setLocalData(STORAGE_KEYS.HORSES, updated);
@@ -201,13 +236,15 @@ export async function toggleHorseLockApi(horseId, locked) {
   try {
     const res = await fetch(`/api/horses/${horseId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify({ toggleLock: locked })
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
-  // Fallback
   const localHorses = getLocalData(STORAGE_KEYS.HORSES, initialHorsesData);
   const updated = localHorses.map(h => {
     if (String(h.id) === String(horseId)) {
@@ -230,10 +267,14 @@ export async function toggleHorseLockApi(horseId, locked) {
 export async function deleteHorseApi(horseId) {
   try {
     const res = await fetch(`/api/horses/${horseId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const localHorses = getLocalData(STORAGE_KEYS.HORSES, initialHorsesData);
   const filtered = localHorses.filter(h => String(h.id) !== String(horseId));
@@ -251,14 +292,19 @@ export async function deleteHorseApi(horseId) {
  */
 export async function getStablesApi() {
   try {
-    const res = await fetch('/api/stables');
+    const res = await fetch('/api/stables', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return { isFromBackend: true, data };
       }
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const defaultStables = [
     { stall_code: 'A1', block: 'Block A', status: 'OCCUPIED', horse: 'Xích Thố', breed: 'Arabian', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
@@ -285,13 +331,15 @@ export async function createStallApi(stallData) {
   try {
     const res = await fetch('/api/stables', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(stallData)
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
-  // Fallback
   const { data: stables } = await getStablesApi();
   const newStall = {
     stall_code: stallData.stall_code.toUpperCase(),
@@ -316,11 +364,14 @@ export async function updateStallApi(stallData) {
   try {
     const res = await fetch(`/api/stables/${stallData.stall_code}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(stallData)
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const { data: stables } = await getStablesApi();
   const updated = stables.map(s => s.stall_code === stallData.stall_code ? { ...s, ...stallData } : s);
@@ -335,7 +386,8 @@ export async function reassignStallHorseApi(stallCode, horseOption, customHorse 
   try {
     const res = await fetch('/api/stables', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify({
         stall_code: stallCode,
         reassign: true,
@@ -345,9 +397,10 @@ export async function reassignStallHorseApi(stallCode, horseOption, customHorse 
       })
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
-  // Fallback
   const { data: stables } = await getStablesApi();
   const updated = stables.map(s => {
     if (s.stall_code === stallCode) {
@@ -383,10 +436,14 @@ export async function reassignStallHorseApi(stallCode, horseOption, customHorse 
 export async function deleteStallApi(stallCode) {
   try {
     const res = await fetch(`/api/stables/${stallCode}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const { data: stables } = await getStablesApi();
   const updated = stables.filter(s => s.stall_code !== stallCode);
@@ -400,25 +457,40 @@ export async function deleteStallApi(stallCode) {
 // =========================================================================
 
 /**
- * Đăng nhập hệ thống (Bảo đảm hỗ trợ tài khoản admin / 123)
+ * Đăng nhập hệ thống
  */
 export async function loginApi(account, password) {
+  const trimmed = account ? String(account).trim().toLowerCase() : '';
+  const cleanPass = password ? String(password).trim() : '';
+
+  if (!trimmed || !cleanPass) {
+    return { success: false, isFromBackend: false, error: 'Vui lòng nhập đầy đủ tài khoản và mật khẩu.' };
+  }
+
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ account, password })
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ account: trimmed, password: cleanPass })
     });
     if (res.ok) {
       const user = await res.json();
       return { success: true, isFromBackend: true, user };
     }
-  } catch (err) {}
+    if (res.status === 401 || res.status === 403 || res.status === 400) {
+      const errBody = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        isFromBackend: true,
+        error: errBody.error || 'Tài khoản hoặc mật khẩu không chính xác.'
+      };
+    }
+  } catch {
+    // Backend offline -> Fallback
+  }
 
-  // Fallback khi offline hoặc khi CSDL backend chưa có seed user
-  const trimmed = account ? account.trim().toLowerCase() : '';
-  const cleanPass = password ? String(password).trim() : '';
-
+  // Fallback khi offline
   const PRESETS = [
     {
       aliases: ['admin', 'admin@matruong.vn', 'quanly', 'admin_quan'],
@@ -443,12 +515,16 @@ export async function loginApi(account, password) {
   ];
 
   const matchedPreset = PRESETS.find(p => p.aliases.includes(trimmed));
-  if (matchedPreset && (cleanPass === '123' || cleanPass === '123456' || cleanPass === '')) {
+  if (matchedPreset && (cleanPass === '123' || cleanPass === '123456')) {
     return { success: true, isFromBackend: false, user: matchedPreset.user };
   }
 
   const localUsers = getLocalData(STORAGE_KEYS.USERS, SEED_USERS);
-  const found = localUsers.find(u => (u.username?.toLowerCase() === trimmed || u.email?.toLowerCase() === trimmed) && (u.password === password || cleanPass === '123' || cleanPass === '123456') && u.status === 'ACTIVE');
+  const found = localUsers.find(
+    u => (u.username?.toLowerCase() === trimmed || u.email?.toLowerCase() === trimmed) &&
+      (u.password === password || cleanPass === '123' || cleanPass === '123456') &&
+      u.status === 'ACTIVE'
+  );
   if (found) {
     return { success: true, isFromBackend: false, user: found };
   }
@@ -457,30 +533,36 @@ export async function loginApi(account, password) {
 }
 
 /**
- * Đăng ký tài khoản mới
+ * Đăng ký tài khoản mới (Chặn tự đăng ký quyền MANAGER/ADMIN)
  */
 export async function registerApi(userData) {
+  const requestedRole = String(userData.role || 'OWNER').toUpperCase();
+  const safeRole = ['OWNER', 'TRAINER', 'VET', 'GROOM'].includes(requestedRole) ? requestedRole : 'OWNER';
+  const payload = { ...userData, role: safeRole };
+
   try {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData)
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(payload)
     });
     if (res.ok) {
       const user = await res.json();
       return { success: true, isFromBackend: true, user };
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
-  // Fallback
   const localUsers = getLocalData(STORAGE_KEYS.USERS, SEED_USERS);
   const newUser = {
     user_id: localUsers.length + 1,
-    username: userData.username || (userData.email ? userData.email.split('@')[0] : `user_${Date.now()}`),
-    full_name: userData.full_name || userData.fullName,
-    email: userData.email,
-    phone: userData.phone || '',
-    role_code: userData.role || 'OWNER',
+    username: payload.username || (payload.email ? payload.email.split('@')[0] : `user_${Date.now()}`),
+    full_name: payload.full_name || payload.fullName,
+    email: payload.email,
+    phone: payload.phone || '',
+    role_code: safeRole,
     role_name: 'Chủ sở hữu Ngựa',
     status: 'ACTIVE'
   };
@@ -493,14 +575,19 @@ export async function registerApi(userData) {
  */
 export async function getUsersApi() {
   try {
-    const res = await fetch('/api/users');
+    const res = await fetch('/api/users', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return { isFromBackend: true, data };
       }
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   return { isFromBackend: false, data: getLocalData(STORAGE_KEYS.USERS, SEED_USERS) };
 }
@@ -512,13 +599,15 @@ export async function createUserApi(userData) {
   try {
     const res = await fetch('/api/users', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(userData)
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
-  // Fallback
   const localUsers = getLocalData(STORAGE_KEYS.USERS, SEED_USERS);
   const newUser = {
     user_id: localUsers.length + 1,
@@ -535,20 +624,28 @@ export async function createUserApi(userData) {
 }
 
 /**
- * Cập nhật thông tin nhân sự
+ * Cập nhật thông tin nhân sự (Hỗ trợ cả (userId, updatedFields) và (userData))
  */
-export async function updateUserApi(userData) {
+export async function updateUserApi(userIdOrData, updatedFields = null) {
+  const payload = updatedFields && typeof userIdOrData !== 'object'
+    ? { user_id: userIdOrData, userId: userIdOrData, ...updatedFields }
+    : (userIdOrData || {});
+
   try {
     const res = await fetch('/api/users', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData)
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(payload)
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const localUsers = getLocalData(STORAGE_KEYS.USERS, SEED_USERS);
-  const updated = localUsers.map(u => String(u.user_id) === String(userData.user_id || userData.userId) ? { ...u, ...userData } : u);
+  const targetId = payload.user_id || payload.userId;
+  const updated = localUsers.map(u => String(u.user_id) === String(targetId) ? { ...u, ...payload } : u);
   setLocalData(STORAGE_KEYS.USERS, updated);
   return true;
 }
@@ -559,10 +656,14 @@ export async function updateUserApi(userData) {
 export async function deleteUserApi(userId) {
   try {
     const res = await fetch(`/api/users/${userId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const localUsers = getLocalData(STORAGE_KEYS.USERS, SEED_USERS);
   const updated = localUsers.filter(u => String(u.user_id) !== String(userId));
@@ -577,14 +678,19 @@ export async function deleteUserApi(userId) {
 
 export async function getIncidentsApi() {
   try {
-    const res = await fetch('/api/incidents');
+    const res = await fetch('/api/incidents', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return { isFromBackend: true, data };
       }
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
   return { isFromBackend: false, data: getLocalData(STORAGE_KEYS.INCIDENTS, []) };
 }
 
@@ -592,11 +698,14 @@ export async function reportIncidentApi(incident) {
   try {
     const res = await fetch('/api/incidents', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(incident)
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const local = getLocalData(STORAGE_KEYS.INCIDENTS, []);
   const newIncident = { ...incident, id: Date.now() };
@@ -611,27 +720,37 @@ export async function reportIncidentApi(incident) {
 
 export async function getTrainingProgramsApi() {
   try {
-    const res = await fetch('/api/training/programs');
+    const res = await fetch('/api/training/programs', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return { isFromBackend: true, data };
       }
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
   return { isFromBackend: false, data: [] };
 }
 
 export async function getTelemetrySessionsApi() {
   try {
-    const res = await fetch('/api/training/telemetry');
+    const res = await fetch('/api/training/telemetry', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return { isFromBackend: true, data };
       }
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
   return { isFromBackend: false, data: [] };
 }
 
@@ -642,27 +761,37 @@ export async function getTelemetrySessionsApi() {
 
 export async function getRacesApi() {
   try {
-    const res = await fetch('/api/races');
+    const res = await fetch('/api/races', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return { isFromBackend: true, data };
       }
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
   return { isFromBackend: false, data: raceHistoryLogs };
 }
 
 export async function getFinancialSettlementsApi() {
   try {
-    const res = await fetch('/api/finance/settlements');
+    const res = await fetch('/api/finance/settlements', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return { isFromBackend: true, data };
       }
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
   return { isFromBackend: false, data: settlementStatementsData };
 }
 
@@ -673,9 +802,14 @@ export async function getFinancialSettlementsApi() {
 
 export async function getAdminOverviewApi() {
   try {
-    const res = await fetch('/api/admin/overview');
+    const res = await fetch('/api/admin/overview', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const { data: horses } = await getHorsesApi();
   const { data: stables } = await getStablesApi();
@@ -702,9 +836,14 @@ export async function getAdminOverviewApi() {
 
 export async function getTrainerHorsesApi(trainerId = 'TRAINER') {
   try {
-    const res = await fetch(`/api/trainer/horses?trainerId=${trainerId}`);
+    const res = await fetch(`/api/trainer/horses?trainerId=${trainerId}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const { data: allHorses } = await getHorsesApi();
   return allHorses;
@@ -714,11 +853,14 @@ export async function saveTrainingProgramApi(programData) {
   try {
     const res = await fetch('/api/training/programs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(programData)
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const key = 'matruong_trainer_programs';
   const local = getLocalData(key, []);
@@ -731,11 +873,14 @@ export async function recordTelemetryApi(telemetryData) {
   try {
     const res = await fetch('/api/training/telemetry', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(telemetryData)
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const key = 'matruong_training_telemetry';
   const local = getLocalData(key, []);
@@ -746,9 +891,14 @@ export async function recordTelemetryApi(telemetryData) {
 
 export async function getTrainerNominationsApi() {
   try {
-    const res = await fetch('/api/trainer/nominations');
+    const res = await fetch('/api/trainer/nominations', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   return getLocalData('matruong_trainer_nominations', [
     {
@@ -774,11 +924,14 @@ export async function updateTrainerFeedbackApi(horseId, feedback) {
   try {
     const res = await fetch(`/api/trainer/feedback/${horseId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify({ feedback })
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const key = `matruong_trainer_feedback_${horseId}`;
   setLocalData(key, { feedback, updatedAt: new Date().toISOString() });
@@ -792,12 +945,17 @@ export async function updateTrainerFeedbackApi(horseId, feedback) {
 
 export async function getVetMedicalLogsApi() {
   try {
-    const res = await fetch('/api/vet/medical-logs');
+    const res = await fetch('/api/vet/medical-logs', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   return getLocalData('matruong_vet_medical_logs', [
     {
@@ -835,11 +993,14 @@ export async function createMedicalLogApi(logData) {
   try {
     const res = await fetch('/api/vet/medical-logs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(logData)
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const key = 'matruong_vet_medical_logs';
   const existing = await getVetMedicalLogsApi();
@@ -850,12 +1011,17 @@ export async function createMedicalLogApi(logData) {
 
 export async function getVaccinationSchedulesApi() {
   try {
-    const res = await fetch('/api/vet/vaccines');
+    const res = await fetch('/api/vet/vaccines', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   return getLocalData('matruong_vet_vaccines', [
     { id: 1, horseName: 'Xích Thố', vaccineType: 'Cúm ngựa (Equine Influenza) liều 2', scheduledDate: '15/11/2026', status: 'SCHEDULED' },
@@ -868,11 +1034,14 @@ export async function recordVaccinationApi(vaccineData) {
   try {
     const res = await fetch('/api/vet/vaccines', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify(vaccineData)
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const key = 'matruong_vet_vaccines';
   const existing = await getVaccinationSchedulesApi();
@@ -883,9 +1052,14 @@ export async function recordVaccinationApi(vaccineData) {
 
 export async function getVetHealthOverviewApi() {
   try {
-    const res = await fetch('/api/vet/overview');
+    const res = await fetch('/api/vet/overview', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   return {
     totalChecked: 12,
@@ -903,12 +1077,17 @@ export async function getVetHealthOverviewApi() {
 
 export async function getGroomAssignmentsApi(groomId = 'groom_nam') {
   try {
-    const res = await fetch(`/api/groom/assignments?groomId=${groomId}`);
+    const res = await fetch(`/api/groom/assignments?groomId=${groomId}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   return getLocalData('matruong_groom_assignments', [
     { stallCode: 'A1', horseName: 'Xích Thố', block: 'Block A', beddingStatus: 'CLEAN', lastMucked: '06:30 - Sáng nay', waterBucketClean: true },
@@ -921,12 +1100,17 @@ export async function getGroomAssignmentsApi(groomId = 'groom_nam') {
 
 export async function getFeedingSchedulesApi() {
   try {
-    const res = await fetch('/api/groom/feeding');
+    const res = await fetch('/api/groom/feeding', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   return getLocalData('matruong_groom_feeding', [
     { id: 1, meal: 'Bữa Sáng (06:00)', ration: '3.5kg Yến mạch + 5kg Cỏ Timothy + Điện giải', status: 'COMPLETED', timeCompleted: '06:15' },
@@ -939,11 +1123,14 @@ export async function updateFeedingStatusApi(scheduleId, isCompleted) {
   try {
     const res = await fetch(`/api/groom/feeding/${scheduleId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify({ isCompleted })
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const key = 'matruong_groom_feeding';
   const schedules = await getFeedingSchedulesApi();
@@ -974,12 +1161,17 @@ export async function recordCareActivityApi(activityData) {
 
 export async function getSuppliesInventoryApi() {
   try {
-    const res = await fetch('/api/groom/supplies');
+    const res = await fetch('/api/groom/supplies', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   return getLocalData('matruong_groom_supplies', [
     { name: 'Rơm khô lót chuồng khử khuẩn', inStock: '45 bao', minAlert: '10 bao', status: 'SUFFICIENT' },
@@ -1004,12 +1196,17 @@ export async function requestSupplyRestockApi(supplyName, quantity) {
 
 export async function getOwnerHorsesApi(ownerKey) {
   try {
-    const res = await fetch(`/api/owner/horses?ownerKey=${ownerKey}`);
+    const res = await fetch(`/api/owner/horses?ownerKey=${ownerKey}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const storageKey = `matruong_owner_horses_${ownerKey}`;
   return getLocalData(storageKey, []);
@@ -1019,11 +1216,14 @@ export async function registerOwnerHorseApi(ownerKey, horseData) {
   try {
     const res = await fetch('/api/owner/horses', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify({ ownerKey, ...horseData })
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const storageKey = `matruong_owner_horses_${ownerKey}`;
   const existing = getLocalData(storageKey, []);
@@ -1044,11 +1244,14 @@ export async function updateOwnerHorseApi(ownerKey, horseData) {
   try {
     const res = await fetch(`/api/owner/horses/${horseData.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify({ ownerKey, ...horseData })
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const storageKey = `matruong_owner_horses_${ownerKey}`;
   const existing = getLocalData(storageKey, []);
@@ -1060,10 +1263,14 @@ export async function updateOwnerHorseApi(ownerKey, horseData) {
 export async function deleteOwnerHorseApi(ownerKey, horseId) {
   try {
     const res = await fetch(`/api/owner/horses/${horseId}?ownerKey=${ownerKey}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
     });
     if (res.ok) return true;
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const storageKey = `matruong_owner_horses_${ownerKey}`;
   const existing = getLocalData(storageKey, []);
@@ -1079,12 +1286,17 @@ export async function getOwnerTelemetryApi(ownerKey) {
 
 export async function getOpenTournamentsApi() {
   try {
-    const res = await fetch('/api/owner/tournaments');
+    const res = await fetch('/api/owner/tournaments', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   return [
     {
@@ -1140,12 +1352,17 @@ export async function getOpenTournamentsApi() {
 
 export async function getOwnerRacesApi(ownerKey) {
   try {
-    const res = await fetch(`/api/owner/races?ownerKey=${ownerKey}`);
+    const res = await fetch(`/api/owner/races?ownerKey=${ownerKey}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const key = `matruong_owner_races_${ownerKey}`;
   return getLocalData(key, []);
@@ -1155,12 +1372,17 @@ const SYSTEM_NOMINATIONS_KEY = 'matruong_tournament_nominations_system';
 
 export async function getSystemTournamentNominationsApi() {
   try {
-    const res = await fetch('/api/trainer/nominations');
+    const res = await fetch('/api/trainer/nominations', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const defaultSeed = [
     {
@@ -1208,16 +1430,19 @@ export async function trainerReviewNominationApi(nominationId, { status, feedbac
   try {
     const res = await fetch('/api/trainer/nominations/review', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify({ nominationId, status, feedback, trainerName })
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const systemList = await getSystemTournamentNominationsApi();
   let updatedOwnerKey = null;
   const now = new Date();
-  const timeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  const timeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
   const updatedSystem = systemList.map(item => {
     if (item.id === nominationId) {
@@ -1235,7 +1460,6 @@ export async function trainerReviewNominationApi(nominationId, { status, feedbac
 
   setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSystem);
 
-  // Đồng bộ sang kho dữ liệu giải của Chủ ngựa tương ứng
   if (updatedOwnerKey) {
     const ownerRacesKey = `matruong_owner_races_${updatedOwnerKey}`;
     const ownerList = getLocalData(ownerRacesKey, []);
@@ -1261,23 +1485,25 @@ export async function registerRaceTournamentApi(ownerKey, nominationData) {
   try {
     const res = await fetch('/api/owner/races', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(true),
+      credentials: 'include',
       body: JSON.stringify({ ownerKey, ...nominationData })
     });
     if (res.ok) return await res.json();
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const key = `matruong_owner_races_${ownerKey}`;
   const list = getLocalData(key, []);
   const newNom = {
     ...nominationData,
     id: nominationData.id || `RN-REG-${Date.now().toString().slice(-4)}`,
-    nominationStatus: 'PENDING_TRAINER', // Chờ HLV trưởng phê duyệt
+    nominationStatus: 'PENDING_TRAINER',
     ownerKey: ownerKey
   };
   setLocalData(key, [newNom, ...list]);
 
-  // Đồng bộ vào kho chung của Huấn luyện viên trưởng
   const systemList = await getSystemTournamentNominationsApi();
   setLocalData(SYSTEM_NOMINATIONS_KEY, [newNom, ...systemList.filter(s => s.id !== newNom.id)]);
 
@@ -1290,7 +1516,6 @@ export async function updateRaceNominationStatusApi(ownerKey, nominationId, newS
   const updated = list.map(r => r.id === nominationId ? { ...r, nominationStatus: newStatus } : r);
   setLocalData(key, updated);
 
-  // Đồng bộ vào kho chung của HLV
   const systemList = await getSystemTournamentNominationsApi();
   const updatedSys = systemList.map(r => r.id === nominationId ? { ...r, nominationStatus: newStatus } : r);
   setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSys);
@@ -1300,12 +1525,17 @@ export async function updateRaceNominationStatusApi(ownerKey, nominationId, newS
 
 export async function getOwnerFinancialStatementsApi(ownerKey) {
   try {
-    const res = await fetch(`/api/owner/statements?ownerKey=${ownerKey}`);
+    const res = await fetch(`/api/owner/statements?ownerKey=${ownerKey}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
     }
-  } catch (err) {}
+  } catch {
+    // Fallback
+  }
 
   const key = `matruong_owner_stmts_${ownerKey}`;
   return getLocalData(key, []);
@@ -1315,4 +1545,3 @@ export async function getOwnerVetLogsApi(ownerKey) {
   const key = `matruong_owner_health_${ownerKey}`;
   return getLocalData(key, []);
 }
-

@@ -87,7 +87,8 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
 
   // Tự động chuyển đúng tab (Đăng ký hoặc Đăng nhập) theo nút người dùng bấm và làm sạch ô nhập
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return undefined;
+    const timer = setTimeout(() => {
       if (initialTab) {
         setActiveTab(initialTab);
       }
@@ -102,57 +103,11 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
       setFieldErrors({});
       setNotification('');
       setIsError(false);
-    }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
-
-  // Đánh giá độ mạnh mật khẩu - Tối giản theo 3 màu chủ đạo
-  const evaluatePasswordStrength = (pass) => {
-    if (!pass) {
-      return { 
-        score: 0, 
-        label: 'Chưa nhập', 
-        checks: { length: false, upper: false, lower: false, num: false, special: false }, 
-        isStrong: false 
-      };
-    }
-    
-    const checks = {
-      length: pass.length >= 8,
-      upper: /[A-Z]/.test(pass),
-      lower: /[a-z]/.test(pass),
-      num: /[0-9]/.test(pass),
-      special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/.test(pass)
-    };
-
-    const count = Object.values(checks).filter(Boolean).length;
-    let score = 1;
-    let label = 'Yếu';
-
-    if (count <= 2) {
-      score = 1;
-      label = 'Yếu';
-    } else if (count === 3) {
-      score = 2;
-      label = 'Trung bình';
-    } else if (count === 4) {
-      score = 3;
-      label = 'Mạnh';
-    } else if (count === 5) {
-      score = 4;
-      label = 'Rất mạnh';
-    }
-
-    return {
-      score,
-      label,
-      checks,
-      isStrong: checks.length && count >= 4
-    };
-  };
-
-  const passwordStrength = evaluatePasswordStrength(regPassword);
 
   // Validate Email regex
   const isValidEmail = (email) => {
@@ -166,7 +121,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   };
 
   // Quick fill & instant login for demo roles
-  const handleQuickRoleLogin = async (username, pass = '123') => {
+  const handleQuickRoleLogin = async (username, pass = '123456') => {
     setLoginEmail(username);
     setLoginPassword(pass);
     setFieldErrors({});

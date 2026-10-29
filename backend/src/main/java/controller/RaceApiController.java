@@ -1,6 +1,8 @@
 package controller;
 
 import com.google.gson.Gson;
+import model.User;
+import util.SecurityUtil;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -18,13 +20,18 @@ import java.util.Map;
  * Servlet API Giải đua & Đối soát tài chính (Owner / Achievements)
  * Endpoint: /api/races, /api/finance/settlements
  */
-@WebServlet(name = "RaceApiController", urlPatterns = {"/api/races", "/api/finance/settlements"})
+@WebServlet(name = "RaceApiController", urlPatterns = {
+    "/api/races",
+    "/api/races/*",
+    "/api/finance/settlements",
+    "/api/finance/settlements/*"
+})
 public class RaceApiController extends HttpServlet {
 
     private final Gson gson = new Gson();
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) 
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
@@ -67,6 +74,11 @@ public class RaceApiController extends HttpServlet {
             }
 
             if ("/api/finance/settlements".equals(path)) {
+                User authUser = SecurityUtil.requireRole(request, response, "OWNER", "MANAGER");
+                if (authUser == null) {
+                    return;
+                }
+
                 List<Map<String, Object>> stmts = new ArrayList<>();
 
                 Map<String, Object> s1 = new HashMap<>();
@@ -86,8 +98,8 @@ public class RaceApiController extends HttpServlet {
                 out.flush();
             }
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().print("{\"error\": \"" + e.getMessage() + "\"}");
+            SecurityUtil.sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                "Không thể tải dữ liệu giải đua và tài chính.");
         }
     }
 }
