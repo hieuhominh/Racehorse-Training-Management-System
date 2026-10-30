@@ -1122,36 +1122,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               </div>
             </div>
 
-            {/* 4. Vai trò trong hệ thống: Cố định OWNER cho người dùng mới */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>{t('regRoleLabel')}</span>
-                <span style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 700 }}>
-                  ✓ Cố định nhân sự CLB
-                </span>
-              </label>
-              <div style={{
-                padding: '10px 14px',
-                background: 'rgba(212, 175, 55, 0.08)',
-                border: '1px solid rgba(212, 175, 55, 0.3)',
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}>
-                <span style={{ fontSize: '18px' }}>👑</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, color: 'var(--brass)', fontSize: '13px' }}>
-                    {t('roleOwner')} (Horse Owner)
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px', lineHeight: 1.4 }}>
-                    Đội ngũ 1 Admin, 3 HLV, 3 BS Thú y và 3 Groom đã được biên chế cố định. Bạn đăng ký với vai trò Chủ sở hữu và toàn quyền chỉ định đội ngũ phục vụ mình.
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 5. Mật khẩu mới */}
+            {/* 4. Mật khẩu mới */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
                 {t('regPasswordLabel')}
