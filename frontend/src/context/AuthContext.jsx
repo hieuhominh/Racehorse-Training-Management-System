@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { loginApi, registerApi, getUsersApi, updateUserApi, deleteUserApi } from '../services/api';
 
 // Dữ liệu mẫu đồng bộ với CSDL Microsoft SQL Server (database/RacehorseDB.sql)
-export const SEED_USERS = [
+// Quy chuẩn cố định: 1 Quản trị viên (Admin), 3 Huấn luyện viên chính, 3 Bác sĩ thú y chính, 3 Nhân viên chăm sóc (Groom)
+export const FIXED_CORE_STAFF = [
   {
     user_id: 1,
     username: 'admin',
@@ -10,60 +11,130 @@ export const SEED_USERS = [
     email: 'admin@matruong.vn',
     phone: '0905678999',
     role: 'MANAGER',
-    role_name: 'Quản lý Câu lạc bộ (Admin)',
+    role_name: 'Quản trị viên (Admin)',
     status: 'ACTIVE'
   },
+  // 3 Huấn luyện viên chính
   {
     user_id: 2,
-    username: 'admin_quan',
-    full_name: 'Ban Quản trị Mã Trường',
-    email: 'quanly@matruong.vn',
-    phone: '0905678901',
-    role: 'MANAGER',
-    role_name: 'Quản lý Câu lạc bộ',
+    username: 'trainer_truong',
+    full_name: 'Trần Văn Hùng',
+    title: 'HLV Trưởng - Cự ly Dài & Tổng thể',
+    email: 'trainer@matruong.vn',
+    phone: '0901234567',
+    role: 'TRAINER',
+    role_name: 'HLV Trần Văn Hùng (HLV Trưởng)',
     status: 'ACTIVE'
   },
   {
     user_id: 3,
-    username: 'trainer_truong',
-    full_name: 'Trần Văn Hùng',
-    email: 'trainer@matruong.vn',
-    phone: '0901234567',
+    username: 'trainer_nghia',
+    full_name: 'Lê Trọng Nghĩa',
+    title: 'HLV Chuyên Cự Ly Dài & Sân Cỏ',
+    email: 'trainer_nghia@matruong.vn',
+    phone: '0901234568',
     role: 'TRAINER',
-    role_name: 'Huấn luyện viên Trưởng',
+    role_name: 'HLV Lê Trọng Nghĩa (Cự Ly Dài)',
     status: 'ACTIVE'
   },
   {
     user_id: 4,
+    username: 'trainer_anh',
+    full_name: 'Phạm Quốc Anh',
+    title: 'HLV Nước Rút & Kỹ Thuật Bứt Tốc',
+    email: 'trainer_anh@matruong.vn',
+    phone: '0901234569',
+    role: 'TRAINER',
+    role_name: 'HLV Phạm Quốc Anh (Nước Rút)',
+    status: 'ACTIVE'
+  },
+  // 3 Bác sĩ Thú y chính
+  {
+    user_id: 5,
     username: 'vet_an',
-    full_name: 'Bác sĩ Nguyễn An',
+    full_name: 'BS. Nguyễn An',
+    title: 'Trưởng khoa Thú y & Chẩn đoán hình ảnh',
     email: 'vet@matruong.vn',
     phone: '0902345678',
     role: 'VET',
-    role_name: 'Bác sĩ Thú y',
-    status: 'ACTIVE'
-  },
-  {
-    user_id: 5,
-    username: 'groom_nam',
-    full_name: 'Lê Hoàng Nam',
-    email: 'groom@matruong.vn',
-    phone: '0903456789',
-    role: 'GROOM',
-    role_name: 'Nhân viên Chăm sóc',
+    role_name: 'BS. Nguyễn An (Thú Y Trưởng)',
     status: 'ACTIVE'
   },
   {
     user_id: 6,
-    username: 'owner_thanh',
-    full_name: 'Phạm Tiến Thành',
-    email: 'owner@matruong.vn',
-    phone: '0904567890',
-    role: 'OWNER',
-    role_name: 'Chủ sở hữu Ngựa',
+    username: 'vet_hoang',
+    full_name: 'BS. Trần Minh Hoàng',
+    title: 'Chuyên gia Cơ Xương Khớp & Chấn Thương',
+    email: 'vet_hoang@matruong.vn',
+    phone: '0902345679',
+    role: 'VET',
+    role_name: 'BS. Trần Minh Hoàng (Cơ Xương Khớp)',
+    status: 'ACTIVE'
+  },
+  {
+    user_id: 7,
+    username: 'vet_linh',
+    full_name: 'BS. Lê Mai Linh',
+    title: 'Chuyên khoa Dinh Dưỡng & Kiểm Dịch',
+    email: 'vet_linh@matruong.vn',
+    phone: '0902345680',
+    role: 'VET',
+    role_name: 'BS. Lê Mai Linh (Dinh Dưỡng & Vi Sinh)',
+    status: 'ACTIVE'
+  },
+  // 3 Người chăm sóc chính
+  {
+    user_id: 8,
+    username: 'groom_nam',
+    full_name: 'Lê Hoàng Nam',
+    title: 'Trưởng nhóm Chăm sóc Block A',
+    email: 'groom@matruong.vn',
+    phone: '0903456789',
+    role: 'GROOM',
+    role_name: 'Lê Hoàng Nam (Groom Block A)',
+    status: 'ACTIVE'
+  },
+  {
+    user_id: 9,
+    username: 'groom_dung',
+    full_name: 'Vũ Tiến Dũng',
+    title: 'Chăm sóc & Vệ sinh móng Block B',
+    email: 'groom_dung@matruong.vn',
+    phone: '0903456790',
+    role: 'GROOM',
+    role_name: 'Vũ Tiến Dũng (Groom Block B)',
+    status: 'ACTIVE'
+  },
+  {
+    user_id: 10,
+    username: 'groom_thao',
+    full_name: 'Nguyễn Thu Thảo',
+    title: 'Chăm sóc phục hồi & Dinh dưỡng Block C',
+    email: 'groom_thao@matruong.vn',
+    phone: '0903456791',
+    role: 'GROOM',
+    role_name: 'Nguyễn Thu Thảo (Groom Block C)',
     status: 'ACTIVE'
   }
 ];
+
+export const DEFAULT_DEMO_OWNER = {
+  user_id: 11,
+  username: 'owner_thanh',
+  full_name: 'Phạm Tiến Thành',
+  email: 'owner@matruong.vn',
+  phone: '0904567890',
+  role: 'OWNER',
+  role_name: 'Chủ sở hữu Ngựa (VIP)',
+  status: 'ACTIVE'
+};
+
+export const FIXED_TRAINERS = FIXED_CORE_STAFF.filter(s => s.role === 'TRAINER');
+export const FIXED_VETS = FIXED_CORE_STAFF.filter(s => s.role === 'VET');
+export const FIXED_GROOMS = FIXED_CORE_STAFF.filter(s => s.role === 'GROOM');
+export const FIXED_ADMIN = FIXED_CORE_STAFF.find(s => s.role === 'MANAGER');
+
+export const SEED_USERS = [...FIXED_CORE_STAFF, DEFAULT_DEMO_OWNER];
 
 const AuthContext = createContext(null);
 
@@ -74,19 +145,9 @@ export function AuthProvider({ children }) {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          let seq = 1;
-          const normalized = parsed.map(u => {
-            const num = Number(u.user_id);
-            if (!num || num > 1000) {
-              const assigned = seq;
-              seq++;
-              return { ...u, user_id: assigned };
-            } else {
-              seq = Math.max(seq, num + 1);
-              return { ...u, user_id: num };
-            }
-          });
-          return normalized;
+          // Chỉ giữ lại các tài khoản OWNER đã đăng ký từ trước, và kết hợp với 10 nhân sự cốt cán cố định
+          const storedOwners = parsed.filter(u => u.role === 'OWNER' && u.username !== 'owner_thanh');
+          return [...FIXED_CORE_STAFF, DEFAULT_DEMO_OWNER, ...storedOwners];
         }
       }
       return SEED_USERS;
@@ -128,26 +189,29 @@ export function AuthProvider({ children }) {
       if (res.isFromBackend && Array.isArray(res.data) && res.data.length > 0) {
         const roleMap = {
           'MANAGER': 'Quản lý Câu lạc bộ',
-          'TRAINER': 'Huấn luyện viên Trưởng',
+          'TRAINER': 'Huấn luyện viên',
           'VET': 'Bác sĩ Thú y',
           'GROOM': 'Nhân viên Chăm sóc',
           'OWNER': 'Chủ sở hữu Ngựa'
         };
-        const backendMapped = res.data.map(u => ({
-          user_id: u.userId,
-          username: u.username,
-          full_name: u.fullName,
-          email: u.email,
-          phone: u.phone,
-          role: u.roleCode,
-          role_name: roleMap[u.roleCode] || u.roleCode,
-          status: u.status
-        }));
+        const backendOwners = res.data
+          .filter(u => u.roleCode === 'OWNER' && u.username !== 'owner_thanh')
+          .map(u => ({
+            user_id: u.userId,
+            username: u.username,
+            full_name: u.fullName,
+            email: u.email,
+            phone: u.phone,
+            role: u.roleCode,
+            role_name: roleMap[u.roleCode] || u.roleCode,
+            status: u.status
+          }));
         
         setUsersList(prev => {
-          const backendEmails = new Set(backendMapped.map(u => u.email?.toLowerCase()));
-          const localOnly = prev.filter(u => u.email && !backendEmails.has(u.email.toLowerCase()));
-          const merged = [...backendMapped, ...localOnly];
+          const prevOwners = prev.filter(u => u.role === 'OWNER' && u.username !== 'owner_thanh');
+          const combinedOwnersMap = new Map();
+          [...prevOwners, ...backendOwners].forEach(o => combinedOwnersMap.set(o.username || o.email, o));
+          const merged = [...FIXED_CORE_STAFF, DEFAULT_DEMO_OWNER, ...Array.from(combinedOwnersMap.values())];
           localStorage.setItem('matruong_users_list', JSON.stringify(merged));
           return merged;
         });
@@ -167,72 +231,56 @@ export function AuthProvider({ children }) {
       return { success: false, error: 'Vui lòng nhập mật khẩu.' };
     }
 
-    // Danh sách tài khoản hệ thống chuẩn hóa (Hỗ trợ nhiều alias tiện dụng)
+    // Danh sách tài khoản hệ thống chuẩn hóa (1 Admin, 3 HLV, 3 Bác sĩ, 3 Groom và Chủ sở hữu mẫu)
     const SYSTEM_ROLE_PRESETS = [
+      // 1. Quản trị viên
       {
-        aliases: ['admin', 'admin@matruong.vn', 'quanly', 'manager', 'admin_quan', 'quanly@matruong.vn'],
-        data: {
-          user_id: 1,
-          username: 'admin',
-          full_name: 'Quản trị viên Hệ thống',
-          email: 'admin@matruong.vn',
-          phone: '0905678999',
-          role: 'MANAGER',
-          role_name: 'Quản lý Câu lạc bộ (Admin)',
-          status: 'ACTIVE'
-        }
+        aliases: ['admin', 'admin@matruong.vn', 'quanly', 'manager', 'admin_quan'],
+        data: FIXED_CORE_STAFF[0]
+      },
+      // 2. 3 Huấn luyện viên chính
+      {
+        aliases: ['trainer_truong', 'trainer', 'hlv', 'trainer@matruong.vn', 'hlv@matruong.vn'],
+        data: FIXED_CORE_STAFF[1]
       },
       {
-        aliases: ['vet', 'vet_an', 'bacsi', 'vet@matruong.vn', 'bacsi@matruong.vn', 'doctor'],
-        data: {
-          user_id: 4,
-          username: 'vet_an',
-          full_name: 'Bác sĩ Nguyễn An',
-          email: 'vet@matruong.vn',
-          phone: '0902345678',
-          role: 'VET',
-          role_name: 'Bác sĩ Thú y',
-          status: 'ACTIVE'
-        }
+        aliases: ['trainer_nghia', 'hlv_nghia', 'trainer_nghia@matruong.vn'],
+        data: FIXED_CORE_STAFF[2]
       },
       {
-        aliases: ['trainer', 'trainer_truong', 'hlv', 'trainer@matruong.vn', 'hlv@matruong.vn'],
-        data: {
-          user_id: 3,
-          username: 'trainer_truong',
-          full_name: 'Trần Văn Hùng',
-          email: 'trainer@matruong.vn',
-          phone: '0901234567',
-          role: 'TRAINER',
-          role_name: 'Huấn luyện viên Trưởng',
-          status: 'ACTIVE'
-        }
+        aliases: ['trainer_anh', 'hlv_anh', 'trainer_anh@matruong.vn'],
+        data: FIXED_CORE_STAFF[3]
+      },
+      // 3. 3 Bác sĩ Thú y chính
+      {
+        aliases: ['vet_an', 'vet', 'bacsi', 'vet@matruong.vn', 'bacsi@matruong.vn', 'doctor'],
+        data: FIXED_CORE_STAFF[4]
       },
       {
-        aliases: ['groom', 'groom_nam', 'chamsoc', 'groom@matruong.vn'],
-        data: {
-          user_id: 5,
-          username: 'groom_nam',
-          full_name: 'Lê Hoàng Nam',
-          email: 'groom@matruong.vn',
-          phone: '0903456789',
-          role: 'GROOM',
-          role_name: 'Nhân viên Chăm sóc',
-          status: 'ACTIVE'
-        }
+        aliases: ['vet_hoang', 'bacsi_hoang', 'vet_hoang@matruong.vn'],
+        data: FIXED_CORE_STAFF[5]
       },
+      {
+        aliases: ['vet_linh', 'bacsi_linh', 'vet_linh@matruong.vn'],
+        data: FIXED_CORE_STAFF[6]
+      },
+      // 4. 3 Người chăm sóc chính
+      {
+        aliases: ['groom_nam', 'groom', 'chamsoc', 'groom@matruong.vn'],
+        data: FIXED_CORE_STAFF[7]
+      },
+      {
+        aliases: ['groom_dung', 'chamsoc_dung', 'groom_dung@matruong.vn'],
+        data: FIXED_CORE_STAFF[8]
+      },
+      {
+        aliases: ['groom_thao', 'chamsoc_thao', 'groom_thao@matruong.vn'],
+        data: FIXED_CORE_STAFF[9]
+      },
+      // 5. Chủ sở hữu mẫu
       {
         aliases: ['owner', 'owner_thanh', 'chunga', 'owner@matruong.vn'],
-        data: {
-          user_id: 6,
-          username: 'owner_thanh',
-          full_name: 'Phạm Tiến Thành',
-          email: 'owner@matruong.vn',
-          phone: '0904567890',
-          role: 'OWNER',
-          role_name: 'Chủ sở hữu Ngựa',
-          status: 'ACTIVE'
-        }
+        data: DEFAULT_DEMO_OWNER
       }
     ];
 
@@ -325,25 +373,21 @@ export function AuthProvider({ children }) {
   };
 
   // Đăng ký tài khoản mới kết hợp Backend API & Đồng bộ tức thì localStorage
+  // Quy tắc hệ thống: Nhân sự (1 Admin, 3 HLV, 3 BS, 3 Groom) đã cố định; người dùng đăng ký mới luôn là Chủ sở hữu ngựa (OWNER)
   const registerUser = (userData) => {
-    const requestedRole = (userData.role || 'OWNER').toUpperCase();
-    const userRole = ['OWNER', 'TRAINER', 'VET', 'GROOM'].includes(requestedRole) ? requestedRole : 'OWNER';
+    const userRole = 'OWNER';
 
     // Gửi thông tin sang Backend API
     registerApi({
-      username: userData.username || (userData.email ? userData.email.split('@')[0] : 'user_new'),
+      username: userData.username || (userData.email ? userData.email.split('@')[0] : 'owner_new'),
       email: userData.email,
       password: userData.password || '123456',
-      fullName: userData.full_name || 'Người dùng mới',
+      fullName: userData.full_name || 'Chủ sở hữu mới',
       phone: userData.phone || '0900000000',
-      role: userRole
+      role: 'OWNER'
     }).catch(() => {});
 
     const roleMap = {
-      'MANAGER': 'Quản lý Câu lạc bộ',
-      'TRAINER': 'Huấn luyện viên Trưởng',
-      'VET': 'Bác sĩ Thú y',
-      'GROOM': 'Nhân viên Chăm sóc',
       'OWNER': 'Chủ sở hữu Ngựa'
     };
 

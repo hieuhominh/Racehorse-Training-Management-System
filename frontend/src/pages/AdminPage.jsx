@@ -227,7 +227,7 @@ export default function AdminPage() {
     full_name: '',
     email: '',
     phone: '',
-    role: 'TRAINER',
+    role: 'OWNER',
     password: '123'
   });
 
@@ -529,16 +529,10 @@ export default function AdminPage() {
   // Thêm người dùng mới
   const handleCreateUser = (e) => {
     e.preventDefault();
-    const roleLabels = {
-      'MANAGER': 'Quản lý Câu lạc bộ',
-      'TRAINER': 'Huấn luyện viên Trưởng',
-      'VET': 'Bác sĩ Thú y',
-      'GROOM': 'Nhân viên Chăm sóc',
-      'OWNER': 'Chủ sở hữu Ngựa'
-    };
     registerUser({
       ...newUserData,
-      role_name: roleLabels[newUserData.role] || newUserData.role
+      role: 'OWNER',
+      role_name: 'Chủ sở hữu Ngựa'
     });
     setAuditLogs(prev => [
       {
@@ -546,12 +540,13 @@ export default function AdminPage() {
         time: new Date().toLocaleString('vi-VN'),
         user: `${currentUser?.username || 'admin'} (Admin)`,
         action: 'TẠO TÀI KHOẢN MỚI',
-        detail: `Thêm nhân sự ${newUserData.full_name} (${newUserData.username}) với vai trò ${roleLabels[newUserData.role]}`
+        detail: `Thêm tài khoản Chủ sở hữu ${newUserData.full_name} (${newUserData.username})`
       },
       ...prev
     ]);
     setShowAddUserModal(false);
-    setNewUserData({ username: '', full_name: '', email: '', phone: '', role: 'TRAINER', password: '123' });
+    setNewUserData({ username: '', full_name: '', email: '', phone: '', role: 'OWNER', password: '123' });
+    showToast(`Đã tạo tài khoản Chủ sở hữu "${newUserData.full_name}" thành công!`, 'TẠO TÀI KHOẢN', 'success');
   };
 
   // Mở modal sửa nhân sự
@@ -640,6 +635,21 @@ export default function AdminPage() {
     const targetName = deleteTargetUser.full_name;
     const targetUsername = deleteTargetUser.username;
     const targetRole = deleteTargetUser.role_name || deleteTargetUser.role;
+
+    // Không cho phép xóa 10 nhân sự cốt cán cố định
+    const fixedUsernames = ['admin', 'trainer_truong', 'trainer_nghia', 'trainer_anh', 'vet_an', 'vet_hoang', 'vet_linh', 'groom_nam', 'groom_dung', 'groom_thao'];
+    if (targetId <= 10 || fixedUsernames.includes(targetUsername)) {
+      showToast(
+        lang === 'en'
+          ? 'Cannot delete fixed club core staff (1 Admin, 3 Trainers, 3 Vets, 3 Grooms)!'
+          : 'Không thể xóa 10 nhân sự cố định của câu lạc bộ (1 Admin, 3 HLV, 3 BS Thú y, 3 Groom)!',
+        lang === 'en' ? 'FIXED STAFF' : 'NHÂN SỰ CỐ ĐỊNH',
+        'warning'
+      );
+      setShowDeleteModal(false);
+      setDeleteTargetUser(null);
+      return;
+    }
 
     deleteUser(targetId);
 
@@ -2551,17 +2561,22 @@ export default function AdminPage() {
                 <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
                   {lang === 'en' ? 'RBAC Role' : 'Vai trò Nghiệp vụ (RBAC)'}
                 </label>
-                <select
-                  value={newUserData.role}
-                  onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                >
-                  <option value="TRAINER">{lang === 'en' ? 'Head Trainer' : 'Huấn luyện viên Trưởng (Trainer)'}</option>
-                  <option value="VET">{lang === 'en' ? 'Veterinarian (Vet)' : 'Bác sĩ Thú y (Veterinarian)'}</option>
-                  <option value="GROOM">{lang === 'en' ? 'Groom / Caretaker' : 'Nhân viên Chăm sóc (Groom)'}</option>
-                  <option value="OWNER">{lang === 'en' ? 'Horse Owner' : 'Chủ sở hữu Ngựa (Owner)'}</option>
-                  <option value="MANAGER">{lang === 'en' ? 'Club Manager' : 'Ban Quản lý Câu lạc bộ (Club Manager)'}</option>
-                </select>
+                <div style={{
+                  padding: '10px 12px',
+                  background: 'rgba(212, 175, 55, 0.08)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: 'var(--brass)',
+                  fontWeight: 700
+                }}>
+                  👑 {lang === 'en' ? 'Horse Owner (Owner)' : 'Chủ sở hữu Ngựa (Horse Owner)'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px', lineHeight: 1.4 }}>
+                  {lang === 'en'
+                    ? '* System core staff is fixed (1 Admin, 3 Trainers, 3 Vets, 3 Grooms). New accounts are added as Horse Owners.'
+                    : '* Hệ thống đã định biên cố định 10 nhân sự (1 Admin, 3 HLV, 3 BS Thú y, 3 Groom). Tài khoản mới tạo được phân quyền Chủ sở hữu ngựa để quản lý chiến mã.'}
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>

@@ -6,6 +6,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import {
   reportIncidentApi
 } from '../services/api';
+import { getServiceAssignments, confirmServiceAssignment } from '../services/serviceAssignment';
 
 // Minimalist High-End SVG Icons for Groom Portal
 const IconHorse = ({ size = 18, color = 'currentColor' }) => (
@@ -352,6 +353,26 @@ export default function GroomPage() {
     showToast(`Đã phát tín hiệu báo động ca ${newInc.id} đến Bác sĩ Thú Y!`, 'BÁO ĐỘNG THÀNH CÔNG', 'info');
   };
 
+  // State: Quản lý phân công chăm sóc từ Chủ sở hữu (3 Groom cố định)
+  const [serviceAssignments, setServiceAssignments] = useState(() => getServiceAssignments());
+
+  useEffect(() => {
+    const handleUpdate = () => setServiceAssignments(getServiceAssignments());
+    window.addEventListener('matruong_service_assignment_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('matruong_service_assignment_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const handleConfirmGroomService = (asgn) => {
+    const groomUser = currentUser?.username || 'groom_nam';
+    const updated = confirmServiceAssignment(asgn.horseName, 'GROOM', groomUser);
+    setServiceAssignments(updated);
+    showToast(`Đã xác nhận nhận chăm sóc chiến mã "${asgn.horseName}" cho Chủ sở hữu ${asgn.ownerName}!`, 'GROOM XÁC NHẬN CHĂM SÓC', 'success');
+  };
+
   // Tính tiến độ ca trực hôm nay
   const completedRoutinesCount = dailyRoutines.filter(r => r.completed).length;
   const routinePercent = Math.round((completedRoutinesCount / dailyRoutines.length) * 100);
@@ -603,6 +624,122 @@ export default function GroomPage() {
                   + Báo sự cố chuồng
                 </button>
               </div>
+
+              {/* Khối Xác Nhận Chăm Sóc Cho Nhân Viên Groom */}
+              {(() => {
+                const currentUsername = currentUser?.username || 'groom_nam';
+                const assignedToMe = serviceAssignments.filter(a =>
+                  a.groomUsername === currentUsername ||
+                  (!a.groomUsername && currentUsername === 'groom_nam')
+                );
+                if (assignedToMe.length === 0) return null;
+
+                const pendingAssignments = assignedToMe.filter(a => a.groomStatus === 'PENDING');
+
+                return (
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '16px 20px',
+                    marginBottom: '20px',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '18px' }}>🌾</span>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>
+                            Chiến Mã Được Chủ Sở Hữu Chỉ Định Chăm Sóc ({assignedToMe.length})
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                            {pendingAssignments.length > 0
+                              ? `Có ${pendingAssignments.length} chiến mã mới đang chờ bạn xác nhận nhận chăm sóc.`
+                              : `Bạn đã xác nhận phụ trách chăm sóc đầy đủ cho tất cả chiến mã được giao.`}
+                          </div>
+                        </div>
+                      </div>
+                      {pendingAssignments.length > 0 && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '3px 10px', borderRadius: '12px' }}>
+                          {pendingAssignments.length} Chờ xác nhận
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
+                      {assignedToMe.map(asgn => {
+                        const isPending = asgn.groomStatus === 'PENDING';
+                        return (
+                          <div
+                            key={asgn.id || asgn.microchip}
+                            style={{
+                              background: 'var(--bg-secondary)',
+                              border: isPending ? '1px solid var(--brass)' : '1px solid var(--line)',
+                              borderRadius: '6px',
+                              padding: '12px 14px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '12px'
+                            }}
+                          >
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <b style={{ color: 'var(--paper)', fontSize: '14px' }}>{asgn.horseName}</b>
+                                <span style={{ fontSize: '11px', color: 'var(--brass)', background: 'rgba(212, 175, 55, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
+                                  {asgn.stable || 'Ô A2'}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: {asgn.microchip}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                Phối hợp: HLV {asgn.trainerName} · BS. {asgn.vetName}
+                              </div>
+                            </div>
+
+                            <div style={{ flexShrink: 0 }}>
+                              {isPending ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleConfirmGroomService(asgn)}
+                                  style={{
+                                    background: 'var(--brass)',
+                                    color: '#0A0D14',
+                                    border: 'none',
+                                    padding: '7px 12px',
+                                    borderRadius: '6px',
+                                    fontSize: '11.5px',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
+                                  }}
+                                >
+                                  ✓ Nhận Chăm Sóc
+                                </button>
+                              ) : (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  color: '#10B981',
+                                  background: 'rgba(16, 185, 129, 0.1)',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  ✓ Đã Xác Nhận
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
                 {assignedStalls.map((s) => (

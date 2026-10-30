@@ -10,6 +10,7 @@ import {
   trainerReviewNominationApi,
   trainerAssignHorseNominationApi
 } from '../services/api';
+import { getServiceAssignments, confirmServiceAssignment } from '../services/serviceAssignment';
 
 // Minimalist, high-end SVG icons (0 emojis, strict professional aesthetic)
 const IconHorse = ({ size = 18, color = 'currentColor' }) => (
@@ -304,6 +305,26 @@ export default function TrainerPage() {
 
     showToast(`Đã chỉ định chiến mã "${horseName}" cho giải đấu thành công! Phía chủ sở hữu đã có thể thấy kết quả ngay.`, 'HLV CHỈ ĐỊNH THÀNH CÔNG', 'success');
     setAssignHorseModalData(null);
+  };
+
+  // State: Quản lý phân công phục vụ từ Chủ sở hữu (3 HLV cố định)
+  const [serviceAssignments, setServiceAssignments] = useState(() => getServiceAssignments());
+
+  useEffect(() => {
+    const handleUpdate = () => setServiceAssignments(getServiceAssignments());
+    window.addEventListener('matruong_service_assignment_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('matruong_service_assignment_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const handleConfirmTrainerService = (asgn) => {
+    const trainerUser = currentUser?.username || 'trainer_truong';
+    const updated = confirmServiceAssignment(asgn.horseName, 'TRAINER', trainerUser);
+    setServiceAssignments(updated);
+    showToast(`Đã xác nhận nhận huấn luyện chiến mã "${asgn.horseName}" cho Chủ sở hữu ${asgn.ownerName}!`, 'HLV XÁC NHẬN PHỤC VỤ', 'success');
   };
 
   // 1. Danh sách chiến mã quản lý huấn luyện
@@ -993,6 +1014,122 @@ export default function TrainerPage() {
                 </div>
               )}
 
+              {/* Khối Xác Nhận Phục Vụ Dành Cho HLV Được Chủ Ngựa Chỉ Định */}
+              {(() => {
+                const currentUsername = currentUser?.username || 'trainer_truong';
+                const assignedToMe = serviceAssignments.filter(a =>
+                  a.trainerUsername === currentUsername ||
+                  (!a.trainerUsername && currentUsername === 'trainer_truong')
+                );
+                if (assignedToMe.length === 0) return null;
+
+                const pendingAssignments = assignedToMe.filter(a => a.trainerStatus === 'PENDING');
+
+                return (
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '16px 20px',
+                    marginBottom: '20px',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '18px' }}>🏇</span>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>
+                            Chiến Mã Được Chủ Sở Hữu Chỉ Định Đảm Nhận Huấn Luyện ({assignedToMe.length})
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                            {pendingAssignments.length > 0 
+                              ? `Có ${pendingAssignments.length} chiến mã đang chờ bạn xác nhận phục vụ.`
+                              : `Tất cả chiến mã đã được bạn xác nhận tiếp nhận huấn luyện.`}
+                          </div>
+                        </div>
+                      </div>
+                      {pendingAssignments.length > 0 && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '3px 10px', borderRadius: '12px' }}>
+                          {pendingAssignments.length} Yêu cầu mới
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
+                      {assignedToMe.map(asgn => {
+                        const isPending = asgn.trainerStatus === 'PENDING';
+                        return (
+                          <div
+                            key={asgn.id || asgn.microchip}
+                            style={{
+                              background: 'var(--bg-secondary)',
+                              border: isPending ? '1px solid var(--brass)' : '1px solid var(--line)',
+                              borderRadius: '6px',
+                              padding: '12px 14px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '12px'
+                            }}
+                          >
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <b style={{ color: 'var(--paper)', fontSize: '14px' }}>{asgn.horseName}</b>
+                                <span style={{ fontSize: '11px', color: 'var(--brass)', background: 'rgba(212, 175, 55, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
+                                  {asgn.stable || 'Ô A2'}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: {asgn.microchip}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                Đội ngũ cùng phục vụ: BS. {asgn.vetName} · Groom {asgn.groomName}
+                              </div>
+                            </div>
+
+                            <div style={{ flexShrink: 0 }}>
+                              {isPending ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleConfirmTrainerService(asgn)}
+                                  style={{
+                                    background: 'var(--brass)',
+                                    color: '#0A0D14',
+                                    border: 'none',
+                                    padding: '7px 12px',
+                                    borderRadius: '6px',
+                                    fontSize: '11.5px',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
+                                  }}
+                                >
+                                  ✓ Xác Nhận Phục Vụ
+                                </button>
+                              ) : (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  color: '#10B981',
+                                  background: 'rgba(16, 185, 129, 0.1)',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  ✓ Đã Xác Nhận
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button className="portal-pill-btn active">
@@ -1031,18 +1168,47 @@ export default function TrainerPage() {
                       : (lang === 'en' ? 'Under Observation' : 'Cần theo dõi');
                     return (
                       <div key={horse.id} className="facility-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className={`facility-card-badge ${badgeClass}`}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                          <span className={`facility-card-badge ${badgeClass}`} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                             <IconHorse size={14} color="var(--brass)" />
-                            <span>{horse.stall} • {horse.breed.toUpperCase()}</span>
+                            <span>{horse.stall}</span>
                           </span>
-                          <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            color: 'var(--paper-dim)',
+                            fontFamily: 'monospace',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                            background: 'var(--bg-secondary)',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--line)',
+                            letterSpacing: '0.03em'
+                          }}>
                             {horse.microchip}
                           </span>
                         </div>
 
-                        <h3 className="facility-card-title">{horse.name}</h3>
-                        <p className="facility-card-desc">{horse.desc}</p>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                            <h3 className="facility-card-title">{horse.name}</h3>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: 'var(--brass)',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.04em',
+                              background: 'rgba(212, 175, 55, 0.08)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid rgba(212, 175, 55, 0.2)',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {horse.breed}
+                            </span>
+                          </div>
+                          <p className="facility-card-desc" style={{ marginTop: '4px', minHeight: 'auto' }}>{horse.desc}</p>
+                        </div>
 
                         {/* Cảnh báo thú y nếu có */}
                         {horse.isLockedByVet && (
@@ -1246,12 +1412,21 @@ export default function TrainerPage() {
                 <div className="portal-cards-grid">
                   {programs.map(prog => (
                     <div key={prog.id} className="facility-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span className="facility-card-badge badge-gold">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <span className="facility-card-badge badge-gold" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                           <IconClipboard size={14} color="var(--brass)" />
                           <span>{prog.phase.toUpperCase()}</span>
                         </span>
-                        <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                        <span style={{
+                          fontSize: '11px',
+                          color: 'var(--paper-dim)',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          background: 'var(--bg-secondary)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--line)'
+                        }}>
                           {prog.surface}
                         </span>
                       </div>

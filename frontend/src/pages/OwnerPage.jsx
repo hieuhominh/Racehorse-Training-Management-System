@@ -12,6 +12,13 @@ import {
   registerRaceTournamentApi,
   updateRaceNominationStatusApi
 } from '../services/api';
+import {
+  getServiceAssignments,
+  assignOrUpdateServiceTeam,
+  FIXED_TRAINERS_LIST,
+  FIXED_VETS_LIST,
+  FIXED_GROOMS_LIST
+} from '../services/serviceAssignment';
 
 // Minimalist High-End SVG Icons for Owner Portal (Strict 3-Color Palette)
 const IconCrown = ({ size = 18, color = 'currentColor' }) => (
@@ -875,6 +882,75 @@ export default function OwnerPage() {
     showToast(`Đã lưu và cập nhật cây phả hệ cho chiến mã "${updatedHorse.name}" thành công!`, 'CẬP NHẬT PHẢ HỆ THÀNH CÔNG', 'success');
   };
 
+  // State: Đội ngũ nhân sự phục vụ (3 HLV, 3 BS Thú y, 3 Groom) và trạng thái xác nhận
+  const [serviceAssignments, setServiceAssignments] = useState(() => getServiceAssignments());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setServiceAssignments(getServiceAssignments());
+    };
+    window.addEventListener('matruong_service_assignment_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('matruong_service_assignment_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  // State: Modal Đổi Đội Ngũ Phục Vụ
+  const [teamModalHorse, setTeamModalHorse] = useState(null);
+  const [selectedTeamStaff, setSelectedTeamStaff] = useState({
+    trainerUsername: 'trainer_truong',
+    vetUsername: 'vet_an',
+    groomUsername: 'groom_nam'
+  });
+
+  const handleOpenTeamModal = (horse) => {
+    const current = serviceAssignments.find(a =>
+      (a.microchip && a.microchip === horse.microchip) ||
+      (a.horseName && a.horseName.toLowerCase() === horse.name?.toLowerCase()) ||
+      String(a.id) === String(horse.id)
+    );
+    setTeamModalHorse(horse);
+    setSelectedTeamStaff({
+      trainerUsername: current?.trainerUsername || 'trainer_truong',
+      vetUsername: current?.vetUsername || 'vet_an',
+      groomUsername: current?.groomUsername || 'groom_nam'
+    });
+  };
+
+  const handleSaveTeamModal = (e) => {
+    if (e) e.preventDefault();
+    if (!teamModalHorse) return;
+
+    assignOrUpdateServiceTeam(teamModalHorse, selectedTeamStaff, currentUser);
+
+    const trObj = FIXED_TRAINERS_LIST.find(t => t.username === selectedTeamStaff.trainerUsername);
+    const vtObj = FIXED_VETS_LIST.find(v => v.username === selectedTeamStaff.vetUsername);
+    const gmObj = FIXED_GROOMS_LIST.find(g => g.username === selectedTeamStaff.groomUsername);
+
+    setMyHorses(prev => {
+      const next = prev.map(h => {
+        if (h.id === teamModalHorse.id) {
+          return {
+            ...h,
+            trainer: trObj ? trObj.name : h.trainer,
+            vet: vtObj ? vtObj.name : h.vet,
+            groom: gmObj ? gmObj.name : h.groom
+          };
+        }
+        return h;
+      });
+      try {
+        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    showToast(`Đã chỉ định đội ngũ phục vụ mới cho "${teamModalHorse.name}"! HLV, Bác sĩ và Groom đã nhận yêu cầu xác nhận.`, 'ĐÃ CẬP NHẬT ĐỘI NGŨ', 'success');
+    setTeamModalHorse(null);
+  };
+
   const [showAddHorseModal, setShowAddHorseModal] = useState(false);
   const [showRaceRegisterModal, setShowRaceRegisterModal] = useState(false);
   const [selectedTournamentToRegister, setSelectedTournamentToRegister] = useState(null);
@@ -891,7 +967,9 @@ export default function OwnerPage() {
     coatColor: 'Ô (Đen bóng)',
     microchip: `MC-VN-2026-${Math.floor(100 + Math.random() * 900)}`,
     ownershipShare: 100,
-    trainer: 'Trần Văn Hùng (HLV Trưởng)',
+    trainer: 'Trần Văn Hùng',
+    vet: 'BS. Nguyễn An',
+    groom: 'Lê Hoàng Nam',
     stable: membershipTier === 'PREMIUM'
       ? 'Ô A1 (Khu Chuồng VIP Block A - 18 m² đệm rơm khử khuẩn)'
       : 'Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)',
@@ -1043,7 +1121,8 @@ export default function OwnerPage() {
       ownershipShare: Number(horseForm.ownershipShare) || 100,
       ownershipType: Number(horseForm.ownershipShare) === 100 ? 'Độc quyền (100%)' : `Đồng sở hữu (${horseForm.ownershipShare}%)`,
       trainer: horseForm.trainer,
-      groom: 'Lê Hoàng Nam (Groom Phụ trách)',
+      vet: horseForm.vet || 'BS. Nguyễn An',
+      groom: horseForm.groom || 'Lê Hoàng Nam',
       status: 'ELIGIBLE',
       statusText: 'Đủ chuẩn thi đấu',
       winCount: 0,
@@ -1056,6 +1135,17 @@ export default function OwnerPage() {
         foaled: `${horseForm.foaledYear} (${horseForm.age})`
       }
     };
+
+    // Chỉ định đội ngũ phục vụ (HLV, BS, Groom)
+    const trObj = FIXED_TRAINERS_LIST.find(t => t.name === horseForm.trainer || t.username === horseForm.trainer) || FIXED_TRAINERS_LIST[0];
+    const vtObj = FIXED_VETS_LIST.find(v => v.name === horseForm.vet || v.username === horseForm.vet) || FIXED_VETS_LIST[0];
+    const gmObj = FIXED_GROOMS_LIST.find(g => g.name === horseForm.groom || g.username === horseForm.groom) || FIXED_GROOMS_LIST[0];
+
+    assignOrUpdateServiceTeam(newHorse, {
+      trainerUsername: trObj.username,
+      vetUsername: vtObj.username,
+      groomUsername: gmObj.username
+    }, currentUser);
 
     // Gọi API Đăng ký ngựa của Chủ sở hữu
     registerOwnerHorseApi(ownerKey, newHorse).catch(() => {});
@@ -1129,7 +1219,9 @@ export default function OwnerPage() {
     gender: 'Ngựa đực (Stallion)',
     microchip: '',
     ownershipShare: 100,
-    trainer: 'Trần Văn Hùng (HLV Trưởng)',
+    trainer: 'Trần Văn Hùng',
+    vet: 'BS. Nguyễn An',
+    groom: 'Lê Hoàng Nam',
     stable: 'Ô A1 (Khu Huấn luyện)',
     sire: '',
     dam: '',
@@ -1137,6 +1229,11 @@ export default function OwnerPage() {
   });
 
   const handleOpenEditHorseModal = (horse) => {
+    const current = serviceAssignments.find(a =>
+      (a.microchip && a.microchip === horse.microchip) ||
+      (a.horseName && a.horseName.toLowerCase() === horse.name?.toLowerCase()) ||
+      String(a.id) === String(horse.id)
+    );
     setEditingHorse(horse);
     setEditHorseForm({
       id: horse.id,
@@ -1146,7 +1243,9 @@ export default function OwnerPage() {
       gender: horse.gender || 'Ngựa đực (Stallion)',
       microchip: horse.microchip || '',
       ownershipShare: horse.ownershipShare || 100,
-      trainer: horse.trainer || 'Trần Văn Hùng (HLV Trưởng)',
+      trainer: current?.trainerName || (horse.trainer ? horse.trainer.split('(')[0].trim() : 'Trần Văn Hùng'),
+      vet: current?.vetName || (horse.vet ? horse.vet.split('(')[0].trim() : 'BS. Nguyễn An'),
+      groom: current?.groomName || (horse.groom ? horse.groom.split('(')[0].trim() : 'Lê Hoàng Nam'),
       stable: horse.stable || 'Ô A1',
       sire: horse.pedigree?.sire || '',
       dam: horse.pedigree?.dam || '',
@@ -1211,6 +1310,8 @@ export default function OwnerPage() {
       ownershipShare: Number(editHorseForm.ownershipShare) || 100,
       ownershipType: Number(editHorseForm.ownershipShare) === 100 ? 'Độc quyền (100%)' : `Đồng sở hữu (${editHorseForm.ownershipShare}%)`,
       trainer: editHorseForm.trainer,
+      vet: editHorseForm.vet || editingHorse.vet || 'BS. Nguyễn An',
+      groom: editHorseForm.groom || editingHorse.groom || 'Lê Hoàng Nam',
       stable: editHorseForm.stable,
       avatar: editHorseForm.avatar || editingHorse.avatar,
       pedigree: {
@@ -1219,6 +1320,17 @@ export default function OwnerPage() {
         dam: editHorseForm.dam.trim() || editingHorse.pedigree?.dam || 'Đang cập nhật'
       }
     };
+
+    // Đồng bộ lại đội ngũ phục vụ
+    const trObj = FIXED_TRAINERS_LIST.find(t => t.name === editHorseForm.trainer || t.username === editHorseForm.trainer) || FIXED_TRAINERS_LIST[0];
+    const vtObj = FIXED_VETS_LIST.find(v => v.name === editHorseForm.vet || v.username === editHorseForm.vet) || FIXED_VETS_LIST[0];
+    const gmObj = FIXED_GROOMS_LIST.find(g => g.name === editHorseForm.groom || g.username === editHorseForm.groom) || FIXED_GROOMS_LIST[0];
+
+    assignOrUpdateServiceTeam(updatedHorse, {
+      trainerUsername: trObj.username,
+      vetUsername: vtObj.username,
+      groomUsername: gmObj.username
+    }, currentUser);
 
     updateOwnerHorseApi(ownerKey, updatedHorse).catch(() => {});
     setMyHorses(prev => prev.map(h => h.id === editingHorse.id ? updatedHorse : h));
@@ -1939,7 +2051,8 @@ export default function OwnerPage() {
                         </div>
                       </div>
 
-                      <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', marginBottom: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                      {/* Tỷ lệ sở hữu & Ô chuồng */}
+                      <div style={{ background: 'var(--bg-secondary)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <span style={{ color: 'var(--paper-dim)' }}>Tỷ lệ sở hữu: </span>
                           <b style={{ color: 'var(--paper)' }}>{h.ownershipShare}%</b>
@@ -1948,15 +2061,112 @@ export default function OwnerPage() {
                           <span style={{ color: 'var(--paper-dim)' }}>Vị trí: </span>
                           <b style={{ color: 'var(--paper)' }}>{h.stable}</b>
                         </div>
-                        <div>
-                          <span style={{ color: 'var(--paper-dim)' }}>HLV phụ trách: </span>
-                          <span style={{ color: 'var(--paper)' }}>{h.trainer ? h.trainer.split('(')[0] : 'Chờ chỉ định'}</span>
-                        </div>
-                        <div>
-                          <span style={{ color: 'var(--paper-dim)' }}>Groom: </span>
-                          <span style={{ color: 'var(--paper)' }}>{h.groom ? h.groom.split('(')[0] : 'Chờ chỉ định'}</span>
-                        </div>
                       </div>
+
+                      {/* Đội ngũ phục vụ chuyên trách (HLV, Bác sĩ, Groom) & Trạng thái xác nhận */}
+                      {(() => {
+                        const asgn = serviceAssignments.find(a =>
+                          (a.microchip && a.microchip === h.microchip) ||
+                          (a.horseName && a.horseName.toLowerCase() === h.name?.toLowerCase()) ||
+                          String(a.id) === String(h.id)
+                        );
+                        const trName = asgn?.trainerName || (h.trainer ? h.trainer.split('(')[0].trim() : 'Trần Văn Hùng');
+                        const vtName = asgn?.vetName || (h.vet ? h.vet.split('(')[0].trim() : 'BS. Nguyễn An');
+                        const gmName = asgn?.groomName || (h.groom ? h.groom.split('(')[0].trim() : 'Lê Hoàng Nam');
+                        const trOk = asgn?.trainerStatus === 'CONFIRMED';
+                        const vtOk = asgn?.vetStatus === 'CONFIRMED';
+                        const gmOk = asgn?.groomStatus === 'CONFIRMED';
+
+                        return (
+                          <div style={{
+                            background: 'var(--bg-secondary)',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            marginBottom: '14px',
+                            border: '1px solid var(--line)'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px dashed var(--line)', paddingBottom: '6px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <span>🛡️</span> Đội Ngũ Phục Vụ Riêng
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenTeamModal(h)}
+                                style={{
+                                  background: 'rgba(212, 175, 55, 0.1)',
+                                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                                  borderRadius: '4px',
+                                  color: 'var(--brass)',
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  cursor: 'pointer'
+                                }}
+                                title="Chỉ định hoặc thay đổi HLV, Bác sĩ và Groom phục vụ chiến mã"
+                              >
+                                🔄 Đổi Đội Ngũ
+                              </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '6px' }}>
+                                  🏇 HLV: <b style={{ color: 'var(--paper)' }}>{trName}</b>
+                                </span>
+                                <span style={{
+                                  fontSize: '9.5px',
+                                  fontWeight: 700,
+                                  color: trOk ? '#10B981' : '#F59E0B',
+                                  background: trOk ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0
+                                }}>
+                                  {trOk ? '✓ Đã xác nhận phục vụ' : '⏳ Chờ HLV xác nhận'}
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '6px' }}>
+                                  🩺 Bác sĩ: <b style={{ color: 'var(--paper)' }}>{vtName}</b>
+                                </span>
+                                <span style={{
+                                  fontSize: '9.5px',
+                                  fontWeight: 700,
+                                  color: vtOk ? '#10B981' : '#F59E0B',
+                                  background: vtOk ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0
+                                }}>
+                                  {vtOk ? '✓ Đã xác nhận phụ trách' : '⏳ Chờ BS xác nhận'}
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '6px' }}>
+                                  🌾 Groom: <b style={{ color: 'var(--paper)' }}>{gmName}</b>
+                                </span>
+                                <span style={{
+                                  fontSize: '9.5px',
+                                  fontWeight: 700,
+                                  color: gmOk ? '#10B981' : '#F59E0B',
+                                  background: gmOk ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0
+                                }}>
+                                  {gmOk ? '✓ Đã xác nhận chăm sóc' : '⏳ Chờ Groom xác nhận'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       <div style={{
                         borderTop: '1px solid var(--line)',
@@ -3729,35 +3939,108 @@ export default function OwnerPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Chọn HLV Trưởng gửi gắm
-                  </label>
-                  <select
-                    value={horseForm.trainer}
-                    onChange={(e) => setHorseForm({ ...horseForm, trainer: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--line)',
-                      borderRadius: '6px',
-                      color: 'var(--paper)',
-                      fontSize: '13px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="Trần Văn Hùng (HLV Trưởng)">Trần Văn Hùng (HLV Trưởng)</option>
-                    <option value="Lê Trọng Nghĩa (HLV Cự Ly Dài)">Lê Trọng Nghĩa (HLV Cự Ly Dài)</option>
-                    <option value="Phạm Quốc Anh (HLV Nước Rút)">Phạm Quốc Anh (HLV Nước Rút)</option>
-                  </select>
+              {/* Đội ngũ phục vụ chuyên trách: 3 HLV, 3 BS, 3 Groom */}
+              <div style={{
+                background: 'rgba(212, 175, 55, 0.05)',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(212, 175, 55, 0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  🛡️ Chỉ Định Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
                 </div>
 
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Vị trí ô chuồng đăng ký
-                  </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                      🏇 Huấn Luyện Viên
+                    </label>
+                    <select
+                      value={horseForm.trainer}
+                      onChange={(e) => setHorseForm({ ...horseForm, trainer: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {FIXED_TRAINERS_LIST.map(t => (
+                        <option key={t.username} value={t.name}>
+                          {t.name} ({t.title.split('-')[0].trim()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                      🩺 Bác Sĩ Thú Y
+                    </label>
+                    <select
+                      value={horseForm.vet}
+                      onChange={(e) => setHorseForm({ ...horseForm, vet: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {FIXED_VETS_LIST.map(v => (
+                        <option key={v.username} value={v.name}>
+                          {v.name} ({v.title.split('&')[0].trim()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                      🌾 Chuyên Viên Chăm Sóc
+                    </label>
+                    <select
+                      value={horseForm.groom}
+                      onChange={(e) => setHorseForm({ ...horseForm, groom: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {FIXED_GROOMS_LIST.map(g => (
+                        <option key={g.username} value={g.name}>
+                          {g.name} ({g.title.split('&')[0].trim()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', fontStyle: 'italic' }}>
+                  * Nhân sự được chọn sẽ nhận yêu cầu xác nhận phục vụ trong cổng quản trị chuyên môn của họ.
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                  Vị trí ô chuồng đăng ký
+                </label>
                   <select
                     value={horseForm.stable}
                     onChange={handleStableSelectChange}
@@ -3798,7 +4081,6 @@ export default function OwnerPage() {
                     </div>
                   )}
                 </div>
-              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
@@ -4150,57 +4432,128 @@ export default function OwnerPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Chọn HLV Trưởng gửi gắm
-                  </label>
-                  <select
-                    value={editHorseForm.trainer}
-                    onChange={(e) => setEditHorseForm({ ...editHorseForm, trainer: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--line)',
-                      borderRadius: '6px',
-                      color: 'var(--paper)',
-                      fontSize: '13px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="Trần Văn Hùng (HLV Trưởng)">Trần Văn Hùng (HLV Trưởng)</option>
-                    <option value="Lê Trọng Nghĩa (HLV Cự Ly Dài)">Lê Trọng Nghĩa (HLV Cự Ly Dài)</option>
-                    <option value="Phạm Quốc Anh (HLV Nước Rút)">Phạm Quốc Anh (HLV Nước Rút)</option>
-                  </select>
+              {/* Đội ngũ phục vụ chuyên trách: 3 HLV, 3 BS, 3 Groom */}
+              <div style={{
+                background: 'rgba(212, 175, 55, 0.05)',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(212, 175, 55, 0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  🛡️ Thay Đổi Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
                 </div>
 
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Vị trí ô chuồng
-                  </label>
-                  <select
-                    value={editHorseForm.stable}
-                    onChange={(e) => setEditHorseForm({ ...editHorseForm, stable: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--line)',
-                      borderRadius: '6px',
-                      color: 'var(--paper)',
-                      fontSize: '13px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="Ô A1">Ô A1 (Khu Huấn luyện A)</option>
-                    <option value="Ô A2">Ô A2 (Khu Huấn luyện A)</option>
-                    <option value="Ô A3">Ô A3 (Khu Huấn luyện A)</option>
-                    <option value="Ô A4">Ô A4 (Khu Huấn luyện A)</option>
-                    <option value="Ô B1">Ô B1 (Khu Chuồng trại VIP)</option>
-                    <option value="Ô B2">Ô B2 (Khu Chuồng trại VIP)</option>
-                  </select>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                      🏇 Huấn Luyện Viên
+                    </label>
+                    <select
+                      value={editHorseForm.trainer}
+                      onChange={(e) => setEditHorseForm({ ...editHorseForm, trainer: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {FIXED_TRAINERS_LIST.map(t => (
+                        <option key={t.username} value={t.name}>
+                          {t.name} ({t.title.split('-')[0].trim()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                      🩺 Bác Sĩ Thú Y
+                    </label>
+                    <select
+                      value={editHorseForm.vet}
+                      onChange={(e) => setEditHorseForm({ ...editHorseForm, vet: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {FIXED_VETS_LIST.map(v => (
+                        <option key={v.username} value={v.name}>
+                          {v.name} ({v.title.split('&')[0].trim()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                      🌾 Chuyên Viên Chăm Sóc
+                    </label>
+                    <select
+                      value={editHorseForm.groom}
+                      onChange={(e) => setEditHorseForm({ ...editHorseForm, groom: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {FIXED_GROOMS_LIST.map(g => (
+                        <option key={g.username} value={g.name}>
+                          {g.name} ({g.title.split('&')[0].trim()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                  Vị trí ô chuồng
+                </label>
+                <select
+                  value={editHorseForm.stable}
+                  onChange={(e) => setEditHorseForm({ ...editHorseForm, stable: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '6px',
+                    color: 'var(--paper)',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="Ô A1">Ô A1 (Khu Huấn luyện A)</option>
+                  <option value="Ô A2">Ô A2 (Khu Huấn luyện A)</option>
+                  <option value="Ô A3">Ô A3 (Khu Huấn luyện A)</option>
+                  <option value="Ô A4">Ô A4 (Khu Huấn luyện A)</option>
+                  <option value="Ô B1">Ô B1 (Khu Chuồng trại VIP)</option>
+                  <option value="Ô B2">Ô B2 (Khu Chuồng trại VIP)</option>
+                  <option value="Ô C1">Ô C1 (Khu Tiêu chuẩn)</option>
+                  <option value="Ô C2">Ô C2 (Khu Tiêu chuẩn)</option>
+                </select>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -6006,6 +6359,186 @@ export default function OwnerPage() {
                   : (upgradePromptModal.actionText || '⚡ Nâng Cấp Gói VIP Ngay')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Chỉ định & Thay đổi Đội ngũ phục vụ chuyên trách */}
+      {teamModalHorse && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--line)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '520px',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+            position: 'relative'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+              <div>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: 'var(--brass)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em'
+                }}>
+                  🛡️ ĐỘI NGŨ CHUYÊN TRÁCH CỐ ĐỊNH
+                </span>
+                <h3 style={{ margin: '4px 0 0', fontSize: '18px', color: 'var(--paper)' }}>
+                  Chỉ Định Đội Ngũ: <span style={{ color: 'var(--brass)' }}>{teamModalHorse.name}</span>
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTeamModalHorse(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--paper-dim)',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 18px', lineHeight: 1.5 }}>
+              Bạn có toàn quyền lựa chọn hoặc thay đổi HLV, Bác sĩ và Groom phục vụ chiến mã này. Nhân sự được chọn sẽ nhận thông báo và truy cập để xác nhận phục vụ.
+            </p>
+
+            <form onSubmit={handleSaveTeamModal} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 1. Chọn HLV */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <span>🏇</span> Huấn Luyện Viên Phụ Trách (1 trong 3 HLV chính):
+                </label>
+                <select
+                  value={selectedTeamStaff.trainerUsername}
+                  onChange={(e) => setSelectedTeamStaff({ ...selectedTeamStaff, trainerUsername: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    color: 'var(--paper)',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {FIXED_TRAINERS_LIST.map(tr => (
+                    <option key={tr.username} value={tr.username}>
+                      {tr.name} — {tr.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. Chọn Bác sĩ Thú y */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#34D399', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <span>🩺</span> Bác Sĩ Thú Y Phụ Trách (1 trong 3 Bác sĩ chính):
+                </label>
+                <select
+                  value={selectedTeamStaff.vetUsername}
+                  onChange={(e) => setSelectedTeamStaff({ ...selectedTeamStaff, vetUsername: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    color: 'var(--paper)',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {FIXED_VETS_LIST.map(vt => (
+                    <option key={vt.username} value={vt.username}>
+                      {vt.name} — {vt.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. Chọn Groom */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#C084FC', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <span>🌾</span> Chuyên Viên Chăm Sóc (1 trong 3 Groom chính):
+                </label>
+                <select
+                  value={selectedTeamStaff.groomUsername}
+                  onChange={(e) => setSelectedTeamStaff({ ...selectedTeamStaff, groomUsername: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    color: 'var(--paper)',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {FIXED_GROOMS_LIST.map(gm => (
+                    <option key={gm.username} value={gm.username}>
+                      {gm.name} — {gm.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setTeamModalHorse(null)}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--paper-dim)',
+                    border: '1px solid var(--line)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✕ Hủy bỏ
+                </button>
+
+                <button
+                  type="submit"
+                  style={{
+                    padding: '10px',
+                    borderRadius: '6px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    fontWeight: 800,
+                    border: 'none',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(212, 175, 55, 0.35)'
+                  }}
+                >
+                  ✓ Lưu & Gửi Yêu Cầu Phục Vụ
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
