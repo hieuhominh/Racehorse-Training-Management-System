@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import PaymentModal from '../components/PaymentModal';
 import {
   registerOwnerHorseApi,
   updateOwnerHorseApi,
@@ -344,6 +345,7 @@ export default function OwnerPage() {
   });
 
   const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [billingCycle, setBillingCycle] = useState(() => {
     try {
       const saved = localStorage.getItem('matruong_owner_billing');
@@ -358,18 +360,29 @@ export default function OwnerPage() {
     } catch {}
   }, [billingCycle]);
 
-  // Xử lý kích hoạt / đổi gói 1-chạm
+  // Xử lý kích hoạt / đổi gói: Nếu chọn gói VIP thì chuyển sang giao dịch thanh toán
   const handleSelectTier = (newTier) => {
-    setMembershipTier(newTier);
-    try {
-      localStorage.setItem(`matruong_owner_tier_${ownerKey}`, newTier);
-    } catch {}
     if (newTier === 'PREMIUM') {
-      showToast('Chúc mừng bạn đã kích hoạt gói HORSE PREMIUM VIP thành công!', 'NÂNG CẤP THÀNH CÔNG', 'info');
-    } else {
-      showToast('Đã chuyển về gói Horse 0 Đồng (Cơ bản).', 'GÓI HỘI VIÊN', 'info');
+      setShowMembershipModal(false);
+      setShowPaymentModal(true);
+      return;
     }
+    setMembershipTier('FREE');
+    try {
+      localStorage.setItem(`matruong_owner_tier_${ownerKey}`, 'FREE');
+    } catch {}
+    showToast('Đã chuyển về gói Horse 0 Đồng (Cơ bản).', 'GÓI HỘI VIÊN', 'info');
     setShowMembershipModal(false);
+  };
+
+  const handlePaymentSuccess = (receipt) => {
+    setMembershipTier('PREMIUM');
+    try {
+      localStorage.setItem(`matruong_owner_tier_${ownerKey}`, 'PREMIUM');
+      const key = `matruong_owner_payments_${ownerKey}`;
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      localStorage.setItem(key, JSON.stringify([receipt, ...existing]));
+    } catch {}
   };
 
   // State 1: Danh sách ngựa của Chủ sở hữu (Lưu riêng theo từng tài khoản)
@@ -4037,6 +4050,27 @@ export default function OwnerPage() {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 6: GIAO DỊCH THANH TOÁN GÓI HỘI VIÊN VIP (PAYMENT TRANSACTION MODAL) */}
+      {/* ========================================================================= */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        packageData={{
+          id: 'PREMIUM',
+          name: 'Horse Premium VIP',
+          cycle: billingCycle,
+          amount: billingCycle === 'year' ? 35000000 : 3500000
+        }}
+        ownerInfo={{
+          name: currentUser?.full_name || 'Chủ Sở Hữu Ngựa',
+          email: currentUser?.email || '',
+          phone: currentUser?.phone || '',
+          ownerKey: ownerKey
+        }}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
     </div>
   );
 }
