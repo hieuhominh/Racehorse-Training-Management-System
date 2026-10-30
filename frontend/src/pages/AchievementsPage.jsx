@@ -42,9 +42,32 @@ const IconCash = ({ size = 18, color = 'currentColor' }) => (
 
 export default function AchievementsPage({ onOpenAuth }) {
   const { t, lang } = useLanguage();
-  const [selectedOwnerId, setSelectedOwnerId] = useState('ALL');
-  const [activeTab, setActiveTab] = useState('statements'); // 'statements' | 'races' | 'horses'
-  const [statementViewMode, setStatementViewMode] = useState('cards'); // 'cards' | 'table'
+  const [selectedOwnerId, setSelectedOwnerId] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_achievements_owner') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+  useEffect(() => { localStorage.setItem('matruong_achievements_owner', selectedOwnerId); }, [selectedOwnerId]);
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_tab_achievements');
+      return ['statements', 'races', 'horses'].includes(saved) ? saved : 'statements';
+    } catch {
+      return 'statements';
+    }
+  }); // 'statements' | 'races' | 'horses'
+  useEffect(() => { localStorage.setItem('matruong_tab_achievements', activeTab); }, [activeTab]);
+  const [statementViewMode, setStatementViewMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_achievements_view_mode');
+      return ['cards', 'table'].includes(saved) ? saved : 'cards';
+    } catch {
+      return 'cards';
+    }
+  }); // 'cards' | 'table'
+  useEffect(() => { localStorage.setItem('matruong_achievements_view_mode', statementViewMode); }, [statementViewMode]);
   const [activeStatementForModal, setActiveStatementForModal] = useState(null);
   const [statements, setStatements] = useState(settlementStatementsData);
   const [races, setRaces] = useState(raceHistoryLogs);

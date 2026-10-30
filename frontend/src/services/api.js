@@ -1390,8 +1390,8 @@ export async function getSystemTournamentNominationsApi() {
       raceName: 'Giải Vô Địch Cúp Derby Mùa Thu 2026',
       track: 'Trường đua Quốc tế Phú Thọ',
       horseName: 'Bạch Long',
-      ownerName: 'Lê Minh Tuấn (VIP)',
-      ownerKey: 'owner_tuan',
+      ownerName: 'Phạm Tiến Thành (VIP)',
+      ownerKey: '6',
       distance: '2.400m (Sân cỏ)',
       date: '15/11/2026',
       estimatedPurse: 800000000,
@@ -1408,8 +1408,8 @@ export async function getSystemTournamentNominationsApi() {
       raceName: 'Cúp Nước Rút Tốc Độ Sprint Cup 1.200m',
       track: 'Trường đua Cát Thể Thao',
       horseName: 'Lôi Chấn',
-      ownerName: 'Hoàng Long Vũ',
-      ownerKey: 'owner_vu',
+      ownerName: 'Phạm Tiến Thành (VIP)',
+      ownerKey: '6',
       distance: '1.200m (Sân cát)',
       date: '28/11/2026',
       estimatedPurse: 450000000,
@@ -1423,7 +1423,21 @@ export async function getSystemTournamentNominationsApi() {
     }
   ];
 
-  return getLocalData(SYSTEM_NOMINATIONS_KEY, defaultSeed);
+  let rawData = getLocalData(SYSTEM_NOMINATIONS_KEY, defaultSeed);
+  if (Array.isArray(rawData)) {
+    let changed = false;
+    rawData = rawData.map(item => {
+      if ((item.id === 'RN-2026-01' || item.id === 'RN-2026-02') && (item.ownerKey === 'owner_tuan' || item.ownerKey === 'owner_vu')) {
+        changed = true;
+        return { ...item, ownerKey: '6', ownerName: 'Phạm Tiến Thành (VIP)' };
+      }
+      return item;
+    });
+    if (changed) {
+      setLocalData(SYSTEM_NOMINATIONS_KEY, rawData);
+    }
+  }
+  return rawData;
 }
 
 export async function trainerReviewNominationApi(nominationId, { status, feedback, trainerName }) {
@@ -1440,42 +1454,63 @@ export async function trainerReviewNominationApi(nominationId, { status, feedbac
   }
 
   const systemList = await getSystemTournamentNominationsApi();
-  let updatedOwnerKey = null;
   const now = new Date();
   const timeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
+  let targetNomination = null;
   const updatedSystem = systemList.map(item => {
     if (item.id === nominationId) {
-      updatedOwnerKey = item.ownerKey;
-      return {
+      targetNomination = {
         ...item,
         nominationStatus: status,
         trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
         reviewedBy: trainerName || 'HLV Trưởng',
         reviewedAt: timeStr
       };
+      return targetNomination;
     }
     return item;
   });
 
   setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSystem);
 
-  if (updatedOwnerKey) {
-    const ownerRacesKey = `matruong_owner_races_${updatedOwnerKey}`;
-    const ownerList = getLocalData(ownerRacesKey, []);
-    const updatedOwnerList = ownerList.map(r => {
-      if (r.id === nominationId) {
-        return {
-          ...r,
-          nominationStatus: status,
-          trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
-          reviewedBy: trainerName || 'HLV Trưởng',
-          reviewedAt: timeStr
-        };
+  // Sync to all owner race caches in localStorage
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('matruong_owner_races_')) {
+          const ownerList = getLocalData(key, []);
+          if (Array.isArray(ownerList) && ownerList.length > 0) {
+            let modified = false;
+            const updatedOwnerList = ownerList.map(r => {
+              const isMatch = r.id === nominationId || 
+                (targetNomination && r.raceName === targetNomination.raceName && r.horseName === targetNomination.horseName);
+              if (isMatch) {
+                modified = true;
+                return {
+                  ...r,
+                  nominationStatus: status,
+                  trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
+                  reviewedBy: trainerName || 'HLV Trưởng',
+                  reviewedAt: timeStr
+                };
+              }
+              return r;
+            });
+            if (modified) {
+              setLocalData(key, updatedOwnerList);
+            }
+          }
+        }
       }
-      return r;
-    });
-    setLocalData(ownerRacesKey, updatedOwnerList);
+
+      window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+        detail: { nominationId, status, feedback, trainerName, reviewedAt: timeStr, targetNomination }
+      }));
+    }
+  } catch (err) {
+    console.error('Error syncing owner race storage:', err);
   }
 
   return true;
@@ -1500,12 +1535,18 @@ export async function registerRaceTournamentApi(ownerKey, nominationData) {
     ...nominationData,
     id: nominationData.id || `RN-REG-${Date.now().toString().slice(-4)}`,
     nominationStatus: 'PENDING_TRAINER',
-    ownerKey: ownerKey
+    ownerKey: String(ownerKey)
   };
   setLocalData(key, [newNom, ...list]);
 
   const systemList = await getSystemTournamentNominationsApi();
   setLocalData(SYSTEM_NOMINATIONS_KEY, [newNom, ...systemList.filter(s => s.id !== newNom.id)]);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+      detail: { nominationId: newNom.id, nomination: newNom }
+    }));
+  }
 
   return newNom;
 }
@@ -1519,6 +1560,12 @@ export async function updateRaceNominationStatusApi(ownerKey, nominationId, newS
   const systemList = await getSystemTournamentNominationsApi();
   const updatedSys = systemList.map(r => r.id === nominationId ? { ...r, nominationStatus: newStatus } : r);
   setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSys);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+      detail: { nominationId, status: newStatus }
+    }));
+  }
 
   return true;
 }

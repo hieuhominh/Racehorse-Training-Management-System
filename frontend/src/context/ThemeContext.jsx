@@ -26,6 +26,14 @@ export function ThemeProvider({ children }) {
   }, [theme]);
 
   const toggleTheme = () => {
+    try {
+      const root = document.documentElement;
+      root.classList.add('theme-transitioning');
+      setTimeout(() => {
+        root.classList.remove('theme-transitioning');
+      }, 450);
+    } catch {}
+
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 

@@ -36,35 +36,178 @@
 
 [data-theme="light"] {
   --theme-name: "light";
-  --bg-body: #F4F6F9;
-  --bg-primary: #F4F6F9;
-  --bg-secondary: #FFFFFF;
-  --bg-card: #FFFFFF;
-  --bg-card-hover: #F8FAFC;
-  --bg-elevated: #FFFFFF;
-  --nav-bg: rgba(255, 255, 255, 0.94);
-  --ticker-bg: #EAEFF5;
-  --ink: #FFFFFF;
-  --ink-2: #F8FAFC;
-  --ink-3: #F1F5F9;
-  --paper: #0F172A;
-  --paper-dim: #475569;
-  --paper-muted: #64748B;
-  --text-main: #0F172A;
-  --text-dim: #475569;
-  --brass: #B8860B;
-  --brass-hover: #996515;
-  --brass-dim: #D4AF37;
-  --brass-glow: rgba(184, 134, 11, 0.15);
-  --chestnut: #B4532A;
+  --bg-body: #E5E9EE;
+  --bg-primary: #E5E9EE;
+  --bg-secondary: #EDF1F5;
+  --bg-card: #F4F6F9;
+  --bg-card-hover: #FAFBFC;
+  --bg-elevated: #F4F6F9;
+  --nav-bg: rgba(229, 233, 238, 0.94);
+  --ticker-bg: #DCE2E8;
+  --ink: #EBF0F4;
+  --ink-2: #DFE5EC;
+  --ink-3: #D4DAE2;
+  --paper: #0A0D14;
+  --paper-dim: #374151;
+  --paper-muted: #4B5563;
+  --text-main: #0A0D14;
+  --text-dim: #374151;
+  --brass: #A87614;
+  --brass-hover: #8C600B;
+  --brass-dim: #C49229;
+  --brass-glow: rgba(168, 118, 20, 0.16);
+  --chestnut: #A64720;
   --alert: #DC2626;
-  --ok: #059669;
-  --line: rgba(0, 0, 0, 0.09);
-  --line-strong: rgba(184, 134, 11, 0.4);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 16px 36px -6px rgba(15, 23, 42, 0.12);
-  --hero-gradient: radial-gradient(ellipse at 50% -20%, rgba(184, 134, 11, 0.08) 0%, rgba(244, 246, 249, 1) 75%);
+  --ok: #0D825E;
+  --line: rgba(15, 23, 42, 0.10);
+  --line-strong: rgba(168, 118, 20, 0.35);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 18px -2px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.10);
+  --hero-gradient: radial-gradient(ellipse at 50% -20%, rgba(168, 118, 20, 0.08) 0%, rgba(229, 233, 238, 1) 75%);
+}
+
+/* Hiệu ứng chuyển cảnh sáng / tối mượt mà toàn diện */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: background-color 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+              border-color 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+              color 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+              fill 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+              stroke 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+
+/* ==========================================================================
+   CHẾ ĐỘ SÁNG (LIGHT MODE): TỰ ĐỘNG CHUYỂN TOÀN BỘ CHỮ MÀU TRẮNG SANG MÀU ĐEN
+   ========================================================================== */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] h5,
+[data-theme="light"] h6,
+[data-theme="light"] b,
+[data-theme="light"] strong,
+[data-theme="light"] th,
+[data-theme="light"] label,
+[data-theme="light"] .card-horse-name,
+[data-theme="light"] .horse-name-main,
+[data-theme="light"] .breed-meta strong,
+[data-theme="light"] .lineage-cell,
+[data-theme="light"] .horse-detail-name,
+[data-theme="light"] .p-val,
+[data-theme="light"] .modal-title,
+[data-theme="light"] .horse-pedigree-name,
+[data-theme="light"] .pedigree-cell-name,
+[data-theme="light"] .pedigree-tree-title,
+[data-theme="light"] .profile-details-list h4,
+[data-theme="light"] .stat-box .stat-num,
+[data-theme="light"] .detail-header h2,
+[data-theme="light"] .achievement-title,
+[data-theme="light"] .stall-detail-title,
+[data-theme="light"] .stable-name,
+[data-theme="light"] .record-value,
+[data-theme="light"] .vet-log-title,
+[data-theme="light"] .facility-title,
+[data-theme="light"] .facility-card-title,
+[data-theme="light"] .stat-card-val,
+[data-theme="light"] .owner-horse-title,
+[data-theme="light"] .race-card-title,
+[data-theme="light"] .race-stat-num,
+[data-theme="light"] .trophy-title,
+[data-theme="light"] .groom-task-title,
+[data-theme="light"] .task-count-num,
+[data-theme="light"] .nutrition-plan-title,
+[data-theme="light"] .health-status-title,
+[data-theme="light"] .treatment-title,
+[data-theme="light"] .trainer-routine-title,
+[data-theme="light"] .exercise-name,
+[data-theme="light"] .workout-stat-value,
+[data-theme="light"] .statement-total-amount,
+[data-theme="light"] .portal-header-title,
+[data-theme="light"] .pane-title,
+[data-theme="light"] .admin-table th,
+[data-theme="light"] .admin-stat-num,
+[data-theme="light"] .admin-modal-title,
+[data-theme="light"] .user-cell-name,
+[data-theme="light"] .log-entry-text,
+[data-theme="light"] .sec-head h2,
+[data-theme="light"] .flow h3,
+[data-theme="light"] .role h3,
+[data-theme="light"] .split h2 {
+  color: #0A0D14 !important;
+}
+
+[data-theme="light"] .portal-nav-label,
+[data-theme="light"] .portal-nav-item:not(.active) {
+  color: #374151 !important;
+}
+
+[data-theme="light"] .portal-nav-item:not(.active):hover {
+  color: #0A0D14 !important;
+}
+
+/* Tự động chuyển tất cả các chữ màu trắng từ inline styles sang màu đen trong Light Mode */
+[data-theme="light"] [style*="color: #fff"]:not(.band *):not([style*="background: #EF4444"]):not([style*="background:#EF4444"]):not([style*="background: rgb(239, 68, 68)"]):not([style*="background: #8B5CF6"]):not([style*="background: #0D9488"]):not(.btn-danger):not(.badge-danger),
+[data-theme="light"] [style*="color: #FFF"]:not(.band *):not([style*="background: #EF4444"]):not([style*="background:#EF4444"]):not([style*="background: rgb(239, 68, 68)"]):not([style*="background: #8B5CF6"]):not([style*="background: #0D9488"]):not(.btn-danger):not(.badge-danger),
+[data-theme="light"] [style*="color: #ffffff"]:not(.band *):not([style*="background: #EF4444"]):not([style*="background:#EF4444"]):not([style*="background: rgb(239, 68, 68)"]):not([style*="background: #8B5CF6"]):not([style*="background: #0D9488"]):not(.btn-danger):not(.badge-danger),
+[data-theme="light"] [style*="color: #FFFFFF"]:not(.band *):not([style*="background: #EF4444"]):not([style*="background:#EF4444"]):not([style*="background: rgb(239, 68, 68)"]):not([style*="background: #8B5CF6"]):not([style*="background: #0D9488"]):not(.btn-danger):not(.badge-danger),
+[data-theme="light"] [style*="color: white"]:not(.band *):not([style*="background: #EF4444"]):not([style*="background:#EF4444"]):not([style*="background: rgb(239, 68, 68)"]):not([style*="background: #8B5CF6"]):not([style*="background: #0D9488"]):not(.btn-danger):not(.badge-danger),
+[data-theme="light"] [style*="color:white"]:not(.band *):not([style*="background: #EF4444"]):not([style*="background:#EF4444"]):not([style*="background: rgb(239, 68, 68)"]):not([style*="background: #8B5CF6"]):not([style*="background: #0D9488"]):not(.btn-danger):not(.badge-danger),
+[data-theme="light"] [style*="rgb(255, 255, 255)"]:not(.band *):not([style*="background: #EF4444"]):not([style*="background:#EF4444"]):not([style*="background: rgb(239, 68, 68)"]):not([style*="background: #8B5CF6"]):not([style*="background: #0D9488"]):not(.btn-danger):not(.badge-danger),
+[data-theme="light"] [style*="rgb(243, 244, 246)"]:not(.band *):not([style*="background: #EF4444"]):not([style*="background:#EF4444"]):not([style*="background: rgb(239, 68, 68)"]):not([style*="background: #8B5CF6"]):not([style*="background: #0D9488"]):not(.btn-danger):not(.badge-danger) {
+  color: #0A0D14 !important;
+}
+
+/* Các trường input, select, textarea hiển thị chữ đen rõ nét trong Light Mode */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  color: #0A0D14 !important;
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #4B586D !important;
+}
+
+/* Tùy biến hiển thị khối Đăng nhập nhanh Demo trong Light Mode: chữ chuyển màu đen / màu đậm sắc nét */
+[data-theme="light"] .demo-role-creds {
+  color: #111827 !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="light"] .demo-role-btn.vet {
+  color: #047857 !important;
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+[data-theme="light"] .demo-role-btn.trainer {
+  color: #1D4ED8 !important;
+  background: rgba(59, 130, 246, 0.16) !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+}
+
+[data-theme="light"] .demo-role-btn.admin {
+  color: #B45309 !important;
+  background: rgba(217, 119, 6, 0.16) !important;
+  border-color: rgba(217, 119, 6, 0.45) !important;
+}
+
+[data-theme="light"] .demo-role-btn.groom {
+  color: #7E22CE !important;
+  background: rgba(168, 85, 247, 0.16) !important;
+  border-color: rgba(168, 85, 247, 0.45) !important;
+}
+
+[data-theme="light"] .demo-role-btn.owner {
+  color: #BE185D !important;
+  background: rgba(236, 72, 153, 0.16) !important;
+  border-color: rgba(236, 72, 153, 0.45) !important;
 }
 
 *, *::before, *::after {
@@ -123,12 +266,16 @@ img {
 
 h1,
 h2,
-h3 {
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--display);
   font-weight: 600;
-  line-height: 1.08;
+  line-height: 1.15;
   letter-spacing: 0;
   margin: 0;
+  color: var(--paper);
 }
 
 .btn,
@@ -547,11 +694,11 @@ header.nav {
   align-items: center;
 }
 
-/* ---------- Theme Toggle Button ---------- */
+/* ---------- Theme Toggle Button (Animated & Smooth) ---------- */
 .theme-toggle-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   height: 38px;
   padding: 0 13px;
   border-radius: 20px;
@@ -562,34 +709,69 @@ header.nav {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
   box-shadow: var(--shadow-sm);
   user-select: none;
+  position: relative;
+  overflow: hidden;
 }
 
 .theme-toggle-btn:hover {
   background: var(--bg-card-hover);
   border-color: var(--brass);
+  color: var(--brass);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px var(--brass-glow);
+  box-shadow: 0 4px 16px var(--brass-glow);
 }
 
-.theme-toggle-icon {
-  font-size: 15px;
-  line-height: 1;
+.theme-toggle-btn:active {
+  transform: translateY(1px) scale(0.96);
+}
+
+.theme-toggle-icon-box {
+  width: 18px;
+  height: 18px;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.3s ease;
+  flex-shrink: 0;
 }
 
-.theme-toggle-btn:hover .theme-toggle-icon {
-  transform: rotate(25deg) scale(1.15);
+.theme-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg) scale(0);
+  opacity: 0;
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 0.3s ease,
+              color 0.3s ease;
+  pointer-events: none;
+}
+
+.theme-icon.active {
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+.theme-icon-sun {
+  color: #D97706; /* Ánh mặt trời vàng ấm dịu */
+}
+
+.theme-icon-moon {
+  color: var(--brass);
+}
+
+.theme-toggle-btn:hover .theme-icon.active {
+  transform: translate(-50%, -50%) rotate(25deg) scale(1.15);
 }
 
 .theme-toggle-label {
   font-size: 12.5px;
   letter-spacing: 0.02em;
+  font-weight: 600;
+  transition: color 0.3s ease;
 }
 
 .lang-toggle-label {
@@ -5786,17 +5968,74 @@ footer {
   color: var(--paper) !important;
 }
 
-/* Modals (Pedigree, Incident, Statement, Auth) */
+/* Modals (Pedigree, Incident, Statement, Auth, Box) */
 .modal-overlay, .auth-modal-overlay {
   background: rgba(0, 0, 0, 0.75) !important;
   backdrop-filter: blur(10px) !important;
 }
 
-.modal-container, .statement-modal, .auth-modal-content, .incident-modal-card {
+[data-theme="light"] .modal-overlay,
+[data-theme="light"] .auth-modal-overlay {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.modal-box,
+.modal-container,
+.statement-modal,
+.auth-modal-content,
+.incident-modal-card {
   background: var(--bg-card) !important;
   border: 1px solid var(--line-strong) !important;
   color: var(--paper) !important;
   box-shadow: var(--shadow-lg) !important;
+  border-radius: 12px;
+}
+
+[data-theme="light"] .modal-box,
+[data-theme="light"] .modal-container,
+[data-theme="light"] .statement-modal,
+[data-theme="light"] .auth-modal-content,
+[data-theme="light"] .incident-modal-card {
+  background: #F4F6F9 !important;
+  color: #0A0D14 !important;
+  border: 1px solid rgba(168, 118, 20, 0.35) !important;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18) !important;
+}
+
+[data-theme="light"] .modal-box label,
+[data-theme="light"] .modal-box .form-label {
+  color: #0A0D14 !important;
+}
+
+[data-theme="light"] .modal-box p {
+  color: #374151 !important;
+}
+
+[data-theme="light"] .modal-box input:not([type="file"]):not([type="checkbox"]):not([type="radio"]),
+[data-theme="light"] .modal-box select,
+[data-theme="light"] .modal-box textarea {
+  background: #FFFFFF !important;
+  color: #0A0D14 !important;
+  border: 1px solid rgba(15, 23, 42, 0.18) !important;
+}
+
+[data-theme="light"] .modal-box input:focus,
+[data-theme="light"] .modal-box select:focus,
+[data-theme="light"] .modal-box textarea:focus {
+  border-color: var(--brass) !important;
+  box-shadow: 0 0 0 3px rgba(168, 118, 20, 0.15) !important;
+}
+
+[data-theme="light"] .modal-box div[style*="background: var(--bg-secondary)"],
+[data-theme="light"] .modal-box div[style*="background:var(--bg-secondary)"] {
+  background: #EDF1F5 !important;
+  border-color: rgba(168, 118, 20, 0.35) !important;
+}
+
+[data-theme="light"] .modal-box button[type="button"][style*="background: none"],
+[data-theme="light"] .modal-box button[type="button"][style*="background:none"] {
+  color: #374151 !important;
 }
 
 .modal-header {

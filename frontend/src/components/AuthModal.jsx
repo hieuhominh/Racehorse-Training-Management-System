@@ -774,7 +774,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             <div style={{
               marginTop: '12px',
               padding: '12px',
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--bg-secondary)',
               borderRadius: '8px',
               border: '1px solid var(--line)'
             }}>
@@ -799,13 +799,14 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               }}>
                 <button
                   type="button"
+                  className="demo-role-btn vet"
                   onClick={() => handleQuickRoleLogin('vet_an', '123')}
                   style={{
                     padding: '8px 10px',
                     background: 'rgba(16, 185, 129, 0.12)',
                     border: '1px solid rgba(16, 185, 129, 0.35)',
                     borderRadius: '5px',
-                    color: '#34D399',
+                    color: '#10B981',
                     fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -819,19 +820,20 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   <span>🩺</span>
                   <div>
                     <div>Bác sĩ Thú y</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>vet_an / 123</div>
+                    <div className="demo-role-creds" style={{ fontSize: '10px', color: 'var(--paper-dim)', fontWeight: 400 }}>vet_an / 123</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
+                  className="demo-role-btn trainer"
                   onClick={() => handleQuickRoleLogin('trainer_truong', '123')}
                   style={{
                     padding: '8px 10px',
                     background: 'rgba(59, 130, 246, 0.12)',
                     border: '1px solid rgba(59, 130, 246, 0.35)',
                     borderRadius: '5px',
-                    color: '#60A5FA',
+                    color: '#3B82F6',
                     fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -845,19 +847,20 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   <span>🏇</span>
                   <div>
                     <div>HLV Trưởng</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>trainer_truong / 123</div>
+                    <div className="demo-role-creds" style={{ fontSize: '10px', color: 'var(--paper-dim)', fontWeight: 400 }}>trainer_truong / 123</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
+                  className="demo-role-btn admin"
                   onClick={() => handleQuickRoleLogin('admin', '123')}
                   style={{
                     padding: '8px 10px',
                     background: 'rgba(217, 119, 6, 0.12)',
                     border: '1px solid rgba(217, 119, 6, 0.35)',
                     borderRadius: '5px',
-                    color: '#FBBF24',
+                    color: '#D97706',
                     fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -871,19 +874,20 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   <span>⚙️</span>
                   <div>
                     <div>Quản trị viên</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>admin / 123</div>
+                    <div className="demo-role-creds" style={{ fontSize: '10px', color: 'var(--paper-dim)', fontWeight: 400 }}>admin / 123</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
+                  className="demo-role-btn groom"
                   onClick={() => handleQuickRoleLogin('groom_nam', '123')}
                   style={{
                     padding: '8px 10px',
                     background: 'rgba(168, 85, 247, 0.12)',
                     border: '1px solid rgba(168, 85, 247, 0.35)',
                     borderRadius: '5px',
-                    color: '#C084FC',
+                    color: '#8B5CF6',
                     fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -897,12 +901,13 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   <span>🌾</span>
                   <div>
                     <div>Chăm sóc</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>groom_nam / 123</div>
+                    <div className="demo-role-creds" style={{ fontSize: '10px', color: 'var(--paper-dim)', fontWeight: 400 }}>groom_nam / 123</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
+                  className="demo-role-btn owner"
                   onClick={() => handleQuickRoleLogin('owner_thanh', '123')}
                   style={{
                     gridColumn: 'span 2',
@@ -910,7 +915,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                     background: 'rgba(236, 72, 153, 0.12)',
                     border: '1px solid rgba(236, 72, 153, 0.35)',
                     borderRadius: '5px',
-                    color: '#F472B6',
+                    color: '#EC4899',
                     fontSize: '12px',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -925,7 +930,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   <span>👑</span>
                   <div>
                     <span>Chủ sở hữu Ngựa</span> &nbsp;
-                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>(owner_thanh / 123)</span>
+                    <span className="demo-role-creds" style={{ fontSize: '10px', color: 'var(--paper-dim)', fontWeight: 400 }}>(owner_thanh / 123)</span>
                   </div>
                 </button>
               </div>

@@ -96,21 +96,61 @@ export default function TrainerPage() {
     navigate('/');
   };
 
-  const [activeTab, setActiveTab] = useState('vitals'); // 'vitals' | 'programs' | 'sessions' | 'review' | 'approvals'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_tab_trainer');
+      if (['vitals', 'programs', 'sessions', 'review', 'approvals'].includes(saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'vitals';
+  }); // 'vitals' | 'programs' | 'sessions' | 'review' | 'approvals'
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_trainer_view_mode');
+      if (['cards', 'table'].includes(saved)) return saved;
+    } catch {}
+    return 'cards';
+  }); // 'cards' | 'table'
 
   // 5. Danh sách đề cử giải đấu từ Chủ sở hữu ngựa
   const [nominations, setNominations] = useState([]);
-  const [approvalFilter, setApprovalFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
+  const [approvalFilter, setApprovalFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_trainer_approval_filter');
+      if (['ALL', 'PENDING', 'APPROVED', 'REJECTED'].includes(saved)) return saved;
+    } catch {}
+    return 'ALL';
+  }); // 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('matruong_tab_trainer', activeTab);
+      localStorage.setItem('matruong_trainer_view_mode', viewMode);
+      localStorage.setItem('matruong_trainer_approval_filter', approvalFilter);
+    } catch {}
+  }, [activeTab, viewMode, approvalFilter]);
   const [approvalSearch, setApprovalSearch] = useState('');
   const [rejectModalData, setRejectModalData] = useState({ isOpen: false, item: null, reason: '' });
 
-  // Tải danh sách đề cử giải đấu
+  // Tải danh sách đề cử giải đấu & đồng bộ tức thời
   useEffect(() => {
-    getSystemTournamentNominationsApi().then(data => {
-      if (Array.isArray(data)) setNominations(data);
-    });
+    const fetchNominations = () => {
+      getSystemTournamentNominationsApi().then(data => {
+        if (Array.isArray(data)) setNominations(data);
+      });
+    };
+    fetchNominations();
+
+    const handleUpdate = () => fetchNominations();
+    window.addEventListener('matruong_nomination_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('matruong_nomination_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   const pendingCount = nominations.filter(n => n.nominationStatus === 'PENDING_TRAINER' || n.nominationStatus === 'PENDING').length;
@@ -410,8 +450,27 @@ export default function TrainerPage() {
   ]);
 
   // Bộ lọc theo chiến mã & trạng thái bài tập
-  const [filterHorse, setFilterHorse] = useState('ALL');
-  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterHorse, setFilterHorse] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_trainer_filter_horse') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+  const [filterStatus, setFilterStatus] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_trainer_filter_status') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('matruong_trainer_filter_horse', filterHorse);
+      localStorage.setItem('matruong_trainer_filter_status', filterStatus);
+    } catch {}
+  }, [filterHorse, filterStatus]);
   const [toastMsg, setToastMsg] = useState('');
 
   const showToast = (msg) => {

@@ -7,6 +7,7 @@ import {
   registerOwnerHorseApi,
   updateOwnerHorseApi,
   deleteOwnerHorseApi,
+  getSystemTournamentNominationsApi,
   registerRaceTournamentApi,
   updateRaceNominationStatusApi
 } from '../services/api';
@@ -310,8 +311,22 @@ export default function OwnerPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState('horses'); // 'horses' | 'training' | 'races' | 'finance' | 'vet' | 'membership'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_tab_owner');
+      if (['horses', 'training', 'races', 'finance', 'vet', 'membership'].includes(saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'horses';
+  }); // 'horses' | 'training' | 'races' | 'finance' | 'vet' | 'membership'
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('matruong_tab_owner', activeTab);
+    } catch {}
+  }, [activeTab]);
 
   // Kiểm tra tài khoản Demo hay tài khoản mới đăng ký
   const ownerKey = currentUser?.user_id || currentUser?.username || currentUser?.email || 'new_owner';
@@ -329,7 +344,19 @@ export default function OwnerPage() {
   });
 
   const [showMembershipModal, setShowMembershipModal] = useState(false);
-  const [billingCycle, setBillingCycle] = useState('year'); // 'month' | 'year'
+  const [billingCycle, setBillingCycle] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_owner_billing');
+      if (['month', 'year'].includes(saved)) return saved;
+    } catch {}
+    return 'year';
+  }); // 'month' | 'year'
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('matruong_owner_billing', billingCycle);
+    } catch {}
+  }, [billingCycle]);
 
   // Xử lý kích hoạt / đổi gói 1-chạm
   const handleSelectTier = (newTier) => {
@@ -353,14 +380,16 @@ export default function OwnerPage() {
         // Tự động làm sạch URL ảnh cũ bị lỗi (404)
         const sanitized = stored.replace(/photo-1598974357801-cbca10065444/g, 'photo-1534447677768-be436bb09401');
         const parsed = JSON.parse(sanitized);
-        const fixed = parsed.map(item => {
-          if (item.name === 'Bạch Long' && (!item.avatar || item.avatar.includes('photo-1598974357801-cbca10065444'))) {
-            return { ...item, avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80' };
-          }
-          return item;
-        });
-        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(fixed));
-        return fixed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const fixed = parsed.map(item => {
+            if (item && item.name === 'Bạch Long' && (!item.avatar || item.avatar.includes('photo-1598974357801-cbca10065444'))) {
+              return { ...item, avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80' };
+            }
+            return item;
+          });
+          localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(fixed));
+          return fixed;
+        }
       }
       return isDemoVip ? DEMO_HORSES_VIP : [];
     } catch {
@@ -371,9 +400,49 @@ export default function OwnerPage() {
   // State 2: Danh sách giải đua đã đăng ký / đề cử
   const [raceNominations, setRaceNominations] = useState(() => {
     try {
+      let currentList = [];
       const stored = localStorage.getItem(`matruong_owner_races_${ownerKey}`);
-      if (stored) return JSON.parse(stored);
-      return isDemoVip ? DEMO_RACES_VIP : [];
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) currentList = parsed;
+      }
+      if (isDemoVip) {
+        if (currentList.length === 0) {
+          currentList = [...DEMO_RACES_VIP];
+        }
+      } else {
+        // Tài khoản chủ sở hữu mới / thường: Tuyệt đối không lấy dữ liệu mẫu VIP của người khác
+        currentList = currentList.filter(item =>
+          String(item.ownerKey) === String(ownerKey) &&
+          item.ownerKey !== '6' &&
+          item.ownerKey !== 'owner_thanh' &&
+          item.horseName !== 'Bạch Long' &&
+          item.horseName !== 'Lôi Chấn'
+        );
+      }
+
+      // Hòa nhập tức thời dữ liệu duyệt mới nhất từ Huấn luyện viên trưởng nếu có
+      const sysRaw = localStorage.getItem('matruong_system_race_nominations');
+      if (sysRaw && currentList.length > 0) {
+        const sysList = JSON.parse(sysRaw);
+        if (Array.isArray(sysList) && sysList.length > 0) {
+          currentList = currentList.map(item => {
+            const matched = sysList.find(s => s.id === item.id || (s.horseName === item.horseName && s.raceName === item.raceName));
+            if (matched) {
+              return {
+                ...item,
+                nominationStatus: matched.nominationStatus || item.nominationStatus,
+                trainerFeedback: matched.trainerFeedback !== undefined ? matched.trainerFeedback : item.trainerFeedback,
+                reviewedBy: matched.reviewedBy || item.reviewedBy,
+                reviewedAt: matched.reviewedAt || item.reviewedAt
+              };
+            }
+            return item;
+          });
+        }
+      }
+
+      return currentList;
     } catch {
       return isDemoVip ? DEMO_RACES_VIP : [];
     }
@@ -383,7 +452,10 @@ export default function OwnerPage() {
   const [trainingTelemetry, setTrainingTelemetry] = useState(() => {
     try {
       const stored = localStorage.getItem(`matruong_owner_telemetry_${ownerKey}`);
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
       return isDemoVip ? [
         {
           id: 1,
@@ -421,7 +493,10 @@ export default function OwnerPage() {
   const [statements] = useState(() => {
     try {
       const stored = localStorage.getItem(`matruong_owner_stmts_${ownerKey}`);
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
       return isDemoVip ? DEMO_STATEMENTS_VIP : [];
     } catch {
       return [];
@@ -432,7 +507,10 @@ export default function OwnerPage() {
   const [healthLogs, setHealthLogs] = useState(() => {
     try {
       const stored = localStorage.getItem(`matruong_owner_health_${ownerKey}`);
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
       return isDemoVip ? DEMO_HEALTH_VIP : [];
     } catch {
       return [];
@@ -445,8 +523,17 @@ export default function OwnerPage() {
   }, [myHorses, ownerKey]);
 
   useEffect(() => {
-    localStorage.setItem(`matruong_owner_races_${ownerKey}`, JSON.stringify(raceNominations));
-  }, [raceNominations, ownerKey]);
+    const listToSave = isDemoVip
+      ? raceNominations
+      : raceNominations.filter(item =>
+          String(item.ownerKey) === String(ownerKey) &&
+          item.ownerKey !== '6' &&
+          item.ownerKey !== 'owner_thanh' &&
+          item.horseName !== 'Bạch Long' &&
+          item.horseName !== 'Lôi Chấn'
+        );
+    localStorage.setItem(`matruong_owner_races_${ownerKey}`, JSON.stringify(listToSave));
+  }, [raceNominations, ownerKey, isDemoVip]);
 
   useEffect(() => {
     localStorage.setItem(`matruong_owner_telemetry_${ownerKey}`, JSON.stringify(trainingTelemetry));
@@ -459,6 +546,106 @@ export default function OwnerPage() {
   useEffect(() => {
     localStorage.setItem(`matruong_owner_health_${ownerKey}`, JSON.stringify(healthLogs));
   }, [healthLogs, ownerKey]);
+
+  // Đồng bộ thời gian thực trạng thái đề cử giải đua & phê duyệt của Huấn luyện viên trưởng
+  useEffect(() => {
+    let isMounted = true;
+    const syncNominations = () => {
+      getSystemTournamentNominationsApi().then(sysList => {
+        if (!isMounted || !Array.isArray(sysList) || sysList.length === 0) return;
+
+        setRaceNominations(prev => {
+          let base = Array.isArray(prev) ? prev : [];
+          if (!isDemoVip) {
+            // Loại bỏ hoàn toàn các đề cử không thuộc tài khoản này
+            base = base.filter(item =>
+              String(item.ownerKey) === String(ownerKey) &&
+              item.ownerKey !== '6' &&
+              item.ownerKey !== 'owner_thanh' &&
+              item.horseName !== 'Bạch Long' &&
+              item.horseName !== 'Lôi Chấn'
+            );
+          } else if (base.length === 0) {
+            base = [...DEMO_RACES_VIP];
+          }
+
+          let hasChanges = false;
+
+          const updated = base.map(item => {
+            const matched = sysList.find(s => s.id === item.id || (s.horseName === item.horseName && s.raceName === item.raceName));
+            if (matched) {
+              if (
+                item.nominationStatus !== matched.nominationStatus ||
+                item.trainerFeedback !== matched.trainerFeedback ||
+                item.reviewedBy !== matched.reviewedBy ||
+                item.reviewedAt !== matched.reviewedAt
+              ) {
+                hasChanges = true;
+                return {
+                  ...item,
+                  nominationStatus: matched.nominationStatus,
+                  trainerFeedback: matched.trainerFeedback,
+                  reviewedBy: matched.reviewedBy,
+                  reviewedAt: matched.reviewedAt
+                };
+              }
+            }
+            return item;
+          });
+
+          // Tự động kéo các đề cử giải mới của chủ sở hữu nếu có trong sysList mà chưa có trong state
+          sysList.forEach(sysItem => {
+            const isBelongsToOwner = isDemoVip
+              ? (
+                  String(sysItem.ownerKey) === String(ownerKey) ||
+                  sysItem.ownerKey === 'owner_thanh' ||
+                  sysItem.ownerKey === '6' ||
+                  sysItem.ownerName?.includes('Thành') ||
+                  sysItem.horseName === 'Bạch Long' ||
+                  sysItem.horseName === 'Lôi Chấn'
+                )
+              : (
+                  String(sysItem.ownerKey) === String(ownerKey) &&
+                  sysItem.ownerKey !== '6' &&
+                  sysItem.ownerKey !== 'owner_thanh' &&
+                  sysItem.horseName !== 'Bạch Long' &&
+                  sysItem.horseName !== 'Lôi Chấn'
+                );
+
+            const alreadyInList = updated.some(u => u.id === sysItem.id || (u.horseName === sysItem.horseName && u.raceName === sysItem.raceName));
+            if (isBelongsToOwner && !alreadyInList) {
+              hasChanges = true;
+              updated.push(sysItem);
+            }
+          });
+
+          if (updated.length !== prev.length || hasChanges) {
+            return updated;
+          }
+          return prev;
+        });
+      }).catch(() => {});
+    };
+
+    syncNominations();
+
+    const handleStorageEvent = (e) => {
+      if (e.key === 'matruong_system_race_nominations' || (e.key && e.key.startsWith('matruong_owner_races_'))) {
+        syncNominations();
+      }
+    };
+
+    window.addEventListener('matruong_nomination_updated', syncNominations);
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('focus', syncNominations);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('matruong_nomination_updated', syncNominations);
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('focus', syncNominations);
+    };
+  }, [ownerKey, isDemoVip]);
 
   // Các Modal State
   const [selectedStatementModal, setSelectedStatementModal] = useState(null);
@@ -858,18 +1045,20 @@ export default function OwnerPage() {
 
   // Tính tổng số tiền thưởng & số dư quỹ
   const totalPrizeAll = useMemo(() => {
-    return myHorses.reduce((sum, h) => sum + (h.totalPrizeEarned || 0), 0);
+    const list = Array.isArray(myHorses) ? myHorses : [];
+    return list.reduce((sum, h) => sum + (Number(h?.totalPrizeEarned) || 0), 0);
   }, [myHorses]);
 
   const netFundBalance = useMemo(() => {
-    if (myHorses.length === 0) return 0;
+    const list = Array.isArray(myHorses) ? myHorses : [];
+    if (list.length === 0) return 0;
     const prize = totalPrizeAll;
-    const costs = myHorses.length * 35000000; // Phí cơ bản
+    const costs = list.length * 35000000; // Phí cơ bản
     return prize > costs ? prize - costs : 0;
   }, [totalPrizeAll, myHorses]);
 
   const formatVND = (num) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(num) || 0);
   };
 
   // Đăng xuất
@@ -2309,6 +2498,7 @@ export default function OwnerPage() {
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
+              background: 'var(--bg-card)',
               maxWidth: '560px',
               width: '92%',
               maxHeight: '90vh',
@@ -2708,6 +2898,7 @@ export default function OwnerPage() {
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
+              background: 'var(--bg-card)',
               maxWidth: '560px',
               width: '92%',
               maxHeight: '90vh',
@@ -3107,6 +3298,7 @@ export default function OwnerPage() {
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
+              background: 'var(--bg-card)',
               maxWidth: '480px',
               width: '92%',
               padding: '24px',
@@ -3254,6 +3446,7 @@ export default function OwnerPage() {
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
+              background: 'var(--bg-card)',
               maxWidth: '520px',
               width: '92%',
               padding: '24px',
@@ -3470,6 +3663,7 @@ export default function OwnerPage() {
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
+              background: 'var(--bg-card)',
               maxWidth: '460px',
               width: '90%',
               padding: '22px 24px',
@@ -3551,6 +3745,7 @@ export default function OwnerPage() {
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
+              background: 'var(--bg-card)',
               maxWidth: '460px',
               width: '90%',
               padding: '22px 24px',
@@ -3612,6 +3807,7 @@ export default function OwnerPage() {
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
+              background: 'var(--bg-card)',
               maxWidth: '680px',
               width: '92%',
               maxHeight: '90vh',

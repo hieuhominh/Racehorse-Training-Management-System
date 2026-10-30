@@ -46,9 +46,21 @@ function IconClipboard() {
 export default function StablesPage({ onOpenAuth }) {
   const { t, lang } = useLanguage();
   const [stalls, setStalls] = useState(initialStallsData);
-  const [selectedZone, setSelectedZone] = useState('ALL'); // 'ALL' | 'A' | 'B'
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
-  const [selectedStallCode, setSelectedStallCode] = useState('A1');
+  const [selectedZone, setSelectedZone] = useState(() => localStorage.getItem('matruong_stables_zone') || 'ALL'); // 'ALL' | 'A' | 'B'
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState(() => localStorage.getItem('matruong_stables_status') || 'ALL');
+  const [selectedStallCode, setSelectedStallCode] = useState(() => localStorage.getItem('matruong_stables_selected_code') || 'A1');
+
+  useEffect(() => {
+    localStorage.setItem('matruong_stables_zone', selectedZone);
+  }, [selectedZone]);
+
+  useEffect(() => {
+    localStorage.setItem('matruong_stables_status', selectedStatusFilter);
+  }, [selectedStatusFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('matruong_stables_selected_code', selectedStallCode);
+  }, [selectedStallCode]);
 
   // Incident reporting modal state
   const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
@@ -158,7 +170,8 @@ export default function StablesPage({ onOpenAuth }) {
 
   // Selected stall object
   const activeStall = useMemo(() => {
-    return stalls.find((s) => s.code === selectedStallCode) || stalls[0];
+    const list = Array.isArray(stalls) && stalls.length > 0 ? stalls : initialStallsData;
+    return list.find((s) => s.code === selectedStallCode) || list[0] || initialStallsData[0];
   }, [stalls, selectedStallCode]);
 
   // Calculate overall checklist completion percentage across all occupied stalls

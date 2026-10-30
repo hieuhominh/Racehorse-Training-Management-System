@@ -13,8 +13,23 @@ export default function HorseListSection() {
   const [isLoadingApi, setIsLoadingApi] = useState(true);
   const [searchChip, setSearchChip] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table' (default to 'cards' so action buttons are 100% prominent)
+  const [selectedStatus, setSelectedStatus] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_horses_status_filter') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  useEffect(() => { localStorage.setItem('matruong_horses_status_filter', selectedStatus); }, [selectedStatus]);
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_horses_view_mode');
+      return ['cards', 'table'].includes(saved) ? saved : 'cards';
+    } catch {
+      return 'cards';
+    }
+  }); // 'cards' | 'table' (default to 'cards' so action buttons are 100% prominent)
+  useEffect(() => { localStorage.setItem('matruong_horses_view_mode', viewMode); }, [viewMode]);
   const [activeHorseForPedigree, setActiveHorseForPedigree] = useState(null);
   const [detailModalHorse, setDetailModalHorse] = useState(null);
 

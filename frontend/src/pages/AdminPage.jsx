@@ -91,12 +91,54 @@ export default function AdminPage() {
     navigate('/');
   };
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_tab_admin');
+      if (['overview', 'horses', 'stables', 'users', 'audit'].includes(saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'overview';
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
-  const [horseFilter, setHorseFilter] = useState('ALL');
-  const [userFilter, setUserFilter] = useState('ALL');
-  const [stableFilter, setStableFilter] = useState('ALL');
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_admin_view_mode');
+      if (['cards', 'table'].includes(saved)) return saved;
+    } catch {}
+    return 'cards';
+  }); // 'cards' | 'table'
+  const [horseFilter, setHorseFilter] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_admin_horse_filter') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+  const [userFilter, setUserFilter] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_admin_user_filter') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+  const [stableFilter, setStableFilter] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_admin_stable_filter') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('matruong_tab_admin', activeTab);
+      localStorage.setItem('matruong_admin_view_mode', viewMode);
+      localStorage.setItem('matruong_admin_horse_filter', horseFilter);
+      localStorage.setItem('matruong_admin_user_filter', userFilter);
+      localStorage.setItem('matruong_admin_stable_filter', stableFilter);
+    } catch {}
+  }, [activeTab, viewMode, horseFilter, userFilter, stableFilter]);
 
   // State danh sách ngựa quản lý
   const [horses, setHorses] = useState([

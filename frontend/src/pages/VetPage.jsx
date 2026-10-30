@@ -87,10 +87,35 @@ export default function VetPage() {
     navigate('/');
   };
 
-  const [activeTab, setActiveTab] = useState('triage'); // 'triage' | 'anatomy' | 'lockout' | 'vaccines' | 'prescriptions' | 'clearance'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_tab_vet');
+      return ['triage', 'anatomy', 'lockout', 'vaccines', 'prescriptions', 'clearance'].includes(saved) ? saved : 'triage';
+    } catch {
+      return 'triage';
+    }
+  }); // 'triage' | 'anatomy' | 'lockout' | 'vaccines' | 'prescriptions' | 'clearance'
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedAnatomy, setSelectedAnatomy] = useState(ANATOMY_PARTS[1]); // Mặc định là Fetlock (Gân gót)
+  const [selectedAnatomy, setSelectedAnatomy] = useState(() => {
+    try {
+      const savedId = localStorage.getItem('matruong_vet_anatomy_id');
+      const found = ANATOMY_PARTS.find(p => String(p.id) === String(savedId));
+      return found || ANATOMY_PARTS[1];
+    } catch {
+      return ANATOMY_PARTS[1];
+    }
+  }); // Mặc định là Fetlock (Gân gót)
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('matruong_tab_vet', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedAnatomy && selectedAnatomy.id) {
+      localStorage.setItem('matruong_vet_anatomy_id', String(selectedAnatomy.id));
+    }
+  }, [selectedAnatomy]);
 
   // 1. Danh sách chiến mã y tế
   const [horses, setHorses] = useState([

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
@@ -59,8 +59,19 @@ export default function GroomPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState('stalls'); // 'stalls' | 'checklist' | 'incident' | 'nutrition' | 'supplies'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_tab_groom');
+      return ['stalls', 'checklist', 'incident', 'nutrition', 'supplies'].includes(saved) ? saved : 'stalls';
+    } catch {
+      return 'stalls';
+    }
+  }); // 'stalls' | 'checklist' | 'incident' | 'nutrition' | 'supplies'
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('matruong_tab_groom', activeTab);
+  }, [activeTab]);
 
   // 1. Dữ liệu các ô chuồng Groom phụ trách (Block A)
   const [assignedStalls, setAssignedStalls] = useState([
