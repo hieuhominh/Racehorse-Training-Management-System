@@ -1440,13 +1440,13 @@ export async function getSystemTournamentNominationsApi() {
   return rawData;
 }
 
-export async function trainerReviewNominationApi(nominationId, { status, feedback, trainerName }) {
+export async function trainerReviewNominationApi(nominationId, { status, feedback, trainerName, assignedHorseName, assignedHorseId, assignedHorseStall, jockey }) {
   try {
     const res = await fetch('/api/trainer/nominations/review', {
       method: 'POST',
       headers: getAuthHeaders(true),
       credentials: 'include',
-      body: JSON.stringify({ nominationId, status, feedback, trainerName })
+      body: JSON.stringify({ nominationId, status, feedback, trainerName, assignedHorseName, assignedHorseId, assignedHorseStall, jockey })
     });
     if (res.ok) return await res.json();
   } catch {
@@ -1462,10 +1462,16 @@ export async function trainerReviewNominationApi(nominationId, { status, feedbac
     if (item.id === nominationId) {
       targetNomination = {
         ...item,
+        horseName: assignedHorseName || item.horseName,
+        assignedHorseName: assignedHorseName || item.assignedHorseName,
+        assignedHorseId: assignedHorseId || item.assignedHorseId,
+        assignedHorseStall: assignedHorseStall || item.assignedHorseStall,
+        trainerAssigned: Boolean(assignedHorseName || item.trainerAssigned),
         nominationStatus: status,
         trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
         reviewedBy: trainerName || 'HLV Trưởng',
-        reviewedAt: timeStr
+        reviewedAt: timeStr,
+        jockey: jockey || item.jockey || 'Chưa chỉ định'
       };
       return targetNomination;
     }
@@ -1485,15 +1491,21 @@ export async function trainerReviewNominationApi(nominationId, { status, feedbac
             let modified = false;
             const updatedOwnerList = ownerList.map(r => {
               const isMatch = r.id === nominationId || 
-                (targetNomination && r.raceName === targetNomination.raceName && r.horseName === targetNomination.horseName);
+                (targetNomination && r.raceName === targetNomination.raceName && (r.horseName === targetNomination.horseName || r.id === nominationId));
               if (isMatch) {
                 modified = true;
                 return {
                   ...r,
+                  horseName: assignedHorseName || r.horseName,
+                  assignedHorseName: assignedHorseName || r.assignedHorseName,
+                  assignedHorseId: assignedHorseId || r.assignedHorseId,
+                  assignedHorseStall: assignedHorseStall || r.assignedHorseStall,
+                  trainerAssigned: Boolean(assignedHorseName || r.trainerAssigned),
                   nominationStatus: status,
                   trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
                   reviewedBy: trainerName || 'HLV Trưởng',
-                  reviewedAt: timeStr
+                  reviewedAt: timeStr,
+                  jockey: jockey || r.jockey || 'Chưa chỉ định'
                 };
               }
               return r;
@@ -1514,6 +1526,18 @@ export async function trainerReviewNominationApi(nominationId, { status, feedbac
   }
 
   return true;
+}
+
+export async function trainerAssignHorseNominationApi(nominationId, { horseName, horseId, horseStall, trainerFeedback, trainerName, jockey }) {
+  return trainerReviewNominationApi(nominationId, {
+    status: 'APPROVED',
+    feedback: trainerFeedback,
+    trainerName: trainerName || 'HLV Trưởng Trần Văn Hùng',
+    assignedHorseName: horseName,
+    assignedHorseId: horseId,
+    assignedHorseStall: horseStall,
+    jockey: jockey
+  });
 }
 
 export async function registerRaceTournamentApi(ownerKey, nominationData) {
