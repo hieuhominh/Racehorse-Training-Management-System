@@ -25,6 +25,8 @@ import java.util.Map;
  * - /api/vet/medical-logs
  * - /api/vet/lock
  * - /api/vet/vaccines
+ * - /api/vet/prescriptions
+ * - /api/vet/race-clearance
  * - /api/vet/overview
  */
 @WebServlet(name = "VetApiController", urlPatterns = {
@@ -33,12 +35,18 @@ import java.util.Map;
     "/api/vet/lock",
     "/api/vet/vaccines",
     "/api/vet/vaccines/*",
+    "/api/vet/prescriptions",
+    "/api/vet/prescriptions/*",
+    "/api/vet/race-clearance",
+    "/api/vet/race-clearances",
     "/api/vet/overview"
 })
 public class VetApiController extends HttpServlet {
 
     private static final List<Map<String, Object>> memoryLogs = Collections.synchronizedList(new ArrayList<>());
     private static final List<Map<String, Object>> memoryVaccines = Collections.synchronizedList(new ArrayList<>());
+    private static final List<Map<String, Object>> memoryPrescriptions = Collections.synchronizedList(new ArrayList<>());
+    private static final List<Map<String, Object>> memoryClearances = Collections.synchronizedList(new ArrayList<>());
 
     static {
         Map<String, Object> l1 = new HashMap<>();
@@ -76,6 +84,72 @@ public class VetApiController extends HttpServlet {
         v1.put("scheduledDate", "15/11/2026");
         v1.put("status", "SCHEDULED");
         memoryVaccines.add(v1);
+
+        // Khởi tạo đơn thuốc mẫu
+        Map<String, Object> rx1 = new HashMap<>();
+        rx1.put("id", "RX-2026-001");
+        rx1.put("horseName", "Phi Yến");
+        rx1.put("stall", "Ô A5");
+        rx1.put("diagnosis", "Giãn gân trước trái độ 2");
+        rx1.put("restrictions", "Khóa hoàn toàn bài tập chạy nước rút và tập nặng. Chỉ cho phép đi bộ thả lỏng 15 phút/ngày.");
+        rx1.put("date", "09/10/2026");
+        rx1.put("status", "ACTIVE");
+        memoryPrescriptions.add(rx1);
+
+        Map<String, Object> rx2 = new HashMap<>();
+        rx2.put("id", "RX-2026-002");
+        rx2.put("horseName", "Hắc Phong");
+        rx2.put("stall", "Ô A3");
+        rx2.put("diagnosis", "Nghi ngờ kích ứng dạ dày nhẹ (Mild Gastric Distress)");
+        rx2.put("restrictions", "Chia nhỏ khẩu phần ăn làm 4 bữa. Tạm ngưng yến mạch đậm đặc, tăng cỏ khô Alfalfa.");
+        rx2.put("date", "10/10/2026");
+        rx2.put("status", "ACTIVE");
+        memoryPrescriptions.add(rx2);
+
+        // Khởi tạo chứng nhận y tế thi đấu mẫu
+        Map<String, Object> c1 = new HashMap<>();
+        c1.put("id", 1);
+        c1.put("horseName", "Xích Thố");
+        c1.put("raceName", "Giải Vô địch Quốc gia Đại Nam 2026");
+        c1.put("distance", "2.400m");
+        c1.put("date", "25/10/2026");
+        c1.put("vetStatus", "CLEARED");
+        c1.put("heartRateRest", "36 bpm");
+        c1.put("notes", "Thể lực hoàn hảo, âm tim chuẩn, không có dấu hiệu phù nề gân.");
+        memoryClearances.add(c1);
+
+        Map<String, Object> c2 = new HashMap<>();
+        c2.put("id", 2);
+        c2.put("horseName", "Bạch Long");
+        c2.put("raceName", "Cúp Đua Ngựa Mùa Thu Cự Ly Ngắn");
+        c2.put("distance", "1.200m");
+        c2.put("date", "28/10/2026");
+        c2.put("vetStatus", "CLEARED");
+        c2.put("heartRateRest", "37 bpm");
+        c2.put("notes", "Đạt chuẩn kiểm định thể lực thú y.");
+        memoryClearances.add(c2);
+
+        Map<String, Object> c3 = new HashMap<>();
+        c3.put("id", 3);
+        c3.put("horseName", "Hắc Phong");
+        c3.put("raceName", "Giải Đua Tốc Độ Sân Cát");
+        c3.put("distance", "1.600m");
+        c3.put("date", "30/10/2026");
+        c3.put("vetStatus", "PENDING_EXAM");
+        c3.put("heartRateRest", "38 bpm");
+        c3.put("notes", "Chờ theo dõi thêm 48h về tiêu hóa trước khi cấp chứng nhận.");
+        memoryClearances.add(c3);
+
+        Map<String, Object> c4 = new HashMap<>();
+        c4.put("id", 4);
+        c4.put("horseName", "Phi Yến");
+        c4.put("raceName", "Giải Vô địch Mở Rộng Cup C1");
+        c4.put("distance", "1.600m");
+        c4.put("date", "26/10/2026");
+        c4.put("vetStatus", "REJECTED_INJURY");
+        c4.put("heartRateRest", "44 bpm");
+        c4.put("notes", "TỪ CHỐI CẤP PHÉP: Đang chịu lệnh Khóa Y Tế do giãn gân chân trái!");
+        memoryClearances.add(c4);
     }
 
     private final HorseDAO horseDAO = new HorseDAO();
@@ -90,6 +164,22 @@ public class VetApiController extends HttpServlet {
         String path = request.getServletPath();
 
         try (PrintWriter out = response.getWriter()) {
+            if ("/api/vet/prescriptions".equals(path) || path.startsWith("/api/vet/prescriptions")) {
+                synchronized (memoryPrescriptions) {
+                    out.print(gson.toJson(memoryPrescriptions));
+                }
+                out.flush();
+                return;
+            }
+
+            if ("/api/vet/race-clearance".equals(path) || "/api/vet/race-clearances".equals(path)) {
+                synchronized (memoryClearances) {
+                    out.print(gson.toJson(memoryClearances));
+                }
+                out.flush();
+                return;
+            }
+
             if ("/api/vet/medical-logs".equals(path)) {
                 synchronized (memoryLogs) {
                     out.print(gson.toJson(memoryLogs));
@@ -145,6 +235,54 @@ public class VetApiController extends HttpServlet {
             if (body == null) {
                 SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
                     "Dữ liệu yêu cầu không hợp lệ.");
+                return;
+            }
+
+            if ("/api/vet/prescriptions".equals(path) || path.startsWith("/api/vet/prescriptions")) {
+                String horseName = SecurityUtil.getString(body, "horseName", "").trim();
+                String diagnosis = SecurityUtil.getString(body, "diagnosis", "Khám thể lực định kỳ").trim();
+                String stall = SecurityUtil.getString(body, "stall", "Ô A3").trim();
+
+                Map<String, Object> newRx = new HashMap<>();
+                newRx.put("id", "RX-2026-00" + (memoryPrescriptions.size() + 1));
+                newRx.put("horseName", SecurityUtil.sanitize(horseName));
+                newRx.put("stall", SecurityUtil.sanitize(stall));
+                newRx.put("diagnosis", SecurityUtil.sanitize(diagnosis));
+                newRx.put("restrictions", SecurityUtil.sanitize(SecurityUtil.getString(body, "restrictions", "Theo dõi sức khỏe hàng ngày")));
+                newRx.put("date", "Hôm nay");
+                newRx.put("status", "ACTIVE");
+
+                memoryPrescriptions.add(0, newRx);
+                response.setStatus(HttpServletResponse.SC_CREATED);
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(newRx));
+                    out.flush();
+                }
+                return;
+            }
+
+            if ("/api/vet/race-clearance".equals(path) || "/api/vet/race-clearances".equals(path)) {
+                int id = SecurityUtil.getInt(body, "id", -1);
+                String vetStatus = SecurityUtil.getString(body, "vetStatus", "CLEARED");
+                String notes = SecurityUtil.getString(body, "notes", "Đã duyệt y tế");
+
+                synchronized (memoryClearances) {
+                    for (Map<String, Object> c : memoryClearances) {
+                        if (String.valueOf(c.get("id")).equals(String.valueOf(id))) {
+                            c.put("vetStatus", vetStatus);
+                            c.put("notes", notes);
+                            break;
+                        }
+                    }
+                }
+
+                JsonObject res = new JsonObject();
+                res.addProperty("success", true);
+                res.addProperty("message", "Đã cập nhật trạng thái y tế thi đấu.");
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(res));
+                    out.flush();
+                }
                 return;
             }
 

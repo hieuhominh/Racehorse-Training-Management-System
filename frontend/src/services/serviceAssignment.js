@@ -1,5 +1,6 @@
 // Quản lý việc Chủ sở hữu chỉ định Đội ngũ phục vụ (3 HLV, 3 BS Thú y, 3 Groom)
 // và Xác nhận phục vụ từ phía từng nhân sự chuyên trách
+import { saveServiceAssignmentApi, confirmServiceAssignmentApi as confirmApi } from './api';
 
 const STORAGE_KEY = 'matruong_service_assignments';
 const EVENT_NAME = 'matruong_service_assignment_updated';
@@ -177,11 +178,16 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
   }
 
   saveServiceAssignments(list);
+  const targetItem = foundIndex >= 0 ? list[foundIndex] : list[list.length - 1];
+  if (targetItem) {
+    saveServiceAssignmentApi(targetItem).catch(() => {});
+  }
   return list;
 }
 
 // Nhân sự chuyên trách (HLV / Thú Y / Groom) xác nhận phục vụ
 export function confirmServiceAssignment(horseIdentifier, roleType, staffUsername) {
+  confirmApi(horseIdentifier, roleType, staffUsername).catch(() => {});
   const list = getServiceAssignments();
   const key = String(horseIdentifier).toLowerCase();
   const nowStr = new Date().toLocaleDateString('vi-VN');

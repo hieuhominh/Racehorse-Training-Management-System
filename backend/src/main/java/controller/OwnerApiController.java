@@ -352,6 +352,9 @@ public class OwnerApiController extends HttpServlet {
             updatedHorse.put("ownershipShare", ownershipShare);
             updatedHorse.put("trainer", SecurityUtil.sanitize(SecurityUtil.getString(body, "trainer", "")));
             updatedHorse.put("stable", SecurityUtil.sanitize(SecurityUtil.getString(body, "stable", "")));
+            if (body.has("pedigree")) {
+                updatedHorse.put("pedigree", gson.fromJson(body.get("pedigree"), Object.class));
+            }
             updatedHorse.put("ownerKey", ownerKey.toLowerCase());
             updatedHorse.put("success", true);
 

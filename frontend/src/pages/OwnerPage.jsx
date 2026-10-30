@@ -10,7 +10,8 @@ import {
   deleteOwnerHorseApi,
   getSystemTournamentNominationsApi,
   registerRaceTournamentApi,
-  updateRaceNominationStatusApi
+  updateRaceNominationStatusApi,
+  updateHorsePedigreeApi
 } from '../services/api';
 import {
   getServiceAssignments,
@@ -877,6 +878,7 @@ export default function OwnerPage() {
     });
 
     updateOwnerHorseApi(ownerKey, updatedHorse).catch(() => {});
+    updateHorsePedigreeApi(ownerKey, updatedHorse.id, updatedPedigree).catch(() => {});
     setSelectedHorsePedigree(updatedHorse);
     setPedigreeMode('view');
     showToast(`Đã lưu và cập nhật cây phả hệ cho chiến mã "${updatedHorse.name}" thành công!`, 'CẬP NHẬT PHẢ HỆ THÀNH CÔNG', 'success');

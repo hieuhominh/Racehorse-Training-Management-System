@@ -6,7 +6,13 @@ import ThemeToggle from '../components/ThemeToggle';
 import {
   getHorsesApi,
   toggleHorseLockApi,
-  getIncidentsApi
+  getIncidentsApi,
+  getVetPrescriptionsApi,
+  createVetPrescriptionApi,
+  getVetClearanceListApi,
+  updateVetClearanceApi,
+  getVaccinationSchedulesApi,
+  recordVaccinationApi
 } from '../services/api';
 import { getServiceAssignments, confirmServiceAssignment } from '../services/serviceAssignment';
 
@@ -237,52 +243,79 @@ export default function VetPage() {
   ]);
 
   // 3. Sổ tiêm chủng Vaccine & Tẩy giun định kỳ
-  const [vaccines, setVaccines] = useState([
-    { id: 1, horseName: 'Hắc Phong', vaccineType: 'Cúm ngựa (Equine Influenza)', dueDate: '15/10/2026', status: 'DUE_SOON', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
-    { id: 2, horseName: 'Xích Thố', vaccineType: 'Uốn ván (Tetanus Toxoid)', dueDate: '20/11/2026', status: 'UP_TO_DATE', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
-    { id: 3, horseName: 'Phi Yến', vaccineType: 'Tẩy giun Ivermectin Paste', dueDate: '10/10/2026', status: 'OVERDUE', dose: 'Tuýp 6.42g đường uống', vetInCharge: 'BS Nguyễn An' },
-    { id: 4, horseName: 'Lôi Chấn', vaccineType: 'Viêm não thể EHV 1 & 4', dueDate: '12/10/2026', status: 'DUE_SOON', dose: '1.5 ml IM', vetInCharge: 'BS Nguyễn An' },
-    { id: 5, horseName: 'Bạch Long', vaccineType: 'Kiểm tra móng (Farrier Routine)', dueDate: '18/10/2026', status: 'UP_TO_DATE', dose: 'Gọt & đóng móng nhôm đua', vetInCharge: 'Farrier Trần Văn Vũ' }
-  ]);
+  const [vaccines, setVaccines] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_vet_vaccines');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      { id: 1, horseName: 'Hắc Phong', vaccineType: 'Cúm ngựa (Equine Influenza)', dueDate: '15/10/2026', status: 'DUE_SOON', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
+      { id: 2, horseName: 'Xích Thố', vaccineType: 'Uốn ván (Tetanus Toxoid)', dueDate: '20/11/2026', status: 'UP_TO_DATE', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
+      { id: 3, horseName: 'Phi Yến', vaccineType: 'Tẩy giun Ivermectin Paste', dueDate: '10/10/2026', status: 'OVERDUE', dose: 'Tuýp 6.42g đường uống', vetInCharge: 'BS Nguyễn An' },
+      { id: 4, horseName: 'Lôi Chấn', vaccineType: 'Viêm não thể EHV 1 & 4', dueDate: '12/10/2026', status: 'DUE_SOON', dose: '1.5 ml IM', vetInCharge: 'BS Nguyễn An' },
+      { id: 5, horseName: 'Bạch Long', vaccineType: 'Kiểm tra móng (Farrier Routine)', dueDate: '18/10/2026', status: 'UP_TO_DATE', dose: 'Gọt & đóng móng nhôm đua', vetInCharge: 'Farrier Trần Văn Vũ' }
+    ];
+  });
 
   // 4. Đơn thuốc & Phác đồ điều trị lâm sàng
-  const [prescriptions, setPrescriptions] = useState([
-    {
-      id: 'RX-2026-001',
-      horseName: 'Phi Yến',
-      stall: 'Ô A5',
-      diagnosis: 'Giãn gân trước trái độ 2',
-      medications: [
-        { name: 'Phenylbutazone 20%', dosage: '10ml tiêm tĩnh mạch IV', frequency: '1 lần/ngày x 5 ngày' },
-        { name: 'Gel lạnh giảm đau DMSO + Băng ép Cryotherapy', dosage: 'Bôi ngoài da', frequency: '2 lần/ngày (sáng/tối)' },
-        { name: 'Bột bổ sung khớp Glucosamine + MSM', dosage: '30g trộn khẩu phần ăn', frequency: 'Hàng ngày' }
-      ],
-      restrictions: 'Khóa hoàn toàn bài tập chạy nước rút và tập nặng. Chỉ cho phép đi bộ thả lỏng dắt tay 15 phút/ngày trên mặt đất mềm.',
-      date: '09/10/2026',
-      status: 'ACTIVE'
-    },
-    {
-      id: 'RX-2026-002',
-      horseName: 'Hắc Phong',
-      stall: 'Ô A3',
-      diagnosis: 'Nghi ngờ kích ứng dạ dày nhẹ (Mild Gastric Distress)',
-      medications: [
-        { name: 'Omeprazole Equine Paste (GastroGard)', dosage: '1 tuýp đường uống lúc đói', frequency: 'Mỗi sáng x 7 ngày' },
-        { name: 'Men vi sinh đường ruột Probiotic Paste', dosage: '15ml', frequency: 'Sau bữa ăn trưa' }
-      ],
-      restrictions: 'Chia nhỏ khẩu phần ăn làm 4 bữa. Tạm ngưng yến mạch đậm đặc, tăng cỏ khô Alfalfa chất lượng cao.',
-      date: '10/10/2026',
-      status: 'ACTIVE'
-    }
-  ]);
+  const [prescriptions, setPrescriptions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_vet_prescriptions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: 'RX-2026-001',
+        horseName: 'Phi Yến',
+        stall: 'Ô A5',
+        diagnosis: 'Giãn gân trước trái độ 2',
+        medications: [
+          { name: 'Phenylbutazone 20%', dosage: '10ml tiêm tĩnh mạch IV', frequency: '1 lần/ngày x 5 ngày' },
+          { name: 'Gel lạnh giảm đau DMSO + Băng ép Cryotherapy', dosage: 'Bôi ngoài da', frequency: '2 lần/ngày (sáng/tối)' },
+          { name: 'Bột bổ sung khớp Glucosamine + MSM', dosage: '30g trộn khẩu phần ăn', frequency: 'Hàng ngày' }
+        ],
+        restrictions: 'Khóa hoàn toàn bài tập chạy nước rút và tập nặng. Chỉ cho phép đi bộ thả lỏng dắt tay 15 phút/ngày trên mặt đất mềm.',
+        date: '09/10/2026',
+        status: 'ACTIVE'
+      },
+      {
+        id: 'RX-2026-002',
+        horseName: 'Hắc Phong',
+        stall: 'Ô A3',
+        diagnosis: 'Nghi ngờ kích ứng dạ dày nhẹ (Mild Gastric Distress)',
+        medications: [
+          { name: 'Omeprazole Equine Paste (GastroGard)', dosage: '1 tuýp đường uống lúc đói', frequency: 'Mỗi sáng x 7 ngày' },
+          { name: 'Men vi sinh đường ruột Probiotic Paste', dosage: '15ml', frequency: 'Sau bữa ăn trưa' }
+        ],
+        restrictions: 'Chia nhỏ khẩu phần ăn làm 4 bữa. Tạm ngưng yến mạch đậm đặc, tăng cỏ khô Alfalfa chất lượng cao.',
+        date: '10/10/2026',
+        status: 'ACTIVE'
+      }
+    ];
+  });
 
   // 5. Cấp chứng nhận y tế thi đấu (Vet Race Clearance)
-  const [raceClearanceList, setRaceClearanceList] = useState([
-    { id: 1, horseName: 'Xích Thố', raceName: 'Giải Vô địch Quốc gia Đại Nam 2026', distance: '2.400m', date: '25/10/2026', vetStatus: 'CLEARED', heartRateRest: '36 bpm', notes: 'Thể lực hoàn hảo, âm tim chuẩn, không có dấu hiệu phù nề gân.' },
-    { id: 2, horseName: 'Bạch Long', raceName: 'Cúp Đua Ngựa Mùa Thu Cự Ly Ngắn', distance: '1.200m', date: '28/10/2026', vetStatus: 'CLEARED', heartRateRest: '37 bpm', notes: 'Đạt chuẩn kiểm định thể lực thú y.' },
-    { id: 3, horseName: 'Hắc Phong', raceName: 'Giải Đua Tốc Độ Sân Cát', distance: '1.600m', date: '30/10/2026', vetStatus: 'PENDING_EXAM', heartRateRest: '38 bpm', notes: 'Chờ theo dõi thêm 48h về tiêu hóa trước khi cấp chứng nhận.' },
-    { id: 4, horseName: 'Phi Yến', raceName: 'Giải Vô địch Mở Rộng Cup C1', distance: '1.600m', date: '26/10/2026', vetStatus: 'REJECTED_INJURY', heartRateRest: '44 bpm', notes: 'TỪ CHỐI CẤP PHÉP: Đang chịu lệnh Khóa Y Tế do giãn gân chân trái!' }
-  ]);
+  const [raceClearanceList, setRaceClearanceList] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_vet_race_clearance');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      { id: 1, horseName: 'Xích Thố', raceName: 'Giải Vô địch Quốc gia Đại Nam 2026', distance: '2.400m', date: '25/10/2026', vetStatus: 'CLEARED', heartRateRest: '36 bpm', notes: 'Thể lực hoàn hảo, âm tim chuẩn, không có dấu hiệu phù nề gân.' },
+      { id: 2, horseName: 'Bạch Long', raceName: 'Cúp Đua Ngựa Mùa Thu Cự Ly Ngắn', distance: '1.200m', date: '28/10/2026', vetStatus: 'CLEARED', heartRateRest: '37 bpm', notes: 'Đạt chuẩn kiểm định thể lực thú y.' },
+      { id: 3, horseName: 'Hắc Phong', raceName: 'Giải Đua Tốc Độ Sân Cát', distance: '1.600m', date: '30/10/2026', vetStatus: 'PENDING_EXAM', heartRateRest: '38 bpm', notes: 'Chờ theo dõi thêm 48h về tiêu hóa trước khi cấp chứng nhận.' },
+      { id: 4, horseName: 'Phi Yến', raceName: 'Giải Vô địch Mở Rộng Cup C1', distance: '1.600m', date: '26/10/2026', vetStatus: 'REJECTED_INJURY', heartRateRest: '44 bpm', notes: 'TỪ CHỐI CẤP PHÉP: Đang chịu lệnh Khóa Y Tế do giãn gân chân trái!' }
+    ];
+  });
 
   // Modal Xử lý ca sự cố
   const [selectedIncidentModal, setSelectedIncidentModal] = useState(null);
@@ -347,6 +380,24 @@ export default function VetPage() {
           actionTaken: item.actionTaken || ''
         }));
         setIncidents(sanitized);
+      }
+    }).catch(() => {});
+
+    getVetPrescriptionsApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setPrescriptions(res);
+      }
+    }).catch(() => {});
+
+    getVetClearanceListApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setRaceClearanceList(res);
+      }
+    }).catch(() => {});
+
+    getVaccinationSchedulesApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setVaccines(res);
       }
     }).catch(() => {});
 
@@ -458,12 +509,19 @@ export default function VetPage() {
 
   // Hoàn tất mũi tiêm vaccine 1-chạm
   const handleMarkVaccineDone = (vacId) => {
-    setVaccines(prev => prev.map(v => {
-      if (v.id === vacId) {
-        return { ...v, status: 'UP_TO_DATE', dueDate: '15/04/2027' };
-      }
-      return v;
-    }));
+    setVaccines(prev => {
+      const next = prev.map(v => {
+        if (v.id === vacId) {
+          return { ...v, status: 'UP_TO_DATE', dueDate: '15/04/2027' };
+        }
+        return v;
+      });
+      try {
+        localStorage.setItem('matruong_vet_vaccines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    recordVaccinationApi({ id: vacId, status: 'UP_TO_DATE' }).catch(() => {});
     showToast('Đã xác nhận tiêm chủng & gia hạn lịch tiêm phòng thành công!', 'TIÊM CHỦNG ĐÃ LƯU', 'info');
   };
 
@@ -482,7 +540,13 @@ export default function VetPage() {
       date: new Date().toLocaleDateString('vi-VN'),
       status: 'ACTIVE'
     };
-    setPrescriptions([newRx, ...prescriptions]);
+    const updatedRx = [newRx, ...prescriptions];
+    setPrescriptions(updatedRx);
+    try {
+      localStorage.setItem('matruong_vet_prescriptions', JSON.stringify(updatedRx));
+    } catch {}
+    createVetPrescriptionApi(newRx).catch(() => {});
+
     showToast(`Đã xuất đơn thuốc điều trị #${newRx.id} cho ${newRx.horseName}`, 'KÊ ĐƠN THÀNH CÔNG', 'info');
     setShowAddRxModal(false);
     setNewRxData({
@@ -498,31 +562,45 @@ export default function VetPage() {
 
   // Ký duyệt y tế cho phép thi đấu (Vet Clearance)
   const handleApproveClearance = (item) => {
-    setRaceClearanceList(prev => prev.map(rc => {
-      if (rc.id === item.id) {
-        return {
-          ...rc,
-          vetStatus: 'CLEARED',
-          notes: `Bác sĩ Thú y ${currentUser?.full_name || 'Nguyễn An'} đã ký số xác nhận: Đủ 100% điều kiện y tế thi đấu.`
-        };
-      }
-      return rc;
-    }));
+    setRaceClearanceList(prev => {
+      const next = prev.map(rc => {
+        if (rc.id === item.id) {
+          return {
+            ...rc,
+            vetStatus: 'CLEARED',
+            notes: `Bác sĩ Thú y ${currentUser?.full_name || 'Nguyễn An'} đã ký số xác nhận: Đủ 100% điều kiện y tế thi đấu.`
+          };
+        }
+        return rc;
+      });
+      try {
+        localStorage.setItem('matruong_vet_race_clearance', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    updateVetClearanceApi({ id: item.id, vetStatus: 'CLEARED' }).catch(() => {});
     showToast(`Đã cấp chứng nhận y tế thi đấu cho chiến mã ${item.horseName}!`, 'VET CLEARANCE APPROVED', 'info');
   };
 
   // Từ chối tư cách thi đấu do rủi ro chấn thương
   const handleRejectClearance = (item) => {
-    setRaceClearanceList(prev => prev.map(rc => {
-      if (rc.id === item.id) {
-        return {
-          ...rc,
-          vetStatus: 'REJECTED_INJURY',
-          notes: `TỪ CHỐI BỞI BÁC SĨ THÚ Y: Phát hiện rủi ro cơ gân khi gắng sức. Đình chỉ thi đấu giải ${item.raceName}.`
-        };
-      }
-      return rc;
-    }));
+    setRaceClearanceList(prev => {
+      const next = prev.map(rc => {
+        if (rc.id === item.id) {
+          return {
+            ...rc,
+            vetStatus: 'REJECTED_INJURY',
+            notes: `TỪ CHỐI BỞI BÁC SĨ THÚ Y: Phát hiện rủi ro cơ gân khi gắng sức. Đình chỉ thi đấu giải ${item.raceName}.`
+          };
+        }
+        return rc;
+      });
+      try {
+        localStorage.setItem('matruong_vet_race_clearance', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    updateVetClearanceApi({ id: item.id, vetStatus: 'REJECTED_INJURY' }).catch(() => {});
     showToast(`Đã bác bỏ tư cách thi đấu của ${item.horseName} để bảo vệ an toàn sinh mạng chiến mã!`, 'VET VETO ACTIVE', 'warning');
   };
 

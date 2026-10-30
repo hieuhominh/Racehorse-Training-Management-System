@@ -25,19 +25,27 @@ import java.util.Map;
  * - GET, PUT /api/groom/feeding, /api/groom/feeding/*
  * - GET, POST /api/groom/care-logs
  * - GET, POST /api/groom/supplies
+ * - GET, POST, PUT /api/groom/routines, /api/groom/routines/*
+ * - GET, POST, PUT /api/groom/stalls, /api/groom/stalls/*
  */
 @WebServlet(name = "GroomApiController", urlPatterns = {
     "/api/groom/assignments",
     "/api/groom/feeding",
     "/api/groom/feeding/*",
     "/api/groom/care-logs",
-    "/api/groom/supplies"
+    "/api/groom/supplies",
+    "/api/groom/routines",
+    "/api/groom/routines/*",
+    "/api/groom/stalls",
+    "/api/groom/stalls/*"
 })
 public class GroomApiController extends HttpServlet {
 
     private static final List<Map<String, Object>> memoryFeeding = Collections.synchronizedList(new ArrayList<>());
     private static final List<Map<String, Object>> memoryCareLogs = Collections.synchronizedList(new ArrayList<>());
     private static final List<Map<String, Object>> memorySupplies = Collections.synchronizedList(new ArrayList<>());
+    private static final List<Map<String, Object>> memoryRoutines = Collections.synchronizedList(new ArrayList<>());
+    private static final List<Map<String, Object>> memoryStalls = Collections.synchronizedList(new ArrayList<>());
 
     static {
         Map<String, Object> f1 = new HashMap<>();
@@ -71,6 +79,92 @@ public class GroomApiController extends HttpServlet {
         sp1.put("minAlert", "10 bao");
         sp1.put("status", "SUFFICIENT");
         memorySupplies.add(sp1);
+
+        // Khởi tạo checklist chăm sóc mẫu
+        Map<String, Object> r1 = new HashMap<>();
+        r1.put("id", 1);
+        r1.put("time", "06:00");
+        r1.put("title", "Bữa sáng & Cấp nước");
+        r1.put("desc", "Cấp cỏ khô Alfalfa (4kg/con), yến mạch ngâm nở và kiểm tra phao nước tự động.");
+        r1.put("completed", true);
+        r1.put("completedAt", "06:25");
+        memoryRoutines.add(r1);
+
+        Map<String, Object> r2 = new HashMap<>();
+        r2.put("id", 2);
+        r2.put("time", "08:00");
+        r2.put("title", "Chải lông & Cạo móng");
+        r2.put("desc", "Dùng lược Curry chải sạch bụi cát, dao Hoof pick nạo sạch sỏi đá bám kẽ móng guốc.");
+        r2.put("completed", true);
+        r2.put("completedAt", "08:40");
+        memoryRoutines.add(r2);
+
+        Map<String, Object> r3 = new HashMap<>();
+        r3.put("id", 3);
+        r3.put("time", "11:30");
+        r3.put("title", "Bữa trưa & Điện giải");
+        r3.put("desc", "Khẩu phần cỏ tươi, cám đậm đặc và bổ sung điện giải chống mất nước do nắng nóng.");
+        r3.put("completed", true);
+        r3.put("completedAt", "11:45");
+        memoryRoutines.add(r3);
+
+        Map<String, Object> r4 = new HashMap<>();
+        r4.put("id", 4);
+        r4.put("time", "15:30");
+        r4.put("title", "Hạ nhiệt & Ngâm chân đá Cryo");
+        r4.put("desc", "Đón ngựa sau giờ tập của HLV, xịt nước làm mát gân chân và mang ủng đá lạnh 20 phút.");
+        r4.put("completed", true);
+        r4.put("completedAt", "16:05");
+        memoryRoutines.add(r4);
+
+        Map<String, Object> r5 = new HashMap<>();
+        r5.put("id", 5);
+        r5.put("time", "18:00");
+        r5.put("title", "Bữa tối & Khóa an toàn ban đêm");
+        r5.put("desc", "Cho ăn cỏ khô bữa tối, dọn sạch phân tồn đọng, khóa chốt an toàn cửa chuồng.");
+        r5.put("completed", false);
+        r5.put("completedAt", null);
+        memoryRoutines.add(r5);
+
+        // Khởi tạo ô chuồng mẫu
+        Map<String, Object> s1 = new HashMap<>();
+        s1.put("code", "A1");
+        s1.put("zone", "Block A");
+        s1.put("horseName", "Xích Thố");
+        s1.put("breed", "Thoroughbred");
+        s1.put("microchip", "MC-VN-2023-001");
+        s1.put("status", "NORMAL");
+        s1.put("bedding", "Mùn cưa sạch");
+        s1.put("beddingStatus", "GOOD");
+        s1.put("waterLevel", "100%");
+        s1.put("lastCleaned", "07:30 Sáng nay");
+        memoryStalls.add(s1);
+
+        Map<String, Object> s2 = new HashMap<>();
+        s2.put("code", "A2");
+        s2.put("zone", "Block A");
+        s2.put("horseName", "Bạch Long");
+        s2.put("breed", "Thoroughbred");
+        s2.put("microchip", "MC-VN-2024-003");
+        s2.put("status", "NORMAL");
+        s2.put("bedding", "Rơm khô mới thay");
+        s2.put("beddingStatus", "GOOD");
+        s2.put("waterLevel", "85%");
+        s2.put("lastCleaned", "08:00 Sáng nay");
+        memoryStalls.add(s2);
+
+        Map<String, Object> s3 = new HashMap<>();
+        s3.put("code", "A3");
+        s3.put("zone", "Block A");
+        s3.put("horseName", "Hắc Phong");
+        s3.put("breed", "Arabian");
+        s3.put("microchip", "MC-VN-2022-001");
+        s3.put("status", "WATCH_HEALTH");
+        s3.put("bedding", "Mùn cưa cần thay");
+        s3.put("beddingStatus", "NEEDS_CLEAN");
+        s3.put("waterLevel", "60%");
+        s3.put("lastCleaned", "Hôm qua");
+        memoryStalls.add(s3);
     }
 
     private final Gson gson = new Gson();
@@ -84,28 +178,26 @@ public class GroomApiController extends HttpServlet {
         String path = request.getServletPath();
 
         try (PrintWriter out = response.getWriter()) {
+            if ("/api/groom/routines".equals(path) || path.startsWith("/api/groom/routines")) {
+                synchronized (memoryRoutines) {
+                    out.print(gson.toJson(memoryRoutines));
+                }
+                out.flush();
+                return;
+            }
+
+            if ("/api/groom/stalls".equals(path) || path.startsWith("/api/groom/stalls")) {
+                synchronized (memoryStalls) {
+                    out.print(gson.toJson(memoryStalls));
+                }
+                out.flush();
+                return;
+            }
+
             if ("/api/groom/assignments".equals(path)) {
-                List<Map<String, Object>> stalls = new ArrayList<>();
-
-                Map<String, Object> s1 = new HashMap<>();
-                s1.put("stallCode", "A1");
-                s1.put("horseName", "Xích Thố");
-                s1.put("block", "Block A");
-                s1.put("beddingStatus", "CLEAN");
-                s1.put("lastMucked", "06:30 - Sáng nay");
-                s1.put("waterBucketClean", true);
-                stalls.add(s1);
-
-                Map<String, Object> s2 = new HashMap<>();
-                s2.put("stallCode", "A2");
-                s2.put("horseName", "Bạch Long");
-                s2.put("block", "Block A");
-                s2.put("beddingStatus", "CLEAN");
-                s2.put("lastMucked", "07:00 - Sáng nay");
-                s2.put("waterBucketClean", true);
-                stalls.add(s2);
-
-                out.print(gson.toJson(stalls));
+                synchronized (memoryStalls) {
+                    out.print(gson.toJson(memoryStalls));
+                }
                 out.flush();
                 return;
             }
@@ -149,11 +241,61 @@ public class GroomApiController extends HttpServlet {
             return;
         }
 
+        String path = request.getServletPath();
+
         try {
             JsonObject body = SecurityUtil.parseJsonObject(request);
             if (body == null) {
                 SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
                     "Dữ liệu yêu cầu không hợp lệ.");
+                return;
+            }
+
+            if ("/api/groom/routines".equals(path) || path.startsWith("/api/groom/routines")) {
+                int id = SecurityUtil.getInt(body, "id", -1);
+                boolean completed = SecurityUtil.getBoolean(body, "completed", true);
+
+                synchronized (memoryRoutines) {
+                    for (Map<String, Object> r : memoryRoutines) {
+                        if (String.valueOf(r.get("id")).equals(String.valueOf(id))) {
+                            r.put("completed", completed);
+                            r.put("completedAt", completed ? "Vừa xong" : null);
+                            break;
+                        }
+                    }
+                }
+
+                JsonObject res = new JsonObject();
+                res.addProperty("success", true);
+                res.addProperty("message", "Đã cập nhật checklist chăm sóc.");
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(res));
+                    out.flush();
+                }
+                return;
+            }
+
+            if ("/api/groom/stalls".equals(path) || path.startsWith("/api/groom/stalls")) {
+                String stallCode = SecurityUtil.getString(body, "stallCode", SecurityUtil.getString(body, "code", ""));
+
+                synchronized (memoryStalls) {
+                    for (Map<String, Object> s : memoryStalls) {
+                        if (stallCode.equalsIgnoreCase((String) s.get("code"))) {
+                            s.put("bedding", "Mùn cưa mới thay");
+                            s.put("beddingStatus", "GOOD");
+                            s.put("lastCleaned", "Vừa xong");
+                            break;
+                        }
+                    }
+                }
+
+                JsonObject res = new JsonObject();
+                res.addProperty("success", true);
+                res.addProperty("message", "Đã ghi nhận vệ sinh ô chuồng.");
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(res));
+                    out.flush();
+                }
                 return;
             }
 
@@ -202,11 +344,61 @@ public class GroomApiController extends HttpServlet {
             return;
         }
 
+        String path = request.getServletPath();
+
         try {
             JsonObject body = SecurityUtil.parseJsonObject(request);
             if (body == null) {
                 SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
                     "Dữ liệu yêu cầu không hợp lệ.");
+                return;
+            }
+
+            if ("/api/groom/routines".equals(path) || path.startsWith("/api/groom/routines")) {
+                int id = SecurityUtil.getInt(body, "id", -1);
+                boolean completed = SecurityUtil.getBoolean(body, "completed", true);
+
+                synchronized (memoryRoutines) {
+                    for (Map<String, Object> r : memoryRoutines) {
+                        if (String.valueOf(r.get("id")).equals(String.valueOf(id))) {
+                            r.put("completed", completed);
+                            r.put("completedAt", completed ? "Vừa xong" : null);
+                            break;
+                        }
+                    }
+                }
+
+                JsonObject res = new JsonObject();
+                res.addProperty("success", true);
+                res.addProperty("message", "Đã cập nhật checklist chăm sóc.");
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(res));
+                    out.flush();
+                }
+                return;
+            }
+
+            if ("/api/groom/stalls".equals(path) || path.startsWith("/api/groom/stalls")) {
+                String stallCode = SecurityUtil.getString(body, "stallCode", SecurityUtil.getString(body, "code", ""));
+
+                synchronized (memoryStalls) {
+                    for (Map<String, Object> s : memoryStalls) {
+                        if (stallCode.equalsIgnoreCase((String) s.get("code"))) {
+                            s.put("bedding", "Mùn cưa mới thay");
+                            s.put("beddingStatus", "GOOD");
+                            s.put("lastCleaned", "Vừa xong");
+                            break;
+                        }
+                    }
+                }
+
+                JsonObject res = new JsonObject();
+                res.addProperty("success", true);
+                res.addProperty("message", "Đã ghi nhận vệ sinh ô chuồng.");
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(res));
+                    out.flush();
+                }
                 return;
             }
 

@@ -5,6 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { 
   getTrainingProgramsApi, 
+  saveTrainingProgramApi,
+  getTelemetrySessionsApi,
+  recordTelemetryApi,
   getHorsesApi,
   getSystemTournamentNominationsApi,
   trainerReviewNominationApi,
@@ -413,52 +416,61 @@ export default function TrainerPage() {
   ]);
 
   // 2. Danh sách giáo án huấn luyện (Training Programs)
-  const [programs, setPrograms] = useState([
-    {
-      id: 1,
-      title: 'Tăng tốc nước rút 1.600m sân cát',
-      horseName: 'Hắc Phong',
-      phase: 'Nước rút (Sprint)',
-      targetDistance: 1600,
-      surface: 'SAND (Sân cát)',
-      startDate: '05/10/2026',
-      endDate: '25/10/2026',
-      status: 'ACTIVE'
-    },
-    {
-      id: 2,
-      title: 'Xây dựng thể lực nền sức bền 2.400m',
-      horseName: 'Xích Thố',
-      phase: 'Thể lực nền (Endurance)',
-      targetDistance: 2400,
-      surface: 'GRASS (Sân cỏ)',
-      startDate: '01/10/2026',
-      endDate: '30/10/2026',
-      status: 'ACTIVE'
-    },
-    {
-      id: 3,
-      title: 'Phục hồi chức năng & thả lỏng cơ khớp',
-      horseName: 'Phi Yến',
-      phase: 'Phục hồi (Recovery)',
-      targetDistance: 800,
-      surface: 'SAND (Sân cát)',
-      startDate: '08/10/2026',
-      endDate: '20/10/2026',
-      status: 'ACTIVE'
-    },
-    {
-      id: 4,
-      title: 'Kỹ thuật mở máy xuất phát & chuyển làn',
-      horseName: 'Lôi Chấn',
-      phase: 'Kỹ thuật (Gate & Pace)',
-      targetDistance: 1200,
-      surface: 'GRASS (Sân cỏ)',
-      startDate: '06/10/2026',
-      endDate: '22/10/2026',
-      status: 'ACTIVE'
-    }
-  ]);
+  const [programs, setPrograms] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_trainer_programs');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: 1,
+        title: 'Tăng tốc nước rút 1.600m sân cát',
+        horseName: 'Hắc Phong',
+        phase: 'Nước rút (Sprint)',
+        targetDistance: 1600,
+        surface: 'SAND (Sân cát)',
+        startDate: '05/10/2026',
+        endDate: '25/10/2026',
+        status: 'ACTIVE'
+      },
+      {
+        id: 2,
+        title: 'Xây dựng thể lực nền sức bền 2.400m',
+        horseName: 'Xích Thố',
+        phase: 'Thể lực nền (Endurance)',
+        targetDistance: 2400,
+        surface: 'GRASS (Sân cỏ)',
+        startDate: '01/10/2026',
+        endDate: '30/10/2026',
+        status: 'ACTIVE'
+      },
+      {
+        id: 3,
+        title: 'Phục hồi chức năng & thả lỏng cơ khớp',
+        horseName: 'Phi Yến',
+        phase: 'Phục hồi (Recovery)',
+        targetDistance: 800,
+        surface: 'SAND (Sân cát)',
+        startDate: '08/10/2026',
+        endDate: '20/10/2026',
+        status: 'ACTIVE'
+      },
+      {
+        id: 4,
+        title: 'Kỹ thuật mở máy xuất phát & chuyển làn',
+        horseName: 'Lôi Chấn',
+        phase: 'Kỹ thuật (Gate & Pace)',
+        targetDistance: 1200,
+        surface: 'GRASS (Sân cỏ)',
+        startDate: '06/10/2026',
+        endDate: '22/10/2026',
+        status: 'ACTIVE'
+      }
+    ];
+  });
 
   // Nạp giáo án & danh sách chiến mã từ API Backend khi khởi động
   useEffect(() => {
@@ -509,60 +521,79 @@ export default function TrainerPage() {
   }, []);
 
   // 3. Danh sách buổi tập & chỉ số Telemetry (Training Sessions)
-  const [sessions, setSessions] = useState([
-    {
-      id: 101,
-      time: '10/10/2026 06:30',
-      horseName: 'Xích Thố',
-      programTitle: 'Xây dựng thể lực nền sức bền 2.400m',
-      distanceRun: 2400,
-      avgSpeed: 64.2,
-      maxHeartRate: 198,
-      isOverLimit: false,
-      status: 'COMPLETED',
-      score: 9.5,
-      feedback: 'Sải chân cực kỳ đều đặn, nhịp thở ổn định khi qua khúc cua số 3, hoàn thành xuất sắc bài tập.'
-    },
-    {
-      id: 102,
-      time: '09/10/2026 17:00',
-      horseName: 'Hắc Phong',
-      programTitle: 'Tăng tốc nước rút 1.600m sân cát',
-      distanceRun: 1600,
-      avgSpeed: 62.8,
-      maxHeartRate: 216,
-      isOverLimit: true,
-      status: 'INCOMPLETE',
-      score: 6.5,
-      feedback: 'Tăng tốc tốt ở 400m cuối nhưng nhịp tim lên 216 bpm vượt ngưỡng. Đã cho dừng sớm để bảo đảm an toàn cơ bắp.'
-    },
-    {
-      id: 103,
-      time: '09/10/2026 07:15',
-      horseName: 'Bạch Long',
-      programTitle: 'Làm quen nhịp chạy cự ly ngắn',
-      distanceRun: 1000,
-      avgSpeed: 58.0,
-      maxHeartRate: 192,
-      isOverLimit: false,
-      status: 'COMPLETED',
-      score: 8.8,
-      feedback: 'Chiến mã trẻ tiếp thu bài rất nhanh, giữ thẳng lái tốt khi gặp áp lực bên cánh phải.'
-    },
-    {
-      id: 104,
-      time: '08/10/2026 08:00',
-      horseName: 'Phi Yến',
-      programTitle: 'Phục hồi chức năng & thả lỏng cơ khớp',
-      distanceRun: 800,
-      avgSpeed: 38.5,
-      maxHeartRate: 165,
-      isOverLimit: false,
-      status: 'COMPLETED',
-      score: 7.0,
-      feedback: 'Bài đi bộ thả lỏng theo đúng phác đồ bác sĩ thú y. Khớp gối trái đã bớt sưng đỏ.'
-    }
-  ]);
+  const [sessions, setSessions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_training_telemetry');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: 101,
+        time: '10/10/2026 06:30',
+        horseName: 'Xích Thố',
+        programTitle: 'Xây dựng thể lực nền sức bền 2.400m',
+        distanceRun: 2400,
+        avgSpeed: 64.2,
+        maxHeartRate: 198,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 9.5,
+        feedback: 'Sải chân cực kỳ đều đặn, nhịp thở ổn định khi qua khúc cua số 3, hoàn thành xuất sắc bài tập.'
+      },
+      {
+        id: 102,
+        time: '09/10/2026 17:00',
+        horseName: 'Hắc Phong',
+        programTitle: 'Tăng tốc nước rút 1.600m sân cát',
+        distanceRun: 1600,
+        avgSpeed: 62.8,
+        maxHeartRate: 216,
+        isOverLimit: true,
+        status: 'INCOMPLETE',
+        score: 6.5,
+        feedback: 'Tăng tốc tốt ở 400m cuối nhưng nhịp tim lên 216 bpm vượt ngưỡng. Đã cho dừng sớm để bảo đảm an toàn cơ bắp.'
+      },
+      {
+        id: 103,
+        time: '09/10/2026 07:15',
+        horseName: 'Bạch Long',
+        programTitle: 'Làm quen nhịp chạy cự ly ngắn',
+        distanceRun: 1000,
+        avgSpeed: 58.0,
+        maxHeartRate: 192,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 8.8,
+        feedback: 'Chiến mã trẻ tiếp thu bài rất nhanh, giữ thẳng lái tốt khi gặp áp lực bên cánh phải.'
+      },
+      {
+        id: 104,
+        time: '08/10/2026 08:00',
+        horseName: 'Phi Yến',
+        programTitle: 'Phục hồi chức năng & thả lỏng cơ khớp',
+        distanceRun: 800,
+        avgSpeed: 38.5,
+        maxHeartRate: 165,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 7.0,
+        feedback: 'Bài đi bộ thả lỏng theo đúng phác đồ bác sĩ thú y. Khớp gối trái đã bớt sưng đỏ.'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    getTelemetrySessionsApi().then(res => {
+      if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
+        setSessions(res.data);
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
 
   // Bộ lọc theo chiến mã & trạng thái bài tập
   const [filterHorse, setFilterHorse] = useState(() => {
@@ -643,7 +674,13 @@ export default function TrainerPage() {
       endDate: newProgramData.endDate || 'Chưa định',
       status: 'ACTIVE'
     };
-    setPrograms([newProg, ...programs]);
+    const updatedPrograms = [newProg, ...programs];
+    setPrograms(updatedPrograms);
+    try {
+      localStorage.setItem('matruong_trainer_programs', JSON.stringify(updatedPrograms));
+    } catch {}
+    saveTrainingProgramApi(newProg).catch(() => {});
+
     showToast(`Đã tạo giáo án mới cho ${newProgramData.horseName}`);
     setShowAddProgramModal(false);
     setNewProgramData({
@@ -676,7 +713,13 @@ export default function TrainerPage() {
       score: Number(newSessionData.score) || 8.0,
       feedback: newSessionData.feedback || 'Hoàn thành buổi tập theo kế hoạch đề ra.'
     };
-    setSessions([newSess, ...sessions]);
+    const updatedSessions = [newSess, ...sessions];
+    setSessions(updatedSessions);
+    try {
+      localStorage.setItem('matruong_training_telemetry', JSON.stringify(updatedSessions));
+    } catch {}
+    recordTelemetryApi(newSess).catch(() => {});
+
     showToast(`Đã lưu bài tập mới cho ${newSessionData.horseName} (${newSess.status === 'COMPLETED' ? 'Hoàn thành' : 'Chưa hoàn thành'})`);
     setShowAddSessionModal(false);
     setNewSessionData({
@@ -693,15 +736,21 @@ export default function TrainerPage() {
 
   // Chuyển đổi trạng thái Hoàn thành / Không hoàn thành 1-chạm
   const handleToggleSessionStatus = (sessionId) => {
-    setSessions(prev => prev.map(s => {
-      if (s.id === sessionId) {
-        const nextStatus = s.status === 'COMPLETED' ? 'INCOMPLETE' : 'COMPLETED';
-        const statusText = nextStatus === 'COMPLETED' ? 'Hoàn thành' : 'Không hoàn thành';
-        showToast(`Đã đổi bài tập của ${s.horseName} sang: ${statusText}`);
-        return { ...s, status: nextStatus };
-      }
-      return s;
-    }));
+    setSessions(prev => {
+      const next = prev.map(s => {
+        if (s.id === sessionId) {
+          const nextStatus = s.status === 'COMPLETED' ? 'INCOMPLETE' : 'COMPLETED';
+          const statusText = nextStatus === 'COMPLETED' ? 'Hoàn thành' : 'Không hoàn thành';
+          showToast(`Đã đổi bài tập của ${s.horseName} sang: ${statusText}`);
+          return { ...s, status: nextStatus };
+        }
+        return s;
+      });
+      try {
+        localStorage.setItem('matruong_training_telemetry', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   // Mở modal chấm điểm & ghi chú bài tập

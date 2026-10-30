@@ -4,7 +4,11 @@ import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import {
-  reportIncidentApi
+  reportIncidentApi,
+  getGroomRoutinesApi,
+  toggleGroomRoutineApi,
+  getGroomStallsApi,
+  updateGroomStallStatusApi
 } from '../services/api';
 import { getServiceAssignments, confirmServiceAssignment } from '../services/serviceAssignment';
 
@@ -75,7 +79,15 @@ export default function GroomPage() {
   }, [activeTab]);
 
   // 1. Dữ liệu các ô chuồng Groom phụ trách (Block A)
-  const [assignedStalls, setAssignedStalls] = useState([
+  const [assignedStalls, setAssignedStalls] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_groom_stalls_state');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
     {
       code: 'A1',
       zone: 'Block A',
@@ -166,10 +178,19 @@ export default function GroomPage() {
       lastCleaned: 'Sáng nay',
       image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
     }
-  ]);
+  ];
+  });
 
   // 2. Checklist Chăm sóc Trực ca hàng ngày
-  const [dailyRoutines, setDailyRoutines] = useState([
+  const [dailyRoutines, setDailyRoutines] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_groom_routines');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
     {
       id: 1,
       time: '06:00',
@@ -210,7 +231,25 @@ export default function GroomPage() {
       completed: false,
       completedAt: null
     }
-  ]);
+  ];
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    getGroomRoutinesApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setDailyRoutines(res);
+      }
+    }).catch(() => {});
+
+    getGroomStallsApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setAssignedStalls(res);
+      }
+    }).catch(() => {});
+
+    return () => { isMounted = false; };
+  }, []);
 
   // 3. Danh sách ca sự cố Groom đã báo cáo
   const [incidents, setIncidents] = useState([
@@ -275,34 +314,50 @@ export default function GroomPage() {
 
   // Toggle checklist item
   const handleToggleRoutine = (id) => {
-    setDailyRoutines(prev => prev.map(r => {
-      if (r.id === id) {
-        const nextState = !r.completed;
-        const now = new Date();
-        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        return {
-          ...r,
-          completed: nextState,
-          completedAt: nextState ? timeStr : null
-        };
-      }
-      return r;
-    }));
+    let targetNextState = false;
+    setDailyRoutines(prev => {
+      const next = prev.map(r => {
+        if (r.id === id) {
+          const nextState = !r.completed;
+          targetNextState = nextState;
+          const now = new Date();
+          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          return {
+            ...r,
+            completed: nextState,
+            completedAt: nextState ? timeStr : null
+          };
+        }
+        return r;
+      });
+      try {
+        localStorage.setItem('matruong_groom_routines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    toggleGroomRoutineApi(id, targetNextState).catch(() => {});
   };
 
   // Làm sạch đệm lót 1-chạm
   const handleCleanBedding = (stallCode) => {
-    setAssignedStalls(prev => prev.map(s => {
-      if (s.code === stallCode) {
-        return {
-          ...s,
-          bedding: 'Mùn cưa mới thay',
-          beddingStatus: 'GOOD',
-          lastCleaned: 'Vừa xong'
-        };
-      }
-      return s;
-    }));
+    setAssignedStalls(prev => {
+      const next = prev.map(s => {
+        if (s.code === stallCode) {
+          return {
+            ...s,
+            bedding: 'Mùn cưa mới thay',
+            beddingStatus: 'GOOD',
+            lastCleaned: 'Vừa xong'
+          };
+        }
+        return s;
+      });
+      try {
+        localStorage.setItem('matruong_groom_stalls_state', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    updateGroomStallStatusApi({ stallCode, bedding: 'Mùn cưa mới thay', beddingStatus: 'GOOD' }).catch(() => {});
     showToast(`Đã ghi nhận hoàn tất dọn vệ sinh ô chuồng ${stallCode}!`, 'VỆ SINH Ô CHUỒNG', 'info');
   };
 
