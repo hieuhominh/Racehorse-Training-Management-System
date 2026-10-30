@@ -85,6 +85,15 @@ const IconShieldHeart = ({ size = 18, color = 'currentColor' }) => (
   </svg>
 );
 
+const IconReceipt = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z" />
+    <path d="M14 8H8" />
+    <path d="M16 12H8" />
+    <path d="M13 16H8" />
+  </svg>
+);
+
 const IconPlus = ({ size = 16, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <line x1="12" y1="5" x2="12" y2="19" />
@@ -166,8 +175,17 @@ const DEMO_HORSES_VIP = [
     avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
     pedigree: {
       sire: 'Deep Impact (JPN)',
+      sireOfSire: 'Sunday Silence (USA)',
+      damOfSire: 'Wind in Her Hair (IRE)',
+      sireAchievements: 'Huyền thoại 7 danh hiệu G1, Vô địch Japan Cup',
       dam: 'Northern Dancer (USA)',
-      foaled: '2022 (4 tuổi)'
+      sireOfDam: 'Nearctic (CAN)',
+      damOfDam: 'Natalma (USA)',
+      damAchievements: 'Dòng máu cái vĩ đại nhất lịch sử đua ngựa thế giới',
+      foaled: '2022 (4 tuổi)',
+      bloodline: 'Sunday Silence × Northern Dancer (98.5% thuần chủng)',
+      origin: 'Nhật Bản (JRA) & Hoa Kỳ',
+      studBookNo: 'VTB-SB-2024-001'
     }
   },
   {
@@ -190,8 +208,17 @@ const DEMO_HORSES_VIP = [
     avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80',
     pedigree: {
       sire: 'Corona Cartel (USA)',
+      sireOfSire: 'Holland Ease (USA)',
+      damOfSire: 'Corona Chick (USA)',
+      sireAchievements: 'Vua nước rút Quarter Horse, Hall of Fame AQHA',
       dam: 'First Down Dash (USA)',
-      foaled: '2021 (5 tuổi)'
+      sireOfDam: 'Dash For Cash (USA)',
+      damOfDam: 'First Prize Rose (USA)',
+      damAchievements: 'Dòng dõi vô địch All American Futurity danh giá',
+      foaled: '2021 (5 tuổi)',
+      bloodline: 'Corona Cartel × Dash For Cash',
+      origin: 'Hoa Kỳ (AQHA Stud Book)',
+      studBookNo: 'VTB-SB-2022-088'
     }
   },
   {
@@ -214,8 +241,17 @@ const DEMO_HORSES_VIP = [
     avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
     pedigree: {
       sire: 'Frankel (GB)',
+      sireOfSire: 'Galileo (IRE)',
+      damOfSire: 'Kind (IRE)',
+      sireAchievements: 'Bất bại 14/14 chặng đua G1, Chiến mã số 1 hành tinh',
       dam: 'Sea The Stars (IRE)',
-      foaled: '2023 (3 tuổi)'
+      sireOfDam: 'Cape Cross (IRE)',
+      damOfDam: 'Urban Sea (USA)',
+      damAchievements: 'Vô địch Prix de l\'Arc de Triomphe & 2000 Guineas',
+      foaled: '2023 (3 tuổi)',
+      bloodline: 'Frankel (GB) × Sea The Stars (IRE)',
+      origin: 'Anh Quốc (Weatherbys) & Ireland',
+      studBookNo: 'VTB-SB-2023-009'
     }
   }
 ];
@@ -333,7 +369,26 @@ export default function OwnerPage() {
   const ownerKey = currentUser?.user_id || currentUser?.username || currentUser?.email || 'new_owner';
   const isDemoVip = currentUser?.username === 'owner_thanh' || currentUser?.email === 'owner@matruong.vn';
 
-  // Quản lý gói Hội viên: 'FREE' (Horse 0 Đồng) hoặc 'PREMIUM' (Horse Premium VIP)
+  // Bản quyền Gói VIP (Được bảo lưu vĩnh viễn sau khi đã mua hoặc với tài khoản Demo)
+  const [hasVipSubscription, setHasVipSubscription] = useState(() => {
+    try {
+      if (isDemoVip) return true;
+      const stored = localStorage.getItem(`matruong_owner_has_vip_${ownerKey}`);
+      if (stored === 'true') return true;
+      const key = `matruong_owner_payments_${ownerKey}`;
+      const payments = JSON.parse(localStorage.getItem(key) || '[]');
+      if (Array.isArray(payments) && payments.some(p => p.packageName && p.packageName.includes('VIP'))) {
+        return true;
+      }
+      const tier = localStorage.getItem(`matruong_owner_tier_${ownerKey}`);
+      if (tier === 'PREMIUM') return true;
+      return false;
+    } catch {
+      return isDemoVip;
+    }
+  });
+
+  // Quản lý gói Hội viên đang kích hoạt: 'FREE' (Horse 0 Đồng) hoặc 'PREMIUM' (Horse Premium VIP)
   const [membershipTier, setMembershipTier] = useState(() => {
     try {
       const stored = localStorage.getItem(`matruong_owner_tier_${ownerKey}`);
@@ -343,6 +398,15 @@ export default function OwnerPage() {
       return isDemoVip ? 'PREMIUM' : 'FREE';
     }
   });
+
+  // Tự động bảo lưu bản quyền VIP khi đã sở hữu
+  useEffect(() => {
+    try {
+      if (hasVipSubscription) {
+        localStorage.setItem(`matruong_owner_has_vip_${ownerKey}`, 'true');
+      }
+    } catch {}
+  }, [hasVipSubscription, ownerKey]);
 
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -360,25 +424,88 @@ export default function OwnerPage() {
     } catch {}
   }, [billingCycle]);
 
-  // Xử lý kích hoạt / đổi gói: Nếu chọn gói VIP thì chuyển sang giao dịch thanh toán
+  // Xử lý kích hoạt / đổi gói: Nếu đã sở hữu VIP thì khôi phục ngay không cần mua lại
   const handleSelectTier = (newTier) => {
     if (newTier === 'PREMIUM') {
+      if (hasVipSubscription) {
+        setMembershipTier('PREMIUM');
+        try {
+          localStorage.setItem(`matruong_owner_tier_${ownerKey}`, 'PREMIUM');
+        } catch {}
+        showToast('Đã khôi phục đặc quyền HORSE PREMIUM VIP của bạn! Gói hội viên vẫn còn hiệu lực.', 'KHÔI PHỤC VIP THÀNH CÔNG', 'info');
+        setShowMembershipModal(false);
+        return;
+      }
       setShowMembershipModal(false);
       setShowPaymentModal(true);
       return;
     }
+
+    // Hạ cấp hoặc chuyển tạm về FREE
     setMembershipTier('FREE');
     try {
       localStorage.setItem(`matruong_owner_tier_${ownerKey}`, 'FREE');
     } catch {}
-    showToast('Đã chuyển về gói Horse 0 Đồng (Cơ bản).', 'GÓI HỘI VIÊN', 'info');
+    if (hasVipSubscription) {
+      showToast('Đã chuyển tạm về chế độ gói Horse 0 Đồng. Bản quyền VIP của bạn vẫn được bảo lưu và có thể khôi phục bất cứ lúc nào mà không cần thanh toán lại!', 'BẢO LƯU GÓI VIP', 'info');
+    } else {
+      showToast('Đã chuyển về gói Horse 0 Đồng (Cơ bản).', 'GÓI HỘI VIÊN', 'info');
+    }
     setShowMembershipModal(false);
   };
 
+  // Quản lý Nhật ký Giao dịch & Thanh toán của Chủ sở hữu
+  const [financeSubTab, setFinanceSubTab] = useState('transactions'); // 'transactions' | 'statements'
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [selectedPaymentReceiptModal, setSelectedPaymentReceiptModal] = useState(null);
+
+  const [paymentHistory, setPaymentHistory] = useState(() => {
+    try {
+      const key = `matruong_owner_payments_${ownerKey}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      if (isDemoVip) {
+        return [
+          {
+            transactionId: 'TXN-VIP-889922',
+            packageName: 'HORSE PREMIUM VIP (Gói 1 Năm)',
+            billingCycle: '1 Năm (365 Ngày)',
+            amount: 35000000,
+            amountFormatted: '35.000.000 ₫',
+            method: 'Ngân hàng Vietcombank (VietQR 24/7)',
+            paidAt: '24/10/2026 14:32:10',
+            ownerName: currentUser?.full_name || 'Trần Quang Thành',
+            status: 'THÀNH CÔNG (PAID)'
+          },
+          {
+            transactionId: 'TXN-VIP-771204',
+            packageName: 'Phí đăng kiểm vi chip RFID & Giám định gen',
+            billingCycle: 'Giao dịch 1 lần',
+            amount: 5000000,
+            amountFormatted: '5.000.000 ₫',
+            method: 'Thẻ Quốc tế Visa ending *4242',
+            paidAt: '15/09/2026 10:15:44',
+            ownerName: currentUser?.full_name || 'Trần Quang Thành',
+            status: 'THÀNH CÔNG (PAID)'
+          }
+        ];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
+
   const handlePaymentSuccess = (receipt) => {
     setMembershipTier('PREMIUM');
+    setHasVipSubscription(true);
+    setPaymentHistory(prev => [receipt, ...prev]);
     try {
       localStorage.setItem(`matruong_owner_tier_${ownerKey}`, 'PREMIUM');
+      localStorage.setItem(`matruong_owner_has_vip_${ownerKey}`, 'true');
       const key = `matruong_owner_payments_${ownerKey}`;
       const existing = JSON.parse(localStorage.getItem(key) || '[]');
       localStorage.setItem(key, JSON.stringify([receipt, ...existing]));
@@ -663,9 +790,86 @@ export default function OwnerPage() {
   // Các Modal State
   const [selectedStatementModal, setSelectedStatementModal] = useState(null);
   const [selectedHorsePedigree, setSelectedHorsePedigree] = useState(null);
+  const [pedigreeMode, setPedigreeMode] = useState('view'); // 'view' | 'edit'
+  const [pedigreeFormData, setPedigreeFormData] = useState({
+    sire: '',
+    sireOfSire: '',
+    damOfSire: '',
+    sireAchievements: '',
+    dam: '',
+    sireOfDam: '',
+    damOfDam: '',
+    damAchievements: '',
+    foaled: '',
+    bloodline: '',
+    origin: '',
+    studBookNo: ''
+  });
+
+  // Mở Modal Phả hệ và chuẩn bị dữ liệu 3 thế hệ
+  const handleOpenPedigreeModal = (horse) => {
+    setSelectedHorsePedigree(horse);
+    setPedigreeMode('view');
+    setPedigreeFormData({
+      sire: horse.pedigree?.sire || '',
+      sireOfSire: horse.pedigree?.sireOfSire || '',
+      damOfSire: horse.pedigree?.damOfSire || '',
+      sireAchievements: horse.pedigree?.sireAchievements || '',
+      dam: horse.pedigree?.dam || '',
+      sireOfDam: horse.pedigree?.sireOfDam || '',
+      damOfDam: horse.pedigree?.damOfDam || '',
+      damAchievements: horse.pedigree?.damAchievements || '',
+      foaled: horse.pedigree?.foaled || horse.gender?.match(/\d+\s*tuổi/)?.[0] || '2023 (3 tuổi)',
+      bloodline: horse.pedigree?.bloodline || '',
+      origin: horse.pedigree?.origin || '',
+      studBookNo: horse.pedigree?.studBookNo || `VTB-SB-${horse.id || Date.now().toString().slice(-4)}`
+    });
+  };
+
+  // Chủ sở hữu lưu cập nhật phả hệ cho ngựa
+  const handleSavePedigree = (e) => {
+    if (e) e.preventDefault();
+    if (!selectedHorsePedigree) return;
+
+    const updatedPedigree = {
+      ...selectedHorsePedigree.pedigree,
+      sire: pedigreeFormData.sire.trim() || 'Chưa cập nhật',
+      sireOfSire: pedigreeFormData.sireOfSire.trim() || 'Chưa cập nhật',
+      damOfSire: pedigreeFormData.damOfSire.trim() || 'Chưa cập nhật',
+      sireAchievements: pedigreeFormData.sireAchievements.trim(),
+      dam: pedigreeFormData.dam.trim() || 'Chưa cập nhật',
+      sireOfDam: pedigreeFormData.sireOfDam.trim() || 'Chưa cập nhật',
+      damOfDam: pedigreeFormData.damOfDam.trim() || 'Chưa cập nhật',
+      damAchievements: pedigreeFormData.damAchievements.trim(),
+      foaled: pedigreeFormData.foaled.trim() || selectedHorsePedigree.pedigree?.foaled || '2023',
+      bloodline: pedigreeFormData.bloodline.trim(),
+      origin: pedigreeFormData.origin.trim(),
+      studBookNo: pedigreeFormData.studBookNo.trim()
+    };
+
+    const updatedHorse = {
+      ...selectedHorsePedigree,
+      pedigree: updatedPedigree
+    };
+
+    setMyHorses(prev => {
+      const next = prev.map(h => h.id === selectedHorsePedigree.id ? updatedHorse : h);
+      try {
+        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    updateOwnerHorseApi(ownerKey, updatedHorse).catch(() => {});
+    setSelectedHorsePedigree(updatedHorse);
+    setPedigreeMode('view');
+    showToast(`Đã lưu và cập nhật cây phả hệ cho chiến mã "${updatedHorse.name}" thành công!`, 'CẬP NHẬT PHẢ HỆ THÀNH CÔNG', 'success');
+  };
+
   const [showAddHorseModal, setShowAddHorseModal] = useState(false);
   const [showRaceRegisterModal, setShowRaceRegisterModal] = useState(false);
   const [selectedTournamentToRegister, setSelectedTournamentToRegister] = useState(null);
+  const [upgradePromptModal, setUpgradePromptModal] = useState(null); // Modal gợi ý nâng cấp VIP khi chạm giới hạn
 
   // Form State: Đăng ký ngựa mới
   const [horseForm, setHorseForm] = useState(() => ({
@@ -679,11 +883,58 @@ export default function OwnerPage() {
     microchip: `MC-VN-2026-${Math.floor(100 + Math.random() * 900)}`,
     ownershipShare: 100,
     trainer: 'Trần Văn Hùng (HLV Trưởng)',
-    stable: 'Ô A1 (Khu Huấn luyện)',
+    stable: membershipTier === 'PREMIUM'
+      ? 'Ô A1 (Khu Chuồng VIP Block A - 18 m² đệm rơm khử khuẩn)'
+      : 'Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)',
     sire: '',
     dam: '',
     avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80'
   }));
+
+  // Xử lý mở Modal Đăng Ký Chiến Mã (Ràng buộc tối đa 02 chiến mã đối với gói Free)
+  const handleOpenAddHorseModal = () => {
+    if (membershipTier !== 'PREMIUM' && myHorses.length >= 2) {
+      showToast('Gói cơ bản (Horse 0 Đồng) chỉ cho phép tối đa 02 chiến mã!', 'GIỚI HẠN GÓI CƠ BẢN', 'warning');
+      setUpgradePromptModal({
+        title: 'Đã Đạt Giới Hạn Tối Đa 02 Chiến Mã',
+        badge: 'GÓI HORSE 0 ĐỒNG',
+        message: 'Tài khoản của bạn hiện đang quản lý đủ 02/02 chiến mã được cấp phép trong Gói Cơ Bản. Để nhập chuồng thêm chiến mã thứ 3, vui lòng nâng cấp lên gói HORSE PREMIUM VIP.',
+        benefit: '✨ Đặc quyền VIP: Đăng ký & sở hữu không giới hạn số lượng chiến mã, ưu tiên ô chuồng VIP Block A/B.',
+        actionText: 'Nâng Cấp Gói VIP Ngay'
+      });
+      return;
+    }
+    setHorseForm(prev => ({
+      ...prev,
+      name: '',
+      englishName: '',
+      microchip: `MC-VN-2026-${Math.floor(100 + Math.random() * 900)}`,
+      stable: membershipTier === 'PREMIUM'
+        ? 'Ô A1 (Khu Chuồng VIP Block A - 18 m² đệm rơm khử khuẩn)'
+        : 'Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)'
+    }));
+    setShowAddHorseModal(true);
+  };
+
+  // Xử lý chọn ô chuồng: Gói Free chỉ được chọn chuồng Block C
+  const handleStableSelectChange = (e) => {
+    const selected = e.target.value;
+    if (membershipTier !== 'PREMIUM' && (selected.includes('Block A') || selected.includes('Block B') || selected.startsWith('Ô A') || selected.startsWith('Ô B'))) {
+      setUpgradePromptModal({
+        title: 'Ô Chuồng VIP Block A & Block B',
+        badge: 'ĐẶC QUYỀN VIP',
+        message: 'Các ô chuồng tại Khu VIP Block A và Block B (16–18 m² trang bị đệm rơm tiệt trùng, hệ thống quạt hút vi khí hậu & máy sưởi) chỉ dành riêng cho hội viên VIP. Gói cơ bản hiện tại được bố trí tại Khu Chuồng Tiêu chuẩn Block C (14 m²).',
+        benefit: '✨ Đặc quyền VIP: Không gian chuồng VIP rộng rãi chuẩn quốc tế, giúp chiến mã nghỉ ngơi phục hồi tối đa và giảm 80% rủi ro dịch bệnh.',
+        actionText: 'Nâng Cấp VIP Để Chọn Ô Chuồng Này'
+      });
+      setHorseForm(prev => ({
+        ...prev,
+        stable: 'Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)'
+      }));
+      return;
+    }
+    setHorseForm(prev => ({ ...prev, stable: selected }));
+  };
 
   // Form State: Đăng ký giải đấu
   const [raceRegForm, setRaceRegForm] = useState({
@@ -1070,6 +1321,24 @@ export default function OwnerPage() {
     return prize > costs ? prize - costs : 0;
   }, [totalPrizeAll, myHorses]);
 
+  // Tính tổng số tiền chủ sở hữu đã thanh toán
+  const totalPaidAmount = useMemo(() => {
+    const list = Array.isArray(paymentHistory) ? paymentHistory : [];
+    return list.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0);
+  }, [paymentHistory]);
+
+  // Tìm kiếm nhật ký thanh toán
+  const filteredPayments = useMemo(() => {
+    if (!paymentSearch.trim()) return paymentHistory;
+    const q = paymentSearch.toLowerCase().trim();
+    return paymentHistory.filter(p =>
+      (p.transactionId && p.transactionId.toLowerCase().includes(q)) ||
+      (p.packageName && p.packageName.toLowerCase().includes(q)) ||
+      (p.method && p.method.toLowerCase().includes(q)) ||
+      (p.paidAt && p.paidAt.toLowerCase().includes(q))
+    );
+  }, [paymentHistory, paymentSearch]);
+
   const formatVND = (num) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(num) || 0);
   };
@@ -1140,11 +1409,11 @@ export default function OwnerPage() {
             type="button"
             className={`portal-nav-item ${activeTab === 'finance' ? 'active' : ''}`}
             onClick={() => { setActiveTab('finance'); setSidebarOpen(false); }}
-            title="Quyết Toán Tài Chính & Tiền Thưởng Giải Đua"
+            title="Nhật Ký Giao Dịch, Thanh Toán & Quyết Toán Tiền Thưởng"
           >
             <span className="portal-nav-icon"><IconWallet size={18} /></span>
-            <span className="portal-nav-label">Đối soát tài chính</span>
-            <span className="portal-nav-badge">{statements.length}</span>
+            <span className="portal-nav-label">Giao dịch & Tài chính</span>
+            <span className="portal-nav-badge">{paymentHistory.length + statements.length}</span>
           </button>
 
           <button
@@ -1262,8 +1531,14 @@ export default function OwnerPage() {
             {/* NÚT ĐỔI GÓI CHUYỂN RA BÊN NGOÀI USER BADGE */}
             <button
               type="button"
-              onClick={() => setShowMembershipModal(true)}
-              title="Quản lý & thay đổi gói quyền lợi thành viên"
+              onClick={() => {
+                if (membershipTier === 'FREE' && hasVipSubscription) {
+                  handleSelectTier('PREMIUM');
+                } else {
+                  setShowMembershipModal(true);
+                }
+              }}
+              title={membershipTier === 'FREE' && hasVipSubscription ? "Nhấn để khôi phục đặc quyền VIP đã mua miễn phí" : "Quản lý & thay đổi gói quyền lợi thành viên"}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1281,8 +1556,13 @@ export default function OwnerPage() {
                 boxShadow: membershipTier === 'PREMIUM' ? 'none' : '0 2px 8px rgba(212, 175, 55, 0.25)'
               }}
             >
-              <IconCrown size={13} color={membershipTier === 'PREMIUM' ? 'var(--brass)' : '#0A0D14'} />
-              <span>{membershipTier === 'PREMIUM' ? 'Đổi gói' : 'Nâng cấp VIP'}</span>
+              <span>
+                {membershipTier === 'PREMIUM'
+                  ? '👑 Gói VIP'
+                  : hasVipSubscription
+                  ? '👑 Khôi phục VIP'
+                  : '👑 Nâng cấp VIP'}
+              </span>
             </button>
             <button
               onClick={handleLogout}
@@ -1327,7 +1607,7 @@ export default function OwnerPage() {
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <button
                     type="button"
-                    onClick={() => setShowAddHorseModal(true)}
+                    onClick={handleOpenAddHorseModal}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -1462,7 +1742,7 @@ export default function OwnerPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowAddHorseModal(true)}
+                  onClick={handleOpenAddHorseModal}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1495,7 +1775,7 @@ export default function OwnerPage() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => setShowAddHorseModal(true)}
+                    onClick={handleOpenAddHorseModal}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1517,7 +1797,7 @@ export default function OwnerPage() {
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '18px' }}>
                   {myHorses.map((h) => (
-                    <div key={h.id} className="facility-card" style={{ padding: '20px' }}>
+                    <div key={h.id} className="facility-card" style={{ padding: '18px 20px', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', gap: '14px', marginBottom: '14px' }}>
                         <img
                           src={h.avatar || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'}
@@ -1530,23 +1810,22 @@ export default function OwnerPage() {
                           }}
                         />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                            <div>
-                              <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{h.name}</b>
-                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', margin: '2px 0 0' }}>{h.englishName} · {h.breed}</div>
-                            </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                            <b
+                              style={{
+                                fontSize: '16px',
+                                color: 'var(--brass)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                minWidth: 0,
+                                flex: 1
+                              }}
+                              title={h.name}
+                            >
+                              {h.name}
+                            </b>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
-                              <span style={{
-                                padding: '2px 7px',
-                                borderRadius: '4px',
-                                fontSize: '10.5px',
-                                fontWeight: 700,
-                                background: h.status === 'ELIGIBLE' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                                color: h.status === 'ELIGIBLE' ? 'var(--brass)' : 'var(--paper-dim)',
-                                border: `1px solid ${h.status === 'ELIGIBLE' ? 'var(--brass)' : 'var(--line)'}`
-                              }}>
-                                {h.statusText}
-                              </span>
                               <button
                                 type="button"
                                 title="Chỉnh sửa thông tin chiến mã"
@@ -1591,7 +1870,38 @@ export default function OwnerPage() {
                               </button>
                             </div>
                           </div>
-                          <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', fontFamily: 'monospace', marginTop: '4px' }}>{h.microchip}</div>
+
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: 'var(--paper-dim)',
+                              margin: '2px 0 6px',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                            title={`${h.englishName ? h.englishName + ' · ' : ''}${h.breed}`}
+                          >
+                            {h.englishName ? `${h.englishName} · ` : ''}{h.breed}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              background: h.status === 'ELIGIBLE' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                              color: h.status === 'ELIGIBLE' ? 'var(--brass)' : 'var(--paper-dim)',
+                              border: `1px solid ${h.status === 'ELIGIBLE' ? 'var(--brass)' : 'var(--line)'}`,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {h.statusText}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                              {h.microchip}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -1644,7 +1954,7 @@ export default function OwnerPage() {
                         }}>
                           <button
                             type="button"
-                            onClick={() => setSelectedHorsePedigree(h)}
+                            onClick={() => handleOpenPedigreeModal(h)}
                             style={{
                               padding: '7px 10px',
                               borderRadius: '6px',
@@ -1708,6 +2018,71 @@ export default function OwnerPage() {
                 <p className="pane-desc">Thông số nhịp tim, tốc độ nước rút và nhận xét phong độ trực tiếp từ Huấn luyện viên trưởng.</p>
               </div>
 
+              {/* BANNER PHÂN BIỆT BÁO CÁO TÓM TẮT vs IOT REAL-TIME */}
+              {membershipTier !== 'PREMIUM' ? (
+                <div style={{
+                  background: 'rgba(212, 175, 55, 0.08)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '20px' }}>📋</span>
+                    <div>
+                      <b style={{ fontSize: '13px', color: 'var(--brass)' }}>Chế Độ Báo Cáo Huấn Luyện Tóm Tắt (Gói 0 Đồng)</b>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                        Bạn đang nhận bản tóm tắt phong độ định kỳ cuối tuần. Nâng cấp VIP để mở khóa cảm biến IoT Real-time đo gia tốc & nhịp tim từng mét chạy.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setUpgradePromptModal({
+                      title: 'Mở Khóa Viễn Trắc IoT Real-Time',
+                      badge: 'ĐẶC QUYỀN VIP',
+                      message: 'Chỉ số viễn trắc IoT (tốc độ từng chặng, gia tốc kế, biểu đồ nhịp tim thời gian thực và phân tích sải chân) là công cụ độc quyền của Gói HORSE PREMIUM VIP.',
+                      benefit: '✨ HLV Trưởng có thể tinh chỉnh giáo án 1-kèm-1 và phát hiện sớm rủi ro quá tải thể lực của chiến mã.',
+                      actionText: 'Nâng Cấp Gói VIP Ngay'
+                    })}
+                    style={{
+                      padding: '7px 15px',
+                      borderRadius: '6px',
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    ⚡ Mở Khóa IoT Real-Time
+                  </button>
+                </div>
+              ) : (
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: '8px',
+                  padding: '10px 16px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '12.5px',
+                  color: '#10B981'
+                }}>
+                  <span>👑</span>
+                  <span><b>Đặc quyền VIP hoạt động:</b> Kết nối IoT Real-Time đo nhịp tim & vận tốc từng mét chạy từ thiết bị đeo trên chiến mã.</span>
+                </div>
+              )}
+
               {trainingTelemetry.length === 0 ? (
                 <div className="facility-card" style={{ padding: '40px 24px', textAlign: 'center' }}>
                   <IconChart size={32} color="var(--paper-dim)" />
@@ -1719,7 +2094,7 @@ export default function OwnerPage() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => setShowAddHorseModal(true)}
+                    onClick={handleOpenAddHorseModal}
                     style={{
                       padding: '8px 18px',
                       borderRadius: '6px',
@@ -1757,18 +2132,100 @@ export default function OwnerPage() {
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '14px' }}>
-                        <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px' }}>
+                        {/* Box 1: Tốc độ bứt phá */}
+                        <div
+                          style={{
+                            background: 'var(--bg-secondary)',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
+                          }}
+                          onClick={() => {
+                            if (membershipTier !== 'PREMIUM') {
+                              setUpgradePromptModal({
+                                title: 'Mở Khóa Tốc Độ Bứt Phá Real-Time',
+                                badge: 'ĐẶC QUYỀN VIP',
+                                message: 'Cảm biến gia tốc IoT thời gian thực ghi nhận vận tốc tối đa tại từng khúc cua và cự ly bứt phá nước rút của chiến mã.',
+                                benefit: '✨ Đặc quyền VIP: Xem đồ thị tốc độ chi tiết từng giây chạy và phân tích góc nghiêng chân tiếp đất.',
+                                actionText: 'Nâng Cấp Gói VIP Ngay'
+                              });
+                            }
+                          }}
+                        >
                           <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>TỐC ĐỘ BỨT PHÁ MAX</div>
-                          <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.maxSpeed}</b>
+                          {membershipTier === 'PREMIUM' ? (
+                            <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.maxSpeed}</b>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
+                              <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
+                            </div>
+                          )}
                         </div>
-                        <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px' }}>
+
+                        {/* Box 2: Tốc độ trung bình */}
+                        <div
+                          style={{
+                            background: 'var(--bg-secondary)',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
+                          }}
+                          onClick={() => {
+                            if (membershipTier !== 'PREMIUM') {
+                              setUpgradePromptModal({
+                                title: 'Mở Khóa Vận Tốc Trung Bình Real-Time',
+                                badge: 'ĐẶC QUYỀN VIP',
+                                message: 'Tốc độ trung bình theo từng phân đoạn 400m được tính toán tự động qua chip định vị vệ tinh GPS đa băng tần.',
+                                benefit: '✨ Đặc quyền VIP: Báo cáo phân tích chuyên sâu hiệu suất phân phối thể lực trong suốt hành trình đua.',
+                                actionText: 'Nâng Cấp Gói VIP Ngay'
+                              });
+                            }
+                          }}
+                        >
                           <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>TỐC ĐỘ TRUNG BÌNH</div>
-                          <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.avgSpeed}</b>
+                          {membershipTier === 'PREMIUM' ? (
+                            <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.avgSpeed}</b>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
+                              <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
+                            </div>
+                          )}
                         </div>
-                        <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px' }}>
+
+                        {/* Box 3: Nhịp tim */}
+                        <div
+                          style={{
+                            background: 'var(--bg-secondary)',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
+                          }}
+                          onClick={() => {
+                            if (membershipTier !== 'PREMIUM') {
+                              setUpgradePromptModal({
+                                title: 'Mở Khóa Điện Tâm Đồ & Nhịp Tim Real-Time',
+                                badge: 'ĐẶC QUYỀN VIP',
+                                message: 'Vòng đeo đai ngực thông minh đo nhịp tim liên tục (bpm) khi vận động cực đại và thời gian phục hồi tim về mức nghỉ ngơi.',
+                                benefit: '✨ Đặc quyền VIP: Cảnh báo sớm hội chứng quá tải cơ tim và phòng ngừa đột quỵ khi thi đấu cường độ cao.',
+                                actionText: 'Nâng Cấp Gói VIP Ngay'
+                              });
+                            }
+                          }}
+                        >
                           <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>NHỊP TIM ĐỈNH / HỒI PHỤC</div>
-                          <b style={{ fontSize: '15px', color: 'var(--paper)' }}>{t.peakHeartRate}</b>
+                          {membershipTier === 'PREMIUM' ? (
+                            <b style={{ fontSize: '15px', color: 'var(--paper)' }}>{t.peakHeartRate}</b>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
+                              <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Box 4: Điểm sẵn sàng thi đấu */}
                         <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px' }}>
                           <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>ĐIỂM SẴN SÀNG THI ĐẤU</div>
                           <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{t.readinessScore}</b>
@@ -1776,7 +2233,27 @@ export default function OwnerPage() {
                       </div>
 
                       <div style={{ fontSize: '12.5px', color: 'var(--paper)', lineHeight: 1.45, background: 'rgba(212, 175, 55, 0.05)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-                        <b>Nhận xét của HLV Trưởng:</b> {t.trainerFeedback}
+                        <b>Nhận xét của HLV Trưởng:</b>{' '}
+                        {membershipTier === 'PREMIUM' ? (
+                          t.trainerFeedback
+                        ) : (
+                          <span>
+                            Báo cáo tóm tắt cuối tuần: Chiến mã duy trì thể lực tốt, hoàn thành trọn vẹn cự ly bài tập.{' '}
+                            <button
+                              type="button"
+                              onClick={() => setUpgradePromptModal({
+                                title: 'Giáo Án Huấn Luyện 1-Kèm-1 Với HLV Trưởng',
+                                badge: 'ĐẶC QUYỀN VIP',
+                                message: 'Chủ sở hữu gói VIP được trực tiếp trao đổi chiến thuật và nhận giáo án huấn luyện cá nhân hóa 1-kèm-1 trực tiếp từ HLV Trưởng Trần Văn Hùng.',
+                                benefit: '✨ Thiết lập bài tập chuyên biệt theo từng cự ly và trường đua để tối ưu cơ hội giật cúp vô địch.',
+                                actionText: 'Nâng Cấp Gói VIP Ngay'
+                              })}
+                              style={{ background: 'none', border: 'none', color: 'var(--brass)', fontWeight: 700, padding: 0, textDecoration: 'underline', cursor: 'pointer', fontSize: '12.5px' }}
+                            >
+                              (Nâng cấp VIP để nhận giáo án 1-kèm-1)
+                            </button>
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1851,9 +2328,57 @@ export default function OwnerPage() {
                           {tourn.description}
                         </p>
 
-                        <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '6px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
+                        <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '6px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                           <div>Ngày đua: <b style={{ color: 'var(--paper)' }}>{tourn.date}</b></div>
                           <div>Tổng thưởng: <b style={{ color: 'var(--brass)' }}>{formatVND(tourn.totalPurse)}</b></div>
+                        </div>
+
+                        {/* QUYỀN LỢI KHÁN ĐÀI: TIÊU CHUẨN vs VIP LOUNGE */}
+                        <div style={{
+                          marginBottom: '14px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          background: membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.1)' : 'var(--bg-secondary)',
+                          border: `1px solid ${membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.3)' : 'var(--line)'}`,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          fontSize: '11.5px',
+                          flexWrap: 'wrap',
+                          gap: '6px'
+                        }}>
+                          <span style={{ color: 'var(--paper-dim)' }}>Quyền lợi khán đài:</span>
+                          {membershipTier === 'PREMIUM' ? (
+                            <span style={{ color: 'var(--brass)', fontWeight: 700 }}>
+                              👑 VIP Lounge & Paddock Pass
+                            </span>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ color: 'var(--paper)', fontWeight: 600 }}>🎟️ Khán đài tiêu chuẩn</span>
+                              <button
+                                type="button"
+                                onClick={() => setUpgradePromptModal({
+                                  title: 'Đặc Quyền VIP Lounge & Khu Paddock',
+                                  badge: 'ĐẶC QUYỀN VIP',
+                                  message: 'Gói 0 Đồng trang bị Vé khán đài tiêu chuẩn. Nâng cấp lên gói HORSE PREMIUM VIP để nhận Thẻ VIP Lounge cao cấp có điều hòa và lối đi riêng vào khu cách ly Paddock đồng hành cùng chiến mã trước giờ xuất phát.',
+                                  benefit: '✨ Không gian xem đua chuẩn thượng lưu, tiệc teabreak và tiếp cận trực tiếp khu chuẩn bị thi đấu cùng Huấn luyện viên trưởng.',
+                                  actionText: 'Nâng Cấp Gói VIP Ngay'
+                                })}
+                                style={{
+                                  background: 'rgba(212, 175, 55, 0.15)',
+                                  border: '1px solid var(--brass)',
+                                  color: 'var(--brass)',
+                                  borderRadius: '4px',
+                                  padding: '2px 6px',
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Nâng VIP
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -2088,86 +2613,356 @@ export default function OwnerPage() {
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 4: QUYẾT TOÁN & ĐỐI SOÁT TÀI CHÍNH (FINANCIAL STATEMENTS) */}
+          {/* TAB 4: QUYẾT TOÁN & NHẬT KÝ GIAO DỊCH (FINANCIAL & TRANSACTION LOGS) */}
           {/* ========================================================================= */}
           {activeTab === 'finance' && (
             <div className="tab-pane">
-              <div className="pane-header" style={{ marginBottom: '16px' }}>
-                <h2 className="pane-title">Đối Soát Tài Chính & Tiền Thưởng (Purse & Statements)</h2>
-                <p className="pane-desc">Minh bạch thu nhập tiền thưởng giải đua, chi phí nuôi dưỡng và quyết toán hàng tháng.</p>
+              <div className="pane-header" style={{ marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h2 className="pane-title">Giao Dịch, Thanh Toán & Đối Soát Tài Chính</h2>
+                  <p className="pane-desc">Theo dõi nhật ký thanh toán các gói hội viên VIP, phí dịch vụ và bảng kê quyết toán định kỳ.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    fontWeight: 700,
+                    border: 'none',
+                    fontSize: '12.5px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)'
+                  }}
+                >
+                  <IconReceipt size={16} color="#0A0D14" />
+                  <span>+ Thanh Toán Gói VIP Ngay</span>
+                </button>
               </div>
 
-              {statements.length === 0 ? (
-                <div className="facility-card" style={{ padding: '40px 24px', textAlign: 'center' }}>
-                  <IconWallet size={32} color="var(--paper-dim)" />
-                  <h3 style={{ fontSize: '16px', color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    Chưa Có Bảng Kê Đối Soát Tài Chính
-                  </h3>
-                  <p style={{ fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '440px', margin: '0 auto 16px' }}>
-                    Bảng sao kê tiền thưởng giải đấu và chi phí chăm sóc chuồng trại sẽ tự động xuất hiện định kỳ vào ngày 20 hàng tháng.
-                  </p>
+              {/* KHỐI TỔNG QUAN TÀI CHÍNH */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '14px',
+                marginBottom: '22px'
+              }}>
+                <div className="facility-card" style={{ padding: '16px 18px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                    TỔNG TIỀN ĐÃ THANH TOÁN
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--brass)', margin: '6px 0 2px', fontFamily: 'var(--display)' }}>
+                    {formatVND(totalPaidAmount)}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    {paymentHistory.length} giao dịch thành công
+                  </div>
                 </div>
-              ) : (
-                <div className="facility-card" style={{ padding: 0, overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase' }}>
-                        <th style={{ padding: '14px 18px' }}>Kỳ quyết toán</th>
-                        <th style={{ padding: '14px 18px' }}>Chiến mã</th>
-                        <th style={{ padding: '14px 18px' }}>Thưởng giải đua</th>
-                        <th style={{ padding: '14px 18px' }}>Phí nuôi dưỡng</th>
-                        <th style={{ padding: '14px 18px' }}>Phí thú y</th>
-                        <th style={{ padding: '14px 18px' }}>Thực nhận ròng</th>
-                        <th style={{ padding: '14px 18px' }}>Trạng thái</th>
-                        <th style={{ padding: '14px 18px', textAlign: 'right' }}>Chi tiết</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {statements.map((s) => (
-                        <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>{s.period}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--brass)' }}>{s.horseName}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--brass)', fontWeight: 600 }}>+{formatVND(s.totalPrizeEarned)}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>-{formatVND(s.boardingCost)}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>-{formatVND(s.vetCost)}</td>
-                          <td style={{ padding: '14px 18px', fontWeight: 800, color: s.netPayable >= 0 ? 'var(--brass)' : 'var(--paper)' }}>
-                            {formatVND(s.netPayable)}
-                          </td>
-                          <td style={{ padding: '14px 18px' }}>
-                            <span style={{
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              background: s.status === 'PAID' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                              color: s.status === 'PAID' ? 'var(--brass)' : 'var(--paper-dim)',
-                              border: `1px solid ${s.status === 'PAID' ? 'var(--brass)' : 'var(--line)'}`
-                            }}>
-                              {s.statusText}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 18px', textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedStatementModal(s)}
-                              style={{
-                                padding: '5px 12px',
-                                borderRadius: '4px',
-                                background: 'var(--bg-secondary)',
-                                color: 'var(--paper)',
-                                border: '1px solid var(--line)',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                cursor: 'pointer'
-                              }}
-                            >
-                              Xem sao kê
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+
+                <div className="facility-card" style={{ padding: '16px 18px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                    TỔNG THƯỞNG GIẢI ĐUA
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#10B981', margin: '6px 0 2px', fontFamily: 'var(--display)' }}>
+                    +{formatVND(totalPrizeAll)}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    Doanh thu giải đấu tích lũy
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '16px 18px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                    SỐ DƯ QUỸ RÒNG CHIẾN MÃ
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--paper)', margin: '6px 0 2px', fontFamily: 'var(--display)' }}>
+                    {formatVND(netFundBalance)}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    Sau khấu trừ phí chuồng & HLV
+                  </div>
+                </div>
+              </div>
+
+              {/* TABS ĐIỀU HƯỚNG PHỤ: NHẬT KÝ GIAO DỊCH vs BẢNG KÊ QUYẾT TOÁN */}
+              <div style={{
+                display: 'flex',
+                gap: '10px',
+                marginBottom: '16px',
+                borderBottom: '1px solid var(--line)',
+                paddingBottom: '12px',
+                flexWrap: 'wrap'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setFinanceSubTab('transactions')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: financeSubTab === 'transactions' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                    border: `1.5px solid ${financeSubTab === 'transactions' ? 'var(--brass)' : 'var(--line)'}`,
+                    color: financeSubTab === 'transactions' ? 'var(--brass)' : 'var(--paper)',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px'
+                  }}
+                >
+                  <IconReceipt size={16} />
+                  <span>Nhật Ký Giao Dịch & Thanh Toán ({paymentHistory.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFinanceSubTab('statements')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: financeSubTab === 'statements' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                    border: `1.5px solid ${financeSubTab === 'statements' ? 'var(--brass)' : 'var(--line)'}`,
+                    color: financeSubTab === 'statements' ? 'var(--brass)' : 'var(--paper)',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px'
+                  }}
+                >
+                  <IconWallet size={16} />
+                  <span>Bảng Kê Đối Soát Định Kỳ ({statements.length})</span>
+                </button>
+              </div>
+
+              {/* NỘI DUNG 1: NHẬT KÝ GIAO DỊCH & HÓA ĐƠN THANH TOÁN */}
+              {financeSubTab === 'transactions' && (
+                <div>
+                  {/* Thanh tìm kiếm nhanh giao dịch */}
+                  <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '240px' }}>
+                      <input
+                        type="text"
+                        value={paymentSearch}
+                        onChange={(e) => setPaymentSearch(e.target.value)}
+                        placeholder="🔍 Tìm theo mã giao dịch, tên gói, phương thức..."
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '6px',
+                          color: 'var(--paper)',
+                          fontSize: '12.5px'
+                        }}
+                      />
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                      Hiển thị <b>{filteredPayments.length}</b> / {paymentHistory.length} giao dịch
+                    </div>
+                  </div>
+
+                  {filteredPayments.length === 0 ? (
+                    <div className="facility-card" style={{ padding: '40px 24px', textAlign: 'center' }}>
+                      <IconReceipt size={36} color="var(--paper-dim)" />
+                      <h3 style={{ fontSize: '16px', color: 'var(--paper)', margin: '14px 0 6px' }}>
+                        Chưa Có Giao Dịch Thanh Toán Nào
+                      </h3>
+                      <p style={{ fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '440px', margin: '0 auto 18px', lineHeight: 1.5 }}>
+                        Khi bạn thực hiện thanh toán gói hội viên VIP hoặc các dịch vụ tại trường đua, nhật ký và hóa đơn điện tử sẽ được lưu trữ minh bạch tại đây.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (hasVipSubscription) {
+                            handleSelectTier('PREMIUM');
+                          } else {
+                            setShowPaymentModal(true);
+                          }
+                        }}
+                        style={{
+                          padding: '9px 20px',
+                          borderRadius: '6px',
+                          background: 'var(--brass)',
+                          color: '#0A0D14',
+                          fontWeight: 700,
+                          border: 'none',
+                          fontSize: '13px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {hasVipSubscription ? '👑 Khôi Phục Đặc Quyền VIP (Miễn Phí)' : '⚡ Nâng Cấp Gói VIP Ngay'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="facility-card" style={{ padding: 0, overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '700px' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                            <th style={{ padding: '14px 18px' }}>Mã giao dịch</th>
+                            <th style={{ padding: '14px 18px' }}>Khoản thanh toán</th>
+                            <th style={{ padding: '14px 18px' }}>Phương thức</th>
+                            <th style={{ padding: '14px 18px' }}>Thời gian</th>
+                            <th style={{ padding: '14px 18px' }}>Số tiền</th>
+                            <th style={{ padding: '14px 18px' }}>Trạng thái</th>
+                            <th style={{ padding: '14px 18px', textAlign: 'right' }}>Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredPayments.map((p, idx) => (
+                            <tr key={idx} style={{ borderBottom: '1px solid var(--line)' }}>
+                              <td style={{ padding: '14px 18px' }}>
+                                <span style={{
+                                  fontFamily: 'monospace',
+                                  fontWeight: 700,
+                                  color: 'var(--brass)',
+                                  background: 'rgba(212, 175, 55, 0.1)',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px'
+                                }}>
+                                  {p.transactionId}
+                                </span>
+                              </td>
+                              <td style={{ padding: '14px 18px' }}>
+                                <b style={{ color: 'var(--paper)', display: 'block' }}>{p.packageName}</b>
+                                <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>{p.billingCycle}</span>
+                              </td>
+                              <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
+                                {p.method}
+                              </td>
+                              <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', fontSize: '12px' }}>
+                                {p.paidAt}
+                              </td>
+                              <td style={{ padding: '14px 18px', fontWeight: 800, color: '#10B981', fontSize: '14px' }}>
+                                {p.amountFormatted}
+                              </td>
+                              <td style={{ padding: '14px 18px' }}>
+                                <span style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10B981',
+                                  border: '1px solid rgba(16, 185, 129, 0.4)'
+                                }}>
+                                  ✓ {p.status || 'THÀNH CÔNG'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPaymentReceiptModal(p)}
+                                  style={{
+                                    padding: '5px 12px',
+                                    borderRadius: '5px',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--paper)',
+                                    border: '1px solid var(--line)',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                  }}
+                                >
+                                  <span>📄</span>
+                                  <span>Xem biên lai</span>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* NỘI DUNG 2: BẢNG KÊ ĐỐI SOÁT & THƯỞNG GIẢI ĐỊNH KỲ */}
+              {financeSubTab === 'statements' && (
+                <div>
+                  {statements.length === 0 ? (
+                    <div className="facility-card" style={{ padding: '40px 24px', textAlign: 'center' }}>
+                      <IconWallet size={32} color="var(--paper-dim)" />
+                      <h3 style={{ fontSize: '16px', color: 'var(--paper)', margin: '12px 0 6px' }}>
+                        Chưa Có Bảng Kê Đối Soát Tài Chính
+                      </h3>
+                      <p style={{ fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '440px', margin: '0 auto 16px' }}>
+                        Bảng sao kê tiền thưởng giải đấu và chi phí chăm sóc chuồng trại sẽ tự động xuất hiện định kỳ vào ngày 20 hàng tháng.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="facility-card" style={{ padding: 0, overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '700px' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase' }}>
+                            <th style={{ padding: '14px 18px' }}>Kỳ quyết toán</th>
+                            <th style={{ padding: '14px 18px' }}>Chiến mã</th>
+                            <th style={{ padding: '14px 18px' }}>Thưởng giải đua</th>
+                            <th style={{ padding: '14px 18px' }}>Phí nuôi dưỡng</th>
+                            <th style={{ padding: '14px 18px' }}>Phí thú y</th>
+                            <th style={{ padding: '14px 18px' }}>Thực nhận ròng</th>
+                            <th style={{ padding: '14px 18px' }}>Trạng thái</th>
+                            <th style={{ padding: '14px 18px', textAlign: 'right' }}>Chi tiết</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {statements.map((s) => (
+                            <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                              <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>{s.period}</td>
+                              <td style={{ padding: '14px 18px', color: 'var(--brass)' }}>{s.horseName}</td>
+                              <td style={{ padding: '14px 18px', color: 'var(--brass)', fontWeight: 600 }}>+{formatVND(s.totalPrizeEarned)}</td>
+                              <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>-{formatVND(s.boardingCost)}</td>
+                              <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>-{formatVND(s.vetCost)}</td>
+                              <td style={{ padding: '14px 18px', fontWeight: 800, color: s.netPayable >= 0 ? 'var(--brass)' : 'var(--paper)' }}>
+                                {formatVND(s.netPayable)}
+                              </td>
+                              <td style={{ padding: '14px 18px' }}>
+                                <span style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  background: s.status === 'PAID' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                                  color: s.status === 'PAID' ? 'var(--brass)' : 'var(--paper-dim)',
+                                  border: `1px solid ${s.status === 'PAID' ? 'var(--brass)' : 'var(--line)'}`
+                                }}>
+                                  {s.statusText}
+                                </span>
+                              </td>
+                              <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedStatementModal(s)}
+                                  style={{
+                                    padding: '5px 12px',
+                                    borderRadius: '4px',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--paper)',
+                                    border: '1px solid var(--line)',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Xem sao kê
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2317,7 +3112,7 @@ export default function OwnerPage() {
                         cursor: 'pointer'
                       }}
                     >
-                      ⚡ Kích Hoạt Premium 1-Chạm
+                      {hasVipSubscription ? '👑 Khôi Phục Đặc Quyền VIP' : '⚡ Kích Hoạt Premium VIP'}
                     </button>
                   ) : (
                     <button
@@ -2334,7 +3129,7 @@ export default function OwnerPage() {
                         cursor: 'pointer'
                       }}
                     >
-                      Hạ cấp về gói 0 Đồng
+                      {hasVipSubscription ? 'Chuyển tạm về gói 0 Đồng (Bảo lưu VIP)' : 'Hạ cấp về gói 0 Đồng'}
                     </button>
                   )}
                 </div>
@@ -2408,7 +3203,9 @@ export default function OwnerPage() {
                         cursor: membershipTier === 'FREE' ? 'default' : 'pointer'
                       }}
                     >
-                      {membershipTier === 'FREE' ? 'Gói Bạn Đang Dùng' : 'Hạ Cấp Về Gói 0 Đồng'}
+                      {membershipTier === 'FREE'
+                        ? (hasVipSubscription ? 'Đang Bật Chế Độ 0Đ (Tạm Thời)' : 'Gói Bạn Đang Dùng')
+                        : (hasVipSubscription ? 'Chuyển Tạm Về 0Đ (Bảo Lưu VIP)' : 'Hạ Cấp Về Gói 0 Đồng')}
                     </button>
                   </div>
                 </div>
@@ -2492,10 +3289,104 @@ export default function OwnerPage() {
                         cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
                       }}
                     >
-                      {membershipTier === 'PREMIUM' ? 'Đặc Quyền VIP Đang Hoạt Động ✓' : '⚡ Kích Hoạt Gói Premium Ngay'}
+                      {membershipTier === 'PREMIUM'
+                        ? 'Đặc Quyền VIP Đang Hoạt Động ✓'
+                        : hasVipSubscription
+                        ? '👑 Khôi Phục Đặc Quyền VIP (Đã Sở Hữu)'
+                        : '⚡ Kích Hoạt Gói Premium Ngay'}
                     </button>
+                    {membershipTier === 'FREE' && hasVipSubscription && (
+                      <div style={{ textAlign: 'center', fontSize: '11.5px', color: 'var(--brass)', marginTop: '6px', fontWeight: 600 }}>
+                        ✓ Bạn đã sở hữu gói VIP, bấm để kích hoạt lại mà không cần thanh toán
+                      </div>
+                    )}
                   </div>
                 </div>
+              </div>
+
+              {/* LỊCH SỬ GIAO DỊCH GÓI VIP */}
+              <div style={{ marginTop: '28px', borderTop: '1px solid var(--line)', paddingTop: '22px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: 'var(--brass)', fontSize: '18px' }}>🧾</span>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--paper)' }}>
+                      Lịch Sử Giao Dịch Gói Hội Viên & Hóa Đơn
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab('finance'); setFinanceSubTab('transactions'); }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--brass)',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    Xem toàn bộ nhật ký tài chính →
+                  </button>
+                </div>
+
+                {paymentHistory.length === 0 ? (
+                  <div style={{ padding: '20px', background: 'var(--bg-secondary)', borderRadius: '8px', textAlign: 'center', fontSize: '13px', color: 'var(--paper-dim)' }}>
+                    Bạn chưa thực hiện giao dịch thanh toán gói hội viên nào. Khi đăng ký gói VIP, hóa đơn điện tử sẽ tự động hiển thị tại đây.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {paymentHistory.slice(0, 3).map((p, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '8px',
+                          padding: '12px 16px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '10px'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <b style={{ fontSize: '13.5px', color: 'var(--paper)' }}>{p.packageName}</b>
+                            <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 700, background: 'rgba(16, 185, 129, 0.12)', padding: '1px 6px', borderRadius: '4px' }}>
+                              ✓ ĐÃ THANH TOÁN
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                            Mã GD: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{p.transactionId}</span> · {p.method} · {p.paidAt}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <b style={{ fontSize: '15px', color: '#10B981' }}>{p.amountFormatted}</b>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPaymentReceiptModal(p)}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: '4px',
+                              background: 'var(--bg-secondary)',
+                              color: 'var(--paper)',
+                              border: '1px solid var(--line)',
+                              fontSize: '12px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Xem biên lai
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2636,6 +3527,7 @@ export default function OwnerPage() {
                   <input
                     type="text"
                     required
+                    maxLength={45}
                     placeholder="Ví dụ: Hắc Mã, Kim Quy..."
                     value={horseForm.name}
                     onChange={(e) => setHorseForm({ ...horseForm, name: e.target.value })}
@@ -2800,7 +3692,7 @@ export default function OwnerPage() {
                   </label>
                   <select
                     value={horseForm.stable}
-                    onChange={(e) => setHorseForm({ ...horseForm, stable: e.target.value })}
+                    onChange={handleStableSelectChange}
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -2812,11 +3704,31 @@ export default function OwnerPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    <option value="Ô A1 (Khu Huấn luyện A)">Ô A1 (Khu Huấn luyện A)</option>
-                    <option value="Ô A3 (Khu Huấn luyện A)">Ô A3 (Khu Huấn luyện A)</option>
-                    <option value="Ô B1 (Khu Chuồng trại VIP)">Ô B1 (Khu Chuồng trại VIP)</option>
-                    <option value="Ô B2 (Khu Chuồng trại VIP)">Ô B2 (Khu Chuồng trại VIP)</option>
+                    <optgroup label="── KHU CHUỒNG TIÊU CHUẨN (GÓI CƠ BẢN & VIP) ──">
+                      <option value="Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)">Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)</option>
+                      <option value="Ô C2 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)">Ô C2 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)</option>
+                      <option value="Ô C3 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)">Ô C3 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)</option>
+                    </optgroup>
+                    <optgroup label="── KHU CHUỒNG VIP ĐẶC QUYỀN (YÊU CẦU GÓI VIP) ──">
+                      <option value="Ô A1 (Khu Chuồng VIP Block A - 18 m² đệm rơm khử khuẩn)">
+                        {membershipTier === 'PREMIUM' ? '👑 Ô A1 (Khu Chuồng VIP Block A - 18 m²)' : '🔒 Ô A1 (Khu Chuồng VIP Block A - Cần VIP)'}
+                      </option>
+                      <option value="Ô A2 (Khu Chuồng VIP Block A - 18 m² đệm rơm khử khuẩn)">
+                        {membershipTier === 'PREMIUM' ? '👑 Ô A2 (Khu Chuồng VIP Block A - 18 m²)' : '🔒 Ô A2 (Khu Chuồng VIP Block A - Cần VIP)'}
+                      </option>
+                      <option value="Ô B1 (Khu Chuồng VIP Block B - 16 m² vi khí hậu)">
+                        {membershipTier === 'PREMIUM' ? '👑 Ô B1 (Khu Chuồng VIP Block B - 16 m²)' : '🔒 Ô B1 (Khu Chuồng VIP Block B - Cần VIP)'}
+                      </option>
+                      <option value="Ô B2 (Khu Chuồng VIP Block B - 16 m² vi khí hậu)">
+                        {membershipTier === 'PREMIUM' ? '👑 Ô B2 (Khu Chuồng VIP Block B - 16 m²)' : '🔒 Ô B2 (Khu Chuồng VIP Block B - Cần VIP)'}
+                      </option>
+                    </optgroup>
                   </select>
+                  {membershipTier !== 'PREMIUM' && (
+                    <div style={{ fontSize: '11px', color: 'var(--brass)', marginTop: '4px', lineHeight: 1.3 }}>
+                      ℹ️ Gói 0 Đồng: Cố định ô chuồng Block C (14 m²). Chọn ô Block A/B để nâng cấp VIP.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3038,6 +3950,7 @@ export default function OwnerPage() {
                   <input
                     type="text"
                     required
+                    maxLength={45}
                     value={editHorseForm.name}
                     onChange={(e) => setEditHorseForm({ ...editHorseForm, name: e.target.value })}
                     style={{
@@ -3708,20 +4621,77 @@ export default function OwnerPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--paper-dim)' }}>Phí nuôi dưỡng & chuồng:</span>
-                <span style={{ color: 'var(--paper)' }}>-{formatVND(selectedStatementModal.boardingCost)}</span>
+                <span style={{ color: 'var(--paper)' }}>
+                  -{formatVND(selectedStatementModal.boardingCost)}
+                  {membershipTier === 'PREMIUM' ? (
+                    <span style={{ color: '#10B981', fontSize: '11px', marginLeft: '6px', fontWeight: 600 }}>(Đã giảm 15% VIP)</span>
+                  ) : (
+                    <span style={{ color: 'var(--paper-dim)', fontSize: '11px', marginLeft: '6px' }}>(0% chiết khấu)</span>
+                  )}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--paper-dim)' }}>Phí khám & tiêm phòng:</span>
                 <span style={{ color: 'var(--paper)' }}>-{formatVND(selectedStatementModal.vetCost)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--paper-dim)' }}>Phí hoa hồng HLV:</span>
-                <span style={{ color: 'var(--paper)' }}>-{formatVND(selectedStatementModal.trainerCommission)}</span>
+                <span style={{ color: 'var(--paper-dim)' }}>Phí hoa hồng CLB & HLV:</span>
+                <span style={{ color: 'var(--paper)' }}>
+                  -{formatVND(selectedStatementModal.trainerCommission)}
+                  {membershipTier === 'PREMIUM' ? (
+                    <span style={{ color: '#10B981', fontSize: '11px', marginLeft: '6px', fontWeight: 600 }}>(Chỉ thu 6% VIP)</span>
+                  ) : (
+                    <span style={{ color: '#EF4444', fontSize: '11px', marginLeft: '6px', fontWeight: 600 }}>(CLB giữ 18%)</span>
+                  )}
+                </span>
               </div>
               <div style={{ borderTop: '1px solid var(--line)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                 <b>Thực nhận ròng:</b>
                 <b style={{ color: 'var(--brass)' }}>{formatVND(selectedStatementModal.netPayable)}</b>
               </div>
+
+              {/* GỢI Ý NÂNG CẤP VIP ĐỂ TĂNG THU NHẬP TIỀN THƯỞNG */}
+              {membershipTier !== 'PREMIUM' && (
+                <div style={{
+                  marginTop: '6px',
+                  background: 'rgba(212, 175, 55, 0.1)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  borderRadius: '6px',
+                  padding: '8px 10px',
+                  fontSize: '11.5px',
+                  color: 'var(--brass)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span>💡 Gói 0 Đồng trích 18% hoa hồng và 0% chiết khấu chuồng. Nâng cấp VIP để giữ 94% thưởng và giảm 15% phí nuôi!</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedStatementModal(null);
+                      if (hasVipSubscription) {
+                        handleSelectTier('PREMIUM');
+                      } else {
+                        setShowPaymentModal(true);
+                      }
+                    }}
+                    style={{
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      border: 'none',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {hasVipSubscription ? '👑 Khôi phục VIP' : 'Nâng cấp VIP'}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -3750,64 +4720,635 @@ export default function OwnerPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 4: XEM PHẢ HỆ CHIẾN MÃ (PEDIGREE MODAL) */}
+      {/* MODAL 4: XEM & TỰ CẬP NHẬT CÂY PHẢ HỆ CHIẾN MÃ (PEDIGREE MODAL) */}
       {/* ========================================================================= */}
       {selectedHorsePedigree && (
-        <div className="modal-overlay" onClick={() => setSelectedHorsePedigree(null)}>
+        <div className="modal-overlay" onClick={() => setSelectedHorsePedigree(null)} style={{ zIndex: 9999999 }}>
           <div
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
               background: 'var(--bg-card)',
-              maxWidth: '460px',
-              width: '90%',
-              padding: '22px 24px',
-              border: '1px solid var(--line-strong)',
-              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)'
+              maxWidth: '920px',
+              width: '95%',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '24px 26px',
+              border: '1.5px solid var(--brass)',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.65)',
+              borderRadius: '12px'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--brass)' }}>
-                Phả Hệ: {selectedHorsePedigree.name}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setSelectedHorsePedigree(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '18px', cursor: 'pointer', lineHeight: 1 }}
-              >
-                ✕
-              </button>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', gap: '14px', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '22px' }}>🧬</span>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--brass)' }}>
+                    Cây Phả Hệ Gia Phả 3 Đời: {selectedHorsePedigree.name}
+                  </h3>
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                  {selectedHorsePedigree.englishName ? `${selectedHorsePedigree.englishName} · ` : ''}{selectedHorsePedigree.breed} · {selectedHorsePedigree.gender} · Mã vi chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{selectedHorsePedigree.microchip}</span>
+                </div>
+              </div>
+
+              {/* Chuyển đổi chế độ Xem Cây / Tự Cập Nhật */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '3px', borderRadius: '7px', border: '1px solid var(--line)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPedigreeMode('view')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '5px',
+                      background: pedigreeMode === 'view' ? 'var(--brass)' : 'transparent',
+                      color: pedigreeMode === 'view' ? '#0A0D14' : 'var(--paper-dim)',
+                      fontWeight: 700,
+                      border: 'none',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>🌳</span> Sơ đồ cây phả hệ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPedigreeMode('edit')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '5px',
+                      background: pedigreeMode === 'edit' ? 'var(--brass)' : 'transparent',
+                      color: pedigreeMode === 'edit' ? '#0A0D14' : 'var(--paper-dim)',
+                      fontWeight: 700,
+                      border: 'none',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>✏️</span> Tự cập nhật phả hệ
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedHorsePedigree(null)}
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper-dim)',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '6px',
+                    fontSize: '16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: 1
+                  }}
+                  title="Đóng modal"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 14px' }}>
-              {selectedHorsePedigree.breed} · {selectedHorsePedigree.ownershipType}
-            </p>
-
-            <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '6px', fontSize: '13px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div>Dòng bố (Sire): <b style={{ color: 'var(--brass)' }}>{selectedHorsePedigree.pedigree?.sire}</b></div>
-              <div>Dòng mẹ (Dam): <b style={{ color: 'var(--brass)' }}>{selectedHorsePedigree.pedigree?.dam}</b></div>
-              <div>Năm sinh: <b style={{ color: 'var(--paper)' }}>{selectedHorsePedigree.pedigree?.foaled}</b></div>
-              <div>Chip vi mạch: <span style={{ fontFamily: 'monospace', color: 'var(--paper)' }}>{selectedHorsePedigree.microchip}</span></div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setSelectedHorsePedigree(null)}
-                style={{
-                  padding: '7px 16px',
-                  borderRadius: '6px',
+            {/* ========================================================= */}
+            {/* CHẾ ĐỘ 1: XEM SƠ ĐỒ CÂY PHẢ HỆ 3 THẾ HỆ */}
+            {/* ========================================================= */}
+            {pedigreeMode === 'view' && (
+              <div>
+                <div style={{
                   background: 'var(--bg-secondary)',
-                  color: 'var(--paper)',
                   border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '24px 20px',
+                  overflowX: 'auto',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    minWidth: '800px',
+                    gap: '0px'
+                  }}>
+                    {/* CỘT 1: THẾ HỆ 0 - CHIẾN MÃ (CHỦ THỂ) */}
+                    <div style={{ width: '220px', flexShrink: 0, paddingRight: '12px' }}>
+                      <div style={{
+                        background: 'var(--bg-card)',
+                        border: '1.5px solid var(--brass)',
+                        borderRadius: '8px',
+                        padding: '16px 14px',
+                        boxShadow: '0 4px 14px rgba(212, 175, 55, 0.15)',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ width: '52px', height: '52px', borderRadius: '50%', margin: '0 auto 8px', overflow: 'hidden', border: '2px solid var(--brass)' }}>
+                          <img
+                            src={selectedHorsePedigree.avatar || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'}
+                            alt={selectedHorsePedigree.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: 800, background: 'var(--brass)', color: '#0A0D14', padding: '2px 8px', borderRadius: '10px', letterSpacing: '0.04em' }}>
+                          CHIẾN MÃ (CHỦ THỂ)
+                        </span>
+                        <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--brass)', marginTop: '8px' }}>
+                          {selectedHorsePedigree.name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                          {selectedHorsePedigree.englishName || selectedHorsePedigree.breed}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '6px' }}>
+                          Vị trí: <b>{selectedHorsePedigree.stable}</b>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* BRACKET CỘT 1 -> CỘT 2 */}
+                    <div style={{
+                      width: '28px',
+                      height: '270px',
+                      position: 'relative',
+                      flexShrink: 0
+                    }}>
+                      <div style={{ position: 'absolute', top: '50%', left: 0, width: '14px', height: '2px', background: 'var(--brass)', transform: 'translateY(-50%)' }} />
+                      <div style={{ position: 'absolute', top: '25%', bottom: '25%', left: '14px', width: '2px', background: 'var(--brass)' }} />
+                      <div style={{ position: 'absolute', top: '25%', left: '14px', width: '14px', height: '2px', background: 'var(--brass)' }} />
+                      <div style={{ position: 'absolute', bottom: '25%', left: '14px', width: '14px', height: '2px', background: 'var(--brass)' }} />
+                    </div>
+
+                    {/* CỘT 2: THẾ HỆ 1 - CHA & MẸ (SIRE & DAM) */}
+                    <div style={{ width: '250px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                      {/* BỐ (SIRE) */}
+                      <div style={{
+                        background: 'var(--bg-card)',
+                        border: '1.5px solid #3B82F6',
+                        borderRadius: '8px',
+                        padding: '12px 14px',
+                        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.12)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(59, 130, 246, 0.2)', color: '#60A5FA', padding: '1px 7px', borderRadius: '4px' }}>
+                            ♂ DÒNG BỐ (SIRE)
+                          </span>
+                          <span style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>F1</span>
+                        </div>
+                        <div style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--paper)' }}>
+                          {selectedHorsePedigree.pedigree?.sire || 'Chưa cập nhật'}
+                        </div>
+                        {selectedHorsePedigree.pedigree?.sireAchievements && (
+                          <div style={{ fontSize: '11px', color: '#93C5FD', marginTop: '4px', lineHeight: 1.3 }}>
+                            🏆 {selectedHorsePedigree.pedigree.sireAchievements}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* MẸ (DAM) */}
+                      <div style={{
+                        background: 'var(--bg-card)',
+                        border: '1.5px solid #F43F5E',
+                        borderRadius: '8px',
+                        padding: '12px 14px',
+                        boxShadow: '0 2px 8px rgba(244, 63, 94, 0.12)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(244, 63, 94, 0.2)', color: '#FB7185', padding: '1px 7px', borderRadius: '4px' }}>
+                            ♀ DÒNG MẸ (DAM)
+                          </span>
+                          <span style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>F1</span>
+                        </div>
+                        <div style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--paper)' }}>
+                          {selectedHorsePedigree.pedigree?.dam || 'Chưa cập nhật'}
+                        </div>
+                        {selectedHorsePedigree.pedigree?.damAchievements && (
+                          <div style={{ fontSize: '11px', color: '#FDA4AF', marginTop: '4px', lineHeight: 1.3 }}>
+                            🌸 {selectedHorsePedigree.pedigree.damAchievements}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* BRACKET CỘT 2 -> CỘT 3 */}
+                    <div style={{
+                      width: '28px',
+                      height: '350px',
+                      position: 'relative',
+                      flexShrink: 0
+                    }}>
+                      {/* Nhánh Bố -> Ông Bà Nội */}
+                      <div style={{ position: 'absolute', top: '23%', left: 0, width: '14px', height: '2px', background: '#3B82F6', transform: 'translateY(-50%)' }} />
+                      <div style={{ position: 'absolute', top: '11%', height: '24%', left: '14px', width: '2px', background: '#3B82F6' }} />
+                      <div style={{ position: 'absolute', top: '11%', left: '14px', width: '14px', height: '2px', background: '#3B82F6' }} />
+                      <div style={{ position: 'absolute', top: '35%', left: '14px', width: '14px', height: '2px', background: '#3B82F6' }} />
+
+                      {/* Nhánh Mẹ -> Ông Bà Ngoại */}
+                      <div style={{ position: 'absolute', bottom: '23%', left: 0, width: '14px', height: '2px', background: '#F43F5E', transform: 'translateY(50%)' }} />
+                      <div style={{ position: 'absolute', bottom: '11%', height: '24%', left: '14px', width: '2px', background: '#F43F5E' }} />
+                      <div style={{ position: 'absolute', bottom: '35%', left: '14px', width: '14px', height: '2px', background: '#F43F5E' }} />
+                      <div style={{ position: 'absolute', bottom: '11%', left: '14px', width: '14px', height: '2px', background: '#F43F5E' }} />
+                    </div>
+
+                    {/* CỘT 3: THẾ HỆ 2 - ÔNG BÀ NỘI & NGOẠI (F2) */}
+                    <div style={{ width: '250px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {/* ÔNG NỘI */}
+                      <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '6px', padding: '9px 12px' }}>
+                        <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#60A5FA', textTransform: 'uppercase' }}>
+                          ♂ Ông nội (Sire of Sire)
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                          {selectedHorsePedigree.pedigree?.sireOfSire || 'Chưa cập nhật'}
+                        </div>
+                      </div>
+
+                      {/* BÀ NỘI */}
+                      <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(244, 63, 94, 0.4)', borderRadius: '6px', padding: '9px 12px' }}>
+                        <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#FB7185', textTransform: 'uppercase' }}>
+                          ♀ Bà nội (Dam of Sire)
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                          {selectedHorsePedigree.pedigree?.damOfSire || 'Chưa cập nhật'}
+                        </div>
+                      </div>
+
+                      {/* ÔNG NGOẠI */}
+                      <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '6px', padding: '9px 12px', marginTop: '8px' }}>
+                        <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#60A5FA', textTransform: 'uppercase' }}>
+                          ♂ Ông ngoại (Sire of Dam)
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                          {selectedHorsePedigree.pedigree?.sireOfDam || 'Chưa cập nhật'}
+                        </div>
+                      </div>
+
+                      {/* BÀ NGOẠI */}
+                      <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(244, 63, 94, 0.4)', borderRadius: '6px', padding: '9px 12px' }}>
+                        <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#FB7185', textTransform: 'uppercase' }}>
+                          ♀ Bà ngoại (Dam of Dam)
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                          {selectedHorsePedigree.pedigree?.damOfDam || 'Chưa cập nhật'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BẢNG TỔNG QUAN DÒNG DÕI HUYẾT THỐNG */}
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '14px 18px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '18px'
+                }}>
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
+                      Sổ Phả Hệ Quốc Tế (Stud Book)
+                    </span>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--brass)', marginTop: '2px', fontFamily: 'monospace' }}>
+                      {selectedHorsePedigree.pedigree?.studBookNo || `VTB-SB-${selectedHorsePedigree.id || '2026'}`}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
+                      Năm Sinh & Độ Tuổi
+                    </span>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                      {selectedHorsePedigree.pedigree?.foaled || selectedHorsePedigree.gender}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
+                      Xuất Xứ Giống & Đăng Kiểm
+                    </span>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                      {selectedHorsePedigree.pedigree?.origin || 'Việt Nam (Trường đua Phú Thọ)'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
+                      Đặc Trưng Dòng Dõi
+                    </span>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--brass)', marginTop: '2px' }}>
+                      {selectedHorsePedigree.pedigree?.bloodline || 'Thuần chủng F1 thi đấu chính thức'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nút hành động */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPedigreeMode('edit')}
+                    style={{
+                      padding: '9px 18px',
+                      borderRadius: '6px',
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      fontWeight: 800,
+                      border: 'none',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)'
+                    }}
+                  >
+                    <span>✏️</span> Tự Cập Nhật Phả Hệ Cho Ngựa Này
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedHorsePedigree(null)}
+                    style={{
+                      padding: '8px 20px',
+                      borderRadius: '6px',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--paper)',
+                      border: '1px solid var(--line)',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* CHẾ ĐỘ 2: CHỦ SỞ HỮU TỰ CẬP NHẬT PHẢ HỆ (EDITING FORM) */}
+            {/* ========================================================= */}
+            {pedigreeMode === 'edit' && (
+              <form onSubmit={handleSavePedigree}>
+                <div style={{
+                  background: 'rgba(212, 175, 55, 0.06)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
                   fontSize: '12.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                Đóng
-              </button>
-            </div>
+                  color: 'var(--brass)',
+                  lineHeight: 1.45
+                }}>
+                  💡 <b>Quyền chủ sở hữu:</b> Bạn có thể tự do nhập thông tin dòng dõi 3 thế hệ (Dòng Bố, Dòng Mẹ, Ông Bà Nội Ngoại, Sổ Phả Hệ và Thành tích). Sau khi lưu, hệ thống sẽ tự động cập nhật và vẽ lại cây phả hệ gia phả cho chiến mã.
+                </div>
+
+                {/* KHỐI 1: THÔNG TIN KHAI SINH & SỔ PHẢ HỆ */}
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '14px 16px',
+                  marginBottom: '14px'
+                }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--brass)', marginBottom: '10px' }}>
+                    1. Khai Sinh & Đăng Ký Sổ Phả Hệ (Stud Book)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Năm sinh / Tuổi
+                      </label>
+                      <input
+                        type="text"
+                        value={pedigreeFormData.foaled}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, foaled: e.target.value })}
+                        placeholder="Ví dụ: 2022 (4 tuổi)"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Mã Sổ Phả Hệ (Stud Book No.)
+                      </label>
+                      <input
+                        type="text"
+                        value={pedigreeFormData.studBookNo}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, studBookNo: e.target.value })}
+                        placeholder="Ví dụ: VTB-SB-2024-001"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px', fontFamily: 'monospace' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Quốc gia xuất xứ dòng máu
+                      </label>
+                      <input
+                        type="text"
+                        value={pedigreeFormData.origin}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, origin: e.target.value })}
+                        placeholder="Ví dụ: Nhật Bản (JRA) / Anh Quốc"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Đặc trưng dòng dõi huyết thống
+                      </label>
+                      <input
+                        type="text"
+                        value={pedigreeFormData.bloodline}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, bloodline: e.target.value })}
+                        placeholder="Ví dụ: Sunday Silence × Northern Dancer"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* KHỐI 2: NHÁNH DÒNG BỐ (PATERNAL LINE - SIRE ♂) */}
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  borderRadius: '8px',
+                  padding: '14px 16px',
+                  marginBottom: '14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#60A5FA', marginBottom: '10px' }}>
+                    <span>♂</span> 2. Nhánh Dòng Bố (Paternal Line - Sire)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Tên Bố (Sire) <span style={{ color: 'var(--brass)' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={pedigreeFormData.sire}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, sire: e.target.value })}
+                        placeholder="Ví dụ: Deep Impact (JPN)"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Ông nội (Sire of Sire)
+                      </label>
+                      <input
+                        type="text"
+                        value={pedigreeFormData.sireOfSire}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, sireOfSire: e.target.value })}
+                        placeholder="Ví dụ: Sunday Silence (USA)"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Bà nội (Dam of Sire)
+                      </label>
+                      <input
+                        type="text"
+                        value={pedigreeFormData.damOfSire}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, damOfSire: e.target.value })}
+                        placeholder="Ví dụ: Wind in Her Hair (IRE)"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '10px' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                      Thành tích / Danh hiệu nổi bật của nhánh Bố
+                    </label>
+                    <input
+                      type="text"
+                      value={pedigreeFormData.sireAchievements}
+                      onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, sireAchievements: e.target.value })}
+                      placeholder="Ví dụ: Vô địch 7 danh hiệu G1, Huyền thoại Japan Cup & Dubai Sheema"
+                      style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* KHỐI 3: NHÁNH DÒNG MẸ (MATERNAL LINE - DAM ♀) */}
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid rgba(244, 63, 94, 0.3)',
+                  borderRadius: '8px',
+                  padding: '14px 16px',
+                  marginBottom: '18px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#FB7185', marginBottom: '10px' }}>
+                    <span>♀</span> 3. Nhánh Dòng Mẹ (Maternal Line - Dam)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Tên Mẹ (Dam) <span style={{ color: 'var(--brass)' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={pedigreeFormData.dam}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, dam: e.target.value })}
+                        placeholder="Ví dụ: Northern Dancer (USA)"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Ông ngoại (Sire of Dam)
+                      </label>
+                      <input
+                        type="text"
+                        value={pedigreeFormData.sireOfDam}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, sireOfDam: e.target.value })}
+                        placeholder="Ví dụ: Nearctic (CAN)"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                        Bà ngoại (Dam of Dam)
+                      </label>
+                      <input
+                        type="text"
+                        value={pedigreeFormData.damOfDam}
+                        onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, damOfDam: e.target.value })}
+                        placeholder="Ví dụ: Natalma (USA)"
+                        style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '10px' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
+                      Thành tích / Danh hiệu nổi bật của nhánh Mẹ
+                    </label>
+                    <input
+                      type="text"
+                      value={pedigreeFormData.damAchievements}
+                      onChange={(e) => setPedigreeFormData({ ...pedigreeFormData, damAchievements: e.target.value })}
+                      placeholder="Ví dụ: Dòng giống mẫu tộc quý tộc, sinh nhiều nhà vô địch cúp Derby"
+                      style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '5px', color: 'var(--paper)', fontSize: '12.5px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Nút lưu form */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPedigreeMode('view')}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: '6px',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--paper-dim)',
+                      border: '1px solid var(--line)',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✕ Hủy / Xem Cây Phả Hệ
+                  </button>
+
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '8px 22px',
+                      borderRadius: '6px',
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      fontWeight: 800,
+                      border: 'none',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 10px rgba(212, 175, 55, 0.3)'
+                    }}
+                  >
+                    💾 Lưu Cập Nhật Phả Hệ
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -3951,7 +5492,9 @@ export default function OwnerPage() {
                       cursor: membershipTier === 'FREE' ? 'default' : 'pointer'
                     }}
                   >
-                    {membershipTier === 'FREE' ? 'Đang Dùng Gói Này' : 'Chuyển Về 0 Đồng'}
+                    {membershipTier === 'FREE'
+                      ? (hasVipSubscription ? 'Đang Dùng Chế Độ 0 Đồng (Bảo Lưu VIP)' : 'Đang Dùng Gói Này')
+                      : (hasVipSubscription ? 'Chuyển Tạm Về 0 Đồng (Bảo Lưu VIP)' : 'Chuyển Về 0 Đồng')}
                   </button>
                 </div>
               </div>
@@ -4023,8 +5566,17 @@ export default function OwnerPage() {
                       cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
                     }}
                   >
-                    {membershipTier === 'PREMIUM' ? 'Đặc Quyền VIP Đang Kích Hoạt ✓' : '⚡ Kích Hoạt Gói Premium Ngay'}
+                    {membershipTier === 'PREMIUM'
+                      ? 'Đặc Quyền VIP Đang Kích Hoạt ✓'
+                      : hasVipSubscription
+                        ? '👑 Khôi Phục Đặc Quyền VIP (Đã Sở Hữu)'
+                        : '⚡ Kích Hoạt Gói Premium Ngay'}
                   </button>
+                  {hasVipSubscription && membershipTier === 'FREE' && (
+                    <div style={{ fontSize: '11px', color: 'var(--brass)', textAlign: 'center', marginTop: '6px' }}>
+                      (Gói VIP của bạn vẫn còn hiệu lực, khôi phục miễn phí)
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -4071,6 +5623,251 @@ export default function OwnerPage() {
         }}
         onPaymentSuccess={handlePaymentSuccess}
       />
+
+      {/* ========================================================================= */}
+      {/* MODAL 7: CHI TIẾT BIÊN LAI THANH TOÁN ĐIỆN TỬ (PAYMENT RECEIPT MODAL) */}
+      {/* ========================================================================= */}
+      {selectedPaymentReceiptModal && (
+        <div className="modal-overlay" onClick={() => setSelectedPaymentReceiptModal(null)} style={{ zIndex: 9999999 }}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              maxWidth: '520px',
+              width: '92%',
+              padding: '26px',
+              border: '1.5px solid var(--brass)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
+              borderRadius: '12px'
+            }}
+          >
+            {/* Header Biên lai */}
+            <div style={{ textAlign: 'center', borderBottom: '1px dashed var(--line-strong)', paddingBottom: '16px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800, marginBottom: '4px' }}>
+                TRƯỜNG ĐUA QUỐC TẾ PHÚ THỌ · HỆ THỐNG MÃ TRƯỜNG OS
+              </div>
+              <h3 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: 800, color: 'var(--paper)' }}>
+                BIÊN LAI THANH TOÁN ĐIỆN TỬ
+              </h3>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                Mã hóa đơn: <b style={{ color: 'var(--brass)', fontFamily: 'monospace' }}>{selectedPaymentReceiptModal.transactionId}</b>
+              </div>
+            </div>
+
+            {/* Chi tiết nội dung thanh toán */}
+            <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '8px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--paper-dim)' }}>Khách hàng / Chủ ngựa:</span>
+                <b style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.ownerName}</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--paper-dim)' }}>Nội dung thanh toán:</span>
+                <b style={{ color: 'var(--brass)' }}>{selectedPaymentReceiptModal.packageName}</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--paper-dim)' }}>Thời hạn / Chu kỳ:</span>
+                <span style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.billingCycle}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--paper-dim)' }}>Phương thức thanh toán:</span>
+                <span style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.method}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--paper-dim)' }}>Thời gian thực hiện:</span>
+                <span style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.paidAt}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--paper-dim)' }}>Trạng thái giao dịch:</span>
+                <span style={{ color: '#10B981', fontWeight: 800 }}>✓ {selectedPaymentReceiptModal.status || 'THÀNH CÔNG'}</span>
+              </div>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '15px' }}>
+                <b>Tổng tiền thực thu:</b>
+                <b style={{ color: '#10B981', fontSize: '18px' }}>{selectedPaymentReceiptModal.amountFormatted}</b>
+              </div>
+            </div>
+
+            {/* Chữ ký số / Chứng nhận điện tử */}
+            <div style={{
+              background: 'rgba(212, 175, 55, 0.08)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              borderRadius: '6px',
+              padding: '10px 12px',
+              marginBottom: '18px',
+              fontSize: '11.5px',
+              color: 'var(--paper-dim)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span style={{ fontSize: '16px' }}>🛡️</span>
+              <div>
+                Chứng thực hóa đơn điện tử hợp lệ theo chuẩn Napas / Ngân hàng Nhà nước. Đơn vị thụ hưởng: <b>CTY CP TRƯỜNG ĐUA QUỐC TẾ PHÚ THỌ</b>.
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentReceiptModal(null)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--paper)',
+                  border: '1px solid var(--line)',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  showToast('Đã tải hóa đơn điện tử PDF về máy!', 'XUẤT HÓA ĐƠN', 'info');
+                  setSelectedPaymentReceiptModal(null);
+                }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '6px',
+                  background: 'var(--brass)',
+                  color: '#0A0D14',
+                  fontWeight: 700,
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                🖨️ In / Tải Hóa Đơn PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 8: GỢI Ý NÂNG CẤP GÓI VIP (VIP UPGRADE PROMPT MODAL) */}
+      {/* ========================================================================= */}
+      {upgradePromptModal && (
+        <div className="modal-overlay" onClick={() => setUpgradePromptModal(null)} style={{ zIndex: 99999999 }}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              maxWidth: '480px',
+              width: '92%',
+              padding: '24px 26px',
+              border: '2px solid var(--brass)',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+              borderRadius: '12px',
+              textAlign: 'center'
+            }}
+          >
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'rgba(212, 175, 55, 0.15)',
+              border: '2px solid var(--brass)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 14px',
+              fontSize: '26px'
+            }}>
+              👑
+            </div>
+
+            <span style={{
+              display: 'inline-block',
+              fontSize: '11px',
+              fontWeight: 800,
+              background: 'var(--brass)',
+              color: '#0A0D14',
+              padding: '2px 10px',
+              borderRadius: '12px',
+              letterSpacing: '0.04em',
+              marginBottom: '10px'
+            }}>
+              {upgradePromptModal.badge || 'ĐẶC QUYỀN GÓI VIP'}
+            </span>
+
+            <h3 style={{ margin: '0 0 10px', fontSize: '18px', fontWeight: 800, color: 'var(--paper)' }}>
+              {upgradePromptModal.title}
+            </h3>
+
+            <p style={{ fontSize: '13px', color: 'var(--paper-dim)', lineHeight: 1.5, margin: '0 0 16px' }}>
+              {upgradePromptModal.message}
+            </p>
+
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              borderRadius: '8px',
+              padding: '12px 14px',
+              fontSize: '12.5px',
+              color: 'var(--brass)',
+              fontWeight: 600,
+              textAlign: 'left',
+              lineHeight: 1.45,
+              marginBottom: '20px'
+            }}>
+              {upgradePromptModal.benefit}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setUpgradePromptModal(null)}
+                style={{
+                  padding: '10px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--paper-dim)',
+                  border: '1px solid var(--line)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ Để sau
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (hasVipSubscription) {
+                    setUpgradePromptModal(null);
+                    handleSelectTier('PREMIUM');
+                  } else {
+                    setUpgradePromptModal(null);
+                    setShowPaymentModal(true);
+                  }
+                }}
+                style={{
+                  padding: '10px',
+                  borderRadius: '6px',
+                  background: 'var(--brass)',
+                  color: '#0A0D14',
+                  fontWeight: 800,
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(212, 175, 55, 0.35)',
+                  letterSpacing: '0.01em'
+                }}
+              >
+                {hasVipSubscription
+                  ? '👑 Khôi Phục Đặc Quyền VIP (Miễn Phí)'
+                  : (upgradePromptModal.actionText || '⚡ Nâng Cấp Gói VIP Ngay')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
