@@ -501,9 +501,11 @@ export default function TrainerPage() {
             const matched = apiMap.get(th.name.toLowerCase());
             if (matched) {
               const isLocked = Boolean(matched.locked);
+              const rawStall = matched.stable ? (matched.stable.startsWith('Ô ') ? matched.stable : `Ô ${matched.stable}`) : th.stall;
+              const cleanStall = (rawStall || 'Ô A1').split('•')[0].split('(')[0].trim();
               return {
                 ...th,
-                stall: matched.stable ? `Ô ${matched.stable}` : th.stall,
+                stall: cleanStall,
                 breed: matched.breed || th.breed,
                 isLockedByVet: isLocked,
                 status: isLocked ? 'INJURED' : (matched.status === 'WATCH' ? 'WATCH' : 'READY'),
@@ -1104,7 +1106,7 @@ export default function TrainerPage() {
                       )}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '10px' }}>
                       {assignedToMe.map(asgn => {
                         const isPending = asgn.trainerStatus === 'PENDING';
                         return (
@@ -1215,12 +1217,13 @@ export default function TrainerPage() {
                     const displayStatus = horse.status === 'READY'
                       ? (lang === 'en' ? 'Ready for Race' : 'Sẵn sàng thi đấu')
                       : (lang === 'en' ? 'Under Observation' : 'Cần theo dõi');
+                    const cleanStall = (horse.stall || horse.stable || 'Ô A1').split('•')[0].split('(')[0].trim();
                     return (
                       <div key={horse.id} className="facility-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                          <span className={`facility-card-badge ${badgeClass}`} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span className={`facility-card-badge ${badgeClass}`} style={{ whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '65%', overflow: 'hidden', textOverflow: 'ellipsis' }} title={cleanStall}>
                             <IconHorse size={14} color="var(--brass)" />
-                            <span>{horse.stall}</span>
+                            <span>{cleanStall}</span>
                           </span>
                           <span style={{
                             fontSize: '11px',

@@ -627,7 +627,7 @@ export default function VetPage() {
       />
 
       {/* ===================== 1. SIDEBAR NAVIGATION ===================== */}
-      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`} style={{ width: '280px', minWidth: '280px' }}>
+      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="portal-brand">
           <div className="portal-brand-icon">
             <IconStethoscope size={22} color="#14100A" />
@@ -973,7 +973,7 @@ export default function VetPage() {
               </div>
 
               {/* Danh sách thẻ sự cố */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '18px' }}>
+              <div className="portal-cards-grid" style={{ display: 'grid', gap: '18px' }}>
                 {incidents.map((inc) => {
                   const isPending = inc.status === 'pending_vet';
                   return (
@@ -1104,7 +1104,7 @@ export default function VetPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1.2fr) minmax(280px, 1fr)', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '20px' }}>
                 {/* Khung trực quan hóa các vùng giải phẫu */}
                 <div className="facility-card" style={{ padding: '20px' }}>
                   <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: 'var(--brass)' }}>

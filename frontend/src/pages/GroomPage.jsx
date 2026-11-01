@@ -441,7 +441,7 @@ export default function GroomPage() {
       />
 
       {/* ===================== 1. SIDEBAR NAVIGATION ===================== */}
-      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`} style={{ width: '280px', minWidth: '280px' }}>
+      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="portal-brand">
           <div className="portal-brand-icon">
             <IconHorse size={22} color="#14100A" />
@@ -721,7 +721,7 @@ export default function GroomPage() {
                       )}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '10px' }}>
                       {assignedToMe.map(asgn => {
                         const isPending = asgn.groomStatus === 'PENDING';
                         return (
@@ -796,7 +796,7 @@ export default function GroomPage() {
                 );
               })()}
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+              <div className="portal-cards-grid" style={{ display: 'grid', gap: '16px' }}>
                 {assignedStalls.map((s) => (
                   <div key={s.code} className="facility-card" style={{ padding: '18px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>

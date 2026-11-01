@@ -1507,7 +1507,7 @@ export default function OwnerPage() {
       />
 
       {/* ===================== 1. SIDEBAR NAVIGATION ===================== */}
-      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`} style={{ width: '280px', minWidth: '280px' }}>
+      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="portal-brand">
           <div className="portal-brand-icon">
             <IconCrown size={22} color="#14100A" />
@@ -1943,7 +1943,7 @@ export default function OwnerPage() {
                   </button>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '18px' }}>
+                <div className="portal-cards-grid" style={{ display: 'grid', gap: '18px' }}>
                   {myHorses.map((h) => (
                     <div key={h.id} className="facility-card" style={{ padding: '18px 20px', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', gap: '14px', marginBottom: '14px' }}>
@@ -2193,9 +2193,9 @@ export default function OwnerPage() {
                           </div>
                         </div>
 
-                        <div style={{
+                        <div className="modal-responsive-grid-2" style={{
                           display: 'grid',
-                          gridTemplateColumns: '1fr 1.2fr',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
                           gap: '8px'
                         }}>
                           <button
@@ -2546,7 +2546,7 @@ export default function OwnerPage() {
                   <span>🏆 CÁC GIẢI ĐẤU ĐANG MỞ ĐĂNG KÝ THI ĐẤU (OPEN OFFICIAL TOURNAMENTS)</span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+                <div className="portal-cards-grid" style={{ display: 'grid', gap: '14px' }}>
                   {OPEN_TOURNAMENTS.map(tourn => (
                     <div key={tourn.id} className="facility-card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <div>
@@ -3416,7 +3416,7 @@ export default function OwnerPage() {
               </div>
 
               {/* Bảng so sánh 2 gói: Horse 0 Đồng vs Horse Premium */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+              <div className="portal-cards-grid" style={{ display: 'grid', gap: '20px' }}>
                 {/* CỘT 1: HORSE 0 ĐỒNG */}
                 <div className="facility-card" style={{
                   padding: '24px',
@@ -3955,7 +3955,7 @@ export default function OwnerPage() {
                   🛡️ Chỉ Định Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '10px' }}>
                   <div>
                     <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
                       🏇 Huấn Luyện Viên
@@ -4448,7 +4448,7 @@ export default function OwnerPage() {
                   🛡️ Thay Đổi Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '10px' }}>
                   <div>
                     <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
                       🏇 Huấn Luyện Viên
@@ -5323,12 +5323,17 @@ export default function OwnerPage() {
             {/* ========================================================= */}
             {pedigreeMode === 'view' && (
               <div>
+                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>↔️</span>
+                  <span>Vuốt sang ngang để xem đầy đủ 3 thế hệ (Phụ hệ Sire, Mẫu hệ Dam & Ông Bà).</span>
+                </div>
                 <div style={{
                   background: 'var(--bg-secondary)',
                   border: '1px solid var(--line)',
                   borderRadius: '10px',
                   padding: '24px 20px',
                   overflowX: 'auto',
+                  WebkitOverflowScrolling: 'touch',
                   marginBottom: '16px'
                 }}>
                   <div style={{
@@ -5618,7 +5623,7 @@ export default function OwnerPage() {
                   <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--brass)', marginBottom: '10px' }}>
                     1. Khai Sinh & Đăng Ký Sổ Phả Hệ (Stud Book)
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '10px' }}>
                     <div>
                       <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
                         Năm sinh / Tuổi
@@ -5684,7 +5689,7 @@ export default function OwnerPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#60A5FA', marginBottom: '10px' }}>
                     <span>♂</span> 2. Nhánh Dòng Bố (Paternal Line - Sire)
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '10px' }}>
                     <div>
                       <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
                         Tên Bố (Sire) <span style={{ color: 'var(--brass)' }}>*</span>
@@ -5751,7 +5756,7 @@ export default function OwnerPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#FB7185', marginBottom: '10px' }}>
                     <span>♀</span> 3. Nhánh Dòng Mẹ (Maternal Line - Dam)
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '10px' }}>
                     <div>
                       <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '3px' }}>
                         Tên Mẹ (Dam) <span style={{ color: 'var(--brass)' }}>*</span>
@@ -6314,7 +6319,7 @@ export default function OwnerPage() {
               {upgradePromptModal.benefit}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '10px' }}>
+            <div className="modal-responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '10px' }}>
               <button
                 type="button"
                 onClick={() => setUpgradePromptModal(null)}
@@ -6505,7 +6510,7 @@ export default function OwnerPage() {
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '10px', marginTop: '10px' }}>
+              <div className="modal-responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '10px', marginTop: '10px' }}>
                 <button
                   type="button"
                   onClick={() => setTeamModalHorse(null)}
