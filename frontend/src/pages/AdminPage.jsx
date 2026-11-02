@@ -81,7 +81,29 @@ const IconMenu = () => (
 );
 
 export default function AdminPage() {
-  const { currentUser, usersList, updateUser, deleteUser, toggleUserStatus, registerUser, logout } = useAuth();
+  const { currentUser, usersList, updateUser, deleteUser, toggleUserStatus, registerUser, logout, approveUser, rejectUser } = useAuth();
+
+  const handleApproveUser = (u) => {
+    approveUser(u.user_id);
+    showToast(
+      lang === 'en'
+        ? `Successfully approved account for ${u.full_name} (${u.role_name || u.role})!`
+        : `Đã phê duyệt tài khoản ${u.full_name} (${u.role_name || u.role}) thành công! Thành viên đã có thể đăng nhập.`,
+      'PHÊ DUYỆT THÀNH VIÊN MỚI',
+      'info'
+    );
+  };
+
+  const handleRejectUser = (u) => {
+    rejectUser(u.user_id, 'Admin rejected registration');
+    showToast(
+      lang === 'en'
+        ? `Rejected application for ${u.full_name}.`
+        : `Đã từ chối đơn đăng ký của ${u.full_name}.`,
+      'TỪ CHỐI DUYỆT',
+      'warning'
+    );
+  };
   const { t, lang, toggleLang } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -969,6 +991,7 @@ export default function AdminPage() {
 
   // Lọc dữ liệu người dùng
   const filteredUsers = usersList.filter(u => {
+    if (userFilter === 'PENDING') return u.status === 'PENDING';
     if (userFilter === 'ALL') return true;
     return u.role === userFilter;
   });
@@ -1040,7 +1063,13 @@ export default function AdminPage() {
           >
             <span className="portal-nav-icon"><IconUsers /></span>
             <span className="portal-nav-label">{t('adminTabUsers')}</span>
-            <span className="portal-nav-badge">{usersList.length}</span>
+            {usersList.some(u => u.status === 'PENDING') ? (
+              <span className="portal-nav-badge" style={{ background: '#E86B2C', color: '#fff', fontWeight: 800 }}>
+                {usersList.filter(u => u.status === 'PENDING').length} {lang === 'en' ? 'pending' : 'chờ duyệt'}
+              </span>
+            ) : (
+              <span className="portal-nav-badge">{usersList.length}</span>
+            )}
           </button>
 
           <button
@@ -1133,960 +1162,59 @@ export default function AdminPage() {
         <main className="portal-main">
 
           {/* ===================== TAB 1: OVERVIEW ===================== */}
-          {activeTab === 'overview' && (
+          {(activeTab === 'overview' || activeTab === 'users') && (
             <div>
-              {/* Top Filter Bar */}
-              <div className="portal-filter-bar">
-                <div className="portal-filter-pills">
-                  <button className="portal-pill-btn active">
-                    {t('adminFilterAll')} <span className="pill-count">100%</span>
-                  </button>
-                  <button className="portal-pill-btn" onClick={() => setActiveTab('horses')}>
-                    {t('adminFilterHorses')} <span className="pill-count">{horses.length}</span>
-                  </button>
-                  <button className="portal-pill-btn" onClick={() => setActiveTab('stables')}>
-                    {t('adminFilterStables')} <span className="pill-count">{stables.length}</span>
-                  </button>
-                  <button className="portal-pill-btn" onClick={() => setActiveTab('users')}>
-                    {t('adminFilterUsers')} <span className="pill-count">{usersList.length}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* 4 KPI Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '18px', marginBottom: '28px' }}>
-                <div className="facility-card" style={{ padding: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'TOTAL RACEHORSES' : 'TỔNG ĐÀN CHIẾN MÃ'}</span>
-                    <span style={{ color: 'var(--brass)' }}><IconHorse /></span>
-                  </div>
-                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    {horses.length} {lang === 'en' ? 'horses' : 'con'}
-                  </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    {lang === 'en' ? '2 Cleared · 1 Monitored · 1 Locked' : '2 Đủ điều kiện · 1 Theo dõi · 1 Tạm khóa'}
-                  </div>
-                </div>
-
-                <div className="facility-card" style={{ padding: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'BARN OCCUPANCY RATE' : 'CÔNG SUẤT CHUỒNG TRẠI'}</span>
-                    <span style={{ color: 'var(--brass)' }}><IconStable /></span>
-                  </div>
-                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    {stables.filter(s => s.status === 'OCCUPIED').length} / {stables.length} {lang === 'en' ? 'stalls' : 'ô'}
-                  </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--brass)', fontWeight: 500 }}>
-                    {lang === 'en'
-                      ? `Occupancy: ${stables.length > 0 ? ((stables.filter(s => s.status === 'OCCUPIED').length / stables.length) * 100).toFixed(1) : 0}% (${stables.filter(s => s.status === 'AVAILABLE').length} vacant)`
-                      : `Lấp đầy: ${stables.length > 0 ? ((stables.filter(s => s.status === 'OCCUPIED').length / stables.length) * 100).toFixed(1) : 0}% (${stables.filter(s => s.status === 'AVAILABLE').length} chuồng trống)`}
-                  </div>
-                </div>
-
-                <div className="facility-card" style={{ padding: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'TOTAL STAFF USERS (RBAC)' : 'TỔNG NHÂN SỰ RBAC'}</span>
-                    <span style={{ color: 'var(--brass)' }}><IconUsers /></span>
-                  </div>
-                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    {usersList.length} {lang === 'en' ? 'accounts' : 'tài khoản'}
-                  </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    {lang === 'en' ? 'Delegated across 5 functional tiers' : 'Phân quyền 5 nhóm chức năng'}
-                  </div>
-                </div>
-
-                <div className="facility-card" style={{ padding: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'PRIZE PURSE & OPS FUND' : 'QUỸ GIẢI ĐẤU & HOẠT ĐỘNG'}</span>
-                    <span style={{ color: 'var(--brass)' }}><IconShield /></span>
-                  </div>
-                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--brass)', margin: '12px 0 6px' }}>
-                    500.000.000 ₫
-                  </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    {lang === 'en' ? 'National Championship 2026 (Approved)' : 'Giải Vô địch Quốc gia 2026 (Đã duyệt)'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Status and business workflow */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px' }}>
-                <div className="facility-card" style={{ padding: '24px' }}>
-                  <h3 style={{ fontSize: '16px', color: 'var(--brass)', marginBottom: '16px', fontWeight: 600 }}>
-                    Thông Báo Trực Ban Điều Hành
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px' }}>Khóa y tế: Ngựa Phi Yến (Ô A5)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                        Bác sĩ thú y kích hoạt lệnh khóa y tế do giãn dây chằng. HLV tạm ngừng lịch tập cường độ cao.
+              {/* Cảnh báo tài khoản mới chờ Admin xét duyệt */}
+              {usersList.some(u => u.status === 'PENDING') && (
+                <div style={{
+                  padding: '16px 20px',
+                  borderRadius: '12px',
+                  background: 'rgba(232, 107, 44, 0.12)',
+                  border: '1.5px solid rgba(232, 107, 44, 0.5)',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <span style={{ fontSize: '26px' }}>⏳</span>
+                    <div>
+                      <div style={{ fontSize: '14.5px', fontWeight: 800, color: '#E86B2C', letterSpacing: '0.02em' }}>
+                        {lang === 'en' 
+                          ? `${usersList.filter(u => u.status === 'PENDING').length} new member applications awaiting your approval`
+                          : `Có ${usersList.filter(u => u.status === 'PENDING').length} yêu cầu đăng ký tài khoản thành viên mới đang chờ bạn xét duyệt`}
                       </div>
-                    </div>
-                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px' }}>Theo dõi thể lực: Ngựa Hắc Phong (Ô A3)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                        Buổi tập gần nhất đạt nhịp tim 210 bpm. Đã thông báo cho Groom bổ sung điện giải và theo dõi nhịp thở.
-                      </div>
-                    </div>
-                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--brass)', fontSize: '13px' }}>Sẵn sàng thi đấu: Ngựa Xích Thố (Ô A1)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                        Đạt phong độ tiêu chuẩn, hoàn tất kiểm định thú y và đủ điều kiện xuất trận.
+                      <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginTop: '3px', lineHeight: 1.5 }}>
+                        {lang === 'en'
+                          ? 'Once approved by Admin, new accounts begin with fresh zero data, reflecting actual clinical reports in real time.'
+                          : 'Tài khoản mới sau khi được bạn phê duyệt sẽ khởi tạo toàn bộ số liệu từ 0, dữ liệu thực tế bắt đầu ghi nhận từ lúc bạn kích hoạt.'}
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="facility-card" style={{ padding: '24px' }}>
-                  <h3 style={{ fontSize: '16px', color: 'var(--paper)', marginBottom: '16px', fontWeight: 600 }}>
-                    Quy Trình Nghiệp Vụ Tương Tác
-                  </h3>
-                  <div style={{ fontSize: '13.5px', color: 'var(--paper-dim)', lineHeight: 1.75 }}>
-                    <p style={{ margin: '0 0 10px' }}>Hệ thống vận hành theo chu trình khép kín và tự động đối soát:</p>
-                    <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <li><b style={{ color: 'var(--paper)' }}>Ban Quản lý (Admin)</b>: Cấp tài khoản, giám sát ngân sách, phân bổ ô chuồng.</li>
-                      <li><b style={{ color: 'var(--paper)' }}>Thú y (Vet)</b>: Độc quyền quyền <i>Khóa / Mở khóa y tế</i> để bảo vệ tính mạng ngựa đua.</li>
-                      <li><b style={{ color: 'var(--paper)' }}>HLV (Trainer)</b>: Lập giáo án và theo dõi telemetry chỉ số buổi chạy.</li>
-                      <li><b style={{ color: 'var(--paper)' }}>Groom (Chăm sóc)</b>: Báo cáo bữa ăn và sự cố thực tế chuồng trại.</li>
-                      <li><b style={{ color: 'var(--paper)' }}>Chủ ngựa (Owner)</b>: Theo dõi báo cáo minh bạch chi phí và kết quả giải.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ===================== TAB 2: HORSES ===================== */}
-          {activeTab === 'horses' && (
-            <div>
-              {/* Filter and View Mode Switcher */}
-              <div className="portal-filter-bar">
-                <div className="portal-filter-pills">
                   <button
-                    className={`portal-pill-btn ${horseFilter === 'ALL' ? 'active' : ''}`}
-                    onClick={() => setHorseFilter('ALL')}
-                  >
-                    {lang === 'en' ? 'All Horses' : 'Tất cả'} <span className="pill-count">{horses.length}</span>
-                  </button>
-                  <button
-                    className={`portal-pill-btn ${horseFilter === 'ELIGIBLE' ? 'active' : ''}`}
-                    onClick={() => setHorseFilter('ELIGIBLE')}
-                  >
-                    {t('adminHorseEligible')} <span className="pill-count">{horses.filter(h => h.status === 'ELIGIBLE' && !h.locked).length}</span>
-                  </button>
-                  <button
-                    className={`portal-pill-btn ${horseFilter === 'WATCH' ? 'active' : ''}`}
-                    onClick={() => setHorseFilter('WATCH')}
-                  >
-                    {t('adminHorseWatch')} <span className="pill-count">{horses.filter(h => h.status === 'WATCH').length}</span>
-                  </button>
-                  <button
-                    className={`portal-pill-btn ${horseFilter === 'LOCKED' ? 'active' : ''}`}
-                    onClick={() => setHorseFilter('LOCKED')}
-                  >
-                    {lang === 'en' ? 'Vet Locked' : 'Khóa Y Tế'} <span className="pill-count">{horses.filter(h => h.locked || h.status === 'INJURED').length}</span>
-                  </button>
-                </div>
-
-                <div className="portal-view-tools">
-                  <button
-                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
-                    onClick={() => setViewMode('cards')}
-                  >
-                    {lang === 'en' ? 'Card Grid' : 'Lưới thẻ'}
-                  </button>
-                  <button
-                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
-                    onClick={() => setViewMode('table')}
-                  >
-                    {lang === 'en' ? 'Data Table' : 'Bảng dữ liệu'}
-                  </button>
-                  <button
-                    onClick={() => setShowAddHorseModal(true)}
-                    className="portal-view-btn"
-                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
-                  >
-                    {t('adminBtnAddHorse')}
-                  </button>
-                </div>
-              </div>
-
-              {/* Card Grid View */}
-              {viewMode === 'cards' ? (
-                <div className="portal-cards-grid">
-                  {filteredHorses.map((h) => {
-                    const loc = getHorseLocalized(h, lang);
-                    return (
-                      <div key={h.id} className="facility-card" style={{ padding: '0 0 20px 0', overflow: 'hidden' }}>
-                        {/* Hình ảnh banner chiến mã */}
-                        <div
-                          onClick={() => handleOpenHorseDetail(h)}
-                          title={lang === 'en' ? 'Click to view horse details' : 'Bấm để xem chi tiết chiến mã'}
-                          style={{
-                            position: 'relative',
-                            height: '175px',
-                            width: '100%',
-                            overflow: 'hidden',
-                            background: 'var(--bg-secondary)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <img
-                            src={h.avatar}
-                            alt={h.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              display: 'block',
-                              transition: 'transform 0.4s ease'
-                            }}
-                            className="stall-horse-banner-img"
-                            onError={(e) => {
-                              e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
-                            }}
-                          />
-                          <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: 'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.85) 100%)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            padding: '14px 16px'
-                          }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{
-                                background: h.breed === 'Thoroughbred' ? 'rgba(201, 162, 39, 0.95)' : 'rgba(100, 116, 139, 0.85)',
-                                backdropFilter: 'blur(6px)',
-                                color: h.breed === 'Thoroughbred' ? '#14100A' : '#ffffff',
-                                fontWeight: 800,
-                                fontSize: '11px',
-                                padding: '4px 10px',
-                                borderRadius: '4px',
-                                letterSpacing: '0.05em'
-                              }}>
-                                {loc.breedDisplay.toUpperCase()}
-                              </span>
-                              <span style={{
-                                background: 'rgba(0, 0, 0, 0.7)',
-                                backdropFilter: 'blur(6px)',
-                                color: '#ffffff',
-                                fontWeight: 700,
-                                fontSize: '11.5px',
-                                padding: '3px 9px',
-                                borderRadius: '4px',
-                                border: '1px solid rgba(255,255,255,0.2)',
-                                fontFamily: 'monospace'
-                              }}>
-                                {h.microchip}
-                              </span>
-                            </div>
-
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                              <div>
-                                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-                                  {lang === 'en' ? 'Stall ' : 'Ô '}{h.stable} · {loc.genderDisplay}
-                                </span>
-                                <h4 style={{ margin: '2px 0 0', fontSize: '18px', fontWeight: 700, color: '#ffffff', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
-                                  {lang === 'en' ? loc.englishName : h.name}
-                                </h4>
-                              </div>
-                              <span style={{
-                                fontSize: '10.5px',
-                                fontWeight: 700,
-                                padding: '3px 9px',
-                                borderRadius: '12px',
-                                background: h.locked ? '#EF4444' : h.status === 'WATCH' ? '#F59E0B' : '#10B981',
-                                color: '#ffffff',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
-                              }}>
-                                {h.locked ? (lang === 'en' ? 'LOCKED' : 'TẠM KHÓA') : (lang === 'en' ? 'ELIGIBLE' : 'KHẢ DỤNG')}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Chi tiết thông số */}
-                        <div style={{ padding: '16px 20px 0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          <h3
-                            className="facility-card-title"
-                            onClick={() => handleOpenHorseDetail(h)}
-                            style={{ margin: 0, fontSize: '16px', cursor: 'pointer' }}
-                            title={lang === 'en' ? 'Click to view horse details' : 'Bấm để xem chi tiết chiến mã'}
-                          >
-                            {lang === 'en' ? loc.englishName : h.name}
-                            {lang === 'en' && loc.englishName !== h.name && (
-                              <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--paper-dim)', marginLeft: '6px' }}>({h.name})</span>
-                            )}
-                          </h3>
-                          <p className="facility-card-desc" style={{ margin: 0, fontSize: '13px' }}>{loc.desc}</p>
-                          
-                          <div className="facility-card-bullets" style={{ margin: 0 }}>
-                            <div className="facility-bullet-item">
-                              <span className="bullet-dot" />
-                              <span>{lang === 'en' ? 'RFID Microchip:' : 'Mã chip định danh:'} <b>{h.microchip}</b></span>
-                            </div>
-                            <div className="facility-bullet-item">
-                              <span className="bullet-dot" />
-                              <span>{lang === 'en' ? 'Assigned Barn Stall:' : 'Chuồng nuôi dưỡng:'} <b>{lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}</b></span>
-                            </div>
-                          </div>
-
-                          {/* 3-column specs grid */}
-                          <div className="facility-specs-grid" style={{ margin: 0 }}>
-                            <div className="facility-spec-cell">
-                              <span className="spec-label">{lang === 'en' ? 'Gender' : 'Giới tính'}</span>
-                              <span className="spec-val">{loc.genderDisplay}</span>
-                            </div>
-                            <div className="facility-spec-cell">
-                              <span className="spec-label">{lang === 'en' ? 'Stall' : 'Ô Chuồng'}</span>
-                              <span className="spec-val" style={{ color: 'var(--brass)', fontWeight: 700 }}>{lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}</span>
-                            </div>
-                            <div className="facility-spec-cell">
-                              <span className="spec-label">{lang === 'en' ? 'Owner' : 'Chủ sở hữu'}</span>
-                              <span className="spec-val" style={{ fontSize: '11.5px' }}>{loc.owner.split(' ').slice(-1)[0]}</span>
-                            </div>
-                          </div>
-
-                          {/* Status/Price Box */}
-                          <div className="facility-price-box" style={{ margin: 0 }}>
-                            <div>
-                              <div className="price-label">{lang === 'en' ? 'Health Status' : 'Trạng thái sức khỏe'}</div>
-                              <div className="price-value" style={{ fontSize: '15px', color: 'var(--paper)' }}>
-                                {loc.statusText}
-                              </div>
-                            </div>
-                            <span style={{
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              padding: '3px 7px',
-                              borderRadius: '4px',
-                              background: 'var(--bg-primary)',
-                              color: h.locked ? 'var(--paper-dim)' : 'var(--brass)',
-                              border: '1px solid var(--line)'
-                            }}>
-                              {h.locked ? (lang === 'en' ? 'LOCKED' : 'TẠM KHÓA') : (lang === 'en' ? 'ACTIVE' : 'KHẢ DỤNG')}
-                            </span>
-                          </div>
-
-                          {/* Actions */}
-                          <div className="facility-card-actions" style={{ margin: 0, paddingTop: '4px' }}>
-                            <div className="actions-left">
-                              <button
-                                className="facility-btn-action"
-                                onClick={() => handleOpenHorseDetail(h)}
-                              >
-                                {lang === 'en' ? 'View Details' : 'Xem chi tiết'}
-                              </button>
-                              <button
-                                className={`facility-btn-action ${h.locked ? 'btn-danger' : ''}`}
-                                onClick={() => {
-                                  handleToggleHorseLock(h.id);
-                                  showToast(h.locked ? (lang === 'en' ? `Training unlocked for ${h.name}` : `Đã mở khóa huấn luyện cho chiến mã ${h.name}`) : (lang === 'en' ? `Emergency veterinary lock enabled for ${h.name}` : `Đã khóa y tế khẩn cấp cho chiến mã ${h.name}`), lang === 'en' ? 'STATUS UPDATE' : 'CẬP NHẬT TRẠNG THÁI');
-                                }}
-                              >
-                                {h.locked ? (lang === 'en' ? 'Unlock' : 'Mở khóa') : (lang === 'en' ? 'Lock (Vet)' : 'Khóa y tế')}
-                              </button>
-                            </div>
-                            <button
-                              className="facility-link-action"
-                              onClick={() => showToast(lang === 'en' ? `Opening vet medical records and velocities of ${h.name}` : `Đang mở hồ sơ bệnh án thú y và chỉ số chạy của ${h.name}`, lang === 'en' ? 'VET & TELEMETRY RECORDS' : 'HỒ SƠ BỆNH ÁN & VẬN TỐC')}
-                            >
-                              {lang === 'en' ? 'Stall Info →' : 'Chi tiết ô →'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                /* Table View */
-                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'RFID Chip / Horse Name' : 'Mã Chip / Tên Ngựa'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Breed & Gender' : 'Giống loài & Giới tính'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Allocation' : 'Chuồng phân bổ'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Owner' : 'Chủ sở hữu'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Health Status' : 'Trạng thái Sức khỏe'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Vet Lock' : 'Khóa Y Tế Thú Y'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action' : 'Hành động'}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredHorses.map(h => {
-                        const loc = getHorseLocalized(h, lang);
-                        return (
-                          <tr key={h.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                            <td style={{ padding: '14px 18px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <img
-                                  src={h.avatar}
-                                  alt={h.name}
-                                  style={{
-                                    width: '42px',
-                                    height: '42px',
-                                    borderRadius: '8px',
-                                    objectFit: 'cover',
-                                    border: '1px solid var(--line)',
-                                    flexShrink: 0,
-                                    background: 'var(--bg-secondary)'
-                                  }}
-                                  onError={(e) => {
-                                    e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
-                                  }}
-                                />
-                                <div>
-                                  <div style={{ fontWeight: 700, color: 'var(--brass)', fontSize: '15px' }}>
-                                    {lang === 'en' ? loc.englishName : h.name}
-                                  </div>
-                                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>
-                                    {lang === 'en' && loc.englishName !== h.name ? `${h.name} · ${h.microchip}` : h.microchip}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
-                              <div>{loc.breedDisplay}</div>
-                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{loc.genderDisplay}</div>
-                            </td>
-                            <td style={{ padding: '14px 18px' }}>
-                              <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '4px', fontWeight: 600 }}>
-                                {lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{loc.owner}</td>
-                            <td style={{ padding: '14px 18px' }}>
-                              <span style={{
-                                padding: '3px 8px',
-                                borderRadius: '4px',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                                background: 'var(--bg-secondary)',
-                                color: 'var(--paper)',
-                                border: '1px solid var(--line)'
-                              }}>
-                                {loc.statusText}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 18px' }}>
-                              {h.locked ? (
-                                <span style={{ color: 'var(--brass)', fontWeight: 600, fontSize: '12px' }}>
-                                  {lang === 'en' ? 'Vet Locked' : 'Tạm khóa y tế'}
-                                </span>
-                              ) : (
-                                <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>
-                                  {lang === 'en' ? 'Normal' : 'Bình thường'}
-                                </span>
-                              )}
-                            </td>
-                          <td style={{ padding: '14px 18px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <button
-                                onClick={() => handleOpenHorseDetail(h)}
-                                style={{
-                                  padding: '5px 12px',
-                                  background: 'rgba(201, 162, 39, 0.15)',
-                                  border: '1px solid var(--brass)',
-                                  color: 'var(--brass)',
-                                  borderRadius: '4px',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  fontWeight: 600
-                                }}
-                              >
-                                {lang === 'en' ? 'Details' : 'Chi tiết'}
-                              </button>
-                              <button
-                                onClick={() => handleToggleHorseLock(h.id)}
-                                style={{
-                                  padding: '5px 12px',
-                                  background: 'var(--bg-secondary)',
-                                  border: '1px solid var(--line)',
-                                  color: 'var(--paper)',
-                                  borderRadius: '4px',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  fontWeight: 500
-                                }}
-                              >
-                                {h.locked ? (lang === 'en' ? 'Unlock' : 'Mở Khóa') : (lang === 'en' ? 'Vet Lock' : 'Khóa Y Tế')}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ===================== TAB 3: STABLES ===================== */}
-          {activeTab === 'stables' && (
-            <div>
-              <div className="portal-filter-bar">
-                <div className="portal-filter-pills">
-                  <button
-                    className={`portal-pill-btn ${stableFilter === 'ALL' ? 'active' : ''}`}
-                    onClick={() => setStableFilter('ALL')}
-                  >
-                    {lang === 'en' ? 'All Stalls' : 'Tất cả ô chuồng'} <span className="pill-count">{stables.length}</span>
-                  </button>
-                  <button
-                    className={`portal-pill-btn ${stableFilter === 'AVAILABLE' ? 'active' : ''}`}
-                    onClick={() => setStableFilter('AVAILABLE')}
-                  >
-                    {lang === 'en' ? 'Available' : 'Còn trống'} <span className="pill-count">{stables.filter(s => s.status === 'AVAILABLE').length}</span>
-                  </button>
-                  <button
-                    className={`portal-pill-btn ${stableFilter === 'OCCUPIED' ? 'active' : ''}`}
-                    onClick={() => setStableFilter('OCCUPIED')}
-                  >
-                    {lang === 'en' ? 'Occupied' : 'Đã lấp đầy'} <span className="pill-count">{stables.filter(s => s.status === 'OCCUPIED').length}</span>
-                  </button>
-                </div>
-
-                <div className="portal-view-tools">
-                  <button
-                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
-                    onClick={() => setViewMode('cards')}
-                  >
-                    {lang === 'en' ? 'Card Grid' : 'Lưới thẻ'}
-                  </button>
-                  <button
-                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
-                    onClick={() => setViewMode('table')}
-                  >
-                    {lang === 'en' ? 'Data Table' : 'Bảng danh sách'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      const nextCode = `C${stables.filter(s => s.block === 'Block C').length + 1}`;
-                      setNewStallData(prev => ({ ...prev, stall_code: nextCode }));
-                      setShowAddStallModal(true);
+                    type="button"
+                    onClick={() => setUserFilter('PENDING')}
+                    style={{
+                      padding: '9px 18px',
+                      background: '#E86B2C',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 4px 12px rgba(232, 107, 44, 0.35)'
                     }}
-                    className="portal-view-btn"
-                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
                   >
-                    {lang === 'en' ? '+ Add New Stall' : '+ Tạo ô chuồng mới'}
+                    {lang === 'en' ? 'Review & Approve →' : 'Xem danh sách chờ duyệt →'}
                   </button>
                 </div>
-              </div>
-
-              {viewMode === 'cards' ? (
-                <div className="portal-cards-grid">
-                  {filteredStables.map(s => {
-                    const isOccupied = s.status === 'OCCUPIED';
-                    const isAvailable = s.status === 'AVAILABLE';
-
-                    return (
-                      <div key={s.stall_code} className="facility-card" style={{ padding: '0 0 20px 0', overflow: 'hidden' }}>
-                        {/* Hình ảnh banner CÁI CHUỒNG NGỰA (Equine Stall / Barn) */}
-                        <div style={{
-                          position: 'relative',
-                          height: '175px',
-                          width: '100%',
-                          overflow: 'hidden',
-                          background: 'var(--bg-secondary)'
-                        }}>
-                          <img
-                            src={s.stall_image}
-                            alt={`Chuồng ${s.stall_code}`}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              display: 'block',
-                              transition: 'transform 0.4s ease'
-                            }}
-                            className="stall-horse-banner-img"
-                            onError={(e) => {
-                              e.target.src = '/images/stall_simulation_vacant.jpg';
-                            }}
-                          />
-                          {/* Lớp phủ gradient và thông tin ô chuồng trên ảnh */}
-                          <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: 'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.85) 100%)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            padding: '14px 16px'
-                          }}>
-                            {/* Dòng trên: Badge Khu vực & Mã ô chuồng */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{
-                                background: isOccupied ? 'rgba(201, 162, 39, 0.95)' : 'rgba(100, 116, 139, 0.85)',
-                                backdropFilter: 'blur(6px)',
-                                color: isOccupied ? '#14100A' : '#ffffff',
-                                fontWeight: 800,
-                                fontSize: '11px',
-                                padding: '4px 10px',
-                                borderRadius: '4px',
-                                letterSpacing: '0.05em'
-                              }}>
-                                {s.block.toUpperCase()}
-                              </span>
-                              <span style={{
-                                background: 'rgba(0, 0, 0, 0.7)',
-                                backdropFilter: 'blur(6px)',
-                                color: '#ffffff',
-                                fontWeight: 700,
-                                fontSize: '12px',
-                                padding: '3px 10px',
-                                borderRadius: '4px',
-                                border: '1px solid rgba(255,255,255,0.2)'
-                              }}>
-                                {s.stall_code}
-                              </span>
-                            </div>
-
-                            {/* Dòng dưới trên ảnh: Tên Ô Chuồng & Trạng thái ô */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                              <div>
-                                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-                                  {lang === 'en' ? `Pro Stall Specification · ${s.area}` : `Tiêu chuẩn Ô Chuồng · ${s.area}`}
-                                </span>
-                                <h4 style={{ margin: '2px 0 0', fontSize: '18px', fontWeight: 700, color: '#ffffff', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
-                                  {lang === 'en' ? `Barn Stall ${s.stall_code}` : `Ô Chuồng ${s.stall_code}`}
-                                </h4>
-                              </div>
-                              <span style={{
-                                fontSize: '10.5px',
-                                fontWeight: 700,
-                                padding: '3px 9px',
-                                borderRadius: '12px',
-                                background: isOccupied ? '#10B981' : isAvailable ? '#3B82F6' : '#EF4444',
-                                color: '#ffffff',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
-                              }}>
-                                {isOccupied ? (lang === 'en' ? 'OCCUPIED' : 'CÓ CHIẾN MÃ') : isAvailable ? (lang === 'en' ? 'VACANT' : 'TRỐNG') : (lang === 'en' ? 'SERVICE' : 'BẢO TRÌ')}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Nội dung chi tiết của thẻ ô chuồng */}
-                        <div style={{ padding: '16px 20px 0 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          <h3 className="facility-card-title" style={{ margin: 0, fontSize: '16px' }}>
-                            {lang === 'en' ? `Barn Stall ${s.stall_code}` : `Ô Chuồng ${s.stall_code}`}
-                          </h3>
-                          <p className="facility-card-desc" style={{ margin: 0, fontSize: '13px', minHeight: '38px', lineHeight: '1.45' }}>
-                            {isOccupied
-                              ? (lang === 'en' ? `Housing racehorse ${s.horse}. Premium equine amenities.` : `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.`)
-                              : (lang === 'en' ? 'Clean empty stall ready for horse intake.' : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.')}
-                          </p>
-
-                          {/* Khối thông tin Chiến mã & Khu chuồng định dạng cân bằng, chống gãy chữ */}
-                          <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px',
-                            padding: '10px 12px',
-                            background: 'rgba(255, 255, 255, 0.025)',
-                            border: '1px solid var(--line)',
-                            borderRadius: '8px',
-                            margin: '2px 0'
-                          }}>
-                            {/* Hàng 1: Chiến mã lưu trú */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minHeight: '26px' }}>
-                              <span style={{ fontSize: '12.5px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span className="bullet-dot" style={{ flexShrink: 0 }} />
-                                {lang === 'en' ? 'Resident horse:' : 'Chiến mã lưu trú:'}
-                              </span>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', overflow: 'hidden' }}>
-                                {isOccupied && s.horse_avatar && (
-                                  <img
-                                    src={s.horse_avatar}
-                                    alt={s.horse}
-                                    style={{
-                                      width: '22px',
-                                      height: '22px',
-                                      borderRadius: '50%',
-                                      objectFit: 'cover',
-                                      flexShrink: 0,
-                                      border: '1px solid var(--brass)'
-                                    }}
-                                    onError={(e) => {
-                                      e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80';
-                                    }}
-                                  />
-                                )}
-                                <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', whiteSpace: 'nowrap', fontSize: '13.5px' }}>
-                                  {s.horse}
-                                </b>
-                              </div>
-                            </div>
-
-                            {/* Hàng 2: Khu chuồng & Giống loài */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12.5px', borderTop: '1px dashed var(--line)', paddingTop: '6px' }}>
-                              <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span className="bullet-dot" style={{ flexShrink: 0 }} />
-                                {lang === 'en' ? 'Barn block:' : 'Khu chuồng:'} <b style={{ color: 'var(--paper)' }}>{s.block}</b>
-                              </span>
-                              {isOccupied && s.breed && s.breed !== 'Vacant' && (
-                                <span style={{
-                                  fontSize: '11px',
-                                  color: 'var(--paper-dim)',
-                                  background: 'var(--bg-secondary)',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  border: '1px solid var(--line)',
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  {s.breed}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="facility-specs-grid" style={{ margin: 0 }}>
-                            <div className="facility-spec-cell">
-                              <span className="spec-label">{lang === 'en' ? 'Area' : 'Diện tích'}</span>
-                              <span className="spec-val">{s.area || '14 m²'}</span>
-                            </div>
-                            <div className="facility-spec-cell">
-                              <span className="spec-label">{lang === 'en' ? 'Dimensions' : 'Kích thước'}</span>
-                              <span className="spec-val">{s.dim || '3.8 x 3.8m'}</span>
-                            </div>
-                            <div className="facility-spec-cell">
-                              <span className="spec-label">{lang === 'en' ? 'Standard' : 'Tiêu chuẩn'}</span>
-                              <span className="spec-val">Pro Stall</span>
-                            </div>
-                          </div>
-
-                          <div className="facility-price-box" style={{ margin: 0 }}>
-                            <div>
-                              <div className="price-label">{lang === 'en' ? 'Stall Status' : 'Trạng thái ô'}</div>
-                              <div className="price-value" style={{ fontSize: '14.5px', color: isOccupied ? 'var(--brass)' : 'var(--paper)' }}>
-                                {isOccupied
-                                  ? (lang === 'en' ? 'Currently Occupied' : 'Đang nuôi dưỡng')
-                                  : isAvailable
-                                    ? (lang === 'en' ? 'Available & Ready' : 'Còn trống sẵn sàng')
-                                    : (lang === 'en' ? 'Under Maintenance' : 'Đang bảo dưỡng')}
-                              </div>
-                            </div>
-                            <span style={{
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              padding: '3px 7px',
-                              borderRadius: '4px',
-                              background: 'var(--bg-primary)',
-                              color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)',
-                              border: '1px solid var(--line)'
-                            }}>
-                              {isOccupied
-                                ? (lang === 'en' ? 'OCCUPIED' : 'LẤP ĐẦY')
-                                : isAvailable
-                                  ? (lang === 'en' ? 'VACANT' : 'TRỐNG')
-                                  : (lang === 'en' ? 'SERVICE' : 'BẢO TRÌ')}
-                            </span>
-                          </div>
-
-                          <div className="facility-card-actions" style={{ margin: 0, paddingTop: '4px' }}>
-                            <div className="actions-left" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                              <button
-                                className="facility-btn-action"
-                                onClick={() => handleOpenChangeHorse(s)}
-                                style={{
-                                  background: 'rgba(201, 162, 39, 0.15)',
-                                  border: '1px solid var(--brass)',
-                                  color: 'var(--brass)',
-                                  fontWeight: 600
-                                }}
-                              >
-                                {lang === 'en' ? 'Change Horse' : 'Đổi chiến mã'}
-                              </button>
-                              <button
-                                className="facility-btn-action"
-                                onClick={() => handleToggleStable(s.stall_code)}
-                              >
-                                {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
-                              </button>
-                              <button
-                                className="facility-btn-action"
-                                style={{
-                                  background: 'rgba(239, 68, 68, 0.12)',
-                                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                                  color: '#EF4444',
-                                  fontWeight: 600
-                                }}
-                                onClick={() => handleOpenDeleteStall(s)}
-                                title={lang === 'en' ? 'Delete stall' : 'Xóa ô chuồng'}
-                              >
-                                {lang === 'en' ? 'Delete' : 'Xóa'}
-                              </button>
-                            </div>
-                            <span className="facility-link-action" style={{ cursor: 'default' }}>
-                              {s.block} →
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Image & Code' : 'Ảnh Chuồng & Mã Ô'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Barn Block' : 'Khu Vực'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Resident Runner' : 'Chiến Mã Đang Ở'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Status' : 'Trạng Thái'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action' : 'Thao Tác'}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStables.map(s => {
-                        const isOccupied = s.status === 'OCCUPIED';
-                        const isAvailable = s.status === 'AVAILABLE';
-                        return (
-                          <tr key={s.stall_code} style={{ borderBottom: '1px solid var(--line)' }}>
-                            <td style={{ padding: '14px 18px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <img
-                                  src={s.stall_image}
-                                  alt={`Chuồng ${s.stall_code}`}
-                                  style={{
-                                    width: '54px',
-                                    height: '42px',
-                                    borderRadius: '6px',
-                                    objectFit: 'cover',
-                                    border: '1px solid var(--line)',
-                                    flexShrink: 0,
-                                    background: 'var(--bg-secondary)'
-                                  }}
-                                  onError={(e) => {
-                                    e.target.src = '/images/stall_simulation_vacant.jpg';
-                                  }}
-                                />
-                                <div>
-                                  <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '14px' }}>
-                                    {lang === 'en' ? 'Stall ' : 'Ô '}{s.stall_code}
-                                  </div>
-                                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
-                                    {s.area} · Pro Stall
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{s.block}</td>
-                            <td style={{ padding: '14px 18px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                {isOccupied && s.horse_avatar && (
-                                  <img
-                                    src={s.horse_avatar}
-                                    alt={s.horse}
-                                    style={{
-                                      width: '32px',
-                                      height: '32px',
-                                      borderRadius: '50%',
-                                      objectFit: 'cover',
-                                      border: '1px solid var(--line)',
-                                      flexShrink: 0
-                                    }}
-                                    onError={(e) => {
-                                      e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80';
-                                    }}
-                                  />
-                                )}
-                                <div>
-                                  <div style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 700, fontSize: '13.5px' }}>
-                                    {s.horse}
-                                  </div>
-                                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
-                                    {isOccupied ? (s.breed || 'Thoroughbred') : (lang === 'en' ? 'Vacant Stall' : 'Ô trống sẵn sàng')}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td style={{ padding: '14px 18px' }}>
-                              <span style={{
-                                padding: '4px 10px',
-                                borderRadius: '4px',
-                                fontSize: '11.5px',
-                                fontWeight: 700,
-                                background: isOccupied ? 'rgba(201, 162, 39, 0.12)' : isAvailable ? 'rgba(59, 130, 246, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                                color: isOccupied ? 'var(--brass)' : isAvailable ? '#3B82F6' : '#EF4444',
-                                border: `1px solid ${isOccupied ? 'var(--brass)' : isAvailable ? '#3B82F6' : '#EF4444'}`
-                              }}>
-                                {isOccupied ? (lang === 'en' ? 'Occupied' : 'Đang dùng') : isAvailable ? (lang === 'en' ? 'Available' : 'Còn trống') : (lang === 'en' ? 'Maintenance' : 'Bảo trì')}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 18px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <button
-                                  onClick={() => handleOpenChangeHorse(s)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    background: 'rgba(201, 162, 39, 0.15)',
-                                    border: '1px solid var(--brass)',
-                                    borderRadius: '6px',
-                                    color: 'var(--brass)',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  {lang === 'en' ? 'Change Horse' : 'Đổi chiến mã'}
-                                </button>
-                                <button
-                                  onClick={() => handleToggleStable(s.stall_code)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    background: 'var(--bg-secondary)',
-                                    border: '1px solid var(--line)',
-                                    borderRadius: '6px',
-                                    color: 'var(--paper)',
-                                    fontSize: '12px',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
-                                  }}
-                                >
-                                  {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
-                                </button>
-                                <button
-                                  onClick={() => handleOpenDeleteStall(s)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    background: 'rgba(239, 68, 68, 0.12)',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)',
-                                    borderRadius: '6px',
-                                    color: '#EF4444',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    cursor: 'pointer'
-                                  }}
-                                  title={lang === 'en' ? 'Delete stall' : 'Xóa ô chuồng'}
-                                >
-                                  {lang === 'en' ? 'Delete' : 'Xóa'}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
               )}
-            </div>
-          )}
 
-          {/* ===================== TAB 4: USERS & RBAC ===================== */}
-          {activeTab === 'users' && (
-            <div>
+              {/* Top Filter Bar */}
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button
@@ -2094,6 +1222,18 @@ export default function AdminPage() {
                     onClick={() => setUserFilter('ALL')}
                   >
                     {lang === 'en' ? 'All Staff' : 'Tất cả'} <span className="pill-count">{usersList.length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${userFilter === 'PENDING' ? 'active' : ''}`}
+                    onClick={() => setUserFilter('PENDING')}
+                    style={usersList.some(u => u.status === 'PENDING') ? {
+                      borderColor: '#E86B2C',
+                      color: userFilter === 'PENDING' ? '#fff' : '#E86B2C',
+                      background: userFilter === 'PENDING' ? '#E86B2C' : 'rgba(232, 107, 44, 0.12)',
+                      fontWeight: 700
+                    } : {}}
+                  >
+                    ⏳ {lang === 'en' ? 'Pending Approval' : 'Chờ Phê Duyệt'} <span className="pill-count" style={{ background: '#E86B2C', color: '#fff' }}>{usersList.filter(u => u.status === 'PENDING').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'TRAINER' ? 'active' : ''}`}
@@ -2188,7 +1328,7 @@ export default function AdminPage() {
                           <div className="facility-spec-cell">
                             <span className="spec-label">{lang === 'en' ? 'Status' : 'Trạng thái'}</span>
                             <span className="spec-val" style={{ color: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)' }}>
-                              {u.status === 'ACTIVE' ? (lang === 'en' ? 'Active' : 'Hoạt động') : (lang === 'en' ? 'Suspended' : 'Tạm khóa')}
+                              {u.status === 'PENDING' ? (lang === 'en' ? 'Pending Approval' : 'Chờ phê duyệt') : u.status === 'ACTIVE' ? (lang === 'en' ? 'Active' : 'Hoạt động') : (lang === 'en' ? 'Suspended' : 'Tạm khóa')}
                             </span>
                           </div>
                         </div>
@@ -2197,7 +1337,7 @@ export default function AdminPage() {
                           <div>
                             <div className="price-label">{lang === 'en' ? 'Access Status' : 'Trạng thái tài khoản'}</div>
                             <div className="price-value" style={{ fontSize: '14.5px', color: 'var(--paper)' }}>
-                              {u.status === 'ACTIVE' ? (lang === 'en' ? 'Active Account' : 'Đang hoạt động') : (lang === 'en' ? 'Access Suspended' : 'Tạm khóa truy cập')}
+                              {u.status === 'PENDING' ? (lang === 'en' ? 'Pending Approval' : 'Chờ Admin duyệt') : u.status === 'ACTIVE' ? (lang === 'en' ? 'Active Account' : 'Đang hoạt động') : (lang === 'en' ? 'Access Suspended' : 'Tạm khóa truy cập')}
                             </div>
                           </div>
                           <span style={{
@@ -2209,39 +1349,79 @@ export default function AdminPage() {
                         </div>
 
                         <div className="facility-card-actions">
-                          <div className="actions-left" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <button
-                              className="facility-btn-action"
-                              onClick={() => handleOpenEditUser(u)}
-                            >
-                              {lang === 'en' ? 'Edit' : 'Sửa'}
-                            </button>
-                            {u.username !== 'admin' && (
+                          <div className="actions-left" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {u.status === 'PENDING' ? (
                               <>
                                 <button
-                                  className={`facility-btn-action ${u.status === 'ACTIVE' ? 'btn-danger' : ''}`}
-                                  onClick={() => toggleUserStatus(u.user_id)}
+                                  type="button"
+                                  onClick={() => handleApproveUser(u)}
+                                  style={{
+                                    padding: '6px 14px',
+                                    background: '#E86B2C',
+                                    color: '#FFFFFF',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    fontWeight: 700,
+                                    fontSize: '12px',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Phê duyệt kích hoạt tài khoản này"
                                 >
-                                  {u.status === 'ACTIVE' ? (lang === 'en' ? 'Lock' : 'Khóa') : (lang === 'en' ? 'Unlock' : 'Mở')}
+                                  ✓ {lang === 'en' ? 'Approve' : 'Phê duyệt'}
                                 </button>
                                 <button
-                                  className="facility-btn-action"
+                                  type="button"
+                                  onClick={() => handleRejectUser(u)}
                                   style={{
+                                    padding: '6px 10px',
                                     background: 'rgba(239, 68, 68, 0.12)',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)',
                                     color: '#EF4444',
-                                    fontWeight: 600
+                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                    borderRadius: '5px',
+                                    fontWeight: 600,
+                                    fontSize: '12px',
+                                    cursor: 'pointer'
                                   }}
-                                  onClick={() => handleOpenDeleteUser(u)}
-                                  title={lang === 'en' ? 'Delete this staff member' : 'Xóa nhân sự này'}
+                                  title="Từ chối yêu cầu đăng ký"
                                 >
-                                  {lang === 'en' ? 'Delete' : 'Xóa'}
+                                  ✕ {lang === 'en' ? 'Reject' : 'Từ chối'}
                                 </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  className="facility-btn-action"
+                                  onClick={() => handleOpenEditUser(u)}
+                                >
+                                  {lang === 'en' ? 'Edit' : 'Sửa'}
+                                </button>
+                                {u.username !== 'admin' && (
+                                  <>
+                                    <button
+                                      className={`facility-btn-action ${u.status === 'ACTIVE' ? 'btn-danger' : ''}`}
+                                      onClick={() => toggleUserStatus(u.user_id)}
+                                    >
+                                      {u.status === 'ACTIVE' ? (lang === 'en' ? 'Lock' : 'Khóa') : (lang === 'en' ? 'Unlock' : 'Mở')}
+                                    </button>
+                                    <button
+                                      className="facility-btn-action"
+                                      style={{
+                                        background: 'rgba(239, 68, 68, 0.12)',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        color: '#EF4444',
+                                        fontWeight: 600
+                                      }}
+                                      onClick={() => handleOpenDeleteUser(u)}
+                                      title={lang === 'en' ? 'Delete this staff member' : 'Xóa nhân sự này'}
+                                    >
+                                      {lang === 'en' ? 'Delete' : 'Xóa'}
+                                    </button>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
-                          <button
-                            className="facility-link-action"
+                          <button className="facility-link-action"
                             onClick={() => handleOpenEditUser(u)}
                           >
                             {lang === 'en' ? 'Profile →' : 'Hồ sơ →'}
@@ -2300,47 +1480,33 @@ export default function AdminPage() {
                                 color: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)'
                               }}>
                                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: u.status === 'ACTIVE' ? 'var(--brass)' : 'var(--paper-dim)' }} />
-                                {u.status === 'ACTIVE' ? (lang === 'en' ? 'Active' : 'Hoạt động') : (lang === 'en' ? 'Suspended' : 'Tạm khóa')}
+                                {u.status === 'PENDING' ? (lang === 'en' ? 'Pending Approval' : 'Chờ phê duyệt') : u.status === 'ACTIVE' ? (lang === 'en' ? 'Active' : 'Hoạt động') : (lang === 'en' ? 'Suspended' : 'Tạm khóa')}
                               </span>
                             </td>
                             <td style={{ padding: '14px 18px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <button
-                                  onClick={() => handleOpenEditUser(u)}
-                                  title={lang === 'en' ? 'Edit staff profile' : 'Sửa thông tin nhân sự'}
-                                  style={{
-                                    padding: '5px 12px',
-                                    background: 'var(--bg-secondary)',
-                                    border: '1px solid var(--line)',
-                                    color: 'var(--paper)',
-                                    borderRadius: '4px',
-                                    fontSize: '12px',
-                                    cursor: 'pointer',
-                                    fontWeight: 500
-                                  }}
-                                >
-                                  {lang === 'en' ? 'Edit' : 'Sửa'}
-                                </button>
-                                {u.username !== 'admin' && (
+                                {u.status === 'PENDING' ? (
                                   <>
                                     <button
-                                      onClick={() => toggleUserStatus(u.user_id)}
+                                      onClick={() => handleApproveUser(u)}
                                       style={{
                                         padding: '5px 12px',
-                                        background: 'var(--bg-secondary)',
-                                        border: '1px solid var(--line)',
-                                        color: 'var(--paper-dim)',
+                                        background: '#E86B2C',
+                                        color: '#FFFFFF',
+                                        border: 'none',
                                         borderRadius: '4px',
                                         fontSize: '12px',
+                                        fontWeight: 700,
                                         cursor: 'pointer'
                                       }}
+                                      title="Phê duyệt kích hoạt tài khoản"
                                     >
-                                      {u.status === 'ACTIVE' ? (lang === 'en' ? 'Suspend' : 'Khóa tài khoản') : (lang === 'en' ? 'Reactivate' : 'Mở khóa')}
+                                      ✓ {lang === 'en' ? 'Approve' : 'Phê duyệt'}
                                     </button>
                                     <button
-                                      onClick={() => handleOpenDeleteUser(u)}
+                                      onClick={() => handleRejectUser(u)}
                                       style={{
-                                        padding: '5px 12px',
+                                        padding: '5px 10px',
                                         background: 'rgba(239, 68, 68, 0.12)',
                                         border: '1px solid rgba(239, 68, 68, 0.35)',
                                         color: '#EF4444',
@@ -2349,10 +1515,63 @@ export default function AdminPage() {
                                         fontWeight: 600,
                                         cursor: 'pointer'
                                       }}
-                                      title={lang === 'en' ? 'Permanently delete this staff' : 'Xóa nhân sự này'}
+                                      title="Từ chối duyệt"
                                     >
-                                      {lang === 'en' ? 'Delete' : 'Xóa'}
+                                      ✕ {lang === 'en' ? 'Reject' : 'Từ chối'}
                                     </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => handleOpenEditUser(u)}
+                                      title={lang === 'en' ? 'Edit staff profile' : 'Sửa thông tin nhân sự'}
+                                      style={{
+                                        padding: '5px 12px',
+                                        background: 'var(--bg-secondary)',
+                                        border: '1px solid var(--line)',
+                                        color: 'var(--paper)',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        fontWeight: 500
+                                      }}
+                                    >
+                                      {lang === 'en' ? 'Edit' : 'Sửa'}
+                                    </button>
+                                    {u.username !== 'admin' && (
+                                      <>
+                                        <button
+                                          onClick={() => toggleUserStatus(u.user_id)}
+                                          style={{
+                                            padding: '5px 12px',
+                                            background: 'var(--bg-secondary)',
+                                            border: '1px solid var(--line)',
+                                            color: 'var(--paper-dim)',
+                                            borderRadius: '4px',
+                                            fontSize: '12px',
+                                            cursor: 'pointer'
+                                          }}
+                                        >
+                                          {u.status === 'ACTIVE' ? (lang === 'en' ? 'Suspend' : 'Khóa') : (lang === 'en' ? 'Reactivate' : 'Mở')}
+                                        </button>
+                                        <button
+                                          onClick={() => handleOpenDeleteUser(u)}
+                                          style={{
+                                            padding: '5px 12px',
+                                            background: 'rgba(239, 68, 68, 0.12)',
+                                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                                            color: '#EF4444',
+                                            borderRadius: '4px',
+                                            fontSize: '12px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                          }}
+                                          title={lang === 'en' ? 'Permanently delete this staff' : 'Xóa nhân sự này'}
+                                        >
+                                          {lang === 'en' ? 'Delete' : 'Xóa'}
+                                        </button>
+                                      </>
+                                    )}
                                   </>
                                 )}
                               </div>

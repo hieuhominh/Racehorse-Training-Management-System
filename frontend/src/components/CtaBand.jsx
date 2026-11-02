@@ -12,8 +12,8 @@ export default function CtaBand({ onOpenAuth }) {
           <p>{t('ctaDesc')}</p>
         </div>
         <div className="hero-actions">
-          <a 
-            className="btn btn-solid" 
+          <a
+            className="btn btn-solid"
             href="/dang-ky.html"
             onClick={(e) => {
               if (onOpenAuth) {

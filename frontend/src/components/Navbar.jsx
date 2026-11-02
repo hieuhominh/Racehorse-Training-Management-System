@@ -5,6 +5,15 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 
+/* ─── HR Logo Badge ─── */
+function HRLogo() {
+  return (
+    <span className="hr-logo-badge" aria-hidden="true">
+      <span className="hr-logo-letters">HR</span>
+    </span>
+  );
+}
+
 export default function Navbar({ onOpenAuth }) {
   const { currentUser, logout } = useAuth();
   const { toggleTheme, isDark } = useTheme();
@@ -65,16 +74,15 @@ export default function Navbar({ onOpenAuth }) {
   return (
     <header className="nav" ref={navRef} onMouseLeave={handleMouseLeave}>
       <div className="wrap nav-wrap">
+        {/* ── Brand ── */}
         <Link className="brand" to="/" onClick={closeMenus}>
-          <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
-            <path d="M17 3c6 0 10 4.6 10 10.6 0 5-2.6 7.4-2.6 11.2 0 2.6 1.6 3.9 1.6 5.4 0 1.2-1 1.8-2.3 1.8-2.6 0-4.2-2.2-4.2-5.2 0-3.4 2.2-5.6 2.2-9.2 0-2.9-1.8-5-4.7-5s-4.7 2.1-4.7 5c0 3.6 2.2 5.8 2.2 9.2 0 3-1.6 5.2-4.2 5.2-1.3 0-2.3-.6-2.3-1.8 0-1.5 1.6-2.8 1.6-5.4C9.6 21 7 18.6 7 13.6 7 6.6 11 3 17 3Z" fill="#C9A227"/>
-          </svg>
+          <HRLogo />
           <span>
-            <span className="name">{lang === 'vi' ? 'MÃ TRƯỜNG' : 'MA TRUONG'}</span>
-            <span className="sub">{t('brandSub')}</span>
+            <span className="name">{lang === 'vi' ? 'horse racing' : 'horse racing'}</span>
           </span>
         </Link>
 
+        {/* ── Main Nav ── */}
         <nav className={`mainnav ${mobileMenuOpen ? 'open' : ''}`} id="mainnav">
           <Link to="/" onClick={closeMenus} className={location.pathname === '/' ? 'active' : ''}>{t('home')}</Link>
 
@@ -88,7 +96,7 @@ export default function Navbar({ onOpenAuth }) {
             const ctaText = lang === 'en' ? (menu.ctaTextEn || menu.ctaText) : (menu.ctaTextVi || menu.ctaText);
 
             return (
-              <div 
+              <div
                 key={menu.id}
                 className={`navitem ${isOpen ? 'open' : ''}`}
                 onMouseEnter={() => handleMouseEnter(menu.id)}
@@ -101,8 +109,8 @@ export default function Navbar({ onOpenAuth }) {
                 >
                   {label}
                 </button>
-                <div 
-                  className="mega" 
+                <div
+                  className="mega"
                   id={menu.id}
                 >
                   <div className="wrap mega-wrap">
@@ -114,20 +122,19 @@ export default function Navbar({ onOpenAuth }) {
                       <h3>{title}</h3>
                       <div className="vn">{menu.subtitle}</div>
                       <p>{desc}</p>
-                      <Link className="open-flow" to={menu.ctaLink} onClick={closeMenus}>
-                        {ctaText}
-                      </Link>
+                      <Link className="open-flow" to={menu.ctaLink} onClick={closeMenus}>{ctaText}</Link>
                     </div>
                     <div className="mega-links">
-                      <h4>{lang === 'vi' ? 'TRONG LUỒNG NÀY' : 'IN THIS WORKFLOW'}</h4>
-                      {menu.links.map((sub, sIdx) => {
-                        const subTitle = lang === 'en' ? (sub.titleEn || sub.title) : (sub.titleVi || sub.title);
-                        const subDesc = lang === 'en' ? (sub.descEn || sub.desc) : (sub.descVi || sub.desc);
-
+                      {menu.links.map((lnk, li) => {
+                        const linkLabel = lang === 'en' ? (lnk.labelEn || lnk.label) : (lnk.labelVi || lnk.label);
+                        const linkDesc = lang === 'en' ? (lnk.descEn || lnk.desc) : (lnk.descVi || lnk.desc);
                         return (
-                          <Link key={sIdx} to={sub.link} onClick={closeMenus}>
-                            {subTitle}
-                            <em>{subDesc}</em>
+                          <Link key={li} to={lnk.link} onClick={closeMenus}>
+                            <span className="ml-icon">{lnk.icon}</span>
+                            <span>
+                              <b>{linkLabel}</b>
+                              <small>{linkDesc}</small>
+                            </span>
                           </Link>
                         );
                       })}
@@ -137,42 +144,40 @@ export default function Navbar({ onOpenAuth }) {
               </div>
             );
           })}
-        </nav>
 
-        <div className="nav-cta">
-          {/* NÚT CHUYỂN ĐỔI CHẾ ĐỘ SÁNG / TỐI (THEME TOGGLE) */}
+          {/* ── Controls ── */}
+          {/* THEME TOGGLE */}
           <button
             type="button"
             onClick={toggleTheme}
             className="theme-toggle-btn"
-            aria-label={isDark ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
-            title={isDark ? 'Chuyển sang giao diện Sáng (Light Mode)' : 'Chuyển sang giao diện Tối (Dark Mode)'}
+            aria-label="Chuyển đổi giao diện sáng / tối"
+            title={isDark ? (lang === 'vi' ? 'Chuyển sang chế độ Sáng' : 'Switch to Light Mode') : (lang === 'vi' ? 'Chuyển sang chế độ Tối' : 'Switch to Dark Mode')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 11px', cursor: 'pointer' }}
           >
-            <span className="theme-toggle-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
-              {isDark ? (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="5" />
-                  <line x1="12" y1="1" x2="12" y2="3" />
-                  <line x1="12" y1="21" x2="12" y2="23" />
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                  <line x1="1" y1="12" x2="3" y2="12" />
-                  <line x1="21" y1="12" x2="23" y2="12" />
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                </svg>
-              ) : (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-              )}
-            </span>
+            {isDark ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
             <span className="theme-toggle-label">
               {isDark ? (lang === 'vi' ? 'Sáng' : 'Light') : (lang === 'vi' ? 'Tối' : 'Dark')}
             </span>
           </button>
 
-          {/* NÚT CHUYỂN ĐỔI NGÔN NGỮ (VI / EN) */}
+          {/* LANGUAGE TOGGLE */}
           <button
             type="button"
             onClick={toggleLang}
@@ -206,7 +211,7 @@ export default function Navbar({ onOpenAuth }) {
                   <span className="nav-btn-text">Cổng Chăm sóc ({currentUser.full_name || currentUser.username})</span>
                 </Link>
               ) : (currentUser.role === 'OWNER' || currentUser.role_code === 'OWNER') ? (
-                <Link to="/owner" className="btn btn-solid nav-role-btn" style={{ background: 'var(--brass)', borderColor: 'var(--brass)', color: '#0A0D14' }} onClick={closeMenus}>
+                <Link to="/owner" className="btn btn-solid nav-role-btn" style={{ background: 'var(--brass)', borderColor: 'var(--brass)', color: '#ffffff' }} onClick={closeMenus}>
                   <span className="nav-btn-text">Cổng Chủ ngựa ({currentUser.full_name || currentUser.username})</span>
                 </Link>
               ) : (
@@ -226,8 +231,8 @@ export default function Navbar({ onOpenAuth }) {
             </>
           ) : (
             <>
-              <a 
-                className="btn btn-ghost" 
+              <a
+                className="btn btn-ghost nav-signup-btn"
                 href="#register"
                 onClick={(e) => {
                   if (onOpenAuth) {
@@ -238,8 +243,8 @@ export default function Navbar({ onOpenAuth }) {
               >
                 {t('registerBtn')}
               </a>
-              <a 
-                className="btn btn-solid" 
+              <a
+                className="btn btn-solid nav-login-btn"
                 href="#login"
                 onClick={(e) => {
                   if (onOpenAuth) {
@@ -248,15 +253,15 @@ export default function Navbar({ onOpenAuth }) {
                   }
                 }}
               >
-                {t('loginBtn')}
+                {t('loginBtn')} →
               </a>
             </>
           )}
 
-          <button 
-            className="burger" 
-            id="burger" 
-            aria-label="Mở menu" 
+          <button
+            className="burger"
+            id="burger"
+            aria-label="Mở menu"
             aria-expanded={mobileMenuOpen}
             onClick={() => {
               setMobileMenuOpen(!mobileMenuOpen);
@@ -265,7 +270,7 @@ export default function Navbar({ onOpenAuth }) {
           >
             ≡
           </button>
-        </div>
+        </nav>
       </div>
     </header>
   );

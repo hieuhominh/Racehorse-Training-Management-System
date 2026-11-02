@@ -279,16 +279,32 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
       password: regPassword
     });
 
-    // Đăng nhập ngay lập tức với tài khoản mới tạo
-    await login(cleanEmail, regPassword);
-
+    // Thông báo tài khoản đang chờ Admin phê duyệt (không tự đăng nhập ngay)
     setIsError(false);
-    setNotification(t('registerSuccess'));
+    setNotification(
+      lang === 'en'
+        ? `Registration successful for ${createdUser.full_name}! Your account is pending Administrator approval before login.`
+        : `Đăng ký thành công! Tài khoản ${createdUser.full_name} (${createdUser.role_name}) đang chờ Quản trị viên (Admin) xét duyệt trước khi đăng nhập.`
+    );
+
+    // Xóa form đăng ký
+    setRegFullName('');
+    setRegEmail('');
+    setRegPhone('');
+    setRegPassword('');
+    setRegConfirmPassword('');
+    setRegAgreedTerms(false);
+
+    // Chuyển về tab đăng nhập sau 2.5 giây
     setTimeout(() => {
-      setNotification('');
-      onClose();
-      redirectToRolePortal(createdUser);
-    }, 700);
+      setActiveTab('login');
+      setLoginEmail(cleanEmail);
+      setNotification(
+        lang === 'en'
+          ? 'Application submitted to Management. Please wait for Administrator approval.'
+          : 'Hồ sơ đã được gửi tới Ban Quản trị. Vui lòng chờ Admin duyệt để đăng nhập.'
+      );
+    }, 2500);
   };
 
   // Google SSO Handlers
@@ -339,14 +355,14 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
       password: '123'
     });
 
-    login(cleanEmail, '123');
-    setNotification(`Đăng ký Google thành công. Chào mừng ${createdUser.full_name}. Đang chuyển hướng...`);
+    setIsError(false);
+    setNotification(`Đăng ký tài khoản Google thành công! Yêu cầu của bạn (${createdUser.email} - ${createdUser.role_name}) đang chờ Quản trị viên phê duyệt.`);
     setShowGoogleDialog(false);
     setTimeout(() => {
-      setNotification('');
-      onClose();
-      redirectToRolePortal(createdUser);
-    }, 700);
+      setActiveTab('login');
+      setLoginEmail(cleanEmail);
+      setNotification('Hồ sơ đã gửi tới Ban Quản lý. Vui lòng chờ phê duyệt để đăng nhập.');
+    }, 2500);
   };
 
   const handleQuickGoogleSelect = (preset) => {
@@ -389,24 +405,97 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
       }}
       onClick={onClose}
     >
-      <div 
+      {/* Horizontal modal wrapper */}
+      <div
         className="auth-modal-content"
         style={{
           width: '100%',
-          maxWidth: activeTab === 'register' ? '490px' : '430px',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--line-strong)',
-          borderRadius: '12px',
-          padding: 'clamp(20px, 3.5vw, 30px) clamp(18px, 3vw, 26px)',
+          maxWidth: activeTab === 'register' ? '900px' : '820px',
+          display: 'flex',
+          borderRadius: '14px',
+          overflow: 'hidden',
           boxShadow: 'var(--shadow-lg)',
-          position: 'relative',
-          color: 'var(--paper)',
+          border: '1px solid var(--line-strong)',
           maxHeight: '92vh',
-          overflowY: 'auto',
-          transition: 'all 0.2s ease'
+          transition: 'max-width 0.2s ease'
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* LEFT BRAND PANEL */}
+        <div style={{
+          width: '300px',
+          flexShrink: 0,
+          background: 'linear-gradient(160deg, #1A2E25 0%, #122019 100%)',
+          borderRight: '1px solid rgba(232,107,44,0.18)',
+          padding: '36px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Decorative circles */}
+          <div style={{ position: 'absolute', bottom: '-60px', right: '-60px', width: '220px', height: '220px', borderRadius: '50%', background: 'rgba(232,107,44,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: '-40px', left: '-40px', width: '140px', height: '140px', borderRadius: '50%', background: 'rgba(232,107,44,0.04)', pointerEvents: 'none' }} />
+          {/* HR Logo */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '9px', background: '#E86B2C', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ fontFamily: 'var(--display)', fontSize: '15px', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>HR</span>
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--display)', fontSize: '14px', color: '#fff', fontWeight: 700, lineHeight: 1.1 }}>horse racing</div>
+                <div style={{ fontSize: '8.5px', color: '#E86B2C', letterSpacing: '0.13em', textTransform: 'uppercase', fontWeight: 600, marginTop: '2px' }}>MANAGEMENT SYSTEM</div>
+              </div>
+            </div>
+            <div style={{ fontSize: '20px', fontFamily: 'var(--display)', fontWeight: 800, color: '#fff', lineHeight: 1.25, marginBottom: '10px' }}>
+              Mỗi sải chân<br />
+              <span style={{ color: '#E86B2C' }}>đều được<br />ghi lại</span>
+            </div>
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, margin: '0 0 22px' }}>
+              Nền tảng quản lý huấn luyện ngựa đua chuyên nghiệp.
+            </p>
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '9.5px', color: '#E86B2C', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '9px' }}>5 vai trò hệ thống</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                {[
+                  { icon: '👑', label: 'Chủ sở hữu', c: 'rgba(236,72,153,0.15)', b: 'rgba(236,72,153,0.3)', t: '#F472B6' },
+                  { icon: '🏇', label: 'Huấn luyện viên', c: 'rgba(59,130,246,0.15)', b: 'rgba(59,130,246,0.3)', t: '#60A5FA' },
+                  { icon: '🩺', label: 'Bác sĩ thú y', c: 'rgba(16,185,129,0.15)', b: 'rgba(16,185,129,0.3)', t: '#34D399' },
+                  { icon: '🌾', label: 'Nhân viên chăm sóc', c: 'rgba(168,85,247,0.15)', b: 'rgba(168,85,247,0.3)', t: '#C084FC' },
+                  { icon: '⚙️', label: 'Quản trị viên', c: 'rgba(217,119,6,0.15)', b: 'rgba(217,119,6,0.3)', t: '#FBBF24' },
+                ].map((r) => (
+                  <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 9px', background: r.c, border: '1px solid ' + r.b, borderRadius: '5px', fontSize: '11px', color: r.t, fontWeight: 600 }}>
+                    <span>{r.icon}</span><span>{r.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Bottom stats */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '14px' }}>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {[{ n: '8+', l: 'Thành viên' }, { n: '100%', l: 'Dữ liệu thật' }, { n: '5', l: 'Vai trò' }].map((s) => (
+                <div key={s.l} style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--display)', fontSize: '17px', color: '#E86B2C', fontWeight: 800 }}>{s.n}</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT FORM PANEL */}
+        <div style={{
+          flex: 1,
+          background: 'var(--bg-card)',
+          color: 'var(--paper)',
+          padding: 'clamp(20px, 3.5vw, 32px) clamp(18px, 3vw, 28px)',
+          position: 'relative',
+          overflowY: 'auto',
+          maxHeight: '92vh',
+          minWidth: 0
+        }}>
         {/* Nút Đóng & Bộ chuyển đổi ngôn ngữ Anh - Việt */}
         <div style={{
           position: 'absolute',
@@ -1304,6 +1393,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
           </form>
         )}
       </div>
+    </div>
 
       {/* ===================== POPUP QUÊN MẬT KHẨU ===================== */}
       {showForgotModal && (

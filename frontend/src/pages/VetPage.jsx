@@ -77,6 +77,168 @@ const ANATOMY_PARTS = [
   { id: 'GI_TRACT', nameVi: 'Hệ tiêu hóa & Bụng (Colic / Abdomen)', nameEn: 'GI Tract & Colic Screen', risk: 'CRITICAL', descVi: 'Dấu hiệu đau bụng Colic cấp tính, nghe âm nhu động ruột 4 góc bụng', descEn: 'Acute colic auscultation in four quadrants, check for gut hypomotility' }
 ];
 
+// Dữ liệu mẫu hệ thống dành riêng cho tài khoản Demo Trưởng khoa (vet_an)
+const DEFAULT_SEED_HORSES = [
+  {
+    id: 1,
+    microchip: 'MC-VN-2022-001',
+    name: 'Hắc Phong',
+    breed: 'Thoroughbred',
+    stable: 'A3',
+    owner: 'Phạm Tiến Thành',
+    status: 'WATCH',
+    statusText: 'Theo dõi nhịp tim',
+    locked: false,
+    lockReason: '',
+    lastExamDate: '10/10/2026',
+    restingHeartRate: '38 bpm',
+    tempCelsius: 38.1,
+    avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=400&q=80'
+  },
+  {
+    id: 2,
+    microchip: 'MC-VN-2021-014',
+    name: 'Xích Thố',
+    breed: 'Arabian',
+    stable: 'A1',
+    owner: 'Phạm Tiến Thành',
+    status: 'ELIGIBLE',
+    statusText: 'Đủ điều kiện thi đấu',
+    locked: false,
+    lockReason: '',
+    lastExamDate: '10/10/2026',
+    restingHeartRate: '36 bpm',
+    tempCelsius: 37.8,
+    avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
+  },
+  {
+    id: 3,
+    microchip: 'MC-VN-2023-009',
+    name: 'Phi Yến',
+    breed: 'Thoroughbred',
+    stable: 'A5',
+    owner: 'Phạm Tiến Thành',
+    status: 'INJURED',
+    statusText: 'Khóa y tế: Giãn gân',
+    locked: true,
+    lockReason: 'Giãn gân chân trước trái cấp độ 2 (Left Forelimb Superficial Digital Flexor Tendonitis)',
+    lastExamDate: '09/10/2026',
+    restingHeartRate: '44 bpm',
+    tempCelsius: 38.6,
+    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
+  },
+  {
+    id: 4,
+    microchip: 'MC-VN-2022-088',
+    name: 'Lôi Chấn',
+    breed: 'Quarter Horse',
+    stable: 'B2',
+    owner: 'Phạm Tiến Thành',
+    status: 'QUARANTINE',
+    statusText: 'Cách ly theo dõi',
+    locked: true,
+    lockReason: 'Theo dõi kiểm dịch dịch tễ tại khu cách ly Block B',
+    lastExamDate: '08/10/2026',
+    restingHeartRate: '40 bpm',
+    tempCelsius: 38.2,
+    avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
+  },
+  {
+    id: 5,
+    microchip: 'MC-VN-2024-003',
+    name: 'Bạch Long',
+    breed: 'Thoroughbred',
+    stable: 'A2',
+    owner: 'Phạm Tiến Thành',
+    status: 'ELIGIBLE',
+    statusText: 'Khỏe mạnh',
+    locked: false,
+    lockReason: '',
+    lastExamDate: '10/10/2026',
+    restingHeartRate: '37 bpm',
+    tempCelsius: 37.9,
+    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
+  }
+];
+
+const DEFAULT_SEED_INCIDENTS = [
+  {
+    id: 'INC-9012',
+    stallCode: 'A3',
+    horseName: 'Hắc Phong',
+    chipId: 'MC-VN-2022-001',
+    symptoms: ['Ngựa bỏ ăn', 'Có dấu hiệu đau bụng / Sốt'],
+    severity: 'HIGH',
+    description: 'Hắc Phong bỏ 2/3 khẩu phần cỏ Alfalfa buổi trưa, thở nhanh và dậm chân liên tục. Thân nhiệt 38.8°C, nghi ngờ đau bụng nhẹ (Colic).',
+    imageUrl: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=600&q=80',
+    reportedBy: 'Groom Nguyễn Văn Hùng',
+    timestamp: '11:45 - 08/10/2026',
+    status: 'pending_vet',
+    vetDiagnosis: '',
+    actionTaken: ''
+  },
+  {
+    id: 'INC-8819',
+    stallCode: 'B4',
+    horseName: 'Phi Vân',
+    chipId: '982-000-348-192-010',
+    symptoms: ['Móng bị xước / Rạn guốc'],
+    severity: 'MEDIUM',
+    description: 'Phát hiện vết rạn móng nhẹ ở guốc sau phải sau buổi tập trên sân cát. Đã làm sạch móng, ngâm đá & chờ Thú y kiểm tra.',
+    imageUrl: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80',
+    reportedBy: 'Groom Phạm Minh Tiến',
+    timestamp: '09:15 - 08/10/2026',
+    status: 'in_review',
+    vetDiagnosis: 'Rạn nứt thành ngoài móng sau phải, chưa chạm tầng sinh móng.',
+    actionTaken: 'Băng keo bảo vệ móng + Đặt lịch thợ gọt móng Farrier'
+  }
+];
+
+const DEFAULT_SEED_VACCINES = [
+  { id: 1, horseName: 'Hắc Phong', vaccineType: 'Cúm ngựa (Equine Influenza)', dueDate: '15/10/2026', status: 'DUE_SOON', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
+  { id: 2, horseName: 'Xích Thố', vaccineType: 'Uốn ván (Tetanus Toxoid)', dueDate: '20/11/2026', status: 'UP_TO_DATE', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
+  { id: 3, horseName: 'Phi Yến', vaccineType: 'Tẩy giun Ivermectin Paste', dueDate: '10/10/2026', status: 'OVERDUE', dose: 'Tuýp 6.42g đường uống', vetInCharge: 'BS Nguyễn An' },
+  { id: 4, horseName: 'Lôi Chấn', vaccineType: 'Viêm não thể EHV 1 & 4', dueDate: '12/10/2026', status: 'DUE_SOON', dose: '1.5 ml IM', vetInCharge: 'BS Nguyễn An' },
+  { id: 5, horseName: 'Bạch Long', vaccineType: 'Kiểm tra móng (Farrier Routine)', dueDate: '18/10/2026', status: 'UP_TO_DATE', dose: 'Gọt & đóng móng nhôm đua', vetInCharge: 'Farrier Trần Văn Vũ' }
+];
+
+const DEFAULT_SEED_PRESCRIPTIONS = [
+  {
+    id: 'RX-2026-001',
+    horseName: 'Phi Yến',
+    stall: 'Ô A5',
+    diagnosis: 'Giãn gân trước trái độ 2',
+    medications: [
+      { name: 'Phenylbutazone 20%', dosage: '10ml tiêm tĩnh mạch IV', frequency: '1 lần/ngày x 5 ngày' },
+      { name: 'Gel lạnh giảm đau DMSO + Băng ép Cryotherapy', dosage: 'Bôi ngoài da', frequency: '2 lần/ngày (sáng/tối)' },
+      { name: 'Bột bổ sung khớp Glucosamine + MSM', dosage: '30g trộn khẩu phần ăn', frequency: 'Hàng ngày' }
+    ],
+    restrictions: 'Khóa hoàn toàn bài tập chạy nước rút và tập nặng. Chỉ cho phép đi bộ thả lỏng dắt tay 15 phút/ngày trên mặt đất mềm.',
+    date: '09/10/2026',
+    status: 'ACTIVE'
+  },
+  {
+    id: 'RX-2026-002',
+    horseName: 'Hắc Phong',
+    stall: 'Ô A3',
+    diagnosis: 'Nghi ngờ kích ứng dạ dày nhẹ (Mild Gastric Distress)',
+    medications: [
+      { name: 'Omeprazole Equine Paste (GastroGard)', dosage: '1 tuýp đường uống lúc đói', frequency: 'Mỗi sáng x 7 ngày' },
+      { name: 'Men vi sinh đường ruột Probiotic Paste', dosage: '15ml', frequency: 'Sau bữa ăn trưa' }
+    ],
+    restrictions: 'Chia nhỏ khẩu phần ăn làm 4 bữa. Tạm ngưng yến mạch đậm đặc, tăng cỏ khô Alfalfa chất lượng cao.',
+    date: '10/10/2026',
+    status: 'ACTIVE'
+  }
+];
+
+const DEFAULT_SEED_CLEARANCE = [
+  { id: 1, horseName: 'Xích Thố', raceName: 'Giải Vô địch Quốc gia Đại Nam 2026', distance: '2.400m', date: '25/10/2026', vetStatus: 'CLEARED', heartRateRest: '36 bpm', notes: 'Thể lực hoàn hảo, âm tim chuẩn, không có dấu hiệu phù nề gân.' },
+  { id: 2, horseName: 'Bạch Long', raceName: 'Cúp Đua Ngựa Mùa Thu Cự Ly Ngắn', distance: '1.200m', date: '28/10/2026', vetStatus: 'CLEARED', heartRateRest: '37 bpm', notes: 'Đạt chuẩn kiểm định thể lực thú y.' },
+  { id: 3, horseName: 'Hắc Phong', raceName: 'Giải Đua Tốc Độ Sân Cát', distance: '1.600m', date: '30/10/2026', vetStatus: 'PENDING_EXAM', heartRateRest: '38 bpm', notes: 'Chờ theo dõi thêm 48h về tiêu hóa trước khi cấp chứng nhận.' },
+  { id: 4, horseName: 'Phi Yến', raceName: 'Giải Vô địch Mở Rộng Cup C1', distance: '1.600m', date: '26/10/2026', vetStatus: 'REJECTED_INJURY', heartRateRest: '44 bpm', notes: 'TỪ CHỐI CẤP PHÉP: Đang chịu lệnh Khóa Y Tế do giãn gân chân trái!' }
+];
+
 export default function VetPage() {
   const { currentUser, logout } = useAuth();
   const { showToast } = useToast();
@@ -92,171 +254,120 @@ export default function VetPage() {
   const [selectedAnatomy, setSelectedAnatomy] = useState(ANATOMY_PARTS[1]); // Mặc định là Fetlock (Gân gót)
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Danh sách chiến mã y tế
-  const [horses, setHorses] = useState([
-    {
-      id: 1,
-      microchip: 'MC-VN-2022-001',
-      name: 'Hắc Phong',
-      breed: 'Thoroughbred',
-      stable: 'A3',
-      owner: 'Phạm Tiến Thành',
-      status: 'WATCH',
-      statusText: 'Theo dõi nhịp tim',
-      locked: false,
-      lockReason: '',
-      lastExamDate: '10/10/2026',
-      restingHeartRate: '38 bpm',
-      tempCelsius: 38.1,
-      avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 2,
-      microchip: 'MC-VN-2021-014',
-      name: 'Xích Thố',
-      breed: 'Arabian',
-      stable: 'A1',
-      owner: 'Phạm Tiến Thành',
-      status: 'ELIGIBLE',
-      statusText: 'Đủ điều kiện thi đấu',
-      locked: false,
-      lockReason: '',
-      lastExamDate: '10/10/2026',
-      restingHeartRate: '36 bpm',
-      tempCelsius: 37.8,
-      avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 3,
-      microchip: 'MC-VN-2023-009',
-      name: 'Phi Yến',
-      breed: 'Thoroughbred',
-      stable: 'A5',
-      owner: 'Phạm Tiến Thành',
-      status: 'INJURED',
-      statusText: 'Khóa y tế: Giãn gân',
-      locked: true,
-      lockReason: 'Giãn gân chân trước trái cấp độ 2 (Left Forelimb Superficial Digital Flexor Tendonitis)',
-      lastExamDate: '09/10/2026',
-      restingHeartRate: '44 bpm',
-      tempCelsius: 38.6,
-      avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 4,
-      microchip: 'MC-VN-2022-088',
-      name: 'Lôi Chấn',
-      breed: 'Quarter Horse',
-      stable: 'B2',
-      owner: 'Phạm Tiến Thành',
-      status: 'QUARANTINE',
-      statusText: 'Cách ly theo dõi',
-      locked: true,
-      lockReason: 'Theo dõi kiểm dịch dịch tễ tại khu cách ly Block B',
-      lastExamDate: '08/10/2026',
-      restingHeartRate: '40 bpm',
-      tempCelsius: 38.2,
-      avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 5,
-      microchip: 'MC-VN-2024-003',
-      name: 'Bạch Long',
-      breed: 'Thoroughbred',
-      stable: 'A2',
-      owner: 'Phạm Tiến Thành',
-      status: 'ELIGIBLE',
-      statusText: 'Khỏe mạnh',
-      locked: false,
-      lockReason: '',
-      lastExamDate: '10/10/2026',
-      restingHeartRate: '37 bpm',
-      tempCelsius: 37.9,
-      avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-    }
-  ]);
+  // Xác định xem đây có phải là tài khoản Bác sĩ Thú y MỚI ĐƯỢC DUYỆT hay không
+  // (Nếu là tài khoản mới, toàn bộ dữ liệu mẫu khởi tạo từ con số 0)
+  const isNewAccount = useMemo(() => {
+    if (!currentUser) return false;
+    const seedUsernames = ['vet_an', 'admin', 'admin_quan', 'trainer_truong', 'groom_nam', 'owner_thanh'];
+    const isSeed = seedUsernames.includes(currentUser.username?.toLowerCase()) || currentUser.email === 'vet@matruong.vn';
+    return !isSeed && (currentUser.isNewAccount || currentUser.approvedAt || Number(currentUser.user_id) > 6);
+  }, [currentUser]);
 
-  // 2. Danh sách Sự cố y tế lâm sàng (Clinical Incident Queue)
-  const [incidents, setIncidents] = useState([
-    {
-      id: 'INC-9012',
-      stallCode: 'A3',
-      horseName: 'Hắc Phong',
-      chipId: 'MC-VN-2022-001',
-      symptoms: ['Ngựa bỏ ăn', 'Có dấu hiệu đau bụng / Sốt'],
+  // 1. Danh sách chiến mã y tế
+  const [horses, setHorses] = useState(() => {
+    if (isNewAccount) {
+      try {
+        const stored = localStorage.getItem(`matruong_vet_horses_${currentUser.user_id}`);
+        if (stored) return JSON.parse(stored);
+      } catch {}
+      return [];
+    }
+    return DEFAULT_SEED_HORSES;
+  });
+
+  // 2. Danh sách Sự cố y tế lâm sàng (Khởi tạo từ 0 nếu là tài khoản mới)
+  const [incidents, setIncidents] = useState(() => {
+    if (isNewAccount) {
+      try {
+        const stored = localStorage.getItem(`matruong_vet_incidents_${currentUser.user_id}`);
+        if (stored) return JSON.parse(stored);
+      } catch {}
+      return [];
+    }
+    return DEFAULT_SEED_INCIDENTS;
+  });
+
+  // 3. Sổ tiêm chủng Vaccine
+  const [vaccines, setVaccines] = useState(() => {
+    if (isNewAccount) {
+      try {
+        const stored = localStorage.getItem(`matruong_vet_vaccines_${currentUser.user_id}`);
+        if (stored) return JSON.parse(stored);
+      } catch {}
+      return [];
+    }
+    return DEFAULT_SEED_VACCINES;
+  });
+
+  // 4. Đơn thuốc & Phác đồ điều trị
+  const [prescriptions, setPrescriptions] = useState(() => {
+    if (isNewAccount) {
+      try {
+        const stored = localStorage.getItem(`matruong_vet_prescriptions_${currentUser.user_id}`);
+        if (stored) return JSON.parse(stored);
+      } catch {}
+      return [];
+    }
+    return DEFAULT_SEED_PRESCRIPTIONS;
+  });
+
+  // 5. Cấp chứng nhận y tế thi đấu
+  const [raceClearanceList, setRaceClearanceList] = useState(() => {
+    if (isNewAccount) {
+      try {
+        const stored = localStorage.getItem(`matruong_vet_clearance_${currentUser.user_id}`);
+        if (stored) return JSON.parse(stored);
+      } catch {}
+      return [];
+    }
+    return DEFAULT_SEED_CLEARANCE;
+  });
+
+  // Đồng bộ lưu trữ localStorage theo từng tài khoản mới
+  useEffect(() => {
+    if (isNewAccount && currentUser?.user_id) {
+      localStorage.setItem(`matruong_vet_incidents_${currentUser.user_id}`, JSON.stringify(incidents));
+    }
+  }, [incidents, isNewAccount, currentUser]);
+
+  useEffect(() => {
+    if (isNewAccount && currentUser?.user_id) {
+      localStorage.setItem(`matruong_vet_prescriptions_${currentUser.user_id}`, JSON.stringify(prescriptions));
+    }
+  }, [prescriptions, isNewAccount, currentUser]);
+
+  useEffect(() => {
+    if (isNewAccount && currentUser?.user_id) {
+      localStorage.setItem(`matruong_vet_horses_${currentUser.user_id}`, JSON.stringify(horses));
+    }
+  }, [horses, isNewAccount, currentUser]);
+
+  // Mô phỏng tiếp nhận một ca sự cố lâm sàng mới phát sinh sau khi tài khoản được xác nhận
+  const handleSimulateNewIncident = () => {
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} - ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+    const newInc = {
+      id: `INC-${Date.now().toString().slice(-6)}`,
+      stallCode: 'A1',
+      horseName: 'Bạch Long',
+      chipId: '982-000-348-192-001',
+      symptoms: ['Thở dốc sau tập tốc độ', 'Nghi ngờ rạn nhẹ móng chân trước'],
       severity: 'HIGH',
-      description: 'Hắc Phong bỏ 2/3 khẩu phần cỏ Alfalfa buổi trưa, thở nhanh và dậm chân liên tục. Thân nhiệt 38.8°C, nghi ngờ đau bụng nhẹ (Colic).',
-      imageUrl: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=600&q=80',
-      reportedBy: 'Groom Nguyễn Văn Hùng',
-      timestamp: '11:45 - 08/10/2026',
+      description: `Ca báo cáo sự cố được Groom gửi lên lúc ${timeStr}. Sau bài tập nước rút cự ly 2.000m, chiến mã dậm chân liên tục và thân nhiệt tăng 38.9°C. Cần Bác sĩ Thú y thăm khám trực tiếp tại chuồng.`,
+      imageUrl: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80',
+      reportedBy: 'Groom Lê Hoàng Nam (Trực chuồng A)',
+      timestamp: timeStr,
       status: 'pending_vet',
       vetDiagnosis: '',
       actionTaken: ''
-    },
-    {
-      id: 'INC-8819',
-      stallCode: 'B4',
-      horseName: 'Phi Vân',
-      chipId: '982-000-348-192-010',
-      symptoms: ['Móng bị xước / Rạn guốc'],
-      severity: 'MEDIUM',
-      description: 'Phát hiện vết rạn móng nhẹ ở guốc sau phải sau buổi tập trên sân cát. Đã làm sạch móng, ngâm đá & chờ Thú y kiểm tra.',
-      imageUrl: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80',
-      reportedBy: 'Groom Phạm Minh Tiến',
-      timestamp: '09:15 - 08/10/2026',
-      status: 'in_review',
-      vetDiagnosis: 'Rạn nứt thành ngoài móng sau phải, chưa chạm tầng sinh móng.',
-      actionTaken: 'Băng keo bảo vệ móng + Đặt lịch thợ gọt móng Farrier'
-    }
-  ]);
-
-  // 3. Sổ tiêm chủng Vaccine & Tẩy giun định kỳ
-  const [vaccines, setVaccines] = useState([
-    { id: 1, horseName: 'Hắc Phong', vaccineType: 'Cúm ngựa (Equine Influenza)', dueDate: '15/10/2026', status: 'DUE_SOON', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
-    { id: 2, horseName: 'Xích Thố', vaccineType: 'Uốn ván (Tetanus Toxoid)', dueDate: '20/11/2026', status: 'UP_TO_DATE', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
-    { id: 3, horseName: 'Phi Yến', vaccineType: 'Tẩy giun Ivermectin Paste', dueDate: '10/10/2026', status: 'OVERDUE', dose: 'Tuýp 6.42g đường uống', vetInCharge: 'BS Nguyễn An' },
-    { id: 4, horseName: 'Lôi Chấn', vaccineType: 'Viêm não thể EHV 1 & 4', dueDate: '12/10/2026', status: 'DUE_SOON', dose: '1.5 ml IM', vetInCharge: 'BS Nguyễn An' },
-    { id: 5, horseName: 'Bạch Long', vaccineType: 'Kiểm tra móng (Farrier Routine)', dueDate: '18/10/2026', status: 'UP_TO_DATE', dose: 'Gọt & đóng móng nhôm đua', vetInCharge: 'Farrier Trần Văn Vũ' }
-  ]);
-
-  // 4. Đơn thuốc & Phác đồ điều trị lâm sàng
-  const [prescriptions, setPrescriptions] = useState([
-    {
-      id: 'RX-2026-001',
-      horseName: 'Phi Yến',
-      stall: 'Ô A5',
-      diagnosis: 'Giãn gân trước trái độ 2',
-      medications: [
-        { name: 'Phenylbutazone 20%', dosage: '10ml tiêm tĩnh mạch IV', frequency: '1 lần/ngày x 5 ngày' },
-        { name: 'Gel lạnh giảm đau DMSO + Băng ép Cryotherapy', dosage: 'Bôi ngoài da', frequency: '2 lần/ngày (sáng/tối)' },
-        { name: 'Bột bổ sung khớp Glucosamine + MSM', dosage: '30g trộn khẩu phần ăn', frequency: 'Hàng ngày' }
-      ],
-      restrictions: 'Khóa hoàn toàn bài tập chạy nước rút và tập nặng. Chỉ cho phép đi bộ thả lỏng dắt tay 15 phút/ngày trên mặt đất mềm.',
-      date: '09/10/2026',
-      status: 'ACTIVE'
-    },
-    {
-      id: 'RX-2026-002',
-      horseName: 'Hắc Phong',
-      stall: 'Ô A3',
-      diagnosis: 'Nghi ngờ kích ứng dạ dày nhẹ (Mild Gastric Distress)',
-      medications: [
-        { name: 'Omeprazole Equine Paste (GastroGard)', dosage: '1 tuýp đường uống lúc đói', frequency: 'Mỗi sáng x 7 ngày' },
-        { name: 'Men vi sinh đường ruột Probiotic Paste', dosage: '15ml', frequency: 'Sau bữa ăn trưa' }
-      ],
-      restrictions: 'Chia nhỏ khẩu phần ăn làm 4 bữa. Tạm ngưng yến mạch đậm đặc, tăng cỏ khô Alfalfa chất lượng cao.',
-      date: '10/10/2026',
-      status: 'ACTIVE'
-    }
-  ]);
-
-  // 5. Cấp chứng nhận y tế thi đấu (Vet Race Clearance)
-  const [raceClearanceList, setRaceClearanceList] = useState([
-    { id: 1, horseName: 'Xích Thố', raceName: 'Giải Vô địch Quốc gia Đại Nam 2026', distance: '2.400m', date: '25/10/2026', vetStatus: 'CLEARED', heartRateRest: '36 bpm', notes: 'Thể lực hoàn hảo, âm tim chuẩn, không có dấu hiệu phù nề gân.' },
-    { id: 2, horseName: 'Bạch Long', raceName: 'Cúp Đua Ngựa Mùa Thu Cự Ly Ngắn', distance: '1.200m', date: '28/10/2026', vetStatus: 'CLEARED', heartRateRest: '37 bpm', notes: 'Đạt chuẩn kiểm định thể lực thú y.' },
-    { id: 3, horseName: 'Hắc Phong', raceName: 'Giải Đua Tốc Độ Sân Cát', distance: '1.600m', date: '30/10/2026', vetStatus: 'PENDING_EXAM', heartRateRest: '38 bpm', notes: 'Chờ theo dõi thêm 48h về tiêu hóa trước khi cấp chứng nhận.' },
-    { id: 4, horseName: 'Phi Yến', raceName: 'Giải Vô địch Mở Rộng Cup C1', distance: '1.600m', date: '26/10/2026', vetStatus: 'REJECTED_INJURY', heartRateRest: '44 bpm', notes: 'TỪ CHỐI CẤP PHÉP: Đang chịu lệnh Khóa Y Tế do giãn gân chân trái!' }
-  ]);
+    };
+    setIncidents(prev => [newInc, ...prev]);
+    showToast(
+      `Đã tiếp nhận ca sự cố lâm sàng mới từ Groom (Mã phiếu: ${newInc.id})!`,
+      'TIẾP NHẬN CA LÂM SÀNG MỚI',
+      'info'
+    );
+  };
 
   // Modal Xử lý ca sự cố
   const [selectedIncidentModal, setSelectedIncidentModal] = useState(null);
@@ -282,6 +393,9 @@ export default function VetPage() {
   // Nạp dữ liệu đồng bộ từ API Backend khi khởi động
   useEffect(() => {
     let isMounted = true;
+    // Đối với tài khoản mới kích hoạt, bắt đầu từ số 0 (không nạp dữ liệu demo cũ)
+    if (isNewAccount) return;
+
     getHorsesApi().then(res => {
       if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
         setHorses(prev => {
@@ -325,7 +439,7 @@ export default function VetPage() {
     }).catch(() => {});
 
     return () => { isMounted = false; };
-  }, []);
+  }, [isNewAccount]);
 
   // Xử lý Khóa / Mở khóa Y tế (Quyền phủ quyết Y tế - Medical Safety Veto)
   const handleToggleLock = (horse, customReason = '') => {
@@ -656,7 +770,74 @@ export default function VetPage() {
                   <h2 className="pane-title">Tiếp nhận & Xử lý Sự cố Lâm sàng (Clinical Incident Triage)</h2>
                   <p className="pane-desc">Các ca báo động bất thường từ nhân viên Groom và HLV gửi lên theo thời gian thực.</p>
                 </div>
+                {isNewAccount && (
+                  <button
+                    type="button"
+                    onClick={handleSimulateNewIncident}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      background: 'var(--brass)',
+                      color: '#14100A',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(232, 107, 44, 0.35)'
+                    }}
+                    title="Mô phỏng nhân viên Groom gửi lên 1 ca sự cố sau khi tài khoản được duyệt"
+                  >
+                    <span>+</span> Tiếp nhận ca sự cố mới từ Groom
+                  </button>
+                )}
               </div>
+
+              {/* Banner giải thích nghiệp vụ tài khoản mới bắt đầu từ 0 */}
+              {isNewAccount && (
+                <div style={{
+                  padding: '14px 18px',
+                  borderRadius: '10px',
+                  background: 'rgba(232, 107, 44, 0.10)',
+                  border: '1.5px solid rgba(232, 107, 44, 0.35)',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '14px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '22px' }}>🩺</span>
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--brass)' }}>
+                        Tài khoản Bác sĩ Thú y mới được xác nhận: Mọi chỉ số khởi tạo từ số 0
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px', lineHeight: 1.5 }}>
+                        Tài khoản mới không kế thừa số liệu demo cũ. Khi có ca tiếp nhận mới sau thời điểm được kích hoạt, dữ liệu sẽ chạy tự động theo báo cáo thực tế.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSimulateNewIncident}
+                    style={{
+                      padding: '6px 12px',
+                      background: 'rgba(232, 107, 44, 0.15)',
+                      border: '1px solid var(--brass)',
+                      color: 'var(--brass)',
+                      borderRadius: '5px',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Mô phỏng ca tiếp nhận →
+                  </button>
+                </div>
+              )}
 
               {/* Chỉ số nhanh (3 thẻ ngang cân đối chuẩn SaaS Dashboard theo đúng 3 màu chủ đạo) */}
               <div style={{
@@ -733,7 +914,62 @@ export default function VetPage() {
               </div>
 
               {/* Danh sách thẻ sự cố */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '18px' }}>
+              {incidents.length === 0 ? (
+                <div style={{
+                  padding: '50px 24px',
+                  textAlign: 'center',
+                  background: 'var(--bg-card)',
+                  border: '1.5px dashed var(--line-strong)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '14px',
+                  margin: '10px 0 24px'
+                }}>
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: 'rgba(232, 107, 44, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--brass)',
+                    fontSize: '30px'
+                  }}>
+                    🩺
+                  </div>
+                  <div>
+                    <h3 style={{ margin: '0 0 8px', fontSize: '18px', color: 'var(--paper)', fontWeight: 800 }}>
+                      Hiện chưa có ca sự cố lâm sàng nào cần xử lý (0 CA)
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '560px', lineHeight: 1.6 }}>
+                      Tài khoản Bác sĩ Thú y của bạn vừa được Quản trị viên (Admin) phê duyệt thành công. Vì đây là tài khoản mới, dữ liệu xuất phát từ 0. Khi có ca báo cáo mới từ nhân viên Groom và HLV gửi lên sau thời điểm này, dữ liệu sẽ tự động đồng bộ theo thời gian thực.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSimulateNewIncident}
+                    style={{
+                      marginTop: '6px',
+                      padding: '10px 20px',
+                      background: 'var(--brass)',
+                      color: '#14100A',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 700,
+                      fontSize: '13.5px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(232, 107, 44, 0.35)'
+                    }}
+                  >
+                    + Mô phỏng tiếp nhận ca sự cố mới từ Groom
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '18px' }}>
                 {incidents.map((inc) => {
                   const isPending = inc.status === 'pending_vet';
                   return (
@@ -849,6 +1085,7 @@ export default function VetPage() {
                   );
                 })}
               </div>
+              )}
             </div>
           )}
 
