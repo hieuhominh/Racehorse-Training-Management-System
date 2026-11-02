@@ -1,0 +1,256 @@
+import React from 'react';
+import { createPortal } from 'react-dom';
+
+export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', onClose }) {
+  if (!horse) return null;
+
+  const roleConfigs = {
+    TRAINER: {
+      title: 'Hồ Sơ Chiến Mã Tiếp Nhận Huấn Luyện',
+      badge: '🏇 HLV ĐÃ XÁC NHẬN PHỤC VỤ',
+      badgeBg: 'rgba(212, 175, 55, 0.15)',
+      badgeColor: 'var(--brass)',
+      actionText: 'Bắt Đầu Theo Dõi Thể Lực & Giáo Án'
+    },
+    VET: {
+      title: 'Hồ Sơ Y Tế & Kiểm Dịch Chiến Mã',
+      badge: '🩺 BÁC SĨ ĐÃ XÁC NHẬN PHỤ TRÁCH Y TẾ',
+      badgeBg: 'rgba(59, 130, 246, 0.15)',
+      badgeColor: '#60A5FA',
+      actionText: 'Bắt Đầu Lập Phác Đồ Y Tế'
+    },
+    GROOM: {
+      title: 'Hồ Sơ Chăm Sóc & Nuôi Dưỡng Chuồng Trại',
+      badge: '🌾 GROOM ĐÃ TIẾP NHẬN CHĂM SÓC',
+      badgeBg: 'rgba(16, 185, 129, 0.15)',
+      badgeColor: '#34D399',
+      actionText: 'Bắt Đầu Ca Trực & Khẩu Phần'
+    }
+  };
+
+  const config = roleConfigs[role] || roleConfigs.TRAINER;
+
+  const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+  const avatar = horse.avatar || horse.horse_avatar || defaultAvatar;
+
+  const sireName = horse.pedigree?.sire || horse.sire || 'Đang cập nhật';
+  const damName = horse.pedigree?.dam || horse.dam || 'Đang cập nhật';
+
+  const modalContent = (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.82)',
+        backdropFilter: 'blur(5px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+        zIndex: 999999,
+        cursor: 'pointer'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--brass)',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '560px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          padding: '28px',
+          color: 'var(--paper)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+          cursor: 'default',
+          position: 'relative'
+        }}
+      >
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--line)',
+            color: 'var(--paper-dim)',
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px'
+          }}
+        >
+          ✕
+        </button>
+
+        {/* Badge & Title */}
+        <div style={{ marginBottom: '16px' }}>
+          <span style={{
+            display: 'inline-block',
+            fontSize: '11px',
+            fontWeight: 800,
+            padding: '4px 10px',
+            borderRadius: '4px',
+            background: config.badgeBg,
+            color: config.badgeColor,
+            marginBottom: '8px',
+            letterSpacing: '0.04em'
+          }}>
+            {config.badge}
+          </span>
+          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--paper)' }}>
+            {config.title}
+          </h3>
+          <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--paper-dim)' }}>
+            Chiến mã thuộc quyền sở hữu của <b style={{ color: 'var(--brass)' }}>{horse.ownerName || horse.owner || 'Chủ sở hữu'}</b> đã chính thức liên kết vào cổng chuyên môn của bạn.
+          </p>
+        </div>
+
+        {/* Horse Hero Card */}
+        <div style={{
+          display: 'flex',
+          gap: '16px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--line)',
+          borderRadius: '10px',
+          padding: '16px',
+          alignItems: 'center',
+          marginBottom: '16px'
+        }}>
+          <img
+            src={avatar}
+            alt={horse.name || horse.horseName}
+            style={{
+              width: '84px',
+              height: '84px',
+              borderRadius: '8px',
+              objectFit: 'cover',
+              border: '2px solid var(--brass)',
+              flexShrink: 0
+            }}
+            onError={(e) => { e.target.src = defaultAvatar; }}
+          />
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+              <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--brass)' }}>
+                {horse.name || horse.horseName}
+              </h4>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '4px',
+                background: 'rgba(212, 175, 55, 0.15)',
+                color: 'var(--brass)',
+                border: '1px solid rgba(212, 175, 55, 0.3)'
+              }}>
+                {horse.stable || horse.stall || 'Ô A1'}
+              </span>
+            </div>
+
+            <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)' }}>
+              {horse.englishName && horse.englishName !== (horse.name || horse.horseName) ? `${horse.englishName} · ` : ''}
+              {horse.breed || 'Thoroughbred'} · {horse.gender || 'Ngựa đực (Stallion)'}
+            </div>
+
+            <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+              Mã Vi Chip: <span style={{ fontFamily: 'monospace', color: 'var(--paper)', fontWeight: 700 }}>{horse.microchip}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Key Attributes Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '10px',
+          marginBottom: '16px'
+        }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Chủ Sở Hữu</div>
+            <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--brass)', marginTop: '2px' }}>
+              {horse.ownerName || horse.owner || 'Phạm Tiến Thành'}
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Tỷ Lệ Sở Hữu</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+              {horse.ownershipShare ? `${horse.ownershipShare}%` : '100%'} ({horse.ownershipType || 'Độc quyền'})
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Dòng Bố (Sire)</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+              {sireName}
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Dòng Mẹ (Dam)</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+              {damName}
+            </div>
+          </div>
+        </div>
+
+        {/* Service Team Coordination */}
+        <div style={{
+          background: 'rgba(212, 175, 55, 0.05)',
+          border: '1px solid rgba(212, 175, 55, 0.25)',
+          borderRadius: '8px',
+          padding: '12px 14px',
+          marginBottom: '20px'
+        }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', marginBottom: '6px' }}>
+            🛡️ ĐỘI NGŨ CHUYÊN MÔN CÙNG PHỤC VỤ
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--paper-dim)' }}>
+            <div>🏇 Huấn Luyện Viên: <b style={{ color: 'var(--paper)' }}>{horse.trainerName || horse.trainer || 'Trần Văn Hùng'}</b></div>
+            <div>🩺 Bác Sĩ Thú Y: <b style={{ color: 'var(--paper)' }}>{horse.vetName || horse.vet || 'BS. Nguyễn An'}</b></div>
+            <div>🌾 Chuyên Viên Chăm Sóc: <b style={{ color: 'var(--paper)' }}>{horse.groomName || horse.groom || 'Lê Hoàng Nam'}</b></div>
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: '11px',
+              borderRadius: '8px',
+              background: 'var(--brass)',
+              color: '#0A0D14',
+              border: 'none',
+              fontWeight: 800,
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            ✓ {config.actionText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+}
+

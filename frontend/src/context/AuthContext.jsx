@@ -119,7 +119,7 @@ export const FIXED_CORE_STAFF = [
 ];
 
 export const DEFAULT_DEMO_OWNER = {
-  user_id: 11,
+  user_id: 6,
   username: 'owner_thanh',
   full_name: 'Phạm Tiến Thành',
   email: 'owner@matruong.vn',

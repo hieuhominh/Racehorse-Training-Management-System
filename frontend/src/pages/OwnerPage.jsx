@@ -11,15 +11,18 @@ import {
   getSystemTournamentNominationsApi,
   registerRaceTournamentApi,
   updateRaceNominationStatusApi,
-  updateHorsePedigreeApi
+  updateHorsePedigreeApi,
+  getStablesApi
 } from '../services/api';
 import {
   getServiceAssignments,
   assignOrUpdateServiceTeam,
+  removeServiceAssignmentByHorse,
   FIXED_TRAINERS_LIST,
   FIXED_VETS_LIST,
   FIXED_GROOMS_LIST
 } from '../services/serviceAssignment';
+import { notifyHorseDeleted } from '../services/notificationService';
 
 // Minimalist High-End SVG Icons for Owner Portal (Strict 3-Color Palette)
 const IconCrown = ({ size = 18, color = 'currentColor' }) => (
@@ -374,7 +377,7 @@ export default function OwnerPage() {
   }, [activeTab]);
 
   // Kiểm tra tài khoản Demo hay tài khoản mới đăng ký
-  const ownerKey = currentUser?.user_id || currentUser?.username || currentUser?.email || 'new_owner';
+  const ownerKey = (currentUser?.username || currentUser?.email || String(currentUser?.user_id || 'new_owner')).toLowerCase();
   const isDemoVip = currentUser?.username === 'owner_thanh' || currentUser?.email === 'owner@matruong.vn';
 
   // Bản quyền Gói VIP (Được bảo lưu vĩnh viễn sau khi đã mua hoặc với tài khoản Demo)
@@ -520,15 +523,21 @@ export default function OwnerPage() {
     } catch {}
   };
 
-  // State 1: Danh sách ngựa của Chủ sở hữu (Lưu riêng theo từng tài khoản)
+  // State 1: Danh sách ngựa của Chủ sở hữu (Lưu riêng theo từng tài khoản, hỗ trợ đầy đủ xóa ngựa và F5)
   const [myHorses, setMyHorses] = useState(() => {
     try {
-      const stored = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
-      if (stored) {
+      let stored = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
+      if (stored === null && isDemoVip) {
+        stored = localStorage.getItem('matruong_owner_horses_owner_thanh') ??
+                 localStorage.getItem('matruong_owner_horses_6') ??
+                 localStorage.getItem('matruong_owner_horses_11');
+      }
+
+      if (stored !== null && stored !== undefined) {
         // Tự động làm sạch URL ảnh cũ bị lỗi (404)
         const sanitized = stored.replace(/photo-1598974357801-cbca10065444/g, 'photo-1534447677768-be436bb09401');
         const parsed = JSON.parse(sanitized);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           const fixed = parsed.map(item => {
             if (item && item.name === 'Bạch Long' && (!item.avatar || item.avatar.includes('photo-1598974357801-cbca10065444'))) {
               return { ...item, avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80' };
@@ -536,10 +545,24 @@ export default function OwnerPage() {
             return item;
           });
           localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(fixed));
+          if (isDemoVip) {
+            localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(fixed));
+            localStorage.setItem('matruong_owner_horses_6', JSON.stringify(fixed));
+            localStorage.setItem('matruong_owner_horses_11', JSON.stringify(fixed));
+          }
           return fixed;
         }
       }
-      return isDemoVip ? DEMO_HORSES_VIP : [];
+
+      // Chỉ khởi tạo danh mục mẫu lần đầu tiên khi chưa từng lưu vào LocalStorage
+      const initial = isDemoVip ? DEMO_HORSES_VIP : [];
+      localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(initial));
+      if (isDemoVip) {
+        localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(initial));
+        localStorage.setItem('matruong_owner_horses_6', JSON.stringify(initial));
+        localStorage.setItem('matruong_owner_horses_11', JSON.stringify(initial));
+      }
+      return initial;
     } catch {
       return isDemoVip ? DEMO_HORSES_VIP : [];
     }
@@ -667,8 +690,15 @@ export default function OwnerPage() {
 
   // Đồng bộ lưu localStorage khi state thay đổi
   useEffect(() => {
-    localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(myHorses));
-  }, [myHorses, ownerKey]);
+    try {
+      localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(myHorses));
+      if (isDemoVip) {
+        localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(myHorses));
+        localStorage.setItem('matruong_owner_horses_6', JSON.stringify(myHorses));
+        localStorage.setItem('matruong_owner_horses_11', JSON.stringify(myHorses));
+      }
+    } catch {}
+  }, [myHorses, ownerKey, isDemoVip]);
 
   useEffect(() => {
     const listToSave = isDemoVip
@@ -958,6 +988,58 @@ export default function OwnerPage() {
   const [selectedTournamentToRegister, setSelectedTournamentToRegister] = useState(null);
   const [upgradePromptModal, setUpgradePromptModal] = useState(null); // Modal gợi ý nâng cấp VIP khi chạm giới hạn
 
+  // Quản lý danh sách ô chuồng thực tế đồng bộ từ Backend/Admin
+  const [allStables, setAllStables] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStables = () => {
+      getStablesApi().then(res => {
+        if (isMounted && res && Array.isArray(res.data)) {
+          setAllStables(res.data);
+        }
+      }).catch(() => {});
+    };
+    fetchStables();
+
+    const handleStablesUpdate = () => {
+      fetchStables();
+    };
+
+    window.addEventListener('matruong_stables_updated', handleStablesUpdate);
+    window.addEventListener('storage', handleStablesUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('matruong_stables_updated', handleStablesUpdate);
+      window.removeEventListener('storage', handleStablesUpdate);
+    };
+  }, []);
+
+  const isStallVip = (stall) => {
+    if (!stall) return false;
+    if (stall.tier === 'VIP' || stall.is_vip === true) return true;
+    const code = String(stall.stall_code || '').toUpperCase();
+    const block = String(stall.block || '').toUpperCase();
+    return block.includes('VIP') || block.includes('BLOCK A') || block.includes('BLOCK B') || code.startsWith('VIP') || code.startsWith('A') || code.startsWith('B');
+  };
+
+  const getStallDisplayName = (s) => {
+    const code = s.stall_code || '';
+    const block = s.block || '';
+    const area = s.area || '';
+    return `Ô ${code} (${block}${area ? ` - ${area}` : ''})`;
+  };
+
+  // Danh sách chuồng phân chia VIP / Chuồng Thường
+  const availableVipStables = useMemo(() => {
+    return allStables.filter(s => isStallVip(s));
+  }, [allStables]);
+
+  const availableStandardStables = useMemo(() => {
+    return allStables.filter(s => !isStallVip(s));
+  }, [allStables]);
+
   // Form State: Đăng ký ngựa mới
   const [horseForm, setHorseForm] = useState(() => ({
     name: '',
@@ -973,8 +1055,8 @@ export default function OwnerPage() {
     vet: 'BS. Nguyễn An',
     groom: 'Lê Hoàng Nam',
     stable: membershipTier === 'PREMIUM'
-      ? 'Ô A1 (Khu Chuồng VIP Block A - 18 m² đệm rơm khử khuẩn)'
-      : 'Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)',
+      ? 'Ô A1 (Block A - 18 m²)'
+      : 'Ô C1 (Block C - 14 m²)',
     sire: '',
     dam: '',
     avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80'
@@ -993,32 +1075,40 @@ export default function OwnerPage() {
       });
       return;
     }
+
+    // Xác định ô chuồng mặc định
+    let defaultStable = 'Ô C1 (Block C - 14 m²)';
+    if (membershipTier === 'PREMIUM') {
+      defaultStable = availableVipStables.length > 0 ? getStallDisplayName(availableVipStables[0]) : 'Ô A1 (Block A - 18 m²)';
+    } else {
+      defaultStable = availableStandardStables.length > 0 ? getStallDisplayName(availableStandardStables[0]) : 'Ô C1 (Block C - 14 m²)';
+    }
+
     setHorseForm(prev => ({
       ...prev,
       name: '',
       englishName: '',
       microchip: `MC-VN-2026-${Math.floor(100 + Math.random() * 900)}`,
-      stable: membershipTier === 'PREMIUM'
-        ? 'Ô A1 (Khu Chuồng VIP Block A - 18 m² đệm rơm khử khuẩn)'
-        : 'Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)'
+      stable: defaultStable
     }));
     setShowAddHorseModal(true);
   };
 
-  // Xử lý chọn ô chuồng: Gói Free chỉ được chọn chuồng Block C
+  // Xử lý chọn ô chuồng: Gói Free chỉ được chọn chuồng Thường
   const handleStableSelectChange = (e) => {
     const selected = e.target.value;
-    if (membershipTier !== 'PREMIUM' && (selected.includes('Block A') || selected.includes('Block B') || selected.startsWith('Ô A') || selected.startsWith('Ô B'))) {
+    if (membershipTier !== 'PREMIUM' && (selected.includes('VIP') || selected.includes('Block A') || selected.includes('Block B') || selected.startsWith('Ô A') || selected.startsWith('Ô B'))) {
+      const fallback = availableStandardStables.length > 0 ? getStallDisplayName(availableStandardStables[0]) : 'Ô C1 (Block C - 14 m²)';
       setUpgradePromptModal({
-        title: 'Ô Chuồng VIP Block A & Block B',
+        title: 'Ô Chuồng VIP Đặc Quyền',
         badge: 'ĐẶC QUYỀN VIP',
-        message: 'Các ô chuồng tại Khu VIP Block A và Block B (16–18 m² trang bị đệm rơm tiệt trùng, hệ thống quạt hút vi khí hậu & máy sưởi) chỉ dành riêng cho hội viên VIP. Gói cơ bản hiện tại được bố trí tại Khu Chuồng Tiêu chuẩn Block C (14 m²).',
-        benefit: '✨ Đặc quyền VIP: Không gian chuồng VIP rộng rãi chuẩn quốc tế, giúp chiến mã nghỉ ngơi phục hồi tối đa và giảm 80% rủi ro dịch bệnh.',
+        message: 'Các ô chuồng VIP chỉ dành riêng cho hội viên VIP. Vui lòng nâng cấp tài khoản để sử dụng ô chuồng VIP.',
+        benefit: '✨ Đặc quyền VIP: Không gian chuồng VIP rộng rãi chuẩn quốc tế, kiểm soát vi khí hậu và chế độ chăm sóc đặc biệt.',
         actionText: 'Nâng Cấp VIP Để Chọn Ô Chuồng Này'
       });
       setHorseForm(prev => ({
         ...prev,
-        stable: 'Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)'
+        stable: fallback
       }));
       return;
     }
@@ -1057,13 +1147,6 @@ export default function OwnerPage() {
     }
     setShowRaceRegisterModal(true);
   };
-
-  const PRESET_HORSE_AVATARS = [
-    { label: 'Hắc mã', url: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80' },
-    { label: 'Xích thố', url: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80' },
-    { label: 'Bạch mã', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80' },
-    { label: 'Kim quy', url: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=600&q=80' }
-  ];
 
   const handleHorseImageUpload = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -1152,7 +1235,18 @@ export default function OwnerPage() {
     // Gọi API Đăng ký ngựa của Chủ sở hữu
     registerOwnerHorseApi(ownerKey, newHorse).catch(() => {});
 
-    setMyHorses(prev => [newHorse, ...prev]);
+    setMyHorses(prev => {
+      const next = [newHorse, ...prev];
+      try {
+        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
+        if (isDemoVip) {
+          localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(next));
+          localStorage.setItem('matruong_owner_horses_6', JSON.stringify(next));
+          localStorage.setItem('matruong_owner_horses_11', JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
 
     // Tạo bản ghi theo dõi thể lực khởi điểm
     setTrainingTelemetry(prev => [
@@ -1219,6 +1313,8 @@ export default function OwnerPage() {
     englishName: '',
     breed: 'Thoroughbred',
     gender: 'Ngựa đực (Stallion)',
+    age: '3 tuổi',
+    foaledYear: '2023',
     microchip: '',
     ownershipShare: 100,
     trainer: 'Trần Văn Hùng',
@@ -1236,6 +1332,10 @@ export default function OwnerPage() {
       (a.horseName && a.horseName.toLowerCase() === horse.name?.toLowerCase()) ||
       String(a.id) === String(horse.id)
     );
+    const currentAge = horse.age || (horse.pedigree?.foaled ? (horse.pedigree.foaled.match(/\((.*?)\)/)?.[1] || horse.pedigree.foaled) : '3 tuổi') || '3 tuổi';
+    const cleanAge = currentAge.includes('tuổi') ? currentAge : `${currentAge} tuổi`;
+    const foaledY = horse.pedigree?.foaled ? (horse.pedigree.foaled.match(/\b(20\d\d)\b/)?.[1] || '2023') : '2023';
+
     setEditingHorse(horse);
     setEditHorseForm({
       id: horse.id,
@@ -1243,6 +1343,8 @@ export default function OwnerPage() {
       englishName: horse.englishName || '',
       breed: horse.breed || 'Thoroughbred',
       gender: horse.gender || 'Ngựa đực (Stallion)',
+      age: cleanAge,
+      foaledYear: foaledY,
       microchip: horse.microchip || '',
       ownershipShare: horse.ownershipShare || 100,
       trainer: current?.trainerName || (horse.trainer ? horse.trainer.split('(')[0].trim() : 'Trần Văn Hùng'),
@@ -1308,6 +1410,7 @@ export default function OwnerPage() {
       englishName: editHorseForm.englishName.trim() || editHorseForm.name.trim(),
       breed: editHorseForm.breed,
       gender: editHorseForm.gender,
+      age: editHorseForm.age || editingHorse.age || '3 tuổi',
       microchip: editHorseForm.microchip.trim() || editingHorse.microchip,
       ownershipShare: Number(editHorseForm.ownershipShare) || 100,
       ownershipType: Number(editHorseForm.ownershipShare) === 100 ? 'Độc quyền (100%)' : `Đồng sở hữu (${editHorseForm.ownershipShare}%)`,
@@ -1319,7 +1422,8 @@ export default function OwnerPage() {
       pedigree: {
         ...editingHorse.pedigree,
         sire: editHorseForm.sire.trim() || editingHorse.pedigree?.sire || 'Đang cập nhật',
-        dam: editHorseForm.dam.trim() || editingHorse.pedigree?.dam || 'Đang cập nhật'
+        dam: editHorseForm.dam.trim() || editingHorse.pedigree?.dam || 'Đang cập nhật',
+        foaled: `${editHorseForm.foaledYear || '2023'} (${editHorseForm.age || '3 tuổi'})`
       }
     };
 
@@ -1335,7 +1439,18 @@ export default function OwnerPage() {
     }, currentUser);
 
     updateOwnerHorseApi(ownerKey, updatedHorse).catch(() => {});
-    setMyHorses(prev => prev.map(h => h.id === editingHorse.id ? updatedHorse : h));
+    setMyHorses(prev => {
+      const next = prev.map(h => String(h.id) === String(editingHorse.id) ? updatedHorse : h);
+      try {
+        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
+        if (isDemoVip) {
+          localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(next));
+          localStorage.setItem('matruong_owner_horses_6', JSON.stringify(next));
+          localStorage.setItem('matruong_owner_horses_11', JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
     setShowEditHorseModal(false);
     showToast(`Đã cập nhật thông tin chiến mã "${updatedHorse.name}" thành công!`, 'CẬP NHẬT HỒ SƠ', 'success');
   };
@@ -1359,10 +1474,53 @@ export default function OwnerPage() {
       return;
     }
 
-    deleteOwnerHorseApi(ownerKey, deletingHorse.id).catch(() => {});
-    setMyHorses(prev => prev.filter(h => h.id !== deletingHorse.id));
+    const horseId = deletingHorse.id;
+    const horseName = deletingHorse.name;
+
+    // 1. Cập nhật state và lưu đồng bộ ngay lập tức vào tất cả các alias LocalStorage
+    setMyHorses(prev => {
+      const next = prev.filter(h => String(h.id) !== String(horseId));
+      try {
+        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
+        if (isDemoVip) {
+          localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(next));
+          localStorage.setItem('matruong_owner_horses_6', JSON.stringify(next));
+          localStorage.setItem('matruong_owner_horses_11', JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
+
+    // 2. Gửi lệnh xóa qua API Backend / Fallback
+    deleteOwnerHorseApi(ownerKey, horseId).catch(() => {});
+
+    // 3. Dọn dẹp telemetry của ngựa đã xóa nếu có
+    setTrainingTelemetry(prev => {
+      const next = prev.filter(t => t.horseName !== horseName);
+      try {
+        localStorage.setItem(`matruong_owner_telemetry_${ownerKey}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    // 4. Phát thông báo hệ thống liên thông tới Huấn luyện viên, Bác sĩ, Groom và Admin
+    try {
+      notifyHorseDeleted(deletingHorse, currentUser);
+    } catch (e) {
+      console.error('Lỗi phát thông báo xóa ngựa:', e);
+    }
+
+    // 5. Gỡ bỏ khỏi danh sách phân công dịch vụ
+    try {
+      removeServiceAssignmentByHorse(horseId);
+      if (deletingHorse.microchip) removeServiceAssignmentByHorse(deletingHorse.microchip);
+      if (horseName) removeServiceAssignmentByHorse(horseName);
+    } catch (e) {
+      console.error('Lỗi gỡ phân công dịch vụ:', e);
+    }
+
     setShowDeleteHorseModal(false);
-    showToast(`Đã hoàn tất xóa chiến mã "${deletingHorse.name}" khỏi chuồng nuôi dưỡng!`, 'XÓA THÀNH CÔNG', 'info');
+    showToast(`Đã hoàn tất xóa chiến mã "${horseName}" khỏi chuồng nuôi dưỡng!`, 'XÓA THÀNH CÔNG', 'info');
     setDeletingHorse(null);
     setDeleteVerificationInput('');
   };
@@ -3698,88 +3856,65 @@ export default function OwnerPage() {
 
             <form onSubmit={handleCreateHorseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {/* Khu vực Đăng / Chọn Hình Ảnh Chiến Mã */}
-              <div style={{
-                background: 'var(--bg-secondary)',
-                border: '1px dashed var(--line-strong)',
-                borderRadius: '8px',
-                padding: '12px 14px'
-              }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                  <IconCamera size={16} color="var(--brass)" />
-                  <span>Hình ảnh nhận diện chiến mã</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '6px 0' }}>
+                <label
+                  htmlFor="horse-avatar-file-input"
+                  style={{
+                    position: 'relative',
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    border: '1px solid var(--line)',
+                    background: 'var(--bg-secondary)'
+                  }}
+                  title="Bấm để đổi ảnh"
+                >
+                  <img
+                    src={horseForm.avatar || 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80'}
+                    alt="Ảnh chiến mã"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
                 </label>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', width: '74px', height: '74px', flexShrink: 0 }}>
-                    <img
-                      src={horseForm.avatar || 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=600&q=80'}
-                      alt="Ảnh chiến mã"
-                      style={{
-                        width: '74px',
-                        height: '74px',
-                        borderRadius: '8px',
-                        objectFit: 'cover',
-                        border: '2px solid var(--brass)',
-                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.4)'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: '220px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
-                      <label
-                        htmlFor="horse-avatar-file-input"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          background: 'var(--brass)',
-                          color: '#0A0D14',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          borderRadius: '5px',
-                          cursor: 'pointer',
-                          boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <span>📁 Chọn ảnh từ thiết bị</span>
-                      </label>
-                      <input
-                        id="horse-avatar-file-input"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleHorseImageUpload}
-                        style={{ display: 'none' }}
-                      />
-                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
-                        (JPG, PNG, WEBP tự động tối ưu)
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Hoặc chọn mẫu:</span>
-                      {PRESET_HORSE_AVATARS.map((p, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setHorseForm(prev => ({ ...prev, avatar: p.url }))}
-                          style={{
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            background: horseForm.avatar === p.url ? 'rgba(212, 175, 55, 0.2)' : 'var(--bg-card)',
-                            border: `1px solid ${horseForm.avatar === p.url ? 'var(--brass)' : 'var(--line)'}`,
-                            color: horseForm.avatar === p.url ? 'var(--brass)' : 'var(--paper-dim)',
-                            fontSize: '11px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label
+                    htmlFor="horse-avatar-file-input"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 14px',
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      width: 'fit-content',
+                      boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <IconCamera size={15} color="#0A0D14" />
+                    <span>Chọn ảnh chiến mã</span>
+                  </label>
+                  <input
+                    id="horse-avatar-file-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleHorseImageUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                    Hỗ trợ JPG, PNG hoặc WEBP
+                  </span>
                 </div>
               </div>
 
@@ -3829,7 +3964,7 @@ export default function OwnerPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 0.9fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
                     Giống ngựa
@@ -3848,16 +3983,16 @@ export default function OwnerPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    <option value="Thoroughbred">Thoroughbred (Thuần chủng Anh)</option>
-                    <option value="Quarter Horse">Quarter Horse (Nước rút cự ly ngắn)</option>
-                    <option value="Arabian">Arabian (Ả Rập sức bền)</option>
-                    <option value="Standardbred">Standardbred (Đua xe kéo nước kiệu)</option>
+                    <option value="Thoroughbred">Thoroughbred (Thuần Anh)</option>
+                    <option value="Quarter Horse">Quarter Horse (Nước rút)</option>
+                    <option value="Arabian">Arabian (Ả Rập)</option>
+                    <option value="Standardbred">Standardbred (Nước kiệu)</option>
                   </select>
                 </div>
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Giới tính & Tuổi
+                    Giới tính
                   </label>
                   <select
                     value={horseForm.gender}
@@ -3873,9 +4008,47 @@ export default function OwnerPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    <option value="Ngựa đực (Stallion)">Ngựa đực (Stallion - 3 tuổi)</option>
-                    <option value="Ngựa đực thiến (Gelding)">Ngựa đực thiến (Gelding - 4 tuổi)</option>
-                    <option value="Ngựa cái (Mare)">Ngựa cái (Mare - 3 tuổi)</option>
+                    <option value="Ngựa đực (Stallion)">Ngựa đực (Stallion)</option>
+                    <option value="Ngựa đực thiến (Gelding)">Ngựa thiến (Gelding)</option>
+                    <option value="Ngựa cái (Mare)">Ngựa cái (Mare)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Tuổi
+                  </label>
+                  <select
+                    value={horseForm.age}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const num = parseInt(val) || 3;
+                      setHorseForm(prev => ({
+                        ...prev,
+                        age: val,
+                        foaledYear: String(2026 - num)
+                      }));
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="2 tuổi">2 tuổi</option>
+                    <option value="3 tuổi">3 tuổi</option>
+                    <option value="4 tuổi">4 tuổi</option>
+                    <option value="5 tuổi">5 tuổi</option>
+                    <option value="6 tuổi">6 tuổi</option>
+                    <option value="7 tuổi">7 tuổi</option>
+                    <option value="8 tuổi">8 tuổi</option>
+                    <option value="9 tuổi">9 tuổi</option>
+                    <option value="10 tuổi">10 tuổi</option>
                   </select>
                 </div>
               </div>
@@ -3939,22 +4112,24 @@ export default function OwnerPage() {
                   🛡️ Chỉ Định Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
                 </div>
 
-                <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '10px' }}>
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                      🏇 Huấn Luyện Viên
+                <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span>🏇</span> Huấn Luyện Viên
                     </label>
                     <select
                       value={horseForm.trainer}
                       onChange={(e) => setHorseForm({ ...horseForm, trainer: e.target.value })}
                       style={{
                         width: '100%',
-                        padding: '8px 10px',
+                        height: '38px',
+                        boxSizing: 'border-box',
+                        padding: '0 8px',
                         background: 'var(--bg-secondary)',
                         border: '1px solid var(--line)',
                         borderRadius: '6px',
                         color: 'var(--paper)',
-                        fontSize: '12.5px',
+                        fontSize: '12px',
                         cursor: 'pointer'
                       }}
                     >
@@ -3966,21 +4141,23 @@ export default function OwnerPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                      🩺 Bác Sĩ Thú Y
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span>🩺</span> Bác Sĩ Thú Y
                     </label>
                     <select
                       value={horseForm.vet}
                       onChange={(e) => setHorseForm({ ...horseForm, vet: e.target.value })}
                       style={{
                         width: '100%',
-                        padding: '8px 10px',
+                        height: '38px',
+                        boxSizing: 'border-box',
+                        padding: '0 8px',
                         background: 'var(--bg-secondary)',
                         border: '1px solid var(--line)',
                         borderRadius: '6px',
                         color: 'var(--paper)',
-                        fontSize: '12.5px',
+                        fontSize: '12px',
                         cursor: 'pointer'
                       }}
                     >
@@ -3992,21 +4169,23 @@ export default function OwnerPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                      🌾 Chuyên Viên Chăm Sóc
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span>🌾</span> Người Chăm Sóc
                     </label>
                     <select
                       value={horseForm.groom}
                       onChange={(e) => setHorseForm({ ...horseForm, groom: e.target.value })}
                       style={{
                         width: '100%',
-                        padding: '8px 10px',
+                        height: '38px',
+                        boxSizing: 'border-box',
+                        padding: '0 8px',
                         background: 'var(--bg-secondary)',
                         border: '1px solid var(--line)',
                         borderRadius: '6px',
                         color: 'var(--paper)',
-                        fontSize: '12.5px',
+                        fontSize: '12px',
                         cursor: 'pointer'
                       }}
                     >
@@ -4041,29 +4220,65 @@ export default function OwnerPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    <optgroup label="── KHU CHUỒNG TIÊU CHUẨN (GÓI CƠ BẢN & VIP) ──">
-                      <option value="Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)">Ô C1 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)</option>
-                      <option value="Ô C2 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)">Ô C2 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)</option>
-                      <option value="Ô C3 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)">Ô C3 (Khu Chuồng Tiêu chuẩn Block C - 14 m²)</option>
-                    </optgroup>
-                    <optgroup label="── KHU CHUỒNG VIP ĐẶC QUYỀN (YÊU CẦU GÓI VIP) ──">
-                      <option value="Ô A1 (Khu Chuồng VIP Block A - 18 m² đệm rơm khử khuẩn)">
-                        {membershipTier === 'PREMIUM' ? '👑 Ô A1 (Khu Chuồng VIP Block A - 18 m²)' : '🔒 Ô A1 (Khu Chuồng VIP Block A - Cần VIP)'}
-                      </option>
-                      <option value="Ô A2 (Khu Chuồng VIP Block A - 18 m² đệm rơm khử khuẩn)">
-                        {membershipTier === 'PREMIUM' ? '👑 Ô A2 (Khu Chuồng VIP Block A - 18 m²)' : '🔒 Ô A2 (Khu Chuồng VIP Block A - Cần VIP)'}
-                      </option>
-                      <option value="Ô B1 (Khu Chuồng VIP Block B - 16 m² vi khí hậu)">
-                        {membershipTier === 'PREMIUM' ? '👑 Ô B1 (Khu Chuồng VIP Block B - 16 m²)' : '🔒 Ô B1 (Khu Chuồng VIP Block B - Cần VIP)'}
-                      </option>
-                      <option value="Ô B2 (Khu Chuồng VIP Block B - 16 m² vi khí hậu)">
-                        {membershipTier === 'PREMIUM' ? '👑 Ô B2 (Khu Chuồng VIP Block B - 16 m²)' : '🔒 Ô B2 (Khu Chuồng VIP Block B - Cần VIP)'}
-                      </option>
-                    </optgroup>
+                    {membershipTier === 'PREMIUM' ? (
+                      <>
+                        <optgroup label="── 👑 KHU CHUỒNG VIP ĐẶC QUYỀN (DÀNH CHO VIP) ──">
+                          {availableVipStables.length > 0 ? (
+                            availableVipStables.map(s => {
+                              const name = getStallDisplayName(s);
+                              return (
+                                <option key={s.stall_code} value={name}>
+                                  👑 {name}
+                                </option>
+                              );
+                            })
+                          ) : (
+                            <option value="Ô A1 (Block A - 18 m²)">👑 Ô A1 (Block A - 18 m²)</option>
+                          )}
+                        </optgroup>
+                        <optgroup label="── 🏷️ KHU CHUỒNG TIÊU CHUẨN ──">
+                          {availableStandardStables.length > 0 ? (
+                            availableStandardStables.map(s => {
+                              const name = getStallDisplayName(s);
+                              return (
+                                <option key={s.stall_code} value={name}>
+                                  🏷️ {name}
+                                </option>
+                              );
+                            })
+                          ) : (
+                            <option value="Ô C1 (Block C - 14 m²)">🏷️ Ô C1 (Block C - 14 m²)</option>
+                          )}
+                        </optgroup>
+                      </>
+                    ) : (
+                      <optgroup label="── 🏷️ KHU CHUỒNG TIÊU CHUẨN (GÓI CƠ BẢN) ──">
+                        {availableStandardStables.length > 0 ? (
+                          availableStandardStables.map(s => {
+                            const name = getStallDisplayName(s);
+                            return (
+                              <option key={s.stall_code} value={name}>
+                                {name}
+                              </option>
+                            );
+                          })
+                        ) : (
+                          <>
+                            <option value="Ô C1 (Block C - 14 m²)">Ô C1 (Block C - 14 m²)</option>
+                            <option value="Ô C2 (Block C - 14 m²)">Ô C2 (Block C - 14 m²)</option>
+                            <option value="Ô C3 (Block C - 14 m²)">Ô C3 (Block C - 14 m²)</option>
+                          </>
+                        )}
+                      </optgroup>
+                    )}
                   </select>
-                  {membershipTier !== 'PREMIUM' && (
+                  {membershipTier !== 'PREMIUM' ? (
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px', lineHeight: 1.3 }}>
+                      ℹ️ Gói tiêu chuẩn: Bạn đang xem danh sách các ô chuồng thông thường. Để mở khóa chuồng VIP tiện nghi cao cấp, vui lòng nâng cấp gói VIP.
+                    </div>
+                  ) : (
                     <div style={{ fontSize: '11px', color: 'var(--brass)', marginTop: '4px', lineHeight: 1.3 }}>
-                      ℹ️ Gói 0 Đồng: Cố định ô chuồng Block C (14 m²). Chọn ô Block A/B để nâng cấp VIP.
+                      👑 Đặc quyền VIP: Bạn có quyền lựa chọn các ô chuồng VIP đặc quyền hoặc chuồng tiêu chuẩn tùy thích.
                     </div>
                   )}
                 </div>
@@ -4191,90 +4406,68 @@ export default function OwnerPage() {
 
             <form onSubmit={handleUpdateHorseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {/* Khu vực Đổi Hình Ảnh */}
-              <div style={{
-                background: 'var(--bg-secondary)',
-                border: '1px dashed var(--line-strong)',
-                borderRadius: '8px',
-                padding: '12px 14px'
-              }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                  <IconCamera size={16} color="var(--brass)" />
-                  <span>Hình ảnh nhận diện chiến mã</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '6px 0' }}>
+                <label
+                  htmlFor="edit-horse-avatar-file-input"
+                  style={{
+                    position: 'relative',
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    border: '1px solid var(--line)',
+                    background: 'var(--bg-secondary)'
+                  }}
+                  title="Bấm để đổi ảnh"
+                >
+                  <img
+                    src={editHorseForm.avatar || editingHorse.avatar || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'}
+                    alt="Ảnh chiến mã"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                    onError={(e) => {
+                      e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+                    }}
+                  />
                 </label>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', width: '74px', height: '74px', flexShrink: 0 }}>
-                    <img
-                      src={editHorseForm.avatar || editingHorse.avatar || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'}
-                      alt="Ảnh chiến mã"
-                      style={{
-                        width: '74px',
-                        height: '74px',
-                        borderRadius: '8px',
-                        objectFit: 'cover',
-                        border: '2px solid var(--brass)',
-                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.4)'
-                      }}
-                      onError={(e) => {
-                        e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: '220px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
-                      <label
-                        htmlFor="edit-horse-avatar-file-input"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          background: 'var(--brass)',
-                          color: '#0A0D14',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          borderRadius: '5px',
-                          cursor: 'pointer',
-                          boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)'
-                        }}
-                      >
-                        <span>📁 Đổi ảnh từ máy</span>
-                      </label>
-                      <input
-                        id="edit-horse-avatar-file-input"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleEditHorseImageUpload}
-                        style={{ display: 'none' }}
-                      />
-                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
-                        (Tự động nén & tối ưu)
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Chọn mẫu:</span>
-                      {PRESET_HORSE_AVATARS.map((p, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setEditHorseForm(prev => ({ ...prev, avatar: p.url }))}
-                          style={{
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            background: editHorseForm.avatar === p.url ? 'rgba(212, 175, 55, 0.2)' : 'var(--bg-card)',
-                            border: `1px solid ${editHorseForm.avatar === p.url ? 'var(--brass)' : 'var(--line)'}`,
-                            color: editHorseForm.avatar === p.url ? 'var(--brass)' : 'var(--paper-dim)',
-                            fontSize: '11px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label
+                    htmlFor="edit-horse-avatar-file-input"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 14px',
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      width: 'fit-content',
+                      boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <IconCamera size={15} color="#0A0D14" />
+                    <span>Đổi ảnh từ máy</span>
+                  </label>
+                  <input
+                    id="edit-horse-avatar-file-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleEditHorseImageUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                    Hỗ trợ JPG, PNG hoặc WEBP
+                  </span>
                 </div>
               </div>
 
@@ -4322,7 +4515,7 @@ export default function OwnerPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 0.9fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
                     Giống ngựa
@@ -4341,16 +4534,16 @@ export default function OwnerPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    <option value="Thoroughbred">Thoroughbred (Thuần chủng Anh)</option>
-                    <option value="Quarter Horse">Quarter Horse (Nước rút cự ly ngắn)</option>
-                    <option value="Arabian">Arabian (Ả Rập sức bền)</option>
-                    <option value="Standardbred">Standardbred (Đua xe kéo nước kiệu)</option>
+                    <option value="Thoroughbred">Thoroughbred (Thuần Anh)</option>
+                    <option value="Quarter Horse">Quarter Horse (Nước rút)</option>
+                    <option value="Arabian">Arabian (Ả Rập)</option>
+                    <option value="Standardbred">Standardbred (Nước kiệu)</option>
                   </select>
                 </div>
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Giới tính & Tuổi
+                    Giới tính
                   </label>
                   <select
                     value={editHorseForm.gender}
@@ -4367,8 +4560,46 @@ export default function OwnerPage() {
                     }}
                   >
                     <option value="Ngựa đực (Stallion)">Ngựa đực (Stallion)</option>
-                    <option value="Ngựa đực thiến (Gelding)">Ngựa đực thiến (Gelding)</option>
+                    <option value="Ngựa đực thiến (Gelding)">Ngựa thiến (Gelding)</option>
                     <option value="Ngựa cái (Mare)">Ngựa cái (Mare)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Tuổi
+                  </label>
+                  <select
+                    value={editHorseForm.age}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const num = parseInt(val) || 3;
+                      setEditHorseForm(prev => ({
+                        ...prev,
+                        age: val,
+                        foaledYear: String(2026 - num)
+                      }));
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="2 tuổi">2 tuổi</option>
+                    <option value="3 tuổi">3 tuổi</option>
+                    <option value="4 tuổi">4 tuổi</option>
+                    <option value="5 tuổi">5 tuổi</option>
+                    <option value="6 tuổi">6 tuổi</option>
+                    <option value="7 tuổi">7 tuổi</option>
+                    <option value="8 tuổi">8 tuổi</option>
+                    <option value="9 tuổi">9 tuổi</option>
+                    <option value="10 tuổi">10 tuổi</option>
                   </select>
                 </div>
               </div>
@@ -4432,22 +4663,24 @@ export default function OwnerPage() {
                   🛡️ Thay Đổi Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
                 </div>
 
-                <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '10px' }}>
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                      🏇 Huấn Luyện Viên
+                <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span>🏇</span> Huấn Luyện Viên
                     </label>
                     <select
                       value={editHorseForm.trainer}
                       onChange={(e) => setEditHorseForm({ ...editHorseForm, trainer: e.target.value })}
                       style={{
                         width: '100%',
-                        padding: '8px 10px',
+                        height: '38px',
+                        boxSizing: 'border-box',
+                        padding: '0 8px',
                         background: 'var(--bg-secondary)',
                         border: '1px solid var(--line)',
                         borderRadius: '6px',
                         color: 'var(--paper)',
-                        fontSize: '12.5px',
+                        fontSize: '12px',
                         cursor: 'pointer'
                       }}
                     >
@@ -4459,21 +4692,23 @@ export default function OwnerPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                      🩺 Bác Sĩ Thú Y
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span>🩺</span> Bác Sĩ Thú Y
                     </label>
                     <select
                       value={editHorseForm.vet}
                       onChange={(e) => setEditHorseForm({ ...editHorseForm, vet: e.target.value })}
                       style={{
                         width: '100%',
-                        padding: '8px 10px',
+                        height: '38px',
+                        boxSizing: 'border-box',
+                        padding: '0 8px',
                         background: 'var(--bg-secondary)',
                         border: '1px solid var(--line)',
                         borderRadius: '6px',
                         color: 'var(--paper)',
-                        fontSize: '12.5px',
+                        fontSize: '12px',
                         cursor: 'pointer'
                       }}
                     >
@@ -4485,21 +4720,23 @@ export default function OwnerPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                      🌾 Chuyên Viên Chăm Sóc
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span>🌾</span> Người Chăm Sóc
                     </label>
                     <select
                       value={editHorseForm.groom}
                       onChange={(e) => setEditHorseForm({ ...editHorseForm, groom: e.target.value })}
                       style={{
                         width: '100%',
-                        padding: '8px 10px',
+                        height: '38px',
+                        boxSizing: 'border-box',
+                        padding: '0 8px',
                         background: 'var(--bg-secondary)',
                         border: '1px solid var(--line)',
                         borderRadius: '6px',
                         color: 'var(--paper)',
-                        fontSize: '12.5px',
+                        fontSize: '12px',
                         cursor: 'pointer'
                       }}
                     >
@@ -4531,14 +4768,56 @@ export default function OwnerPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  <option value="Ô A1">Ô A1 (Khu Huấn luyện A)</option>
-                  <option value="Ô A2">Ô A2 (Khu Huấn luyện A)</option>
-                  <option value="Ô A3">Ô A3 (Khu Huấn luyện A)</option>
-                  <option value="Ô A4">Ô A4 (Khu Huấn luyện A)</option>
-                  <option value="Ô B1">Ô B1 (Khu Chuồng trại VIP)</option>
-                  <option value="Ô B2">Ô B2 (Khu Chuồng trại VIP)</option>
-                  <option value="Ô C1">Ô C1 (Khu Tiêu chuẩn)</option>
-                  <option value="Ô C2">Ô C2 (Khu Tiêu chuẩn)</option>
+                  {membershipTier === 'PREMIUM' ? (
+                    <>
+                      <optgroup label="── 👑 KHU CHUỒNG VIP ĐẶC QUYỀN ──">
+                        {availableVipStables.length > 0 ? (
+                          availableVipStables.map(s => {
+                            const val = `Ô ${s.stall_code}`;
+                            return (
+                              <option key={s.stall_code} value={val}>
+                                👑 Ô {s.stall_code} ({s.block}{s.area ? ` - ${s.area}` : ''})
+                              </option>
+                            );
+                          })
+                        ) : (
+                          <option value="Ô A1">👑 Ô A1 (Block A - VIP)</option>
+                        )}
+                      </optgroup>
+                      <optgroup label="── 🏷️ KHU CHUỒNG TIÊU CHUẨN ──">
+                        {availableStandardStables.length > 0 ? (
+                          availableStandardStables.map(s => {
+                            const val = `Ô ${s.stall_code}`;
+                            return (
+                              <option key={s.stall_code} value={val}>
+                                🏷️ Ô {s.stall_code} ({s.block}{s.area ? ` - ${s.area}` : ''})
+                              </option>
+                            );
+                          })
+                        ) : (
+                          <option value="Ô C1">🏷️ Ô C1 (Block C)</option>
+                        )}
+                      </optgroup>
+                    </>
+                  ) : (
+                    <optgroup label="── 🏷️ KHU CHUỒNG TIÊU CHUẨN (GÓI CƠ BẢN) ──">
+                      {availableStandardStables.length > 0 ? (
+                        availableStandardStables.map(s => {
+                          const val = `Ô ${s.stall_code}`;
+                          return (
+                            <option key={s.stall_code} value={val}>
+                              Ô {s.stall_code} ({s.block}{s.area ? ` - ${s.area}` : ''})
+                            </option>
+                          );
+                        })
+                      ) : (
+                        <>
+                          <option value="Ô C1">Ô C1 (Block C)</option>
+                          <option value="Ô C2">Ô C2 (Block C)</option>
+                        </>
+                      )}
+                    </optgroup>
+                  )}
                 </select>
               </div>
 

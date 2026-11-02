@@ -139,6 +139,15 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
       horseName: horse.name || old.horseName,
       microchip: horse.microchip || old.microchip,
       stable: horse.stable || old.stable,
+      breed: horse.breed || old.breed || 'Thoroughbred',
+      gender: horse.gender || old.gender || 'Ngựa đực (Stallion)',
+      age: horse.age || old.age || '3 tuổi',
+      avatar: horse.avatar || old.avatar,
+      pedigree: horse.pedigree || old.pedigree,
+      ownershipShare: horse.ownershipShare || old.ownershipShare || 100,
+      ownershipType: horse.ownershipType || old.ownershipType || 'Toàn phần',
+      ownerName: ownerUser?.full_name || old.ownerName || 'Phạm Tiến Thành',
+      ownerKey: ownerUser?.username || old.ownerKey || 'owner_thanh',
       trainerUsername: trainerObj.username,
       trainerName: trainerObj.name,
       trainerStatus: trainerChanged ? 'PENDING' : old.trainerStatus,
@@ -159,7 +168,14 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
       horseName: horse.name,
       microchip: horse.microchip || 'MC-VN-2026-001',
       stable: horse.stable || 'Ô A2',
-      ownerName: ownerUser?.full_name || 'Chủ sở hữu',
+      breed: horse.breed || 'Thoroughbred',
+      gender: horse.gender || 'Ngựa đực (Stallion)',
+      age: horse.age || '3 tuổi',
+      avatar: horse.avatar,
+      pedigree: horse.pedigree,
+      ownershipShare: horse.ownershipShare || 100,
+      ownershipType: horse.ownershipType || 'Toàn phần',
+      ownerName: ownerUser?.full_name || 'Phạm Tiến Thành',
       ownerKey: ownerUser?.username || 'owner_thanh',
       trainerUsername: trainerObj.username,
       trainerName: trainerObj.name,
@@ -218,4 +234,101 @@ export function confirmServiceAssignment(horseIdentifier, roleType, staffUsernam
     saveServiceAssignments(nextList);
   }
   return nextList;
+}
+
+// Xóa phân công dịch vụ khi chiến mã bị xóa
+export function removeServiceAssignmentByHorse(horseIdentifier) {
+  if (!horseIdentifier) return;
+  const list = getServiceAssignments();
+  const key = String(horseIdentifier).trim().toLowerCase();
+  const nextList = list.filter(item => {
+    const match = (item.microchip && item.microchip.toLowerCase() === key) ||
+                  (item.horseName && item.horseName.toLowerCase() === key) ||
+                  String(item.id) === key;
+    return !match;
+  });
+  if (nextList.length !== list.length) {
+    saveServiceAssignments(nextList);
+  }
+  return nextList;
+}
+
+// Tìm kiếm hồ sơ đầy đủ của chiến mã và chủ sở hữu trên toàn bộ hệ thống
+export function lookupFullHorseInfo(horseIdentifier) {
+  if (!horseIdentifier) return null;
+  const key = String(horseIdentifier).trim().toLowerCase();
+
+  // 1. Quét tìm trong dữ liệu Chủ sở hữu lưu ở LocalStorage
+  let foundOwnerHorse = null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const storageKey = localStorage.key(i);
+      if (storageKey && storageKey.startsWith('matruong_owner_horses_')) {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const match = list.find(h =>
+              (h.id && String(h.id).toLowerCase() === key) ||
+              (h.microchip && h.microchip.toLowerCase() === key) ||
+              (h.name && h.name.toLowerCase() === key)
+            );
+            if (match) {
+              foundOwnerHorse = match;
+              break;
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Quét tìm trong danh sách phân công chuyên môn
+  const assignments = getServiceAssignments();
+  const matchAsgn = assignments.find(item =>
+    (item.microchip && item.microchip.toLowerCase() === key) ||
+    (item.horseName && item.horseName.toLowerCase() === key) ||
+    String(item.id) === key
+  );
+
+  const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+  const horseName = foundOwnerHorse?.name || matchAsgn?.horseName || horseIdentifier;
+  const microchip = foundOwnerHorse?.microchip || matchAsgn?.microchip || 'MC-VN-2026-001';
+  const ownerName = foundOwnerHorse?.ownerName || foundOwnerHorse?.owner || matchAsgn?.ownerName || 'Phạm Tiến Thành';
+  const stable = foundOwnerHorse?.stable || matchAsgn?.stable || 'Ô A1';
+  const breed = foundOwnerHorse?.breed || matchAsgn?.breed || 'Thoroughbred';
+  const gender = foundOwnerHorse?.gender || matchAsgn?.gender || 'Ngựa đực (Stallion)';
+  const age = foundOwnerHorse?.age || matchAsgn?.age || '3 tuổi';
+  const avatar = foundOwnerHorse?.avatar || matchAsgn?.avatar || defaultAvatar;
+  const pedigree = foundOwnerHorse?.pedigree || matchAsgn?.pedigree || {
+    sire: foundOwnerHorse?.sire || matchAsgn?.sire || 'Storm Cat (USA)',
+    dam: foundOwnerHorse?.dam || matchAsgn?.dam || 'Winning Colors (USA)'
+  };
+  const ownershipShare = foundOwnerHorse?.ownershipShare || matchAsgn?.ownershipShare || 100;
+
+  return {
+    ...(matchAsgn || {}),
+    ...(foundOwnerHorse || {}),
+    id: foundOwnerHorse?.id || matchAsgn?.id || key,
+    name: horseName,
+    horseName,
+    ownerName,
+    owner: ownerName,
+    microchip,
+    stable,
+    stall: stable,
+    breed,
+    gender,
+    age,
+    avatar,
+    pedigree,
+    ownershipShare,
+    ownershipType: foundOwnerHorse?.ownershipType || matchAsgn?.ownershipType || 'Toàn phần',
+    trainerName: matchAsgn?.trainerName || foundOwnerHorse?.trainer || 'Trần Văn Hùng',
+    vetName: matchAsgn?.vetName || foundOwnerHorse?.vet || 'BS. Nguyễn An',
+    groomName: matchAsgn?.groomName || foundOwnerHorse?.groom || 'Lê Hoàng Nam',
+    trainerStatus: matchAsgn?.trainerStatus || 'CONFIRMED',
+    vetStatus: matchAsgn?.vetStatus || 'CONFIRMED',
+    groomStatus: matchAsgn?.groomStatus || 'CONFIRMED'
+  };
 }

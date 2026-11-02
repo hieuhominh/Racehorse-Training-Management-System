@@ -13,7 +13,18 @@ import {
   trainerReviewNominationApi,
   trainerAssignHorseNominationApi
 } from '../services/api';
-import { getServiceAssignments, confirmServiceAssignment } from '../services/serviceAssignment';
+import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
+import NotificationBell from '../components/NotificationBell';
+import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
+import RacehorseFitnessDetailModal from '../components/RacehorseFitnessDetailModal';
+import { getSystemNotifications } from '../services/notificationService';
+import { 
+  calculateHorseFitnessOnSession, 
+  getHorseFitnessTelemetry, 
+  getHorseSessionCount, 
+  isHorseCalibrating, 
+  REQUIRED_WORKOUTS_TO_EVALUATE 
+} from '../services/fitnessAlgorithm';
 
 // Minimalist, high-end SVG icons (0 emojis, strict professional aesthetic)
 const IconHorse = ({ size = 18, color = 'currentColor' }) => (
@@ -104,12 +115,12 @@ export default function TrainerPage() {
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const saved = localStorage.getItem('matruong_tab_trainer');
-      if (['vitals', 'programs', 'sessions', 'review', 'approvals'].includes(saved)) {
+      if (['horses', 'vitals', 'programs', 'sessions', 'review', 'approvals'].includes(saved)) {
         return saved;
       }
     } catch {}
-    return 'vitals';
-  }); // 'vitals' | 'programs' | 'sessions' | 'review' | 'approvals'
+    return 'horses';
+  }); // 'horses' | 'vitals' | 'programs' | 'sessions' | 'review' | 'approvals'
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -118,6 +129,8 @@ export default function TrainerPage() {
     } catch {}
     return 'cards';
   }); // 'cards' | 'table'
+
+  const [fitnessDetailModalHorse, setFitnessDetailModalHorse] = useState(null);
 
   // 5. Danh sách đề cử giải đấu từ Chủ sở hữu ngựa
   const [nominations, setNominations] = useState([]);
@@ -323,97 +336,277 @@ export default function TrainerPage() {
     };
   }, []);
 
+  const [confirmedHorseModal, setConfirmedHorseModal] = useState(null);
+
+  // Lắng nghe thông báo khi chiến mã bị xóa từ phía Chủ sở hữu
+  useEffect(() => {
+    const handleNotificationUpdate = () => {
+      const list = getSystemNotifications();
+      const latest = list[0];
+      if (latest && latest.type === 'HORSE_DELETED') {
+        const deletedName = (latest.horseName || '').toLowerCase();
+        const deletedChip = (latest.microchip || '').toLowerCase();
+        setTrainerHorses(prev => prev.filter(h => 
+          (h.name && h.name.toLowerCase() !== deletedName) &&
+          (!deletedChip || !h.microchip || h.microchip.toLowerCase() !== deletedChip)
+        ));
+      }
+    };
+    window.addEventListener('matruong_notifications_updated', handleNotificationUpdate);
+    window.addEventListener('storage', handleNotificationUpdate);
+    return () => {
+      window.removeEventListener('matruong_notifications_updated', handleNotificationUpdate);
+      window.removeEventListener('storage', handleNotificationUpdate);
+    };
+  }, []);
+
   const handleConfirmTrainerService = (asgn) => {
     const trainerUser = currentUser?.username || 'trainer_truong';
     const updated = confirmServiceAssignment(asgn.horseName, 'TRAINER', trainerUser);
     setServiceAssignments(updated);
-    showToast(`Đã xác nhận nhận huấn luyện chiến mã "${asgn.horseName}" cho Chủ sở hữu ${asgn.ownerName}!`, 'HLV XÁC NHẬN PHỤC VỤ', 'success');
+
+    const fullHorse = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+    const stallCode = fullHorse?.stable ? (fullHorse.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || fullHorse.stable.split('(')[0].trim()) : 'Ô A1';
+
+    // Bổ sung hoặc đưa ngay chiến mã lên đầu danh sách Thể lực tàu ngựa
+    setTrainerHorses(prev => {
+      const targetName = (fullHorse?.name || asgn.horseName).toLowerCase();
+      const targetChip = (fullHorse?.microchip || asgn.microchip || '').toLowerCase();
+
+      const existing = prev.find(h => 
+        (h.name && h.name.toLowerCase() === targetName) ||
+        (targetChip && h.microchip && h.microchip.toLowerCase() === targetChip)
+      );
+
+      const updatedOrNew = {
+        ...(existing || {}),
+        id: fullHorse?.id || existing?.id || Date.now(),
+        name: fullHorse?.name || asgn.horseName,
+        microchip: fullHorse?.microchip || asgn.microchip || 'MC-VN-2026-001',
+        stall: stallCode,
+        breed: fullHorse?.breed || existing?.breed || 'Thoroughbred',
+        age: fullHorse?.age || existing?.age || '3 tuổi',
+        owner: fullHorse?.ownerName || asgn.ownerName || 'Phạm Tiến Thành',
+        ownerName: fullHorse?.ownerName || asgn.ownerName || 'Phạm Tiến Thành',
+        status: existing?.status || 'CALIBRATING',
+        statusText: existing?.statusText || 'Chờ hoàn thành 3 bài tập',
+        isLockedByVet: existing?.isLockedByVet || false,
+        avgHeartRate: existing?.avgHeartRate || '--',
+        maxSpeed: existing?.maxSpeed || '--',
+        totalDistanceKm: existing?.totalDistanceKm || 0,
+        condition: existing?.condition || 'Chờ đánh giá (0/3)',
+        trend: existing?.trend || 'CALIBRATING',
+        trendPercent: existing?.trendPercent || 'Cần thêm 3 bài tập',
+        shortTermLoad: existing?.shortTermLoad || '--',
+        longTermLoad: existing?.longTermLoad || '--',
+        loadRatio: existing?.loadRatio || '--',
+        isCalibrating: existing?.isCalibrating !== undefined ? existing.isCalibrating : true,
+        workoutCount: existing?.workoutCount || 0,
+        trainingProgram: existing?.trainingProgram || 'Làm quen nhịp chạy & Thu thập viễn trắc',
+        desc: existing?.desc || `Chiến mã của chủ sở hữu ${fullHorse?.ownerName || asgn.ownerName || 'Phạm Tiến Thành'}`,
+        avatar: fullHorse?.avatar || existing?.avatar
+      };
+
+      const others = prev.filter(h =>
+        (h.name && h.name.toLowerCase() !== targetName) &&
+        (!targetChip || !h.microchip || h.microchip.toLowerCase() !== targetChip)
+      );
+
+      const next = [updatedOrNew, ...others];
+      try {
+        localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    // Mở popup toàn bộ Profile chi tiết của ngựa chủ sở hữu
+    if (fullHorse) {
+      setConfirmedHorseModal(fullHorse);
+    }
+
+    showToast(`Đã tiếp nhận huấn luyện "${asgn.horseName}"! Chiến mã đã hiện diện ngay tại Thể lực tàu ngựa.`, 'TIẾP NHẬN THÀNH CÔNG', 'success');
   };
 
-  // 1. Danh sách chiến mã quản lý huấn luyện
-  const [trainerHorses, setTrainerHorses] = useState([
-    {
-      id: 1,
-      name: 'Hắc Phong',
-      microchip: 'MC-VN-2022-001',
-      stall: 'Ô A3',
-      breed: 'Thoroughbred',
-      age: '4 tuổi',
-      status: 'WATCH',
-      statusText: 'Cần theo dõi',
-      isLockedByVet: false,
-      avgHeartRate: 118,
-      maxSpeed: 64.5,
-      totalDistanceKm: 184,
-      condition: '92%',
-      desc: 'Chiến mã cự ly 1.600m, đang tập thích ứng nhịp chạy nước rút cao.'
-    },
-    {
-      id: 2,
-      name: 'Xích Thố',
-      microchip: 'MC-VN-2021-014',
-      stall: 'Ô A1',
-      breed: 'Arabian',
-      age: '5 tuổi',
-      status: 'READY',
-      statusText: 'Sẵn sàng thi đấu',
-      isLockedByVet: false,
-      avgHeartRate: 108,
-      maxSpeed: 68.2,
-      totalDistanceKm: 260,
-      condition: '98%',
-      desc: 'Phong độ đỉnh cao, thể lực ổn định ở cự ly 2.400m sân cỏ.'
-    },
-    {
-      id: 3,
-      name: 'Phi Yến',
-      microchip: 'MC-VN-2023-009',
-      stall: 'Ô A5',
-      breed: 'Thoroughbred',
-      age: '3 tuổi',
-      status: 'INJURED',
-      statusText: 'Khóa tập bởi Thú y',
-      isLockedByVet: true,
-      vetNotice: 'Giãn gân chân trái - Cấm bài tập chạy nước rút và tải nặng!',
-      avgHeartRate: 136,
-      maxSpeed: 42.0,
-      totalDistanceKm: 98,
-      condition: '58%',
-      desc: 'Đang theo phác đồ vật lý trị liệu & đi bộ thả lỏng theo lệnh Bác sĩ Thú y.'
-    },
-    {
-      id: 4,
-      name: 'Lôi Chấn',
-      microchip: 'MC-VN-2022-088',
-      stall: 'Ô B2',
-      breed: 'Quarter Horse',
-      age: '4 tuổi',
-      status: 'WATCH',
-      statusText: 'Cách ly theo dõi',
-      isLockedByVet: false,
-      avgHeartRate: 122,
-      maxSpeed: 59.8,
-      totalDistanceKm: 142,
-      condition: '84%',
-      desc: 'Chiến mã cơ bắp, đang rèn kỹ thuật xuất phát máy và chuyển làn an toàn.'
-    },
-    {
-      id: 5,
-      name: 'Bạch Long',
-      microchip: 'MC-VN-2024-003',
-      stall: 'Ô A2',
-      breed: 'Thoroughbred',
-      age: '2 tuổi',
-      status: 'READY',
-      statusText: 'Đang phát triển tốt',
-      isLockedByVet: false,
-      avgHeartRate: 112,
-      maxSpeed: 62.0,
-      totalDistanceKm: 115,
-      condition: '90%',
-      desc: 'Chiến mã trẻ tiếp thu nhanh, thể lực phát triển vượt kỳ vọng.'
-    }
-  ]);
+  // 1. Danh sách chiến mã quản lý huấn luyện (Thể lực tàu ngựa)
+  const [trainerHorses, setTrainerHorses] = useState(() => {
+    const defaultList = [
+      {
+        id: 1,
+        name: 'Hắc Phong',
+        microchip: 'MC-VN-2022-001',
+        stall: 'Ô A3',
+        breed: 'Thoroughbred',
+        age: '4 tuổi',
+        status: 'WATCH',
+        statusText: 'Cần theo dõi',
+        isLockedByVet: false,
+        avgHeartRate: 118,
+        maxSpeed: 64.5,
+        totalDistanceKm: 184,
+        condition: '92%',
+        desc: 'Chiến mã cự ly 1.600m, đang tập thích ứng nhịp chạy nước rút cao.'
+      },
+      {
+        id: 2,
+        name: 'Xích Thố',
+        microchip: 'MC-VN-2021-014',
+        stall: 'Ô A1',
+        breed: 'Arabian',
+        age: '5 tuổi',
+        status: 'READY',
+        statusText: 'Sẵn sàng thi đấu',
+        isLockedByVet: false,
+        avgHeartRate: 108,
+        maxSpeed: 68.2,
+        totalDistanceKm: 260,
+        condition: '98%',
+        desc: 'Phong độ đỉnh cao, thể lực ổn định ở cự ly 2.400m sân cỏ.'
+      },
+      {
+        id: 3,
+        name: 'Phi Yến',
+        microchip: 'MC-VN-2023-009',
+        stall: 'Ô A5',
+        breed: 'Thoroughbred',
+        age: '3 tuổi',
+        status: 'INJURED',
+        statusText: 'Khóa tập bởi Thú y',
+        isLockedByVet: true,
+        vetNotice: 'Giãn gân chân trái - Cấm bài tập chạy nước rút và tải nặng!',
+        avgHeartRate: 136,
+        maxSpeed: 42.0,
+        totalDistanceKm: 98,
+        condition: '58%',
+        desc: 'Đang theo phác đồ vật lý trị liệu & đi bộ thả lỏng theo lệnh Bác sĩ Thú y.'
+      },
+      {
+        id: 4,
+        name: 'Lôi Chấn',
+        microchip: 'MC-VN-2022-088',
+        stall: 'Ô B2',
+        breed: 'Quarter Horse',
+        age: '4 tuổi',
+        status: 'WATCH',
+        statusText: 'Cách ly theo dõi',
+        isLockedByVet: false,
+        avgHeartRate: 122,
+        maxSpeed: 59.8,
+        totalDistanceKm: 142,
+        condition: '84%',
+        desc: 'Chiến mã cơ bắp, đang rèn kỹ thuật xuất phát máy và chuyển làn an toàn.'
+      },
+      {
+        id: 5,
+        name: 'Bạch Long',
+        microchip: 'MC-VN-2024-003',
+        stall: 'Ô A2',
+        breed: 'Thoroughbred',
+        age: '2 tuổi',
+        status: 'READY',
+        statusText: 'Đang phát triển tốt',
+        isLockedByVet: false,
+        avgHeartRate: 112,
+        maxSpeed: 62.0,
+        totalDistanceKm: 115,
+        condition: '90%',
+        desc: 'Chiến mã trẻ tiếp thu nhanh, thể lực phát triển vượt kỳ vọng.'
+      }
+    ];
+
+    try {
+      const saved = localStorage.getItem('matruong_trainer_horses_managed');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map();
+          defaultList.forEach(h => map.set(h.name.toLowerCase(), h));
+          parsed.forEach(h => {
+            const k = (h.name || '').toLowerCase();
+            if (map.has(k)) {
+              map.set(k, { ...map.get(k), ...h });
+            } else {
+              map.set(k, h);
+            }
+          });
+          return Array.from(map.values());
+        }
+      }
+    } catch {}
+
+    return defaultList;
+  });
+
+  // Tự động đồng bộ các chiến mã đã xác nhận huấn luyện vào Thể lực tàu ngựa
+  useEffect(() => {
+    const currentUsername = currentUser?.username || 'trainer_truong';
+    const myConfirmedAssignments = serviceAssignments.filter(a =>
+      (a.trainerUsername === currentUsername || (!a.trainerUsername && currentUsername === 'trainer_truong')) &&
+      a.trainerStatus === 'CONFIRMED'
+    );
+
+    if (myConfirmedAssignments.length === 0) return;
+
+    setTrainerHorses(prev => {
+      let changed = false;
+      let next = [...prev];
+
+      myConfirmedAssignments.forEach(asgn => {
+        const targetName = (asgn.horseName || '').toLowerCase();
+        const targetChip = (asgn.microchip || '').toLowerCase();
+        const foundIndex = next.findIndex(h =>
+          (h.name && h.name.toLowerCase() === targetName) ||
+          (targetChip && h.microchip && h.microchip.toLowerCase() === targetChip)
+        );
+
+        const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+        const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
+
+        if (foundIndex === -1) {
+          changed = true;
+          next.unshift({
+            id: full?.id || asgn.id || Date.now(),
+            name: asgn.horseName,
+            microchip: asgn.microchip || 'MC-VN-2026-001',
+            stall: stallCode,
+            breed: full?.breed || 'Thoroughbred',
+            age: full?.age || '3 tuổi',
+            owner: asgn.ownerName || 'Phạm Tiến Thành',
+            ownerName: asgn.ownerName || 'Phạm Tiến Thành',
+            status: 'READY',
+            statusText: 'Sẵn sàng thi đấu',
+            isLockedByVet: false,
+            avgHeartRate: 112,
+            maxSpeed: 58.5,
+            totalDistanceKm: 120,
+            condition: '98%',
+            trainingProgram: 'Nâng cao thể lực & Tốc độ',
+            desc: `Chiến mã của chủ sở hữu ${asgn.ownerName || 'Phạm Tiến Thành'}`,
+            avatar: full?.avatar
+          });
+        } else {
+          const current = next[foundIndex];
+          if (!current.owner || current.owner !== asgn.ownerName || !current.stall) {
+            changed = true;
+            next[foundIndex] = {
+              ...current,
+              owner: asgn.ownerName,
+              ownerName: asgn.ownerName,
+              stall: stallCode,
+              avatar: full?.avatar || current.avatar
+            };
+          }
+        }
+      });
+
+      if (changed) {
+        try {
+          localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(next));
+        } catch {}
+        return next;
+      }
+      return prev;
+    });
+  }, [serviceAssignments, currentUser]);
 
   // 2. Danh sách giáo án huấn luyện (Training Programs)
   const [programs, setPrograms] = useState(() => {
@@ -532,6 +725,7 @@ export default function TrainerPage() {
       }
     } catch {}
     return [
+      // XÍCH THỐ (3 bài tập đã hoàn thành -> Đủ dữ liệu đánh giá)
       {
         id: 101,
         time: '10/10/2026 06:30',
@@ -547,6 +741,34 @@ export default function TrainerPage() {
       },
       {
         id: 102,
+        time: '08/10/2026 07:00',
+        horseName: 'Xích Thố',
+        programTitle: 'Bứt phá nước rút 1.600m sân cỏ',
+        distanceRun: 1600,
+        avgSpeed: 66.5,
+        maxHeartRate: 204,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 9.2,
+        feedback: 'Khả năng bung sức đoạn 400m cuối đạt đỉnh phong độ.'
+      },
+      {
+        id: 103,
+        time: '06/10/2026 06:15',
+        horseName: 'Xích Thố',
+        programTitle: 'Phi nước kiệu dẻo dai 3.200m',
+        distanceRun: 3200,
+        avgSpeed: 52.0,
+        maxHeartRate: 185,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 9.0,
+        feedback: 'Giữ nhịp tim vùng hiếu khí hoàn hảo.'
+      },
+
+      // HẮC PHONG (3 bài tập -> Đủ dữ liệu)
+      {
+        id: 104,
         time: '09/10/2026 17:00',
         horseName: 'Hắc Phong',
         programTitle: 'Tăng tốc nước rút 1.600m sân cát',
@@ -559,7 +781,35 @@ export default function TrainerPage() {
         feedback: 'Tăng tốc tốt ở 400m cuối nhưng nhịp tim lên 216 bpm vượt ngưỡng. Đã cho dừng sớm để bảo đảm an toàn cơ bắp.'
       },
       {
-        id: 103,
+        id: 105,
+        time: '07/10/2026 06:45',
+        horseName: 'Hắc Phong',
+        programTitle: 'Rèn sức bền kỵ khí 2.000m',
+        distanceRun: 2000,
+        avgSpeed: 61.5,
+        maxHeartRate: 202,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 8.5,
+        feedback: 'Tương tác tốt với nài ngựa, thích nghi đường cát ẩm.'
+      },
+      {
+        id: 106,
+        time: '05/10/2026 07:30',
+        horseName: 'Hắc Phong',
+        programTitle: 'Tập xuất phát máy & tăng tốc 1.200m',
+        distanceRun: 1200,
+        avgSpeed: 63.8,
+        maxHeartRate: 199,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 9.0,
+        feedback: 'Bật cửa máy nhanh nhất đội.'
+      },
+
+      // BẠCH LONG (3 bài tập -> Đủ dữ liệu)
+      {
+        id: 107,
         time: '09/10/2026 07:15',
         horseName: 'Bạch Long',
         programTitle: 'Làm quen nhịp chạy cự ly ngắn',
@@ -572,7 +822,76 @@ export default function TrainerPage() {
         feedback: 'Chiến mã trẻ tiếp thu bài rất nhanh, giữ thẳng lái tốt khi gặp áp lực bên cánh phải.'
       },
       {
-        id: 104,
+        id: 108,
+        time: '07/10/2026 08:00',
+        horseName: 'Bạch Long',
+        programTitle: 'Phi nước kiệu nhịp đều 2.400m',
+        distanceRun: 2400,
+        avgSpeed: 50.5,
+        maxHeartRate: 182,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 8.6,
+        feedback: 'Nhịp thở thông thoáng, bước chân dứt khoát.'
+      },
+      {
+        id: 109,
+        time: '05/10/2026 06:30',
+        horseName: 'Bạch Long',
+        programTitle: 'Bứt tốc nước rút 1.400m',
+        distanceRun: 1400,
+        avgSpeed: 62.0,
+        maxHeartRate: 196,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 8.9,
+        feedback: 'Đáp ứng tốt bài tăng tải cự ly trung bình.'
+      },
+
+      // LÔI CHẤN (3 bài tập -> Đủ dữ liệu)
+      {
+        id: 110,
+        time: '09/10/2026 16:30',
+        horseName: 'Lôi Chấn',
+        programTitle: 'Tăng cường sức mạnh cơ hông 1.800m',
+        distanceRun: 1800,
+        avgSpeed: 60.0,
+        maxHeartRate: 195,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 8.5,
+        feedback: 'Cơ bắp phát triển săn chắc, giữ thăng bằng tốt.'
+      },
+      {
+        id: 111,
+        time: '07/10/2026 16:00',
+        horseName: 'Lôi Chấn',
+        programTitle: 'Tập chạy dốc & đường cát lún 2.000m',
+        distanceRun: 2000,
+        avgSpeed: 56.5,
+        maxHeartRate: 199,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 8.4,
+        feedback: 'Độ chịu lực của khớp gối và móng tốt.'
+      },
+      {
+        id: 112,
+        time: '05/10/2026 15:30',
+        horseName: 'Lôi Chấn',
+        programTitle: 'Chạy biến tốc 1.600m',
+        distanceRun: 1600,
+        avgSpeed: 61.2,
+        maxHeartRate: 194,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 8.7,
+        feedback: 'Hoàn thành bài tập đúng thời gian chỉ định.'
+      },
+
+      // PHI YẾN (3 bài tập -> Đủ dữ liệu, chấn thương đang theo dõi)
+      {
+        id: 113,
         time: '08/10/2026 08:00',
         horseName: 'Phi Yến',
         programTitle: 'Phục hồi chức năng & thả lỏng cơ khớp',
@@ -583,6 +902,32 @@ export default function TrainerPage() {
         status: 'COMPLETED',
         score: 7.0,
         feedback: 'Bài đi bộ thả lỏng theo đúng phác đồ bác sĩ thú y. Khớp gối trái đã bớt sưng đỏ.'
+      },
+      {
+        id: 114,
+        time: '06/10/2026 08:30',
+        horseName: 'Phi Yến',
+        programTitle: 'Thủy trị liệu & đi bộ máy',
+        distanceRun: 600,
+        avgSpeed: 25.0,
+        maxHeartRate: 140,
+        isOverLimit: false,
+        status: 'COMPLETED',
+        score: 7.5,
+        feedback: 'Đáp ứng tốt với liệu trình giảm tải.'
+      },
+      {
+        id: 115,
+        time: '04/10/2026 09:00',
+        horseName: 'Phi Yến',
+        programTitle: 'Chạy nhẹ trên thảm cỏ nhân tạo',
+        distanceRun: 1000,
+        avgSpeed: 42.0,
+        maxHeartRate: 172,
+        isOverLimit: false,
+        status: 'INCOMPLETE',
+        score: 6.0,
+        feedback: 'Có dấu hiệu nhói chân ở mét thứ 700, đã yêu cầu dừng bài tập lập tức.'
       }
     ];
   });
@@ -696,6 +1041,62 @@ export default function TrainerPage() {
     });
   };
 
+  // Thuật toán cập nhật thể lực viễn trắc chiến mã tức thì khi xong/không xong bài tập
+  const applyFitnessAlgorithm = (horseName, sessionObj) => {
+    const targetHorse = trainerHorses.find(h => (h.name || '').toLowerCase() === (horseName || '').toLowerCase())
+      || trainerHorses[0];
+    if (targetHorse) {
+      const computed = calculateHorseFitnessOnSession(targetHorse, sessionObj);
+      setTrainerHorses(prev => prev.map(h => {
+        if ((h.name || '').toLowerCase() === (targetHorse.name || '').toLowerCase() || h.id === targetHorse.id) {
+          return {
+            ...h,
+            condition: computed.condition,
+            trend: computed.trend,
+            trendPercent: computed.trendPercent,
+            shortTermLoad: computed.shortTermLoad,
+            longTermLoad: computed.longTermLoad,
+            loadRatio: computed.loadRatio,
+            recoveryPercent: computed.recoveryPercent,
+            performanceToday: computed.performanceToday,
+            maxSpeed: computed.maxSpeed,
+            status: computed.status === 'READY' ? 'READY' : (computed.condition < 80 ? 'OBSERVATION' : h.status)
+          };
+        }
+        return h;
+      }));
+    }
+  };
+
+  // Lắng nghe sự kiện cập nhật viễn trắc từ Modal hoặc các dịch vụ khác
+  useEffect(() => {
+    const handleFitnessUpdate = (e) => {
+      const { horse: updatedH, telemetry: computed } = e.detail || {};
+      if (updatedH && computed) {
+        setTrainerHorses(prev => prev.map(h => {
+          if ((h.name || '').toLowerCase() === (updatedH.name || '').toLowerCase() || h.id === updatedH.id || h.microchip === updatedH.microchip) {
+            return {
+              ...h,
+              condition: computed.condition,
+              trend: computed.trend,
+              trendPercent: computed.trendPercent,
+              shortTermLoad: computed.shortTermLoad,
+              longTermLoad: computed.longTermLoad,
+              loadRatio: computed.loadRatio,
+              recoveryPercent: computed.recoveryPercent,
+              performanceToday: computed.performanceToday,
+              maxSpeed: computed.maxSpeed,
+              status: computed.status === 'READY' ? 'READY' : (computed.condition < 80 ? 'OBSERVATION' : h.status)
+            };
+          }
+          return h;
+        }));
+      }
+    };
+    window.addEventListener('racehorse-fitness-updated', handleFitnessUpdate);
+    return () => window.removeEventListener('racehorse-fitness-updated', handleFitnessUpdate);
+  }, [trainerHorses]);
+
   // Xử lý ghi nhận buổi tập mới
   const handleCreateSession = (e) => {
     e.preventDefault();
@@ -722,6 +1123,9 @@ export default function TrainerPage() {
     } catch {}
     recordTelemetryApi(newSess).catch(() => {});
 
+    // Chạy thuật toán cập nhật viễn trắc thể lực tức thì
+    applyFitnessAlgorithm(newSessionData.horseName, newSess);
+
     showToast(`Đã lưu bài tập mới cho ${newSessionData.horseName} (${newSess.status === 'COMPLETED' ? 'Hoàn thành' : 'Chưa hoàn thành'})`);
     setShowAddSessionModal(false);
     setNewSessionData({
@@ -739,18 +1143,26 @@ export default function TrainerPage() {
   // Chuyển đổi trạng thái Hoàn thành / Không hoàn thành 1-chạm
   const handleToggleSessionStatus = (sessionId) => {
     setSessions(prev => {
+      let targetSession = null;
       const next = prev.map(s => {
         if (s.id === sessionId) {
           const nextStatus = s.status === 'COMPLETED' ? 'INCOMPLETE' : 'COMPLETED';
           const statusText = nextStatus === 'COMPLETED' ? 'Hoàn thành' : 'Không hoàn thành';
           showToast(`Đã đổi bài tập của ${s.horseName} sang: ${statusText}`);
-          return { ...s, status: nextStatus };
+          targetSession = { ...s, status: nextStatus };
+          return targetSession;
         }
         return s;
       });
       try {
         localStorage.setItem('matruong_training_telemetry', JSON.stringify(next));
       } catch {}
+
+      // Kích hoạt thuật toán cập nhật thể lực ngay lập tức
+      if (targetSession) {
+        applyFitnessAlgorithm(targetSession.horseName, targetSession);
+      }
+
       return next;
     });
   };
@@ -776,6 +1188,10 @@ export default function TrainerPage() {
       score: Number(selectedSession.score),
       feedback: selectedSession.feedback
     } : s));
+
+    // Kích hoạt thuật toán cập nhật thể lực ngay lập tức
+    applyFitnessAlgorithm(selectedSession.horseName, selectedSession);
+
     const statusText = selectedSession.status === 'COMPLETED' ? 'Hoàn thành' : 'Không hoàn thành';
     showToast(`Đã lưu bài tập của ${selectedSession.horseName}: ${statusText} • Điểm ${selectedSession.score}/10`);
     setShowEditFeedbackModal(false);
@@ -834,12 +1250,20 @@ export default function TrainerPage() {
 
         <nav className="portal-nav">
           <button
+            className={`portal-nav-item ${activeTab === 'horses' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('horses'); setSidebarOpen(false); }}
+          >
+            <span className="portal-nav-icon"><IconHorse size={18} /></span>
+            <span className="portal-nav-label">{t('trainerTabHorses')}</span>
+            <span className="portal-nav-badge">{trainerHorses.length}</span>
+          </button>
+
+          <button
             className={`portal-nav-item ${activeTab === 'vitals' ? 'active' : ''}`}
             onClick={() => { setActiveTab('vitals'); setSidebarOpen(false); }}
           >
             <span className="portal-nav-icon"><IconOverview size={18} /></span>
             <span className="portal-nav-label">{t('trainerTabVitals')}</span>
-            <span className="portal-nav-badge">{trainerHorses.length}</span>
           </button>
 
           <button
@@ -901,6 +1325,7 @@ export default function TrainerPage() {
             </button>
             <div className="portal-title-box">
               <h2 className="portal-page-title">
+                {activeTab === 'horses' && t('trainerTitleHorses')}
                 {activeTab === 'vitals' && t('trainerTitleVitals')}
                 {activeTab === 'programs' && t('trainerTitlePrograms')}
                 {activeTab === 'sessions' && t('trainerTitleSessions')}
@@ -908,6 +1333,7 @@ export default function TrainerPage() {
                 {activeTab === 'approvals' && (lang === 'en' ? 'Tournament Nominations & Approvals' : 'Thẩm Định & Phê Duyệt Đăng Ký Thi Đấu')}
               </h2>
               <div className="portal-page-subtitle">
+                {activeTab === 'horses' && t('trainerSubHorses')}
                 {activeTab === 'vitals' && t('trainerSubVitals')}
                 {activeTab === 'programs' && t('trainerSubPrograms')}
                 {activeTab === 'sessions' && t('trainerSubSessions')}
@@ -942,6 +1368,7 @@ export default function TrainerPage() {
               <IconGlobe size={15} color="var(--brass)" />
               <span>{lang === 'vi' ? 'VI' : 'EN'}</span>
             </button>
+            <NotificationBell role="TRAINER" currentUser={currentUser} />
             <ThemeToggle />
             <div className="portal-user-badge">
               <div className="portal-user-avatar">
@@ -1016,8 +1443,8 @@ export default function TrainerPage() {
             </div>
           </div>
 
-          {/* ===================== TAB 1: THỂ LỰC & TRẠNG THÁI ===================== */}
-          {activeTab === 'vitals' && (
+          {/* ===================== TAB 1: DANH SÁCH NGỰA ĐUA (HỒ SƠ CỦA CHỦ SỞ HỮU) ===================== */}
+          {activeTab === 'horses' && (
             <div>
               {pendingCount > 0 && (
                 <div
@@ -1065,7 +1492,7 @@ export default function TrainerPage() {
                 </div>
               )}
 
-              {/* Khối Xác Nhận Phục Vụ Dành Cho HLV Được Chủ Ngựa Chỉ Định */}
+              {/* Khối Xác Nhận Phục Vụ & Nhật Ký Hoạt Động Tiếp Nhận */}
               {(() => {
                 const currentUsername = currentUser?.username || 'trainer_truong';
                 const assignedToMe = serviceAssignments.filter(a =>
@@ -1075,112 +1502,650 @@ export default function TrainerPage() {
                 if (assignedToMe.length === 0) return null;
 
                 const pendingAssignments = assignedToMe.filter(a => a.trainerStatus === 'PENDING');
+                const confirmedAssignments = assignedToMe.filter(a => a.trainerStatus === 'CONFIRMED');
 
                 return (
-                  <div style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--line)',
-                    borderRadius: '8px',
-                    padding: '16px 20px',
-                    marginBottom: '20px',
-                    boxShadow: 'var(--shadow-sm)'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '18px' }}>🏇</span>
-                        <div>
-                          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>
-                            Chiến Mã Được Chủ Sở Hữu Chỉ Định Đảm Nhận Huấn Luyện ({assignedToMe.length})
+                  <>
+                    {/* 1. KHỐI CHỜ XÁC NHẬN: Khi HLV bấm Xác nhận xong thì ô này biến mất */}
+                    {pendingAssignments.length > 0 && (
+                      <div style={{
+                        background: 'rgba(212, 175, 55, 0.05)',
+                        border: '1px solid rgba(212, 175, 55, 0.45)',
+                        borderRadius: '10px',
+                        padding: '18px 22px',
+                        marginBottom: '20px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '20px' }}>🏇</span>
+                            <div>
+                              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--brass)' }}>
+                                Yêu Cầu Huấn Luyện Chờ Xác Nhận ({pendingAssignments.length})
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                                Chủ sở hữu đã chỉ định bạn làm Huấn luyện viên trưởng. Vui lòng kiểm tra hồ sơ và bấm xác nhận để tiếp nhận vào đàn huấn luyện.
+                              </div>
+                            </div>
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                            {pendingAssignments.length > 0 
-                              ? `Có ${pendingAssignments.length} chiến mã đang chờ bạn xác nhận phục vụ.`
-                              : `Tất cả chiến mã đã được bạn xác nhận tiếp nhận huấn luyện.`}
-                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: '#0A0D14', background: 'var(--brass)', padding: '4px 12px', borderRadius: '12px' }}>
+                            {pendingAssignments.length} Yêu cầu mới
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 520px), 1fr))', gap: '14px' }}>
+                          {pendingAssignments.map(asgn => {
+                            const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
+                            const vetClean = asgn.vetName ? asgn.vetName.replace(/^(BS|Bác sĩ)\.?\s*/i, '').trim() : 'Nguyễn An';
+                            const groomClean = asgn.groomName ? asgn.groomName.replace(/^(Groom|Chăm sóc)\.?\s*/i, '').trim() : 'Lê Hoàng Nam';
+
+                            return (
+                              <div
+                                key={asgn.id || asgn.microchip}
+                                style={{
+                                  background: 'var(--bg-secondary)',
+                                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                                  borderRadius: '10px',
+                                  padding: '16px 20px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '12px',
+                                  boxShadow: '0 4px 16px rgba(0,0,0,0.25)'
+                                }}
+                              >
+                                {/* Dòng 1: Tên chiến mã, ô chuồng & Nút thao tác */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                    <b style={{ color: 'var(--paper)', fontSize: '16px' }}>{asgn.horseName}</b>
+                                    <span style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      color: 'var(--brass)',
+                                      background: 'rgba(212, 175, 55, 0.12)',
+                                      padding: '2px 8px',
+                                      borderRadius: '4px',
+                                      border: '1px solid rgba(212, 175, 55, 0.25)'
+                                    }}>
+                                      {stallCode}
+                                    </span>
+                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                                      Chờ xác nhận
+                                    </span>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+                                        setConfirmedHorseModal(full);
+                                      }}
+                                      style={{
+                                        background: 'transparent',
+                                        color: 'var(--brass)',
+                                        border: '1px solid var(--brass)',
+                                        padding: '7px 14px',
+                                        borderRadius: '6px',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                      title="Xem hồ sơ định danh chiến mã và thông tin chủ sở hữu"
+                                    >
+                                      Xem hồ sơ
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleConfirmTrainerService(asgn)}
+                                      style={{
+                                        background: 'var(--brass)',
+                                        color: '#0A0D14',
+                                        border: 'none',
+                                        padding: '8px 16px',
+                                        borderRadius: '6px',
+                                        fontSize: '12px',
+                                        fontWeight: 800,
+                                        cursor: 'pointer',
+                                        boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      ✓ Xác Nhận Phục Vụ
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Dòng 2: Thông tin chi tiết */}
+                                <div style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  gap: '14px',
+                                  flexWrap: 'wrap',
+                                  paddingTop: '10px',
+                                  borderTop: '1px solid var(--line)',
+                                  fontSize: '12.5px'
+                                }}>
+                                  <div style={{ color: 'var(--paper-dim)' }}>
+                                    Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip}</span>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>Đội ngũ cùng phục vụ:</span>
+                                    <span style={{
+                                      background: 'var(--bg-card)',
+                                      padding: '3px 10px',
+                                      borderRadius: '4px',
+                                      border: '1px solid var(--line)',
+                                      color: 'var(--paper)',
+                                      fontWeight: 600,
+                                      fontSize: '12px',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      🩺 BS. {vetClean}
+                                    </span>
+                                    <span style={{
+                                      background: 'var(--bg-card)',
+                                      padding: '3px 10px',
+                                      borderRadius: '4px',
+                                      border: '1px solid var(--line)',
+                                      color: 'var(--paper)',
+                                      fontWeight: 600,
+                                      fontSize: '12px',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      🌾 Groom {groomClean}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                      {pendingAssignments.length > 0 && (
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '3px 10px', borderRadius: '12px' }}>
-                          {pendingAssignments.length} Yêu cầu mới
-                        </span>
-                      )}
-                    </div>
+                    )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '10px' }}>
-                      {assignedToMe.map(asgn => {
-                        const isPending = asgn.trainerStatus === 'PENDING';
-                        return (
-                          <div
-                            key={asgn.id || asgn.microchip}
-                            style={{
-                              background: 'var(--bg-secondary)',
-                              border: isPending ? '1px solid var(--brass)' : '1px solid var(--line)',
-                              borderRadius: '6px',
-                              padding: '12px 14px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: '12px'
-                            }}
-                          >
+                    {/* 2. NHẬT KÝ HOẠT ĐỘNG HUẤN LUYỆN */}
+                    {confirmedAssignments.length > 0 && (
+                      <div style={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '10px',
+                        padding: '16px 20px',
+                        marginBottom: '20px',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '18px' }}>📋</span>
                             <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <b style={{ color: 'var(--paper)', fontSize: '14px' }}>{asgn.horseName}</b>
-                                <span style={{ fontSize: '11px', color: 'var(--brass)', background: 'rgba(212, 175, 55, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
-                                  {asgn.stable || 'Ô A2'}
-                                </span>
+                              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>
+                                Nhật Ký Hoạt Động Tiếp Nhận Huấn Luyện ({confirmedAssignments.length})
                               </div>
-                              <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                                Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: {asgn.microchip}
+                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                                Lịch sử xác nhận tiếp nhận chiến mã từ Chủ sở hữu và đồng bộ vào danh sách Thể lực tàu ngựa.
                               </div>
-                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                                Đội ngũ cùng phục vụ: BS. {asgn.vetName} · Groom {asgn.groomName}
-                              </div>
-                            </div>
-
-                            <div style={{ flexShrink: 0 }}>
-                              {isPending ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleConfirmTrainerService(asgn)}
-                                  style={{
-                                    background: 'var(--brass)',
-                                    color: '#0A0D14',
-                                    border: 'none',
-                                    padding: '7px 12px',
-                                    borderRadius: '6px',
-                                    fontSize: '11.5px',
-                                    fontWeight: 800,
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
-                                  }}
-                                >
-                                  ✓ Xác Nhận Phục Vụ
-                                </button>
-                              ) : (
-                                <span style={{
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  color: '#10B981',
-                                  background: 'rgba(16, 185, 129, 0.1)',
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}>
-                                  ✓ Đã Xác Nhận
-                                </span>
-                              )}
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: '#10B981',
+                            background: 'rgba(16, 185, 129, 0.12)',
+                            padding: '3px 10px',
+                            borderRadius: '12px'
+                          }}>
+                            {confirmedAssignments.length} Chiến mã đã tiếp nhận
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {confirmedAssignments.map(asgn => {
+                            const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
+                            const vetClean = asgn.vetName ? asgn.vetName.replace(/^(BS|Bác sĩ)\.?\s*/i, '').trim() : 'Nguyễn An';
+                            const groomClean = asgn.groomName ? asgn.groomName.replace(/^(Groom|Chăm sóc)\.?\s*/i, '').trim() : 'Lê Hoàng Nam';
+
+                            return (
+                              <div
+                                key={asgn.id || asgn.microchip}
+                                style={{
+                                  background: 'var(--bg-secondary)',
+                                  border: '1px solid var(--line)',
+                                  borderRadius: '8px',
+                                  padding: '12px 16px',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  gap: '12px',
+                                  flexWrap: 'wrap'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                  <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    color: '#10B981',
+                                    background: 'rgba(16, 185, 129, 0.12)',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    ✓ ĐÃ TIẾP NHẬN
+                                  </span>
+
+                                  <div>
+                                    <div style={{ fontSize: '13.5px', color: 'var(--paper)', lineHeight: 1.4 }}>
+                                      HLV <b style={{ color: 'var(--brass)' }}>{currentUser?.full_name || 'Trần Văn Hùng'}</b> đã tiếp nhận chiến mã <b style={{ color: 'var(--paper)', fontSize: '14px' }}>{asgn.horseName}</b> (<span style={{ color: 'var(--brass)', fontWeight: 600 }}>{stallCode}</span> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip}</span>) từ Chủ sở hữu <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b>.
+                                    </div>
+                                    <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                      <span>Thời gian: {asgn.trainerConfirmedAt || 'Gần đây'}</span>
+                                      <span>·</span>
+                                      <span>Phối hợp: 🩺 BS. {vetClean} · 🌾 Groom {groomClean}</span>
+                                      <span>·</span>
+                                      <span style={{ color: '#10B981', fontWeight: 600 }}>Đã hiện diện ở Thể lực tàu ngựa</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+                                      setConfirmedHorseModal(full);
+                                    }}
+                                    style={{
+                                      background: 'transparent',
+                                      color: 'var(--brass)',
+                                      border: '1px solid var(--brass)',
+                                      padding: '6px 12px',
+                                      borderRadius: '6px',
+                                      fontSize: '11.5px',
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      whiteSpace: 'nowrap',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    title="Xem hồ sơ định danh chiến mã và thông tin chủ sở hữu"
+                                  >
+                                    Xem hồ sơ
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 );
               })()}
 
+              {/* THANH ĐIỀU HƯỚNG BỘ LỌC CỦA DANH SÁCH NGỰA ĐUA */}
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button className="portal-pill-btn active">
+                    {lang === 'en' ? 'All Racehorses' : 'Tất cả ngựa đua'} <span className="pill-count">{trainerHorses.length}</span>
+                  </button>
+                  <button className="portal-pill-btn" onClick={() => setActiveTab('vitals')}>
+                    {lang === 'en' ? 'Fleet Fitness Evaluation →' : 'Xem Đánh Giá Thể Lực →'}
+                  </button>
+                </div>
+
+                <div className="portal-view-tools">
+                  <button
+                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                    onClick={() => setViewMode('cards')}
+                  >
+                    {lang === 'en' ? 'Card Grid' : 'Lưới Thẻ'}
+                  </button>
+                  <button
+                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                  >
+                    {lang === 'en' ? 'Data Table' : 'Bảng Thông Số'}
+                  </button>
+                </div>
+              </div>
+
+              {/* LƯỚI THẺ HỒ SƠ NGỰA ĐUA CỦA CHỦ SỞ HỮU */}
+              {viewMode === 'cards' ? (
+                <div className="portal-cards-grid">
+                  {trainerHorses.map(horse => {
+                    const workoutCount = getHorseSessionCount(horse.name, sessions);
+                    const isCalibrating = workoutCount < REQUIRED_WORKOUTS_TO_EVALUATE;
+                    const displayStatus = isCalibrating 
+                      ? (lang === 'en' ? `New Intake (${workoutCount}/3 workouts)` : `Mới tiếp nhận (${workoutCount}/3 bài tập)`)
+                      : (horse.status === 'READY'
+                        ? (lang === 'en' ? 'Ready for Race' : 'Sẵn sàng thi đấu')
+                        : (lang === 'en' ? 'Under Observation' : 'Cần theo dõi'));
+                    const badgeClass = isCalibrating ? 'badge-slate' : (horse.status === 'READY' ? 'badge-gold' : 'badge-slate');
+                    const cleanStall = (horse.stall || horse.stable || 'Ô A1').split('•')[0].split('(')[0].trim();
+                    const horseAvatar = horse.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+
+                    return (
+                      <div key={horse.id} className="facility-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span className={`facility-card-badge ${badgeClass}`} style={{ whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '65%', overflow: 'hidden', textOverflow: 'ellipsis' }} title={cleanStall}>
+                            <IconHorse size={14} color="var(--brass)" />
+                            <span>{cleanStall}</span>
+                          </span>
+                          <span style={{
+                            fontSize: '11px',
+                            color: 'var(--paper-dim)',
+                            fontFamily: 'monospace',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                            background: 'var(--bg-secondary)',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--line)',
+                            letterSpacing: '0.03em'
+                          }}>
+                            {horse.microchip}
+                          </span>
+                        </div>
+
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px', marginBottom: '4px' }}>
+                            <img
+                              src={horseAvatar}
+                              alt={horse.name}
+                              style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                                <h3 className="facility-card-title" style={{ margin: 0 }}>{horse.name}</h3>
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  color: 'var(--brass)',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.04em',
+                                  background: 'rgba(212, 175, 55, 0.08)',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid rgba(212, 175, 55, 0.2)',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {horse.breed}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', padding: '6px 10px', background: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                              Chủ sở hữu: <b style={{ color: 'var(--brass)' }}>{horse.owner || horse.ownerName || 'Phạm Tiến Thành'}</b>
+                            </div>
+                            <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                              {horse.age || '3 tuổi'}
+                            </span>
+                          </div>
+
+                          <p className="facility-card-desc" style={{
+                            marginTop: '6px',
+                            fontSize: '12px',
+                            color: 'var(--paper-dim)',
+                            lineHeight: 1.5,
+                            minHeight: '36px',
+                            height: '36px',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}>
+                            {horse.desc || `Chiến mã thuần chủng đang trong chế độ rèn luyện thể lực và viễn trắc.`}
+                          </p>
+                        </div>
+
+                        {/* Cảnh báo thú y nếu có */}
+                        {horse.isLockedByVet && (
+                          <div style={{
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--line)',
+                            borderRadius: '6px',
+                            padding: '8px 10px',
+                            fontSize: '12px',
+                            color: 'var(--paper-dim)',
+                            lineHeight: 1.4,
+                            fontWeight: 600,
+                            marginBottom: '10px'
+                          }}>
+                            <span style={{ color: 'var(--brass)', fontWeight: 700 }}>{lang === 'en' ? 'VET WARNING:' : 'CẢNH BÁO THÚ Y:'}</span> {horse.vetNotice}
+                          </div>
+                        )}
+
+                        <div className="facility-card-bullets">
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>{lang === 'en' ? 'Accumulated distance:' : 'Quãng đường tích lũy:'} <b>{horse.totalDistanceKm || 120} km</b></span>
+                          </div>
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>{lang === 'en' ? 'Status:' : 'Trạng thái:'} <b style={{ color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper)' }}>{displayStatus}</b></span>
+                          </div>
+                        </div>
+
+                        {/* Các nút hành động chính của thẻ ngựa (Cân bằng 50/50) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const full = lookupFullHorseInfo(horse.name || horse.microchip);
+                              setConfirmedHorseModal(full || horse);
+                            }}
+                            style={{
+                              height: '38px',
+                              background: 'transparent',
+                              border: '1px solid var(--brass)',
+                              color: 'var(--brass)',
+                              padding: '0 8px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            Xem hồ sơ
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setFitnessDetailModalHorse(horse)}
+                            style={{
+                              height: '38px',
+                              background: 'var(--brass)',
+                              border: 'none',
+                              color: '#0A0D14',
+                              padding: '0 8px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              whiteSpace: 'nowrap',
+                              boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
+                            }}
+                            title="Xem biểu đồ phân tích thể lực viễn trắc chuyên sâu"
+                          >
+                            <span>Xem thêm chi tiết</span>
+                            <span style={{ fontSize: '12px' }}>📊</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Racehorse' : 'Chiến Mã'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Owner' : 'Chủ Sở Hữu'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall' : 'Ô Chuồng'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Breed & Age' : 'Giống & Tuổi'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Status' : 'Trạng Thái'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Actions' : 'Thao Tác'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trainerHorses.map(horse => {
+                        const displayStatus = horse.status === 'READY'
+                          ? (lang === 'en' ? 'Ready for Race' : 'Sẵn sàng thi đấu')
+                          : (lang === 'en' ? 'Under Observation' : 'Cần theo dõi');
+                        return (
+                          <tr key={horse.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                            <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div>{horse.name}</div>
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{horse.microchip}</div>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <b style={{ color: 'var(--brass)', fontSize: '13px' }}>{horse.owner || horse.ownerName || 'Phạm Tiến Thành'}</b>
+                            </td>
+                            <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{horse.stall}</td>
+                            <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
+                              <div>{horse.breed}</div>
+                              <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>{horse.age}</div>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                background: horse.status === 'READY' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
+                                color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper-dim)',
+                                border: horse.status === 'READY' ? '1px solid var(--brass)' : '1px solid var(--line)'
+                              }}>
+                                {displayStatus}
+                              </span>
+                            </td>
+                            <td style={{ padding: '14px 18px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const full = lookupFullHorseInfo(horse.name || horse.microchip);
+                                  setConfirmedHorseModal(full || horse);
+                                }}
+                                style={{
+                                  padding: '6px 12px',
+                                  background: 'transparent',
+                                  color: 'var(--brass)',
+                                  border: '1px solid var(--brass)',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Xem hồ sơ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setFitnessDetailModalHorse(horse)}
+                                style={{
+                                  padding: '6px 12px',
+                                  background: 'var(--brass)',
+                                  color: '#0A0D14',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <span>Xem thêm chi tiết</span>
+                                <span>📊</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===================== TAB 2: THỂ LỰC TÀU NGỰA (ĐÁNH GIÁ THỂ LỰC TĂNG / GIẢM SAU KHI TẬP) ===================== */}
+          {activeTab === 'vitals' && (
+            <div>
+              {/* KHỐI TỔNG QUAN ĐÁNH GIÁ BIẾN THIÊN THỂ LỰC TOÀN ĐÀN */}
+              <div style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--line)',
+                borderRadius: '12px',
+                padding: '20px 24px',
+                marginBottom: '20px',
+                boxShadow: 'var(--shadow-sm)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '18px' }}>📈</span>
+                      <span>Đánh Giá Thể Lực Tàu Ngựa Sau Tập Luyện</span>
+                    </h3>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                      Hệ thống tự động so sánh nhịp tim, tốc độ bứt phá và tải tập luyện (Load Ratio) để xác định thể lực từng chiến mã đang tăng hay giảm sau bài tập.
+                    </p>
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)' }}>
+                    Cập nhật viễn trắc hôm nay
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                  <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                    <div style={{ fontSize: '11.5px', color: '#10B981', fontWeight: 700 }}>▲ THỂ LỰC ĐANG TĂNG</div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', marginTop: '4px' }}>
+                      {trainerHorses.filter(h => !h.isLockedByVet && (parseFloat(h.condition) >= 90 || h.status === 'READY')).length} chiến mã
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                      Thích nghi tốt, thể lực cải thiện rõ rệt
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                    <div style={{ fontSize: '11.5px', color: '#F59E0B', fontWeight: 700 }}>● THỂ LỰC ỔN ĐỊNH</div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', marginTop: '4px' }}>
+                      {trainerHorses.filter(h => !h.isLockedByVet && parseFloat(h.condition) < 90 && parseFloat(h.condition) >= 80).length} chiến mã
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                      Duy trì phong độ chuẩn bị thi đấu
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                    <div style={{ fontSize: '11.5px', color: '#EF4444', fontWeight: 700 }}>▼ THỂ LỰC GIẢM / MỆT MỎI</div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', marginTop: '4px' }}>
+                      {trainerHorses.filter(h => h.isLockedByVet || parseFloat(h.condition) < 80).length} chiến mã
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                      Tích lũy mệt mỏi, cần phác đồ xả cơ & giảm tải
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* THANH ĐIỀU HƯỚNG BỘ LỌC CỦA THỂ LỰC TÀU NGỰA */}
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button className="portal-pill-btn active">
@@ -1210,144 +2175,262 @@ export default function TrainerPage() {
                 </div>
               </div>
 
+              {/* LƯỚI THẺ THỂ LỰC TÀU NGỰA (ĐÁNH GIÁ TĂNG / GIẢM) */}
               {viewMode === 'cards' ? (
                 <div className="portal-cards-grid">
                   {trainerHorses.map(horse => {
-                    const badgeClass = horse.status === 'READY' ? 'badge-gold' : 'badge-slate';
-                    const displayStatus = horse.status === 'READY'
-                      ? (lang === 'en' ? 'Ready for Race' : 'Sẵn sàng thi đấu')
-                      : (lang === 'en' ? 'Under Observation' : 'Cần theo dõi');
+                    const workoutCount = getHorseSessionCount(horse.name, sessions);
+                    const isCalibrating = workoutCount < REQUIRED_WORKOUTS_TO_EVALUATE;
+                    const remainingWorkouts = Math.max(0, REQUIRED_WORKOUTS_TO_EVALUATE - workoutCount);
+
                     const cleanStall = (horse.stall || horse.stable || 'Ô A1').split('•')[0].split('(')[0].trim();
+                    const condVal = parseFloat(horse.condition) || 88;
+                    const isIncreasing = !isCalibrating && !horse.isLockedByVet && (horse.trend === 'INCREASING' || condVal >= 88);
+                    const isStable = !isCalibrating && !horse.isLockedByVet && (horse.trend === 'STABLE' || (condVal >= 80 && condVal < 88));
+                    const trendPercent = horse.trendPercent || (isIncreasing ? '+4.2%' : (isStable ? '+0.5%' : '-2.8%'));
+                    const shortTerm = horse.shortTermLoad || 107;
+                    const longTerm = horse.longTermLoad || 99;
+                    const loadRatio = horse.loadRatio || 108;
+
                     return (
-                      <div key={horse.id} className="facility-card">
+                      <div key={horse.id} className="facility-card" style={{ border: isCalibrating ? '1px dashed rgba(245, 158, 11, 0.45)' : (isIncreasing ? '1px solid rgba(16, 185, 129, 0.4)' : (isStable ? '1px solid var(--line)' : '1px solid rgba(239, 68, 68, 0.4)')) }}>
+                        {/* Header của thẻ: Ô chuồng & Huy hiệu Đánh giá Thể lực Tăng / Giảm */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span className={`facility-card-badge ${badgeClass}`} style={{ whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '65%', overflow: 'hidden', textOverflow: 'ellipsis' }} title={cleanStall}>
+                          <span className="facility-card-badge badge-gold" style={{ whiteSpace: 'nowrap' }} title={cleanStall}>
                             <IconHorse size={14} color="var(--brass)" />
                             <span>{cleanStall}</span>
                           </span>
-                          <span style={{
-                            fontSize: '11px',
-                            color: 'var(--paper-dim)',
-                            fontFamily: 'monospace',
-                            whiteSpace: 'nowrap',
-                            flexShrink: 0,
-                            background: 'var(--bg-secondary)',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid var(--line)',
-                            letterSpacing: '0.03em'
-                          }}>
-                            {horse.microchip}
-                          </span>
-                        </div>
 
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                            <h3 className="facility-card-title">{horse.name}</h3>
+                          {/* Huy hiệu Thể lực TĂNG / GIẢM / ĐANG HIỆU CHUẨN */}
+                          {isCalibrating ? (
                             <span style={{
                               fontSize: '11px',
-                              fontWeight: 700,
-                              color: 'var(--brass)',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.04em',
-                              background: 'rgba(212, 175, 55, 0.08)',
-                              padding: '2px 8px',
+                              fontWeight: 800,
+                              color: '#F59E0B',
+                              background: 'rgba(245, 158, 11, 0.15)',
+                              border: '1px solid rgba(245, 158, 11, 0.4)',
+                              padding: '3px 8px',
                               borderRadius: '4px',
-                              border: '1px solid rgba(212, 175, 55, 0.2)',
                               whiteSpace: 'nowrap'
                             }}>
-                              {horse.breed}
+                              ⏳ Cần thêm {remainingWorkouts} bài tập
+                            </span>
+                          ) : (
+                            <>
+                              {isIncreasing && (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  color: '#10B981',
+                                  background: 'rgba(16, 185, 129, 0.12)',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  ▲ Thể lực đang TĂNG ({trendPercent})
+                                </span>
+                              )}
+                              {isStable && (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  color: '#F59E0B',
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  ● Thể lực ỔN ĐỊNH ({trendPercent})
+                                </span>
+                              )}
+                              {!isIncreasing && !isStable && (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  color: '#EF4444',
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  ▼ Thể lực đang GIẢM ({trendPercent})
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+
+                        {/* Tên chiến mã & Mã vi chip */}
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--paper)', letterSpacing: '0.01em' }}>
+                              {horse.name}
+                            </h3>
+                            <span style={{
+                              fontSize: '11px',
+                              color: 'var(--brass)',
+                              fontFamily: 'monospace',
+                              background: 'var(--bg-secondary)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--line)',
+                              letterSpacing: '0.04em',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {horse.microchip}
                             </span>
                           </div>
-                          <p className="facility-card-desc" style={{ marginTop: '4px', minHeight: 'auto' }}>{horse.desc}</p>
+
+                          <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px' }}>
+                            Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{horse.owner || horse.ownerName || 'Phạm Tiến Thành'}</b>
+                          </div>
+                          <p style={{
+                            fontSize: '12px',
+                            color: 'var(--paper-dim)',
+                            lineHeight: 1.5,
+                            margin: '0 0 10px',
+                            minHeight: '36px',
+                            height: '36px',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}>
+                            {horse.desc || `Chiến mã thuần chủng đang trong chế độ rèn luyện thể lực và viễn trắc.`}
+                          </p>
                         </div>
 
                         {/* Cảnh báo thú y nếu có */}
                         {horse.isLockedByVet && (
                           <div style={{
-                            background: 'var(--bg-secondary)',
-                            border: '1px solid var(--line)',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
                             borderRadius: '6px',
                             padding: '8px 10px',
                             fontSize: '12px',
-                            color: 'var(--paper-dim)',
+                            color: '#FCA5A5',
                             lineHeight: 1.4,
                             fontWeight: 600,
                             marginBottom: '10px'
                           }}>
-                            <span style={{ color: 'var(--brass)', fontWeight: 700 }}>{lang === 'en' ? 'VET WARNING:' : 'CẢNH BÁO THÚ Y:'}</span> {horse.vetNotice}
+                            <span>⚠️ {lang === 'en' ? 'VET WARNING:' : 'CẢNH BÁO THÚ Y:'}</span> {horse.vetNotice}
                           </div>
                         )}
 
-                        <div className="facility-card-bullets">
-                          <div className="facility-bullet-item">
-                            <span className="bullet-dot" />
-                            <span>{lang === 'en' ? 'Accumulated distance:' : 'Quãng đường tích lũy:'} <b>{horse.totalDistanceKm} km</b></span>
-                          </div>
-                          <div className="facility-bullet-item">
-                            <span className="bullet-dot" />
-                            <span>{lang === 'en' ? 'Age:' : 'Độ tuổi:'} <b>{horse.age}</b></span>
-                          </div>
-                        </div>
-
-                        {/* 3-column specs */}
-                        <div className="facility-specs-grid">
-                          <div className="facility-spec-cell">
-                            <span className="spec-label">{lang === 'en' ? 'Avg HR' : 'Nhịp tim TB'}</span>
-                            <span className="spec-val" style={{ color: 'var(--paper)' }}>{horse.avgHeartRate} bpm</span>
-                          </div>
-                          <div className="facility-spec-cell">
-                            <span className="spec-label">{lang === 'en' ? 'Peak Speed' : 'Tốc độ đỉnh'}</span>
-                            <span className="spec-val" style={{ color: 'var(--paper)' }}>{horse.maxSpeed} km/h</span>
-                          </div>
-                          <div className="facility-spec-cell">
-                            <span className="spec-label">{lang === 'en' ? 'Condition' : 'Phong độ'}</span>
-                            <span className="spec-val" style={{ color: 'var(--brass)' }}>{horse.condition}</span>
-                          </div>
-                        </div>
-
-                        {/* Status/Price Box */}
-                        <div className="facility-price-box">
-                          <div>
-                            <div className="price-label">{lang === 'en' ? 'Training Status' : 'Trạng thái thi đấu'}</div>
-                            <div className="price-value" style={{ fontSize: '15px', color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper)' }}>
-                              {displayStatus}
+                        {/* Khối Thông Số Thể Lực & Tải Luyện Tập Hợp Nhất (Cân Bằng Chuẩn) */}
+                        <div style={{
+                          background: isCalibrating ? 'rgba(245, 158, 11, 0.04)' : 'var(--bg-secondary)',
+                          border: isCalibrating ? '1px dashed rgba(245, 158, 11, 0.35)' : '1px solid var(--line)',
+                          borderRadius: '8px',
+                          padding: '12px 10px',
+                          margin: '8px 0 12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px'
+                        }}>
+                          {/* Hàng 1: Viễn trắc Tim mạch & Tốc độ */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center' }}>
+                            <div>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nhịp Tim TB</div>
+                              <div style={{ fontSize: '13.5px', fontWeight: 800, color: isCalibrating ? '#64748B' : 'var(--paper)', marginTop: '2px' }}>
+                                {isCalibrating ? '-- bpm' : `${horse.avgHeartRate} bpm`}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tốc Độ Đỉnh</div>
+                              <div style={{ fontSize: '13.5px', fontWeight: 800, color: isCalibrating ? '#64748B' : 'var(--paper)', marginTop: '2px' }}>
+                                {isCalibrating ? '-- km/h' : `${horse.maxSpeed} km/h`}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Phong Độ</div>
+                              <div style={{ fontSize: '13.5px', fontWeight: 800, color: isCalibrating ? '#F59E0B' : (isIncreasing ? '#10B981' : (isStable ? 'var(--brass)' : '#EF4444')), marginTop: '2px' }}>
+                                {isCalibrating ? `Chờ đánh giá (${workoutCount}/3)` : horse.condition}
+                              </div>
                             </div>
                           </div>
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            background: horse.status === 'READY' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
-                            color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper-dim)',
-                            border: horse.status === 'READY' ? '1px solid var(--brass)' : '1px solid var(--line)'
-                          }}>
-                            {horse.isLockedByVet ? (lang === 'en' ? 'LOCKED' : 'KHÓA') : (lang === 'en' ? 'READY' : 'SẴN SÀNG')}
-                          </span>
+
+                          {/* Đường phân cách mờ */}
+                          <div style={{ height: '1px', background: 'var(--line)', opacity: 0.5 }} />
+
+                          {/* Hàng 2: Tải Luyện Tập EvoLab */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center' }}>
+                            <div>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tải Ngắn Hạn</div>
+                              <div style={{ fontSize: '13px', fontWeight: 800, color: isCalibrating ? '#64748B' : 'var(--paper)', marginTop: '2px' }}>
+                                {isCalibrating ? '-- TL' : `${shortTerm} TL`}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tải Dài Hạn</div>
+                              <div style={{ fontSize: '13px', fontWeight: 800, color: isCalibrating ? '#64748B' : 'var(--paper)', marginTop: '2px' }}>
+                                {isCalibrating ? '-- TL' : `${longTerm} TL`}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tỉ Lệ Tải</div>
+                              <div style={{ fontSize: '13px', fontWeight: 800, color: isCalibrating ? '#64748B' : (isIncreasing ? '#10B981' : (isStable ? '#F59E0B' : '#EF4444')), marginTop: '2px' }}>
+                                {isCalibrating ? '-- %' : `${loadRatio}%`}
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="facility-card-actions">
-                          <div className="actions-left">
-                            <button
-                              className="facility-btn-action"
-                              onClick={() => {
-                                setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
-                                setShowAddSessionModal(true);
-                              }}
-                              disabled={horse.isLockedByVet}
-                            >
-                              {horse.isLockedByVet ? (lang === 'en' ? 'Locked' : 'Đang khóa') : (lang === 'en' ? '+ Add Workout' : '+ Lên bài tập')}
-                            </button>
-                          </div>
+                        {/* NÚT BẤM THAO TÁC (CHIA ĐỀU 50/50 CÂN ĐỐI) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: 'auto' }}>
                           <button
-                            className="facility-link-action"
+                            type="button"
+                            onClick={() => setFitnessDetailModalHorse(horse)}
+                            style={{
+                              height: '38px',
+                              background: 'var(--brass)',
+                              color: '#0A0D14',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontWeight: 800,
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)',
+                              whiteSpace: 'nowrap'
+                            }}
+                            title="Xem chi tiết các biểu đồ thể lực, nhịp tim và tải luyện tập như EvoLab"
+                          >
+                            <span>Xem thêm chi tiết</span>
+                            <span style={{ fontSize: '13px' }}>📊</span>
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => {
-                              setFilterHorse(horse.name);
-                              setActiveTab('review');
+                              setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
+                              setShowAddSessionModal(true);
+                            }}
+                            disabled={horse.isLockedByVet}
+                            style={{
+                              height: '38px',
+                              background: horse.isLockedByVet ? 'rgba(255,255,255,0.04)' : 'var(--bg-secondary)',
+                              color: horse.isLockedByVet ? 'var(--paper-dim)' : 'var(--paper)',
+                              border: '1px solid var(--line)',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: horse.isLockedByVet ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.15s ease'
                             }}
                           >
-                            {lang === 'en' ? 'View Review →' : 'Xem đánh giá →'}
+                            <span>{horse.isLockedByVet ? 'Đang khóa' : '+ Lên bài tập'}</span>
                           </button>
                         </div>
                       </div>
@@ -1360,43 +2443,72 @@ export default function TrainerPage() {
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
                         <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Racehorse' : 'Chiến Mã'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall' : 'Ô Chuồng'}</th>
+                        <th style={{ padding: '14px 18px' }}>Đánh Giá Thể Lực</th>
+                        <th style={{ padding: '14px 18px' }}>Tải Ngắn/Dài Hạn</th>
                         <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Avg HR' : 'Nhịp Tim TB'}</th>
                         <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Peak Speed' : 'Tốc Độ Đỉnh'}</th>
                         <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Condition' : 'Phong Độ'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Status' : 'Trạng Thái'}</th>
                         <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Actions' : 'Thao Tác'}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {trainerHorses.map(horse => {
-                        const displayStatus = horse.status === 'READY'
-                          ? (lang === 'en' ? 'Ready for Race' : 'Sẵn sàng thi đấu')
-                          : (lang === 'en' ? 'Under Observation' : 'Cần theo dõi');
+                        const condVal = parseFloat(horse.condition) || 88;
+                        const isIncreasing = !horse.isLockedByVet && condVal >= 88;
+                        const isStable = !horse.isLockedByVet && condVal >= 80 && condVal < 88;
+
                         return (
                           <tr key={horse.id} style={{ borderBottom: '1px solid var(--line)' }}>
                             <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>
                               <div>{horse.name}</div>
-                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{horse.microchip}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{horse.stall} · {horse.microchip}</div>
                             </td>
-                            <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{horse.stall}</td>
+                            <td style={{ padding: '14px 18px' }}>
+                              {isIncreasing && (
+                                <span style={{ color: '#10B981', fontWeight: 800, fontSize: '12px', background: 'rgba(16, 185, 129, 0.12)', padding: '3px 8px', borderRadius: '4px' }}>
+                                  ▲ TĂNG (+4.2%)
+                                </span>
+                              )}
+                              {isStable && (
+                                <span style={{ color: '#F59E0B', fontWeight: 800, fontSize: '12px', background: 'rgba(245, 158, 11, 0.12)', padding: '3px 8px', borderRadius: '4px' }}>
+                                  ● ỔN ĐỊNH (+0.5%)
+                                </span>
+                              )}
+                              {!isIncreasing && !isStable && (
+                                <span style={{ color: '#EF4444', fontWeight: 800, fontSize: '12px', background: 'rgba(239, 68, 68, 0.12)', padding: '3px 8px', borderRadius: '4px' }}>
+                                  ▼ GIẢM (-2.8%)
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '14px 18px', fontSize: '12.5px' }}>
+                              <div>Tải: <b style={{ color: 'var(--paper)' }}>107 / 99</b></div>
+                              <div style={{ color: '#10B981', fontSize: '11px', fontWeight: 700 }}>Tỉ lệ: 108% (Tối ưu)</div>
+                            </td>
                             <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.avgHeartRate} bpm</td>
                             <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.maxSpeed} km/h</td>
-                            <td style={{ padding: '14px 18px', color: 'var(--brass)', fontWeight: 700 }}>{horse.condition}</td>
-                            <td style={{ padding: '14px 18px' }}>
-                              <span style={{
-                                padding: '3px 8px',
-                                borderRadius: '4px',
-                                fontSize: '11.5px',
-                                fontWeight: 700,
-                                background: horse.status === 'READY' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
-                                color: horse.status === 'READY' ? 'var(--brass)' : 'var(--paper-dim)',
-                                border: horse.status === 'READY' ? '1px solid var(--brass)' : '1px solid var(--line)'
-                              }}>
-                                {displayStatus}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 18px' }}>
+                            <td style={{ padding: '14px 18px', color: isIncreasing ? '#10B981' : 'var(--brass)', fontWeight: 700 }}>{horse.condition}</td>
+                            <td style={{ padding: '14px 18px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => setFitnessDetailModalHorse(horse)}
+                                style={{
+                                  padding: '6px 12px',
+                                  background: 'var(--brass)',
+                                  color: '#0A0D14',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                <span>Xem thêm chi tiết</span>
+                                <span>📊</span>
+                              </button>
                               <button
                                 onClick={() => {
                                   setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
@@ -1404,17 +2516,18 @@ export default function TrainerPage() {
                                 }}
                                 disabled={horse.isLockedByVet}
                                 style={{
-                                  padding: '6px 12px',
-                                  background: horse.isLockedByVet ? 'var(--bg-secondary)' : 'var(--brass)',
-                                  color: horse.isLockedByVet ? 'var(--paper-dim)' : '#14100A',
-                                  border: horse.isLockedByVet ? '1px solid var(--line)' : 'none',
-                                  borderRadius: '4px',
+                                  padding: '6px 10px',
+                                  background: horse.isLockedByVet ? 'var(--bg-secondary)' : 'transparent',
+                                  color: horse.isLockedByVet ? 'var(--paper-dim)' : 'var(--paper)',
+                                  border: '1px solid var(--line)',
+                                  borderRadius: '6px',
                                   fontSize: '12px',
                                   fontWeight: 700,
-                                  cursor: horse.isLockedByVet ? 'not-allowed' : 'pointer'
+                                  cursor: horse.isLockedByVet ? 'not-allowed' : 'pointer',
+                                  whiteSpace: 'nowrap'
                                 }}
                               >
-                                {horse.isLockedByVet ? (lang === 'en' ? 'Locked' : 'Đang bị khóa') : (lang === 'en' ? '+ Workout' : '+ Lên bài tập')}
+                                + Lên bài tập
                               </button>
                             </td>
                           </tr>
@@ -3192,6 +4305,27 @@ export default function TrainerPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal Profile Chiến Mã của Chủ Sở Hữu khi HLV xác nhận */}
+      {confirmedHorseModal && (
+        <ConfirmedHorseProfileModal
+          horse={confirmedHorseModal}
+          role="TRAINER"
+          onClose={() => setConfirmedHorseModal(null)}
+        />
+      )}
+
+      {/* Modal Đánh Giá Thể Lực & Telemetry Chuyên Sâu EvoLab */}
+      {fitnessDetailModalHorse && (
+        <RacehorseFitnessDetailModal
+          horse={fitnessDetailModalHorse}
+          sessions={sessions}
+          onClose={() => setFitnessDetailModalHorse(null)}
+          onUpdateHorse={(updatedH) => {
+            setTrainerHorses(prev => prev.map(h => (h.microchip === updatedH.microchip || h.id === updatedH.id || (h.name || '').toLowerCase() === (updatedH.name || '').toLowerCase()) ? { ...h, ...updatedH } : h));
+          }}
+        />
       )}
 
     </div>

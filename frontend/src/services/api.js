@@ -307,21 +307,49 @@ export async function getStablesApi() {
   }
 
   const defaultStables = [
-    { stall_code: 'A1', block: 'Block A', status: 'OCCUPIED', horse: 'Xích Thố', breed: 'Arabian', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A2', block: 'Block A', status: 'OCCUPIED', horse: 'Bạch Long', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A3', block: 'Block A', status: 'OCCUPIED', horse: 'Hắc Phong', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A4', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Vũ', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A5', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Yến', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A6', block: 'Block A', status: 'OCCUPIED', horse: 'Kim Kê', breed: 'Quarter Horse', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B1', block: 'Block B', status: 'OCCUPIED', horse: 'Thanh Vân', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B2', block: 'Block B', status: 'OCCUPIED', horse: 'Lôi Chấn', breed: 'Quarter Horse', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B3', block: 'Block B', status: 'OCCUPIED', horse: 'Hồng Sa', breed: 'Arabian', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B4', block: 'Block B', status: 'OCCUPIED', horse: 'Thiên Lý', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B5', block: 'Block B', status: 'OCCUPIED', horse: 'Bảo Mã', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B6', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
+    { stall_code: 'A1', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Xích Thố', breed: 'Arabian', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A2', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Bạch Long', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A3', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Hắc Phong', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A4', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Phi Vũ', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A5', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Phi Yến', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A6', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Kim Kê', breed: 'Quarter Horse', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B1', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Thanh Vân', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B2', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Lôi Chấn', breed: 'Quarter Horse', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B3', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Hồng Sa', breed: 'Arabian', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B4', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Thiên Lý', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B5', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Bảo Mã', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B6', block: 'Block B', tier: 'VIP', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    // Chuồng tiêu chuẩn thông thường (Block C)
+    { stall_code: 'C1', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'C2', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'C3', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'C4', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
   ];
 
-  return { isFromBackend: false, data: getLocalData(STORAGE_KEYS.STABLES, defaultStables) };
+  const rawStables = getLocalData(STORAGE_KEYS.STABLES, defaultStables);
+  // Đảm bảo dữ liệu cũ trong localStorage được bổ sung phân loại VIP / STANDARD và các ô chuồng thường
+  let normalized = rawStables.map(s => {
+    const isVip = s.tier === 'VIP' || s.is_vip === true || s.block === 'Block A' || s.block === 'Block B' || s.block === 'Block VIP' || (s.stall_code && (s.stall_code.startsWith('A') || s.stall_code.startsWith('B') || s.stall_code.startsWith('VIP')));
+    return {
+      ...s,
+      tier: s.tier || (isVip ? 'VIP' : 'STANDARD'),
+      is_vip: isVip
+    };
+  });
+
+  // Bổ sung các chuồng Block C nếu danh sách hiện tại chưa có
+  if (!normalized.some(s => s.block === 'Block C' || s.stall_code === 'C1')) {
+    normalized = [
+      ...normalized,
+      { stall_code: 'C1', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+      { stall_code: 'C2', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+      { stall_code: 'C3', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+      { stall_code: 'C4', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
+    ];
+    setLocalData(STORAGE_KEYS.STABLES, normalized);
+  }
+
+  return { isFromBackend: false, data: normalized };
 }
 
 /**
@@ -1236,7 +1264,13 @@ export async function registerOwnerHorseApi(ownerKey, horseData) {
     totalStarts: 0,
     totalPrizeEarned: 0
   };
-  setLocalData(storageKey, [newHorse, ...existing]);
+  const nextList = [newHorse, ...existing];
+  setLocalData(storageKey, nextList);
+  if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
+    setLocalData('matruong_owner_horses_owner_thanh', nextList);
+    setLocalData('matruong_owner_horses_6', nextList);
+    setLocalData('matruong_owner_horses_11', nextList);
+  }
   return newHorse;
 }
 
@@ -1257,6 +1291,11 @@ export async function updateOwnerHorseApi(ownerKey, horseData) {
   const existing = getLocalData(storageKey, []);
   const updated = existing.map(h => String(h.id) === String(horseData.id) ? { ...h, ...horseData } : h);
   setLocalData(storageKey, updated);
+  if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
+    setLocalData('matruong_owner_horses_owner_thanh', updated);
+    setLocalData('matruong_owner_horses_6', updated);
+    setLocalData('matruong_owner_horses_11', updated);
+  }
   return horseData;
 }
 
@@ -1276,6 +1315,12 @@ export async function deleteOwnerHorseApi(ownerKey, horseId) {
   const existing = getLocalData(storageKey, []);
   const filtered = existing.filter(h => String(h.id) !== String(horseId));
   setLocalData(storageKey, filtered);
+
+  if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
+    setLocalData('matruong_owner_horses_owner_thanh', filtered);
+    setLocalData('matruong_owner_horses_6', filtered);
+    setLocalData('matruong_owner_horses_11', filtered);
+  }
   return true;
 }
 

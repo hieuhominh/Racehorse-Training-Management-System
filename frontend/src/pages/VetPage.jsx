@@ -14,7 +14,10 @@ import {
   getVaccinationSchedulesApi,
   recordVaccinationApi
 } from '../services/api';
-import { getServiceAssignments, confirmServiceAssignment } from '../services/serviceAssignment';
+import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
+import NotificationBell from '../components/NotificationBell';
+import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
+import { getSystemNotifications } from '../services/notificationService';
 
 // Minimalist High-End SVG Icons for Veterinary Medical Portal
 const IconStethoscope = ({ size = 18, color = 'currentColor' }) => (
@@ -417,11 +420,92 @@ export default function VetPage() {
     };
   }, []);
 
+  const [confirmedHorseModal, setConfirmedHorseModal] = useState(null);
+
+  // Lắng nghe thông báo khi chiến mã bị xóa từ phía Chủ sở hữu
+  useEffect(() => {
+    const handleNotificationUpdate = () => {
+      const list = getSystemNotifications();
+      const latest = list[0];
+      if (latest && latest.type === 'HORSE_DELETED') {
+        const deletedName = (latest.horseName || '').toLowerCase();
+        const deletedChip = (latest.microchip || '').toLowerCase();
+        setHorses(prev => prev.filter(h => 
+          (h.name && h.name.toLowerCase() !== deletedName) &&
+          (!deletedChip || !h.microchip || h.microchip.toLowerCase() !== deletedChip)
+        ));
+      }
+    };
+    window.addEventListener('matruong_notifications_updated', handleNotificationUpdate);
+    window.addEventListener('storage', handleNotificationUpdate);
+    return () => {
+      window.removeEventListener('matruong_notifications_updated', handleNotificationUpdate);
+      window.removeEventListener('storage', handleNotificationUpdate);
+    };
+  }, []);
+
   const handleConfirmVetService = (asgn) => {
     const vetUser = currentUser?.username || 'vet_an';
     const updated = confirmServiceAssignment(asgn.horseName, 'VET', vetUser);
     setServiceAssignments(updated);
-    showToast(`Đã xác nhận phụ trách y tế chiến mã "${asgn.horseName}" cho Chủ sở hữu ${asgn.ownerName}!`, 'BÁC SĨ XÁC NHẬN Y TẾ', 'success');
+
+    const fullHorse = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+
+    // Bổ sung chiến mã vào danh sách hồ sơ y tế nếu chưa có
+    setHorses(prev => {
+      const exists = prev.some(h => 
+        (h.name && h.name.toLowerCase() === fullHorse.name.toLowerCase()) ||
+        (h.microchip && fullHorse.microchip && h.microchip.toLowerCase() === fullHorse.microchip.toLowerCase())
+      );
+      let next;
+      if (exists) {
+        next = prev.map(h => {
+          if ((h.name && h.name.toLowerCase() === fullHorse.name.toLowerCase()) ||
+              (h.microchip && fullHorse.microchip && h.microchip.toLowerCase() === fullHorse.microchip.toLowerCase())) {
+            return {
+              ...h,
+              owner: fullHorse.ownerName,
+              ownerName: fullHorse.ownerName,
+              avatar: fullHorse.avatar || h.avatar,
+              breed: fullHorse.breed || h.breed,
+              stable: fullHorse.stable || h.stable
+            };
+          }
+          return h;
+        });
+      } else {
+        const stallCode = fullHorse.stable ? (fullHorse.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || fullHorse.stable.split('(')[0].trim()) : 'Ô A1';
+        next = [
+          {
+            id: fullHorse.id || Date.now(),
+            microchip: fullHorse.microchip || 'MC-VN-NEW',
+            name: fullHorse.name,
+            breed: fullHorse.breed || 'Thoroughbred',
+            stable: stallCode,
+            owner: fullHorse.ownerName || 'Phạm Tiến Thành',
+            ownerName: fullHorse.ownerName || 'Phạm Tiến Thành',
+            status: 'ELIGIBLE',
+            statusText: 'Đủ điều kiện thể lực',
+            locked: false,
+            lockReason: '',
+            lastExamDate: new Date().toLocaleDateString('vi-VN'),
+            restingHeartRate: '38 bpm',
+            tempCelsius: 38.0,
+            avatar: fullHorse.avatar
+          },
+          ...prev
+        ];
+      }
+      try {
+        localStorage.setItem('matruong_vet_horses_managed', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    // Mở popup toàn bộ Profile chi tiết của ngựa chủ sở hữu
+    setConfirmedHorseModal(fullHorse);
+
+    showToast(`Đã xác nhận phụ trách y tế chiến mã "${fullHorse.name}" của Chủ sở hữu ${fullHorse.ownerName}!`, 'BÁC SĨ XÁC NHẬN Y TẾ', 'success');
   };
 
   // Xử lý Khóa / Mở khóa Y tế (Quyền phủ quyết Y tế - Medical Safety Veto)
@@ -748,6 +832,7 @@ export default function VetPage() {
           </div>
 
           <div className="portal-topbar-right">
+            <NotificationBell role="VET" currentUser={currentUser} />
             <ThemeToggle />
             <div className="portal-user-badge">
               <div className="portal-user-avatar">
@@ -823,72 +908,153 @@ export default function VetPage() {
                       )}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 520px), 1fr))', gap: '14px' }}>
                       {assignedToMe.map(asgn => {
                         const isPending = asgn.vetStatus === 'PENDING';
+                        const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
+                        const trClean = asgn.trainerName ? asgn.trainerName.replace(/^HLV\.?\s*/i, '').trim() : 'Trần Văn Hùng';
+                        const groomClean = asgn.groomName ? asgn.groomName.replace(/^Groom\s*/i, '').trim() : 'Lê Hoàng Nam';
+
                         return (
                           <div
                             key={asgn.id || asgn.microchip}
                             style={{
                               background: 'var(--bg-secondary)',
-                              border: isPending ? '1px solid var(--brass)' : '1px solid var(--line)',
-                              borderRadius: '6px',
-                              padding: '12px 14px',
+                              border: isPending ? '1px solid rgba(212, 175, 55, 0.4)' : '1px solid var(--line)',
+                              borderRadius: '10px',
+                              padding: '16px 20px',
                               display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: '12px'
+                              flexDirection: 'column',
+                              gap: '12px',
+                              boxShadow: isPending ? '0 4px 16px rgba(0,0,0,0.25)' : 'none'
                             }}
                           >
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <b style={{ color: 'var(--paper)', fontSize: '14px' }}>{asgn.horseName}</b>
-                                <span style={{ fontSize: '11px', color: 'var(--brass)', background: 'rgba(212, 175, 55, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
-                                  {asgn.stable || 'Ô A2'}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                                Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: {asgn.microchip}
-                              </div>
-                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                                Phối hợp: HLV {asgn.trainerName} · Groom {asgn.groomName}
-                              </div>
-                            </div>
-
-                            <div style={{ flexShrink: 0 }}>
-                              {isPending ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleConfirmVetService(asgn)}
-                                  style={{
-                                    background: 'var(--brass)',
-                                    color: '#0A0D14',
-                                    border: 'none',
-                                    padding: '7px 12px',
-                                    borderRadius: '6px',
-                                    fontSize: '11.5px',
-                                    fontWeight: 800,
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
-                                  }}
-                                >
-                                  ✓ Xác Nhận Y Tế
-                                </button>
-                              ) : (
+                            {/* Dòng 1: Tên chiến mã, ô chuồng & Nút thao tác */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                <b style={{ color: 'var(--paper)', fontSize: '16px' }}>{asgn.horseName}</b>
                                 <span style={{
                                   fontSize: '11px',
                                   fontWeight: 700,
-                                  color: '#10B981',
-                                  background: 'rgba(16, 185, 129, 0.1)',
-                                  padding: '4px 8px',
+                                  color: 'var(--brass)',
+                                  background: 'rgba(212, 175, 55, 0.12)',
+                                  padding: '2px 8px',
                                   borderRadius: '4px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
+                                  border: '1px solid rgba(212, 175, 55, 0.25)'
                                 }}>
-                                  ✓ Đã Xác Nhận
+                                  {stallCode}
                                 </span>
-                              )}
+                                {isPending && (
+                                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                                    Chờ xác nhận
+                                  </span>
+                                )}
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+                                    setConfirmedHorseModal(full);
+                                  }}
+                                  style={{
+                                    background: 'transparent',
+                                    color: 'var(--brass)',
+                                    border: '1px solid var(--brass)',
+                                    padding: '7px 14px',
+                                    borderRadius: '6px',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  title="Xem hồ sơ định danh chiến mã và thông tin chủ sở hữu"
+                                >
+                                  Xem hồ sơ
+                                </button>
+
+                                {isPending ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleConfirmVetService(asgn)}
+                                    style={{
+                                      background: 'var(--brass)',
+                                      color: '#0A0D14',
+                                      border: 'none',
+                                      padding: '8px 16px',
+                                      borderRadius: '6px',
+                                      fontSize: '12px',
+                                      fontWeight: 800,
+                                      cursor: 'pointer',
+                                      boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    ✓ Xác Nhận Y Tế
+                                  </button>
+                                ) : (
+                                  <span style={{
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    color: '#10B981',
+                                    background: 'rgba(16, 185, 129, 0.12)',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    ✓ Đã Tiếp Nhận
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Dòng 2: Thông tin chi tiết ngăn cách bởi viền mờ */}
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '14px',
+                              flexWrap: 'wrap',
+                              paddingTop: '10px',
+                              borderTop: '1px solid var(--line)',
+                              fontSize: '12.5px'
+                            }}>
+                              <div style={{ color: 'var(--paper-dim)' }}>
+                                Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip}</span>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>Đội ngũ cùng phục vụ:</span>
+                                <span style={{
+                                  background: 'var(--bg-card)',
+                                  padding: '3px 10px',
+                                  borderRadius: '4px',
+                                  border: '1px solid var(--line)',
+                                  color: 'var(--paper)',
+                                  fontWeight: 600,
+                                  fontSize: '12px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  🏇 HLV {trClean}
+                                </span>
+                                <span style={{
+                                  background: 'var(--bg-card)',
+                                  padding: '3px 10px',
+                                  borderRadius: '4px',
+                                  border: '1px solid var(--line)',
+                                  color: 'var(--paper)',
+                                  fontWeight: 600,
+                                  fontSize: '12px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  🌾 Groom {groomClean}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         );
@@ -1267,6 +1433,7 @@ export default function VetPage() {
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
                       <th style={{ padding: '14px 18px' }}>Chiến mã</th>
+                      <th style={{ padding: '14px 18px' }}>Chủ sở hữu</th>
                       <th style={{ padding: '14px 18px' }}>Mã Chip RFID</th>
                       <th style={{ padding: '14px 18px' }}>Ô Chuồng</th>
                       <th style={{ padding: '14px 18px' }}>Sinh hiệu nghỉ</th>
@@ -1301,6 +1468,9 @@ export default function VetPage() {
                               </div>
                             </div>
                           </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <b style={{ color: 'var(--brass)', fontSize: '13px' }}>{h.owner || h.ownerName || 'Phạm Tiến Thành'}</b>
+                          </td>
                           <td style={{ padding: '14px 18px', fontFamily: 'monospace', color: 'var(--paper)' }}>{h.microchip || h.chipId || 'N/A'}</td>
                           <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>Ô {h.stable || h.stall || 'A1'}</td>
                           <td style={{ padding: '14px 18px', fontSize: '12px' }}>
@@ -1328,22 +1498,43 @@ export default function VetPage() {
                             )}
                           </td>
                           <td style={{ padding: '14px 18px', textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenLockModal(h)}
-                              style={{
-                                padding: '8px 14px',
-                                borderRadius: '6px',
-                                fontWeight: 700,
-                                fontSize: '12px',
-                                cursor: 'pointer',
-                                background: isLocked ? 'var(--brass)' : 'var(--bg-secondary)',
-                                color: isLocked ? '#0A0D14' : 'var(--paper)',
-                                border: isLocked ? 'none' : '1px solid var(--line)'
-                              }}
-                            >
-                              {isLocked ? '🔓 MỞ KHÓA Y TẾ' : '🔒 KHÓA Y TẾ'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const full = lookupFullHorseInfo(h.name || h.microchip);
+                                  setConfirmedHorseModal(full);
+                                }}
+                                style={{
+                                  padding: '7px 11px',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  fontSize: '11.5px',
+                                  cursor: 'pointer',
+                                  background: 'transparent',
+                                  color: 'var(--brass)',
+                                  border: '1px solid var(--brass)'
+                                }}
+                              >
+                                Xem hồ sơ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenLockModal(h)}
+                                style={{
+                                  padding: '8px 14px',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  background: isLocked ? 'var(--brass)' : 'var(--bg-secondary)',
+                                  color: isLocked ? '#0A0D14' : 'var(--paper)',
+                                  border: isLocked ? 'none' : '1px solid var(--line)'
+                                }}
+                              >
+                                {isLocked ? '🔓 MỞ KHÓA Y TẾ' : '🔒 KHÓA Y TẾ'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1890,6 +2081,14 @@ export default function VetPage() {
             </form>
           </div>
         </div>
+      )}
+      {/* Modal Profile Chiến Mã của Chủ Sở Hữu khi Bác Sĩ xác nhận */}
+      {confirmedHorseModal && (
+        <ConfirmedHorseProfileModal
+          horse={confirmedHorseModal}
+          role="VET"
+          onClose={() => setConfirmedHorseModal(null)}
+        />
       )}
     </div>
   );
