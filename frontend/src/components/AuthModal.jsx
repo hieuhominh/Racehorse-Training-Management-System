@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, getRolePortalPath, FIXED_TRAINERS, FIXED_VETS, FIXED_GROOMS } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
 import { COUNTRY_PHONE_CODES, DEFAULT_COUNTRY } from '../data/countryPhoneCodes';
@@ -34,20 +34,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
 
   const redirectToRolePortal = (user) => {
     if (!user) return;
-    const r = (user.role || user.role_code || '').toUpperCase();
-    if (r === 'TRAINER') {
-      navigate('/trainer');
-    } else if (r === 'VET') {
-      navigate('/vet');
-    } else if (r === 'GROOM') {
-      navigate('/groom');
-    } else if (r === 'OWNER') {
-      navigate('/owner');
-    } else if (r === 'MANAGER' || r === 'ADMIN') {
-      navigate('/admin');
-    } else {
-      navigate('/owner');
-    }
+    navigate(getRolePortalPath(user));
   };
 
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -66,7 +53,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const [regEmail, setRegEmail] = useState('');
   const [selectedCountry, setSelectedCountry] = useState(DEFAULT_COUNTRY);
   const [regPhone, setRegPhone] = useState('');
-  const [regRole, setRegRole] = useState('TRAINER');
+  const [regRole] = useState('OWNER');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
@@ -863,92 +850,45 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
             <div style={{
               marginTop: '12px',
               padding: '12px',
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--bg-secondary)',
               borderRadius: '8px',
               border: '1px solid var(--line)'
             }}>
               <div style={{
-                fontSize: '11.5px',
-                fontWeight: 600,
+                fontSize: '11px',
+                fontWeight: 700,
                 color: 'var(--brass)',
-                letterSpacing: '0.04em',
+                letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 marginBottom: '8px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                justifyContent: 'space-between'
               }}>
-                <span>⚡</span> {lang === 'vi' ? 'Đăng nhập nhanh 1 chạm (Demo Roles)' : '1-Click Quick Demo Login'}
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>⚡</span> {lang === 'vi' ? 'Đăng nhập nhanh 1 chạm (Cố định 10 nhân sự + Chủ ngựa)' : '1-Click Quick Demo Login'}
+                </span>
+                <span style={{ fontSize: '10px', color: 'var(--brass)', textTransform: 'none' }}>Pass: 123</span>
               </div>
               
+              {/* Quản trị & Chủ sở hữu */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '6px'
+                gap: '6px',
+                marginBottom: '8px'
               }}>
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleLogin('vet_an', '123')}
-                  style={{
-                    padding: '8px 10px',
-                    background: 'rgba(16, 185, 129, 0.12)',
-                    border: '1px solid rgba(16, 185, 129, 0.35)',
-                    borderRadius: '5px',
-                    color: '#34D399',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  title="Đăng nhập Bác sĩ Thú y (vet_an / 123) -> Chuyển thẳng Cổng Thú Y"
-                >
-                  <span>🩺</span>
-                  <div>
-                    <div>Bác sĩ Thú y</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>vet_an / 123</div>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleLogin('trainer_truong', '123')}
-                  style={{
-                    padding: '8px 10px',
-                    background: 'rgba(59, 130, 246, 0.12)',
-                    border: '1px solid rgba(59, 130, 246, 0.35)',
-                    borderRadius: '5px',
-                    color: '#60A5FA',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  title="Đăng nhập HLV Trưởng (trainer_truong / 123) -> Chuyển thẳng Cổng HLV"
-                >
-                  <span>🏇</span>
-                  <div>
-                    <div>HLV Trưởng</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>trainer_truong / 123</div>
-                  </div>
-                </button>
-
                 <button
                   type="button"
                   onClick={() => handleQuickRoleLogin('admin', '123')}
                   style={{
-                    padding: '8px 10px',
+                    padding: '6px 8px',
                     background: 'rgba(217, 119, 6, 0.12)',
                     border: '1px solid rgba(217, 119, 6, 0.35)',
-                    borderRadius: '5px',
-                    color: '#FBBF24',
-                    fontSize: '12px',
-                    fontWeight: 600,
+                    borderRadius: '6px',
+                    color: '#D97706',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
                     cursor: 'pointer',
                     textAlign: 'left',
                     display: 'flex',
@@ -959,34 +899,8 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 >
                   <span>⚙️</span>
                   <div>
-                    <div>Quản trị viên</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>admin / 123</div>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleLogin('groom_nam', '123')}
-                  style={{
-                    padding: '8px 10px',
-                    background: 'rgba(168, 85, 247, 0.12)',
-                    border: '1px solid rgba(168, 85, 247, 0.35)',
-                    borderRadius: '5px',
-                    color: '#C084FC',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  title="Đăng nhập Nhân viên Chăm sóc (groom_nam / 123)"
-                >
-                  <span>🌾</span>
-                  <div>
-                    <div>Chăm sóc</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>groom_nam / 123</div>
+                    <div>Quản Trị Viên (1)</div>
+                    <div style={{ fontSize: '9.5px', color: 'var(--paper-dim)', fontWeight: 400 }}>admin / 123</div>
                   </div>
                 </button>
 
@@ -994,29 +908,123 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   type="button"
                   onClick={() => handleQuickRoleLogin('owner_thanh', '123')}
                   style={{
-                    gridColumn: 'span 2',
-                    padding: '8px 10px',
+                    padding: '6px 8px',
                     background: 'rgba(236, 72, 153, 0.12)',
                     border: '1px solid rgba(236, 72, 153, 0.35)',
-                    borderRadius: '5px',
-                    color: '#F472B6',
-                    fontSize: '12px',
-                    fontWeight: 600,
+                    borderRadius: '6px',
+                    color: '#EC4899',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
                     cursor: 'pointer',
                     textAlign: 'left',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
                     gap: '6px'
                   }}
                   title="Đăng nhập Chủ sở hữu Ngựa (owner_thanh / 123)"
                 >
                   <span>👑</span>
                   <div>
-                    <span>Chủ sở hữu Ngựa</span> &nbsp;
-                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>(owner_thanh / 123)</span>
+                    <div>Chủ Sở Hữu Ngựa</div>
+                    <div style={{ fontSize: '9.5px', color: 'var(--paper-dim)', fontWeight: 400 }}>owner_thanh / 123</div>
                   </div>
                 </button>
+              </div>
+
+              {/* 3 Huấn luyện viên chính */}
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#60A5FA', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>🏇</span> 3 Huấn Luyện Viên Chính:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                  {FIXED_TRAINERS.map(tr => (
+                    <button
+                      key={tr.username}
+                      type="button"
+                      onClick={() => handleQuickRoleLogin(tr.username, '123')}
+                      style={{
+                        padding: '5px 6px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: '5px',
+                        color: 'var(--paper)',
+                        fontSize: '10.5px',
+                        cursor: 'pointer',
+                        textAlign: 'left'
+                      }}
+                      title={`${tr.full_name} (${tr.title})`}
+                    >
+                      <div style={{ fontWeight: 700, color: '#93C5FD', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {tr.full_name.split(' ').slice(-2).join(' ')}
+                      </div>
+                      <div style={{ fontSize: '9px', color: 'var(--paper-dim)' }}>{tr.username}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3 Bác sĩ thú y chính */}
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#34D399', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>🩺</span> 3 Bác Sĩ Thú Y Chính:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                  {FIXED_VETS.map(vt => (
+                    <button
+                      key={vt.username}
+                      type="button"
+                      onClick={() => handleQuickRoleLogin(vt.username, '123')}
+                      style={{
+                        padding: '5px 6px',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        borderRadius: '5px',
+                        color: 'var(--paper)',
+                        fontSize: '10.5px',
+                        cursor: 'pointer',
+                        textAlign: 'left'
+                      }}
+                      title={`${vt.full_name} (${vt.title})`}
+                    >
+                      <div style={{ fontWeight: 700, color: '#6EE7B7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {vt.full_name}
+                      </div>
+                      <div style={{ fontSize: '9px', color: 'var(--paper-dim)' }}>{vt.username}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3 Chuyên viên chăm sóc chính */}
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#C084FC', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>🌾</span> 3 Người Chăm Sóc Chính:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                  {FIXED_GROOMS.map(gm => (
+                    <button
+                      key={gm.username}
+                      type="button"
+                      onClick={() => handleQuickRoleLogin(gm.username, '123')}
+                      style={{
+                        padding: '5px 6px',
+                        background: 'rgba(168, 85, 247, 0.1)',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        borderRadius: '5px',
+                        color: 'var(--paper)',
+                        fontSize: '10.5px',
+                        cursor: 'pointer',
+                        textAlign: 'left'
+                      }}
+                      title={`${gm.full_name} (${gm.title})`}
+                    >
+                      <div style={{ fontWeight: 700, color: '#D8B4FE', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {gm.full_name.split(' ').slice(-2).join(' ')}
+                      </div>
+                      <div style={{ fontSize: '9px', color: 'var(--paper-dim)' }}>{gm.username}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -1190,37 +1198,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               </div>
             </div>
 
-            {/* 4. Vai trò trong hệ thống */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
-                {t('regRoleLabel')}
-              </label>
-              <select
-                value={regRole}
-                onChange={(e) => setRegRole(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--line)',
-                  borderRadius: '6px',
-                  color: 'var(--paper)',
-                  fontFamily: 'var(--body)',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="TRAINER">{t('roleTrainer')}</option>
-                <option value="OWNER">{t('roleOwner')}</option>
-                <option value="VET">{t('roleVet')}</option>
-                <option value="GROOM">{t('roleGroom')}</option>
-                <option value="MANAGER">{t('roleManager')}</option>
-              </select>
-            </div>
-
-            {/* 5. Mật khẩu mới */}
+            {/* 4. Mật khẩu mới */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)' }}>
                 {t('regPasswordLabel')}

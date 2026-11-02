@@ -6,7 +6,20 @@ import { useLanguage } from '../context/LanguageContext';
 export default function StableSection() {
   const { t, lang } = useLanguage();
   const [stalls, setStalls] = useState(stallsData);
-  const [selectedStall, setSelectedStall] = useState(stallsData.find(s => s.code === 'A3'));
+  const [selectedStall, setSelectedStall] = useState(() => {
+    try {
+      const savedCode = localStorage.getItem('matruong_home_selected_stall');
+      return stallsData.find(s => s.code === savedCode) || stallsData.find(s => s.code === 'A3') || stallsData[0];
+    } catch {
+      return stallsData.find(s => s.code === 'A3') || stallsData[0];
+    }
+  });
+
+  useEffect(() => {
+    if (selectedStall && selectedStall.code) {
+      localStorage.setItem('matruong_home_selected_stall', selectedStall.code);
+    }
+  }, [selectedStall]);
 
   useEffect(() => {
     let isMounted = true;

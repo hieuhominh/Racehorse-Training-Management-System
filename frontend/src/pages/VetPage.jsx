@@ -6,8 +6,18 @@ import ThemeToggle from '../components/ThemeToggle';
 import {
   getHorsesApi,
   toggleHorseLockApi,
-  getIncidentsApi
+  getIncidentsApi,
+  getVetPrescriptionsApi,
+  createVetPrescriptionApi,
+  getVetClearanceListApi,
+  updateVetClearanceApi,
+  getVaccinationSchedulesApi,
+  recordVaccinationApi
 } from '../services/api';
+import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
+import NotificationBell from '../components/NotificationBell';
+import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
+import { getSystemNotifications } from '../services/notificationService';
 
 // Minimalist High-End SVG Icons for Veterinary Medical Portal
 const IconStethoscope = ({ size = 18, color = 'currentColor' }) => (
@@ -249,9 +259,24 @@ export default function VetPage() {
     navigate('/');
   };
 
-  const [activeTab, setActiveTab] = useState('triage'); // 'triage' | 'anatomy' | 'lockout' | 'vaccines' | 'prescriptions' | 'clearance'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_tab_vet');
+      return ['triage', 'anatomy', 'lockout', 'vaccines', 'prescriptions', 'clearance'].includes(saved) ? saved : 'triage';
+    } catch {
+      return 'triage';
+    }
+  }); // 'triage' | 'anatomy' | 'lockout' | 'vaccines' | 'prescriptions' | 'clearance'
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedAnatomy, setSelectedAnatomy] = useState(ANATOMY_PARTS[1]); // Mặc định là Fetlock (Gân gót)
+  const [selectedAnatomy, setSelectedAnatomy] = useState(() => {
+    try {
+      const savedId = localStorage.getItem('matruong_vet_anatomy_id');
+      const found = ANATOMY_PARTS.find(p => String(p.id) === String(savedId));
+      return found || ANATOMY_PARTS[1];
+    } catch {
+      return ANATOMY_PARTS[1];
+    }
+  }); // Mặc định là Fetlock (Gân gót)
   const [searchQuery, setSearchQuery] = useState('');
 
   // Xác định xem đây có phải là tài khoản Bác sĩ Thú y MỚI ĐƯỢC DUYỆT hay không
@@ -438,8 +463,127 @@ export default function VetPage() {
       }
     }).catch(() => {});
 
+    getVetPrescriptionsApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setPrescriptions(res);
+      }
+    }).catch(() => {});
+
+    getVetClearanceListApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setRaceClearanceList(res);
+      }
+    }).catch(() => {});
+
+    getVaccinationSchedulesApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setVaccines(res);
+      }
+    }).catch(() => {});
+
     return () => { isMounted = false; };
   }, [isNewAccount]);
+
+  // State: Phân công y tế từ Chủ sở hữu (3 Bác sĩ thú y cố định)
+  const [serviceAssignments, setServiceAssignments] = useState(() => getServiceAssignments());
+
+  useEffect(() => {
+    const handleUpdate = () => setServiceAssignments(getServiceAssignments());
+    window.addEventListener('matruong_service_assignment_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('matruong_service_assignment_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const [confirmedHorseModal, setConfirmedHorseModal] = useState(null);
+
+  // Lắng nghe thông báo khi chiến mã bị xóa từ phía Chủ sở hữu
+  useEffect(() => {
+    const handleNotificationUpdate = () => {
+      const list = getSystemNotifications();
+      const latest = list[0];
+      if (latest && latest.type === 'HORSE_DELETED') {
+        const deletedName = (latest.horseName || '').toLowerCase();
+        const deletedChip = (latest.microchip || '').toLowerCase();
+        setHorses(prev => prev.filter(h => 
+          (h.name && h.name.toLowerCase() !== deletedName) &&
+          (!deletedChip || !h.microchip || h.microchip.toLowerCase() !== deletedChip)
+        ));
+      }
+    };
+    window.addEventListener('matruong_notifications_updated', handleNotificationUpdate);
+    window.addEventListener('storage', handleNotificationUpdate);
+    return () => {
+      window.removeEventListener('matruong_notifications_updated', handleNotificationUpdate);
+      window.removeEventListener('storage', handleNotificationUpdate);
+    };
+  }, []);
+
+  const handleConfirmVetService = (asgn) => {
+    const vetUser = currentUser?.username || 'vet_an';
+    const updated = confirmServiceAssignment(asgn.horseName, 'VET', vetUser);
+    setServiceAssignments(updated);
+
+    const fullHorse = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+
+    // Bổ sung chiến mã vào danh sách hồ sơ y tế nếu chưa có
+    setHorses(prev => {
+      const exists = prev.some(h => 
+        (h.name && h.name.toLowerCase() === fullHorse.name.toLowerCase()) ||
+        (h.microchip && fullHorse.microchip && h.microchip.toLowerCase() === fullHorse.microchip.toLowerCase())
+      );
+      let next;
+      if (exists) {
+        next = prev.map(h => {
+          if ((h.name && h.name.toLowerCase() === fullHorse.name.toLowerCase()) ||
+              (h.microchip && fullHorse.microchip && h.microchip.toLowerCase() === fullHorse.microchip.toLowerCase())) {
+            return {
+              ...h,
+              owner: fullHorse.ownerName,
+              ownerName: fullHorse.ownerName,
+              avatar: fullHorse.avatar || h.avatar,
+              breed: fullHorse.breed || h.breed,
+              stable: fullHorse.stable || h.stable
+            };
+          }
+          return h;
+        });
+      } else {
+        const stallCode = fullHorse.stable ? (fullHorse.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || fullHorse.stable.split('(')[0].trim()) : 'Ô A1';
+        next = [
+          {
+            id: fullHorse.id || Date.now(),
+            microchip: fullHorse.microchip || 'MC-VN-NEW',
+            name: fullHorse.name,
+            breed: fullHorse.breed || 'Thoroughbred',
+            stable: stallCode,
+            owner: fullHorse.ownerName || 'Phạm Tiến Thành',
+            ownerName: fullHorse.ownerName || 'Phạm Tiến Thành',
+            status: 'ELIGIBLE',
+            statusText: 'Đủ điều kiện thể lực',
+            locked: false,
+            lockReason: '',
+            lastExamDate: new Date().toLocaleDateString('vi-VN'),
+            restingHeartRate: '38 bpm',
+            tempCelsius: 38.0,
+            avatar: fullHorse.avatar
+          },
+          ...prev
+        ];
+      }
+      try {
+        localStorage.setItem('matruong_vet_horses_managed', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    // Mở popup toàn bộ Profile chi tiết của ngựa chủ sở hữu
+    setConfirmedHorseModal(fullHorse);
+
+    showToast(`Đã xác nhận phụ trách y tế chiến mã "${fullHorse.name}" của Chủ sở hữu ${fullHorse.ownerName}!`, 'BÁC SĨ XÁC NHẬN Y TẾ', 'success');
+  };
 
   // Xử lý Khóa / Mở khóa Y tế (Quyền phủ quyết Y tế - Medical Safety Veto)
   const handleToggleLock = (horse, customReason = '') => {
@@ -526,12 +670,19 @@ export default function VetPage() {
 
   // Hoàn tất mũi tiêm vaccine 1-chạm
   const handleMarkVaccineDone = (vacId) => {
-    setVaccines(prev => prev.map(v => {
-      if (v.id === vacId) {
-        return { ...v, status: 'UP_TO_DATE', dueDate: '15/04/2027' };
-      }
-      return v;
-    }));
+    setVaccines(prev => {
+      const next = prev.map(v => {
+        if (v.id === vacId) {
+          return { ...v, status: 'UP_TO_DATE', dueDate: '15/04/2027' };
+        }
+        return v;
+      });
+      try {
+        localStorage.setItem('matruong_vet_vaccines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    recordVaccinationApi({ id: vacId, status: 'UP_TO_DATE' }).catch(() => {});
     showToast('Đã xác nhận tiêm chủng & gia hạn lịch tiêm phòng thành công!', 'TIÊM CHỦNG ĐÃ LƯU', 'info');
   };
 
@@ -550,7 +701,13 @@ export default function VetPage() {
       date: new Date().toLocaleDateString('vi-VN'),
       status: 'ACTIVE'
     };
-    setPrescriptions([newRx, ...prescriptions]);
+    const updatedRx = [newRx, ...prescriptions];
+    setPrescriptions(updatedRx);
+    try {
+      localStorage.setItem('matruong_vet_prescriptions', JSON.stringify(updatedRx));
+    } catch {}
+    createVetPrescriptionApi(newRx).catch(() => {});
+
     showToast(`Đã xuất đơn thuốc điều trị #${newRx.id} cho ${newRx.horseName}`, 'KÊ ĐƠN THÀNH CÔNG', 'info');
     setShowAddRxModal(false);
     setNewRxData({
@@ -566,31 +723,45 @@ export default function VetPage() {
 
   // Ký duyệt y tế cho phép thi đấu (Vet Clearance)
   const handleApproveClearance = (item) => {
-    setRaceClearanceList(prev => prev.map(rc => {
-      if (rc.id === item.id) {
-        return {
-          ...rc,
-          vetStatus: 'CLEARED',
-          notes: `Bác sĩ Thú y ${currentUser?.full_name || 'Nguyễn An'} đã ký số xác nhận: Đủ 100% điều kiện y tế thi đấu.`
-        };
-      }
-      return rc;
-    }));
+    setRaceClearanceList(prev => {
+      const next = prev.map(rc => {
+        if (rc.id === item.id) {
+          return {
+            ...rc,
+            vetStatus: 'CLEARED',
+            notes: `Bác sĩ Thú y ${currentUser?.full_name || 'Nguyễn An'} đã ký số xác nhận: Đủ 100% điều kiện y tế thi đấu.`
+          };
+        }
+        return rc;
+      });
+      try {
+        localStorage.setItem('matruong_vet_race_clearance', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    updateVetClearanceApi({ id: item.id, vetStatus: 'CLEARED' }).catch(() => {});
     showToast(`Đã cấp chứng nhận y tế thi đấu cho chiến mã ${item.horseName}!`, 'VET CLEARANCE APPROVED', 'info');
   };
 
   // Từ chối tư cách thi đấu do rủi ro chấn thương
   const handleRejectClearance = (item) => {
-    setRaceClearanceList(prev => prev.map(rc => {
-      if (rc.id === item.id) {
-        return {
-          ...rc,
-          vetStatus: 'REJECTED_INJURY',
-          notes: `TỪ CHỐI BỞI BÁC SĨ THÚ Y: Phát hiện rủi ro cơ gân khi gắng sức. Đình chỉ thi đấu giải ${item.raceName}.`
-        };
-      }
-      return rc;
-    }));
+    setRaceClearanceList(prev => {
+      const next = prev.map(rc => {
+        if (rc.id === item.id) {
+          return {
+            ...rc,
+            vetStatus: 'REJECTED_INJURY',
+            notes: `TỪ CHỐI BỞI BÁC SĨ THÚ Y: Phát hiện rủi ro cơ gân khi gắng sức. Đình chỉ thi đấu giải ${item.raceName}.`
+          };
+        }
+        return rc;
+      });
+      try {
+        localStorage.setItem('matruong_vet_race_clearance', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    updateVetClearanceApi({ id: item.id, vetStatus: 'REJECTED_INJURY' }).catch(() => {});
     showToast(`Đã bác bỏ tư cách thi đấu của ${item.horseName} để bảo vệ an toàn sinh mạng chiến mã!`, 'VET VETO ACTIVE', 'warning');
   };
 
@@ -617,7 +788,7 @@ export default function VetPage() {
       />
 
       {/* ===================== 1. SIDEBAR NAVIGATION ===================== */}
-      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`} style={{ width: '280px', minWidth: '280px' }}>
+      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="portal-brand">
           <div className="portal-brand-icon">
             <IconStethoscope size={22} color="#14100A" />
@@ -738,6 +909,7 @@ export default function VetPage() {
           </div>
 
           <div className="portal-topbar-right">
+            <NotificationBell role="VET" currentUser={currentUser} />
             <ThemeToggle />
             <div className="portal-user-badge">
               <div className="portal-user-avatar">
@@ -1101,7 +1273,7 @@ export default function VetPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1.2fr) minmax(280px, 1fr)', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '20px' }}>
                 {/* Khung trực quan hóa các vùng giải phẫu */}
                 <div className="facility-card" style={{ padding: '20px' }}>
                   <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: 'var(--brass)' }}>
@@ -1264,6 +1436,7 @@ export default function VetPage() {
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
                       <th style={{ padding: '14px 18px' }}>Chiến mã</th>
+                      <th style={{ padding: '14px 18px' }}>Chủ sở hữu</th>
                       <th style={{ padding: '14px 18px' }}>Mã Chip RFID</th>
                       <th style={{ padding: '14px 18px' }}>Ô Chuồng</th>
                       <th style={{ padding: '14px 18px' }}>Sinh hiệu nghỉ</th>
@@ -1298,6 +1471,9 @@ export default function VetPage() {
                               </div>
                             </div>
                           </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <b style={{ color: 'var(--brass)', fontSize: '13px' }}>{h.owner || h.ownerName || 'Phạm Tiến Thành'}</b>
+                          </td>
                           <td style={{ padding: '14px 18px', fontFamily: 'monospace', color: 'var(--paper)' }}>{h.microchip || h.chipId || 'N/A'}</td>
                           <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>Ô {h.stable || h.stall || 'A1'}</td>
                           <td style={{ padding: '14px 18px', fontSize: '12px' }}>
@@ -1325,22 +1501,43 @@ export default function VetPage() {
                             )}
                           </td>
                           <td style={{ padding: '14px 18px', textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenLockModal(h)}
-                              style={{
-                                padding: '8px 14px',
-                                borderRadius: '6px',
-                                fontWeight: 700,
-                                fontSize: '12px',
-                                cursor: 'pointer',
-                                background: isLocked ? 'var(--brass)' : 'var(--bg-secondary)',
-                                color: isLocked ? '#0A0D14' : 'var(--paper)',
-                                border: isLocked ? 'none' : '1px solid var(--line)'
-                              }}
-                            >
-                              {isLocked ? '🔓 MỞ KHÓA Y TẾ' : '🔒 KHÓA Y TẾ'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const full = lookupFullHorseInfo(h.name || h.microchip);
+                                  setConfirmedHorseModal(full);
+                                }}
+                                style={{
+                                  padding: '7px 11px',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  fontSize: '11.5px',
+                                  cursor: 'pointer',
+                                  background: 'transparent',
+                                  color: 'var(--brass)',
+                                  border: '1px solid var(--brass)'
+                                }}
+                              >
+                                Xem hồ sơ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenLockModal(h)}
+                                style={{
+                                  padding: '8px 14px',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  background: isLocked ? 'var(--brass)' : 'var(--bg-secondary)',
+                                  color: isLocked ? '#0A0D14' : 'var(--paper)',
+                                  border: isLocked ? 'none' : '1px solid var(--line)'
+                                }}
+                              >
+                                {isLocked ? '🔓 MỞ KHÓA Y TẾ' : '🔒 KHÓA Y TẾ'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1887,6 +2084,14 @@ export default function VetPage() {
             </form>
           </div>
         </div>
+      )}
+      {/* Modal Profile Chiến Mã của Chủ Sở Hữu khi Bác Sĩ xác nhận */}
+      {confirmedHorseModal && (
+        <ConfirmedHorseProfileModal
+          horse={confirmedHorseModal}
+          role="VET"
+          onClose={() => setConfirmedHorseModal(null)}
+        />
       )}
     </div>
   );

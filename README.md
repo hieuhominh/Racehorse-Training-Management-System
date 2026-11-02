@@ -3,6 +3,47 @@
 
 ---
 
+## 🔑 Danh Sách Tài Khoản & Mật Khẩu (Cố định để kiểm thử)
+
+> **Mật khẩu chung cho tất cả tài khoản bên dưới:** `123` (hoặc `123456`)
+
+### 1. Quản Trị Viên & Chủ Sở Hữu Ngựa
+| Vai trò | Họ tên | Tên đăng nhập (Username) | Mật khẩu | Email | Quyền hạn chính |
+| :--- | :--- | :--- | :---: | :--- | :--- |
+| **Quản trị viên (Admin)** | Quản trị viên Hệ thống | `admin` | `123` | `admin@matruong.vn` | Quản lý toàn bộ hệ thống, phân bổ ô chuồng, kiểm duyệt hồ sơ & audit logs |
+| **Chủ sở hữu (Horse Owner)** | Phạm Tiến Thành | `owner_thanh` | `123` | `owner@matruong.vn` | Quản lý chiến mã, chọn/đổi đội ngũ phục vụ (HLV, BS, Groom), đăng ký giải đấu |
+
+---
+
+### 2. Ba (03) Huấn Luyện Viên Chính (Trainers)
+| STT | Huấn Luyện Viên | Tên đăng nhập (Username) | Mật khẩu | Email | Chuyên môn phụ trách |
+| :---: | :--- | :--- | :---: | :--- | :--- |
+| 1 | **Trần Văn Hùng** | `trainer_truong` | `123` | `trainer@matruong.vn` | HLV Trưởng - Quản lý tổng thể & Cự ly dài |
+| 2 | **Lê Trọng Nghĩa** | `trainer_nghia` | `123` | `trainer_nghia@matruong.vn` | Chuyên cự ly dài & chiến thuật sân cỏ |
+| 3 | **Phạm Quốc Anh** | `trainer_anh` | `123` | `trainer_anh@matruong.vn` | Chuyên kỹ thuật nước rút & bứt tốc |
+
+---
+
+### 3. Ba (03) Bác Sĩ Thú Y Chính (Veterinarians)
+| STT | Bác Sĩ Thú Y | Tên đăng nhập (Username) | Mật khẩu | Email | Chuyên khoa đảm trách |
+| :---: | :--- | :--- | :---: | :--- | :--- |
+| 1 | **BS. Nguyễn An** | `vet_an` | `123` | `vet@matruong.vn` | Trưởng khoa Thú y & Chẩn đoán hình ảnh |
+| 2 | **BS. Trần Minh Hoàng** | `vet_hoang` | `123` | `vet_hoang@matruong.vn` | Chuyên gia Cơ Xương Khớp & Chấn thương thể thao |
+| 3 | **BS. Lê Mai Linh** | `vet_linh` | `123` | `vet_linh@matruong.vn` | Chuyên khoa Dinh Dưỡng, Dịch tễ & Kiểm dịch |
+
+---
+
+### 4. Ba (03) Người Chăm Sóc Chính (Grooms)
+| STT | Nhân Viên Chăm Sóc | Tên đăng nhập (Username) | Mật khẩu | Email | Khu vực phụ trách |
+| :---: | :--- | :--- | :---: | :--- | :--- |
+| 1 | **Lê Hoàng Nam** | `groom_nam` | `123` | `groom@matruong.vn` | Trưởng nhóm Chăm sóc ô chuồng Block A |
+| 2 | **Vũ Tiến Dũng** | `groom_dung` | `123` | `groom_dung@matruong.vn` | Chuyên viên chăm sóc & vệ sinh móng Block B |
+| 3 | **Nguyễn Thu Thảo** | `groom_thao` | `123` | `groom_thao@matruong.vn` | Chuyên viên chăm sóc phục hồi & dinh dưỡng Block C |
+
+> ⚡ **Mẹo thao tác nhanh trên Web:** Tại cửa sổ Đăng nhập trên giao diện web, bạn cũng có thể bấm vào khung **"Đăng nhập nhanh 1 chạm"** để tự động điền và đăng nhập ngay lập tức với bất kỳ vai trò nào ở trên mà không cần nhập tay.
+
+---
+
 ## 📁 1. Cấu trúc thư mục dự án chuẩn Front-end / Back-end
 
 Toàn bộ dự án đã được phân tách rõ ràng giữa Front-end và Back-end:

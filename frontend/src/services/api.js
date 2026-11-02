@@ -307,21 +307,49 @@ export async function getStablesApi() {
   }
 
   const defaultStables = [
-    { stall_code: 'A1', block: 'Block A', status: 'OCCUPIED', horse: 'Xích Thố', breed: 'Arabian', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A2', block: 'Block A', status: 'OCCUPIED', horse: 'Bạch Long', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A3', block: 'Block A', status: 'OCCUPIED', horse: 'Hắc Phong', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A4', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Vũ', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A5', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Yến', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A6', block: 'Block A', status: 'OCCUPIED', horse: 'Kim Kê', breed: 'Quarter Horse', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B1', block: 'Block B', status: 'OCCUPIED', horse: 'Thanh Vân', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B2', block: 'Block B', status: 'OCCUPIED', horse: 'Lôi Chấn', breed: 'Quarter Horse', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B3', block: 'Block B', status: 'OCCUPIED', horse: 'Hồng Sa', breed: 'Arabian', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B4', block: 'Block B', status: 'OCCUPIED', horse: 'Thiên Lý', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B5', block: 'Block B', status: 'OCCUPIED', horse: 'Bảo Mã', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B6', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
+    { stall_code: 'A1', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Xích Thố', breed: 'Arabian', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A2', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Bạch Long', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A3', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Hắc Phong', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A4', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Phi Vũ', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A5', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Phi Yến', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A6', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Kim Kê', breed: 'Quarter Horse', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B1', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Thanh Vân', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B2', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Lôi Chấn', breed: 'Quarter Horse', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B3', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Hồng Sa', breed: 'Arabian', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B4', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Thiên Lý', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B5', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Bảo Mã', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'B6', block: 'Block B', tier: 'VIP', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    // Chuồng tiêu chuẩn thông thường (Block C)
+    { stall_code: 'C1', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'C2', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'C3', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'C4', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
   ];
 
-  return { isFromBackend: false, data: getLocalData(STORAGE_KEYS.STABLES, defaultStables) };
+  const rawStables = getLocalData(STORAGE_KEYS.STABLES, defaultStables);
+  // Đảm bảo dữ liệu cũ trong localStorage được bổ sung phân loại VIP / STANDARD và các ô chuồng thường
+  let normalized = rawStables.map(s => {
+    const isVip = s.tier === 'VIP' || s.is_vip === true || s.block === 'Block A' || s.block === 'Block B' || s.block === 'Block VIP' || (s.stall_code && (s.stall_code.startsWith('A') || s.stall_code.startsWith('B') || s.stall_code.startsWith('VIP')));
+    return {
+      ...s,
+      tier: s.tier || (isVip ? 'VIP' : 'STANDARD'),
+      is_vip: isVip
+    };
+  });
+
+  // Bổ sung các chuồng Block C nếu danh sách hiện tại chưa có
+  if (!normalized.some(s => s.block === 'Block C' || s.stall_code === 'C1')) {
+    normalized = [
+      ...normalized,
+      { stall_code: 'C1', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+      { stall_code: 'C2', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+      { stall_code: 'C3', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+      { stall_code: 'C4', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
+    ];
+    setLocalData(STORAGE_KEYS.STABLES, normalized);
+  }
+
+  return { isFromBackend: false, data: normalized };
 }
 
 /**
@@ -869,6 +897,25 @@ export async function saveTrainingProgramApi(programData) {
   return newProgram;
 }
 
+export async function deleteTrainingProgramApi(programId) {
+  try {
+    const res = await fetch(`/api/training/programs/${programId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) return await res.json();
+  } catch {
+    // Fallback
+  }
+
+  const key = 'matruong_trainer_programs';
+  const local = getLocalData(key, []);
+  const updated = local.filter(p => p.id !== programId);
+  setLocalData(key, updated);
+  return { success: true };
+}
+
 export async function recordTelemetryApi(telemetryData) {
   try {
     const res = await fetch('/api/training/telemetry', {
@@ -1144,6 +1191,16 @@ export async function updateFeedingStatusApi(scheduleId, isCompleted) {
 }
 
 export async function getCareLogsApi() {
+  try {
+    const res = await fetch('/api/groom/care-logs', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
   return getLocalData('matruong_groom_care_logs', [
     { id: 1, task: 'Tắm xả cơ bắp bằng vòi lạnh & sấy khô', horseName: 'Bạch Long', groomName: 'Lê Hoàng Nam', date: '24/10/2026', status: 'DONE' },
     { id: 2, task: 'Vệ sinh hốc móng & thoa dầu móng chống nứt', horseName: 'Xích Thố', groomName: 'Lê Hoàng Nam', date: '24/10/2026', status: 'DONE' },
@@ -1152,6 +1209,21 @@ export async function getCareLogsApi() {
 }
 
 export async function recordCareActivityApi(activityData) {
+  try {
+    const res = await fetch('/api/groom/care-logs', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(activityData)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const key = 'matruong_groom_care_logs';
+      const list = getLocalData(key, []);
+      setLocalData(key, [data, ...list]);
+      return data;
+    }
+  } catch {}
   const key = 'matruong_groom_care_logs';
   const list = await getCareLogsApi();
   const newActivity = { ...activityData, id: Date.now(), status: 'DONE', date: new Date().toLocaleDateString('vi-VN') };
@@ -1182,6 +1254,21 @@ export async function getSuppliesInventoryApi() {
 }
 
 export async function requestSupplyRestockApi(supplyName, quantity) {
+  try {
+    const res = await fetch('/api/groom/supplies', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ supplyName, quantity })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const key = 'matruong_groom_restock_requests';
+      const requests = getLocalData(key, []);
+      setLocalData(key, [data, ...requests]);
+      return data;
+    }
+  } catch {}
   const key = 'matruong_groom_restock_requests';
   const requests = getLocalData(key, []);
   const newReq = { id: Date.now(), supplyName, quantity, status: 'SUBMITTED', date: new Date().toLocaleDateString('vi-VN') };
@@ -1236,7 +1323,13 @@ export async function registerOwnerHorseApi(ownerKey, horseData) {
     totalStarts: 0,
     totalPrizeEarned: 0
   };
-  setLocalData(storageKey, [newHorse, ...existing]);
+  const nextList = [newHorse, ...existing];
+  setLocalData(storageKey, nextList);
+  if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
+    setLocalData('matruong_owner_horses_owner_thanh', nextList);
+    setLocalData('matruong_owner_horses_6', nextList);
+    setLocalData('matruong_owner_horses_11', nextList);
+  }
   return newHorse;
 }
 
@@ -1257,6 +1350,11 @@ export async function updateOwnerHorseApi(ownerKey, horseData) {
   const existing = getLocalData(storageKey, []);
   const updated = existing.map(h => String(h.id) === String(horseData.id) ? { ...h, ...horseData } : h);
   setLocalData(storageKey, updated);
+  if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
+    setLocalData('matruong_owner_horses_owner_thanh', updated);
+    setLocalData('matruong_owner_horses_6', updated);
+    setLocalData('matruong_owner_horses_11', updated);
+  }
   return horseData;
 }
 
@@ -1276,10 +1374,26 @@ export async function deleteOwnerHorseApi(ownerKey, horseId) {
   const existing = getLocalData(storageKey, []);
   const filtered = existing.filter(h => String(h.id) !== String(horseId));
   setLocalData(storageKey, filtered);
+
+  if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
+    setLocalData('matruong_owner_horses_owner_thanh', filtered);
+    setLocalData('matruong_owner_horses_6', filtered);
+    setLocalData('matruong_owner_horses_11', filtered);
+  }
   return true;
 }
 
 export async function getOwnerTelemetryApi(ownerKey) {
+  try {
+    const res = await fetch('/api/training/telemetry', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
   const key = `matruong_owner_telemetry_${ownerKey}`;
   return getLocalData(key, []);
 }
@@ -1390,8 +1504,8 @@ export async function getSystemTournamentNominationsApi() {
       raceName: 'Giải Vô Địch Cúp Derby Mùa Thu 2026',
       track: 'Trường đua Quốc tế Phú Thọ',
       horseName: 'Bạch Long',
-      ownerName: 'Lê Minh Tuấn (VIP)',
-      ownerKey: 'owner_tuan',
+      ownerName: 'Phạm Tiến Thành (VIP)',
+      ownerKey: '6',
       distance: '2.400m (Sân cỏ)',
       date: '15/11/2026',
       estimatedPurse: 800000000,
@@ -1408,8 +1522,8 @@ export async function getSystemTournamentNominationsApi() {
       raceName: 'Cúp Nước Rút Tốc Độ Sprint Cup 1.200m',
       track: 'Trường đua Cát Thể Thao',
       horseName: 'Lôi Chấn',
-      ownerName: 'Hoàng Long Vũ',
-      ownerKey: 'owner_vu',
+      ownerName: 'Phạm Tiến Thành (VIP)',
+      ownerKey: '6',
       distance: '1.200m (Sân cát)',
       date: '28/11/2026',
       estimatedPurse: 450000000,
@@ -1423,16 +1537,30 @@ export async function getSystemTournamentNominationsApi() {
     }
   ];
 
-  return getLocalData(SYSTEM_NOMINATIONS_KEY, defaultSeed);
+  let rawData = getLocalData(SYSTEM_NOMINATIONS_KEY, defaultSeed);
+  if (Array.isArray(rawData)) {
+    let changed = false;
+    rawData = rawData.map(item => {
+      if ((item.id === 'RN-2026-01' || item.id === 'RN-2026-02') && (item.ownerKey === 'owner_tuan' || item.ownerKey === 'owner_vu')) {
+        changed = true;
+        return { ...item, ownerKey: '6', ownerName: 'Phạm Tiến Thành (VIP)' };
+      }
+      return item;
+    });
+    if (changed) {
+      setLocalData(SYSTEM_NOMINATIONS_KEY, rawData);
+    }
+  }
+  return rawData;
 }
 
-export async function trainerReviewNominationApi(nominationId, { status, feedback, trainerName }) {
+export async function trainerReviewNominationApi(nominationId, { status, feedback, trainerName, assignedHorseName, assignedHorseId, assignedHorseStall, jockey }) {
   try {
     const res = await fetch('/api/trainer/nominations/review', {
       method: 'POST',
       headers: getAuthHeaders(true),
       credentials: 'include',
-      body: JSON.stringify({ nominationId, status, feedback, trainerName })
+      body: JSON.stringify({ nominationId, status, feedback, trainerName, assignedHorseName, assignedHorseId, assignedHorseStall, jockey })
     });
     if (res.ok) return await res.json();
   } catch {
@@ -1440,45 +1568,90 @@ export async function trainerReviewNominationApi(nominationId, { status, feedbac
   }
 
   const systemList = await getSystemTournamentNominationsApi();
-  let updatedOwnerKey = null;
   const now = new Date();
   const timeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
+  let targetNomination = null;
   const updatedSystem = systemList.map(item => {
     if (item.id === nominationId) {
-      updatedOwnerKey = item.ownerKey;
-      return {
+      targetNomination = {
         ...item,
+        horseName: assignedHorseName || item.horseName,
+        assignedHorseName: assignedHorseName || item.assignedHorseName,
+        assignedHorseId: assignedHorseId || item.assignedHorseId,
+        assignedHorseStall: assignedHorseStall || item.assignedHorseStall,
+        trainerAssigned: Boolean(assignedHorseName || item.trainerAssigned),
         nominationStatus: status,
         trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
         reviewedBy: trainerName || 'HLV Trưởng',
-        reviewedAt: timeStr
+        reviewedAt: timeStr,
+        jockey: jockey || item.jockey || 'Chưa chỉ định'
       };
+      return targetNomination;
     }
     return item;
   });
 
   setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSystem);
 
-  if (updatedOwnerKey) {
-    const ownerRacesKey = `matruong_owner_races_${updatedOwnerKey}`;
-    const ownerList = getLocalData(ownerRacesKey, []);
-    const updatedOwnerList = ownerList.map(r => {
-      if (r.id === nominationId) {
-        return {
-          ...r,
-          nominationStatus: status,
-          trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
-          reviewedBy: trainerName || 'HLV Trưởng',
-          reviewedAt: timeStr
-        };
+  // Sync to all owner race caches in localStorage
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('matruong_owner_races_')) {
+          const ownerList = getLocalData(key, []);
+          if (Array.isArray(ownerList) && ownerList.length > 0) {
+            let modified = false;
+            const updatedOwnerList = ownerList.map(r => {
+              const isMatch = r.id === nominationId || 
+                (targetNomination && r.raceName === targetNomination.raceName && (r.horseName === targetNomination.horseName || r.id === nominationId));
+              if (isMatch) {
+                modified = true;
+                return {
+                  ...r,
+                  horseName: assignedHorseName || r.horseName,
+                  assignedHorseName: assignedHorseName || r.assignedHorseName,
+                  assignedHorseId: assignedHorseId || r.assignedHorseId,
+                  assignedHorseStall: assignedHorseStall || r.assignedHorseStall,
+                  trainerAssigned: Boolean(assignedHorseName || r.trainerAssigned),
+                  nominationStatus: status,
+                  trainerFeedback: feedback || (status === 'APPROVED' ? 'Đạt chuẩn thể lực xuất phát' : 'Yêu cầu hoàn thiện bài tập thể lực'),
+                  reviewedBy: trainerName || 'HLV Trưởng',
+                  reviewedAt: timeStr,
+                  jockey: jockey || r.jockey || 'Chưa chỉ định'
+                };
+              }
+              return r;
+            });
+            if (modified) {
+              setLocalData(key, updatedOwnerList);
+            }
+          }
+        }
       }
-      return r;
-    });
-    setLocalData(ownerRacesKey, updatedOwnerList);
+
+      window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+        detail: { nominationId, status, feedback, trainerName, reviewedAt: timeStr, targetNomination }
+      }));
+    }
+  } catch (err) {
+    console.error('Error syncing owner race storage:', err);
   }
 
   return true;
+}
+
+export async function trainerAssignHorseNominationApi(nominationId, { horseName, horseId, horseStall, trainerFeedback, trainerName, jockey }) {
+  return trainerReviewNominationApi(nominationId, {
+    status: 'APPROVED',
+    feedback: trainerFeedback,
+    trainerName: trainerName || 'HLV Trưởng Trần Văn Hùng',
+    assignedHorseName: horseName,
+    assignedHorseId: horseId,
+    assignedHorseStall: horseStall,
+    jockey: jockey
+  });
 }
 
 export async function registerRaceTournamentApi(ownerKey, nominationData) {
@@ -1500,12 +1673,18 @@ export async function registerRaceTournamentApi(ownerKey, nominationData) {
     ...nominationData,
     id: nominationData.id || `RN-REG-${Date.now().toString().slice(-4)}`,
     nominationStatus: 'PENDING_TRAINER',
-    ownerKey: ownerKey
+    ownerKey: String(ownerKey)
   };
   setLocalData(key, [newNom, ...list]);
 
   const systemList = await getSystemTournamentNominationsApi();
   setLocalData(SYSTEM_NOMINATIONS_KEY, [newNom, ...systemList.filter(s => s.id !== newNom.id)]);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+      detail: { nominationId: newNom.id, nomination: newNom }
+    }));
+  }
 
   return newNom;
 }
@@ -1519,6 +1698,12 @@ export async function updateRaceNominationStatusApi(ownerKey, nominationId, newS
   const systemList = await getSystemTournamentNominationsApi();
   const updatedSys = systemList.map(r => r.id === nominationId ? { ...r, nominationStatus: newStatus } : r);
   setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSys);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+      detail: { nominationId, status: newStatus }
+    }));
+  }
 
   return true;
 }
@@ -1542,6 +1727,429 @@ export async function getOwnerFinancialStatementsApi(ownerKey) {
 }
 
 export async function getOwnerVetLogsApi(ownerKey) {
+  try {
+    const res = await fetch('/api/vet/medical-logs', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
   const key = `matruong_owner_health_${ownerKey}`;
   return getLocalData(key, []);
+}
+
+
+// =========================================================================
+// 12. CÁC API BỔ SUNG: TOÀN DIỆN CHO VET, GROOM, TRAINING & SERVICE TEAM
+// =========================================================================
+
+// --- ĐƠN THUỐC THÚ Y (VET PRESCRIPTIONS) ---
+export async function getVetPrescriptionsApi() {
+  try {
+    const res = await fetch('/api/vet/prescriptions', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
+
+  const key = 'matruong_vet_prescriptions';
+  return getLocalData(key, [
+    {
+      id: 'RX-2026-001',
+      horseName: 'Phi Yến',
+      stall: 'Ô A5',
+      diagnosis: 'Giãn gân trước trái độ 2 sau bứt tốc',
+      medications: [
+        { name: 'Phenylbutazone 20%', dosage: '10ml tiêm IV', frequency: '1 lần/ngày' },
+        { name: 'Gel lạnh giảm đau Cryo', dosage: 'Thoa ngoài da', frequency: '2 lần/ngày' }
+      ],
+      restrictions: 'Cấm tập nặng, băng ép chân trái, theo dõi thân nhiệt.',
+      date: '10/10/2026',
+      status: 'ACTIVE'
+    },
+    {
+      id: 'RX-2026-002',
+      horseName: 'Hắc Phong',
+      stall: 'Ô A3',
+      diagnosis: 'Đầy hơi nhẹ đường tiêu hóa (Colic nhẹ)',
+      medications: [
+        { name: 'Omeprazole Paste', dosage: '1 ống uống buổi sáng', frequency: '1 lần/ngày' },
+        { name: 'Men vi sinh Probiotics', dosage: 'Hòa vào nước uống', frequency: '2 lần/ngày' }
+      ],
+      restrictions: 'Cho ăn cỏ khô Alfalfa chia nhỏ, tạm ngưng cám viên đậm đặc.',
+      date: '11/10/2026',
+      status: 'ACTIVE'
+    }
+  ]);
+}
+
+export async function createVetPrescriptionApi(prescriptionData) {
+  try {
+    const res = await fetch('/api/vet/prescriptions', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(prescriptionData)
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const key = 'matruong_vet_prescriptions';
+  const existing = await getVetPrescriptionsApi();
+  const newRx = {
+    ...prescriptionData,
+    id: prescriptionData.id || `RX-2026-00${existing.length + 1}`,
+    date: prescriptionData.date || new Date().toLocaleDateString('vi-VN'),
+    status: 'ACTIVE'
+  };
+  setLocalData(key, [newRx, ...existing]);
+  return newRx;
+}
+
+// --- DUYỆT ĐỦ ĐIỀU KIỆN THI ĐẤU (VET RACE CLEARANCE) ---
+export async function getVetClearanceListApi() {
+  try {
+    const res = await fetch('/api/vet/race-clearance', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
+
+  const key = 'matruong_vet_race_clearance';
+  return getLocalData(key, [
+    { id: 1, horseName: 'Xích Thố', raceName: 'Cúp Derby Mùa Thu 2026', distance: '2.400m', date: '25/10/2026', vetStatus: 'CLEARED', heartRateRest: '34 bpm', notes: 'Thể lực hoàn hảo, âm tim đều, gân cơ săn chắc.' },
+    { id: 2, horseName: 'Bạch Long', raceName: 'Giải Vô Địch Tốc Độ Sprint Cup', distance: '1.200m', date: '28/10/2026', vetStatus: 'CLEARED', heartRateRest: '36 bpm', notes: 'Đạt chuẩn viễn trắc, nhịp thở phục hồi dưới 15 phút.' },
+    { id: 3, horseName: 'Hắc Phong', raceName: 'Giải Đua Tốc Độ Sân Cát', distance: '1.600m', date: '30/10/2026', vetStatus: 'PENDING_EXAM', heartRateRest: '38 bpm', notes: 'Chờ theo dõi thêm 48h về tiêu hóa trước khi cấp chứng nhận.' }
+  ]);
+}
+
+export async function updateVetClearanceApi(clearanceId, newStatus, notes) {
+  try {
+    const res = await fetch(`/api/vet/race-clearance/${clearanceId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ vetStatus: newStatus, notes })
+    });
+    if (res.ok) return true;
+  } catch {}
+
+  const key = 'matruong_vet_race_clearance';
+  const list = await getVetClearanceListApi();
+  const updated = list.map(item => item.id === clearanceId ? { ...item, vetStatus: newStatus, notes: notes || item.notes } : item);
+  setLocalData(key, updated);
+  return true;
+}
+
+// --- GROOM CHECKLIST CA TRỰC HÀNG NGÀY ---
+export async function getGroomRoutinesApi() {
+  try {
+    const res = await fetch('/api/groom/routines', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
+
+  const key = 'matruong_groom_routines';
+  return getLocalData(key, [
+    { id: 1, time: '06:00', title: 'Kiểm tra sinh hiệu buổi sáng', desc: 'Đo thân nhiệt & quan sát dáng đứng toàn bộ 5 ô chuồng Block A', completed: true },
+    { id: 2, time: '06:30', title: 'Cấp khẩu phần ăn sáng', desc: 'Cân đo khẩu phần yến mạch & cỏ khô Timothy theo y bạ dinh dưỡng', completed: true },
+    { id: 3, time: '07:30', title: 'Muck-out & thay đệm rơm', desc: 'Thu gom phân, phun khử khuẩn sàn và rải đệm rơm mới ô A1, A2, A3', completed: true },
+    { id: 4, time: '09:00', title: 'Chải lông & bấm móng', desc: 'Chải mượt bờm lông, kiểm tra móng sắt trước giờ tập sân cỏ', completed: false },
+    { id: 5, time: '11:30', title: 'Cấp nước điện giải & cỏ tươi', desc: 'Kiểm tra phao tự động và bổ sung muối khoáng máng nước', completed: false },
+    { id: 6, time: '16:00', title: 'Tắm lạnh xả cơ sau bài tập', desc: 'Xịt nước lạnh gân chân, sấy khô và đắp mền giữ ấm ban đêm', completed: false }
+  ]);
+}
+
+export async function toggleGroomRoutineApi(routineId, completed) {
+  try {
+    const res = await fetch(`/api/groom/routines/${routineId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ completed })
+    });
+    if (res.ok) return true;
+  } catch {}
+
+  const key = 'matruong_groom_routines';
+  const list = await getGroomRoutinesApi();
+  const updated = list.map(r => r.id === routineId ? { ...r, completed } : r);
+  setLocalData(key, updated);
+  return true;
+}
+
+// --- GROOM CẬP NHẬT TÌNH TRẠNG Ô CHUỒNG ---
+export async function getGroomStallsApi() {
+  try {
+    const res = await fetch('/api/groom/stalls', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
+
+  const key = 'matruong_groom_stalls_state';
+  return getLocalData(key, [
+    { code: 'A1', horseName: 'Xích Thố', breed: 'Arabian', microchip: 'MC-VN-2021-014', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: '07:30 Sáng nay', note: 'Chiến mã khỏe, ăn hết khẩu phần' },
+    { code: 'A2', horseName: 'Bạch Long', breed: 'Thoroughbred', microchip: 'MC-VN-2024-003', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: '07:15 Sáng nay', note: 'Sẵn sàng giờ tập nước rút' },
+    { code: 'A3', horseName: 'Hắc Phong', breed: 'Thoroughbred', microchip: 'MC-VN-2022-001', bedding: 'CẦN THAY THÊM', waterChecked: true, status: 'WATCH', lastMucked: '06:45 Sáng nay', note: 'Đang theo dõi tiêu hóa cùng Bác sĩ' },
+    { code: 'A4', horseName: 'Lôi Chấn', breed: 'Quarter Horse', microchip: 'MC-VN-2022-088', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: '07:00 Sáng nay', note: 'Móng tốt, thể lực ổn định' },
+    { code: 'A5', horseName: 'Phi Yến', breed: 'Thoroughbred', microchip: 'MC-VN-2023-009', bedding: 'ĐỆM Y TẾ KHỬ KHUẨN', waterChecked: true, status: 'LOCKED', lastMucked: '06:00 Sáng nay', note: 'Chườm đá chân trái theo lệnh Thú y' }
+  ]);
+}
+
+export async function updateGroomStallStatusApi(stallCode, updates) {
+  try {
+    const res = await fetch(`/api/groom/stalls/${stallCode}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(updates)
+    });
+    if (res.ok) return true;
+  } catch {}
+
+  const key = 'matruong_groom_stalls_state';
+  const list = await getGroomStallsApi();
+  const updated = list.map(s => s.code === stallCode ? { ...s, ...updates } : s);
+  setLocalData(key, updated);
+  return true;
+}
+
+// --- DỊCH VỤ PHÂN CÔNG ĐỘI NGŨ & XÁC NHẬN (SERVICE TEAM ASSIGNMENT) ---
+export async function getServiceAssignmentsApi() {
+  try {
+    const res = await fetch('/api/service-assignments', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
+
+  const key = 'matruong_service_assignments';
+  return getLocalData(key, [
+    {
+      id: 1,
+      horseName: 'Bạch Long',
+      microchip: 'MC-VN-2024-003',
+      stable: 'Ô A2',
+      ownerName: 'Phạm Tiến Thành',
+      ownerKey: 'owner_thanh',
+      trainerUsername: 'trainer_truong',
+      trainerName: 'Trần Văn Hùng',
+      trainerStatus: 'CONFIRMED',
+      trainerConfirmedAt: '10/10/2026',
+      vetUsername: 'vet_an',
+      vetName: 'BS. Nguyễn An',
+      vetStatus: 'CONFIRMED',
+      vetConfirmedAt: '10/10/2026',
+      groomUsername: 'groom_nam',
+      groomName: 'Lê Hoàng Nam',
+      groomStatus: 'CONFIRMED',
+      groomConfirmedAt: '10/10/2026'
+    },
+    {
+      id: 2,
+      horseName: 'Lôi Chấn',
+      microchip: 'MC-VN-2022-088',
+      stable: 'Ô A4',
+      ownerName: 'Phạm Tiến Thành',
+      ownerKey: 'owner_thanh',
+      trainerUsername: 'trainer_nghia',
+      trainerName: 'Lê Trọng Nghĩa',
+      trainerStatus: 'PENDING',
+      trainerConfirmedAt: null,
+      vetUsername: 'vet_hoang',
+      vetName: 'BS. Trần Minh Hoàng',
+      vetStatus: 'CONFIRMED',
+      vetConfirmedAt: '11/10/2026',
+      groomUsername: 'groom_dung',
+      groomName: 'Vũ Tiến Dũng',
+      groomStatus: 'PENDING',
+      groomConfirmedAt: null
+    },
+    {
+      id: 3,
+      horseName: 'Phi Yến',
+      microchip: 'MC-VN-2023-009',
+      stable: 'Ô A5',
+      ownerName: 'Phạm Tiến Thành',
+      ownerKey: 'owner_thanh',
+      trainerUsername: 'trainer_anh',
+      trainerName: 'Phạm Quốc Anh',
+      trainerStatus: 'PENDING',
+      trainerConfirmedAt: null,
+      vetUsername: 'vet_linh',
+      vetName: 'BS. Lê Mai Linh',
+      vetStatus: 'PENDING',
+      vetConfirmedAt: null,
+      groomUsername: 'groom_thao',
+      groomName: 'Nguyễn Thu Thảo',
+      groomStatus: 'CONFIRMED',
+      groomConfirmedAt: '12/10/2026'
+    }
+  ]);
+}
+
+export async function saveServiceAssignmentApi(assignment) {
+  try {
+    const res = await fetch('/api/service-assignments', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(assignment)
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const key = 'matruong_service_assignments';
+  const list = await getServiceAssignmentsApi();
+  const nextList = [assignment, ...list.filter(item => item.id !== assignment.id)];
+  setLocalData(key, nextList);
+  return assignment;
+}
+
+export async function confirmServiceAssignmentApi(horseIdentifier, roleType, staffUsername) {
+  try {
+    const res = await fetch('/api/service-assignments/confirm', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ horseIdentifier, roleType, staffUsername })
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const key = 'matruong_service_assignments';
+  const list = await getServiceAssignmentsApi();
+  const nowStr = new Date().toLocaleDateString('vi-VN');
+  const targetKey = String(horseIdentifier).toLowerCase();
+
+  const nextList = list.map(item => {
+    const match = (item.microchip && item.microchip.toLowerCase() === targetKey) ||
+                  (item.horseName && item.horseName.toLowerCase() === targetKey) ||
+                  String(item.id) === targetKey;
+    if (!match) return item;
+
+    if (roleType === 'TRAINER') {
+      return { ...item, trainerStatus: 'CONFIRMED', trainerConfirmedAt: nowStr, trainerConfirmedBy: staffUsername };
+    }
+    if (roleType === 'VET') {
+      return { ...item, vetStatus: 'CONFIRMED', vetConfirmedAt: nowStr, vetConfirmedBy: staffUsername };
+    }
+    if (roleType === 'GROOM') {
+      return { ...item, groomStatus: 'CONFIRMED', groomConfirmedAt: nowStr, groomConfirmedBy: staffUsername };
+    }
+    return item;
+  });
+
+  setLocalData(key, nextList);
+  return nextList;
+}
+
+// --- CẬP NHẬT CÂY PHẢ HỆ CHO CHIẾN MÃ (PEDIGREE UPDATE) ---
+export async function updateHorsePedigreeApi(ownerKey, horseId, pedigreeData) {
+  try {
+    const res = await fetch(`/api/owner/horses/${horseId}/pedigree`, {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ ownerKey, pedigree: pedigreeData })
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const storageKey = `matruong_owner_horses_${ownerKey}`;
+  const existing = getLocalData(storageKey, []);
+  const updated = existing.map(h => String(h.id) === String(horseId) ? { ...h, pedigree: pedigreeData } : h);
+  setLocalData(storageKey, updated);
+  return pedigreeData;
+}
+
+// =========================================================================
+// 13. QUẢN LÝ THÔNG BÁO HỆ THỐNG LIÊN THÔNG (SYSTEM NOTIFICATIONS API)
+// =========================================================================
+
+export async function getNotificationsApi(role = 'ALL', username = '') {
+  try {
+    const params = new URLSearchParams();
+    if (role && role !== 'ALL') params.append('role', role);
+    if (username) params.append('username', username);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`/api/notifications${queryString}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
+  return getLocalData('matruong_system_notifications', []);
+}
+
+export async function createNotificationApi(notifData) {
+  try {
+    const res = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(notifData)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+  return notifData;
+}
+
+export async function markNotificationReadApi(notifId, username, markAll = false) {
+  try {
+    const res = await fetch('/api/notifications/read', {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ id: notifId, username, markAll })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+  return { success: true };
+}
+
+export async function clearNotificationsApi() {
+  try {
+    const res = await fetch('/api/notifications/clear', {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+  return { success: true };
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth, getRolePortalPath } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { LanguageProvider } from './context/LanguageContext';
@@ -34,6 +34,7 @@ function ScrollToTop() {
 }
 
 function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
+  const { currentUser } = useAuth();
   const location = useLocation();
   const isRolePortal = 
     location.pathname.startsWith('/admin') || 
@@ -48,7 +49,7 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
 
   return (
     <div className={`app-container ${isRolePortal ? 'in-portal' : ''}`}>
-      {/* 1. Chỉ hiển thị Ticker & Navbar trên các trang Public */}
+      {/* 1. Hiển thị Ticker & Navbar trên các trang Public */}
       {!isRolePortal && <Ticker onOpenAuth={handleOpenAuth} />}
       {!isRolePortal && <Navbar onOpenAuth={handleOpenAuth} />}
 
@@ -222,7 +223,7 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
         <Route path="*" element={<HomePage onOpenAuth={handleOpenAuth} />} />
       </Routes>
 
-      {/* 3. Chỉ hiển thị Chân trang trên các trang Public */}
+      {/* 3. Hiển thị Chân trang trên các trang Public */}
       {!isRolePortal && <Footer onOpenAuth={handleOpenAuth} />}
 
       {/* Modal Đăng nhập & Đăng ký (khởi tạo chính xác tab khi bấm nút) */}

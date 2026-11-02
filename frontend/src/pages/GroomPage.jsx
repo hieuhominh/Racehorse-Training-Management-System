@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import {
-  reportIncidentApi
+  reportIncidentApi,
+  getGroomRoutinesApi,
+  toggleGroomRoutineApi,
+  getGroomStallsApi,
+  updateGroomStallStatusApi
 } from '../services/api';
+import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
+import NotificationBell from '../components/NotificationBell';
+import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
+import { getSystemNotifications } from '../services/notificationService';
 
 // Minimalist High-End SVG Icons for Groom Portal
 const IconHorse = ({ size = 18, color = 'currentColor' }) => (
@@ -59,11 +67,30 @@ export default function GroomPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState('stalls'); // 'stalls' | 'checklist' | 'incident' | 'nutrition' | 'supplies'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_tab_groom');
+      return ['stalls', 'checklist', 'incident', 'nutrition', 'supplies'].includes(saved) ? saved : 'stalls';
+    } catch {
+      return 'stalls';
+    }
+  }); // 'stalls' | 'checklist' | 'incident' | 'nutrition' | 'supplies'
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  useEffect(() => {
+    localStorage.setItem('matruong_tab_groom', activeTab);
+  }, [activeTab]);
+
   // 1. Dữ liệu các ô chuồng Groom phụ trách (Block A)
-  const [assignedStalls, setAssignedStalls] = useState([
+  const [assignedStalls, setAssignedStalls] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_groom_stalls_state');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
     {
       code: 'A1',
       zone: 'Block A',
@@ -154,10 +181,19 @@ export default function GroomPage() {
       lastCleaned: 'Sáng nay',
       image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
     }
-  ]);
+  ];
+  });
 
   // 2. Checklist Chăm sóc Trực ca hàng ngày
-  const [dailyRoutines, setDailyRoutines] = useState([
+  const [dailyRoutines, setDailyRoutines] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_groom_routines');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
     {
       id: 1,
       time: '06:00',
@@ -198,7 +234,25 @@ export default function GroomPage() {
       completed: false,
       completedAt: null
     }
-  ]);
+  ];
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    getGroomRoutinesApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setDailyRoutines(res);
+      }
+    }).catch(() => {});
+
+    getGroomStallsApi().then(res => {
+      if (isMounted && res && Array.isArray(res) && res.length > 0) {
+        setAssignedStalls(res);
+      }
+    }).catch(() => {});
+
+    return () => { isMounted = false; };
+  }, []);
 
   // 3. Danh sách ca sự cố Groom đã báo cáo
   const [incidents, setIncidents] = useState([
@@ -263,34 +317,50 @@ export default function GroomPage() {
 
   // Toggle checklist item
   const handleToggleRoutine = (id) => {
-    setDailyRoutines(prev => prev.map(r => {
-      if (r.id === id) {
-        const nextState = !r.completed;
-        const now = new Date();
-        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        return {
-          ...r,
-          completed: nextState,
-          completedAt: nextState ? timeStr : null
-        };
-      }
-      return r;
-    }));
+    let targetNextState = false;
+    setDailyRoutines(prev => {
+      const next = prev.map(r => {
+        if (r.id === id) {
+          const nextState = !r.completed;
+          targetNextState = nextState;
+          const now = new Date();
+          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          return {
+            ...r,
+            completed: nextState,
+            completedAt: nextState ? timeStr : null
+          };
+        }
+        return r;
+      });
+      try {
+        localStorage.setItem('matruong_groom_routines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    toggleGroomRoutineApi(id, targetNextState).catch(() => {});
   };
 
   // Làm sạch đệm lót 1-chạm
   const handleCleanBedding = (stallCode) => {
-    setAssignedStalls(prev => prev.map(s => {
-      if (s.code === stallCode) {
-        return {
-          ...s,
-          bedding: 'Mùn cưa mới thay',
-          beddingStatus: 'GOOD',
-          lastCleaned: 'Vừa xong'
-        };
-      }
-      return s;
-    }));
+    setAssignedStalls(prev => {
+      const next = prev.map(s => {
+        if (s.code === stallCode) {
+          return {
+            ...s,
+            bedding: 'Mùn cưa mới thay',
+            beddingStatus: 'GOOD',
+            lastCleaned: 'Vừa xong'
+          };
+        }
+        return s;
+      });
+      try {
+        localStorage.setItem('matruong_groom_stalls_state', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    updateGroomStallStatusApi({ stallCode, bedding: 'Mùn cưa mới thay', beddingStatus: 'GOOD' }).catch(() => {});
     showToast(`Đã ghi nhận hoàn tất dọn vệ sinh ô chuồng ${stallCode}!`, 'VỆ SINH Ô CHUỒNG', 'info');
   };
 
@@ -341,6 +411,120 @@ export default function GroomPage() {
     showToast(`Đã phát tín hiệu báo động ca ${newInc.id} đến Bác sĩ Thú Y!`, 'BÁO ĐỘNG THÀNH CÔNG', 'info');
   };
 
+  // State: Quản lý phân công chăm sóc từ Chủ sở hữu (3 Groom cố định)
+  const [serviceAssignments, setServiceAssignments] = useState(() => getServiceAssignments());
+
+  useEffect(() => {
+    const handleUpdate = () => setServiceAssignments(getServiceAssignments());
+    window.addEventListener('matruong_service_assignment_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('matruong_service_assignment_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const [confirmedHorseModal, setConfirmedHorseModal] = useState(null);
+
+  // Lắng nghe thông báo khi chiến mã bị xóa từ phía Chủ sở hữu
+  useEffect(() => {
+    const handleNotificationUpdate = () => {
+      const list = getSystemNotifications();
+      const latest = list[0];
+      if (latest && latest.type === 'HORSE_DELETED') {
+        const deletedName = (latest.horseName || '').toLowerCase();
+        const stallCode = (latest.stable || '').match(/[A-Z0-9]+/i)?.[0] || '';
+        setAssignedStalls(prev => prev.map(s => {
+          const match = (s.horseName && s.horseName.toLowerCase() === deletedName) ||
+                        (stallCode && s.code.toLowerCase() === stallCode.toLowerCase());
+          if (match) {
+            return {
+              ...s,
+              horseName: '(Ô chuồng trống - Đã xuất)',
+              occupied: false,
+              breed: 'Vacant',
+              beddingStatus: 'GOOD',
+              waterStatus: 'CLEAN'
+            };
+          }
+          return s;
+        }));
+      }
+    };
+    window.addEventListener('matruong_notifications_updated', handleNotificationUpdate);
+    window.addEventListener('storage', handleNotificationUpdate);
+    return () => {
+      window.removeEventListener('matruong_notifications_updated', handleNotificationUpdate);
+      window.removeEventListener('storage', handleNotificationUpdate);
+    };
+  }, []);
+
+  const handleConfirmGroomService = (asgn) => {
+    const groomUser = currentUser?.username || 'groom_nam';
+    const updated = confirmServiceAssignment(asgn.horseName, 'GROOM', groomUser);
+    setServiceAssignments(updated);
+
+    const fullHorse = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+
+    // Bổ sung hoặc cập nhật ô chuồng của ngựa này trong assignedStalls
+    const stallCode = fullHorse.stable ? (fullHorse.stable.match(/[A-Z0-9]+/i)?.[0] || 'A1') : 'A1';
+    setAssignedStalls(prev => {
+      const exists = prev.some(s => s.code.toLowerCase() === stallCode.toLowerCase() || (s.horseName && s.horseName.toLowerCase() === fullHorse.name.toLowerCase()));
+      let next;
+      if (exists) {
+        next = prev.map(s => {
+          if (s.code.toLowerCase() === stallCode.toLowerCase() || (s.horseName && s.horseName.toLowerCase() === fullHorse.name.toLowerCase())) {
+            return {
+              ...s,
+              horseName: fullHorse.name,
+              occupied: true,
+              breed: fullHorse.breed || 'Thoroughbred',
+              avatar: fullHorse.avatar || s.avatar,
+              ownerName: fullHorse.ownerName || 'Phạm Tiến Thành',
+              owner: fullHorse.ownerName || 'Phạm Tiến Thành',
+              microchip: fullHorse.microchip || s.microchip,
+              specialNotes: `Chiến mã của chủ sở hữu ${fullHorse.ownerName || 'Phạm Tiến Thành'}`
+            };
+          }
+          return s;
+        });
+      } else {
+        next = [
+          {
+            code: stallCode,
+            horseName: fullHorse.name,
+            breed: fullHorse.breed || 'Thoroughbred',
+            microchip: fullHorse.microchip || 'MC-VN-NEW',
+            avatar: fullHorse.avatar,
+            ownerName: fullHorse.ownerName || 'Phạm Tiến Thành',
+            owner: fullHorse.ownerName || 'Phạm Tiến Thành',
+            occupied: true,
+            bedding: 'Mùn cưa sạch tiêu chuẩn',
+            beddingStatus: 'GOOD',
+            waterStatus: 'CLEAN',
+            waterLevel: 'Đầy (98%)',
+            temp: '22.5°C',
+            dietSchedule: 'Cỏ Alfalfa 4kg + Yến mạch 2kg',
+            dietStatus: 'PENDING',
+            lastCleaned: 'Vừa tiếp nhận',
+            status: 'NORMAL',
+            specialNotes: `Chiến mã của chủ sở hữu ${fullHorse.ownerName || 'Phạm Tiến Thành'}`
+          },
+          ...prev
+        ];
+      }
+      try {
+        localStorage.setItem('matruong_groom_stalls_state', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    // Mở modal toàn bộ Profile chi tiết của ngựa chủ sở hữu
+    setConfirmedHorseModal(fullHorse);
+
+    showToast(`Đã xác nhận nhận chăm sóc chiến mã "${fullHorse.name}" của Chủ sở hữu ${fullHorse.ownerName}!`, 'GROOM XÁC NHẬN CHĂM SÓC', 'success');
+  };
+
   // Tính tiến độ ca trực hôm nay
   const completedRoutinesCount = dailyRoutines.filter(r => r.completed).length;
   const routinePercent = Math.round((completedRoutinesCount / dailyRoutines.length) * 100);
@@ -354,7 +538,7 @@ export default function GroomPage() {
       />
 
       {/* ===================== 1. SIDEBAR NAVIGATION ===================== */}
-      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`} style={{ width: '280px', minWidth: '280px' }}>
+      <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="portal-brand">
           <div className="portal-brand-icon">
             <IconHorse size={22} color="#14100A" />
@@ -467,6 +651,7 @@ export default function GroomPage() {
           </div>
 
           <div className="portal-topbar-right">
+            <NotificationBell role="GROOM" currentUser={currentUser} />
             <ThemeToggle />
             <div className="portal-user-badge">
               <div className="portal-user-avatar">
@@ -593,7 +778,205 @@ export default function GroomPage() {
                 </button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+              {/* Khối Xác Nhận Chăm Sóc Cho Nhân Viên Groom */}
+              {(() => {
+                const currentUsername = currentUser?.username || 'groom_nam';
+                const assignedToMe = serviceAssignments.filter(a =>
+                  a.groomUsername === currentUsername ||
+                  (!a.groomUsername && currentUsername === 'groom_nam')
+                );
+                if (assignedToMe.length === 0) return null;
+
+                const pendingAssignments = assignedToMe.filter(a => a.groomStatus === 'PENDING');
+
+                return (
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '16px 20px',
+                    marginBottom: '20px',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '18px' }}>🌾</span>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>
+                            Chiến Mã Được Chủ Sở Hữu Chỉ Định Chăm Sóc ({assignedToMe.length})
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                            {pendingAssignments.length > 0
+                              ? `Có ${pendingAssignments.length} chiến mã mới đang chờ bạn xác nhận nhận chăm sóc.`
+                              : `Bạn đã xác nhận phụ trách chăm sóc đầy đủ cho tất cả chiến mã được giao.`}
+                          </div>
+                        </div>
+                      </div>
+                      {pendingAssignments.length > 0 && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '3px 10px', borderRadius: '12px' }}>
+                          {pendingAssignments.length} Chờ xác nhận
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 520px), 1fr))', gap: '14px' }}>
+                      {assignedToMe.map(asgn => {
+                        const isPending = asgn.groomStatus === 'PENDING';
+                        // Rút gọn mã ô chuồng để không bị tràn chữ (vd: 'Ô A1 (Block A - 18 m²)' -> 'Ô A1')
+                        const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
+                        const trClean = asgn.trainerName ? asgn.trainerName.replace(/^(HLV|Huấn luyện viên)\.?\s*/i, '').trim() : 'Trần Văn Hùng';
+                        const vetClean = asgn.vetName ? asgn.vetName.replace(/^(BS|Bác sĩ)\.?\s*/i, '').trim() : 'Nguyễn An';
+
+                        return (
+                          <div
+                            key={asgn.id || asgn.microchip}
+                            style={{
+                              background: 'var(--bg-secondary)',
+                              border: isPending ? '1px solid rgba(212, 175, 55, 0.4)' : '1px solid var(--line)',
+                              borderRadius: '10px',
+                              padding: '16px 20px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '12px',
+                              boxShadow: isPending ? '0 4px 16px rgba(0,0,0,0.25)' : 'none'
+                            }}
+                          >
+                            {/* Dòng 1: Tên chiến mã, ô chuồng & Nút thao tác */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                <b style={{ color: 'var(--paper)', fontSize: '16px' }}>{asgn.horseName}</b>
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  color: 'var(--brass)',
+                                  background: 'rgba(212, 175, 55, 0.12)',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid rgba(212, 175, 55, 0.25)'
+                                }}>
+                                  {stallCode}
+                                </span>
+                                {isPending && (
+                                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                                    Chờ xác nhận
+                                  </span>
+                                )}
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+                                    setConfirmedHorseModal(full);
+                                  }}
+                                  style={{
+                                    background: 'transparent',
+                                    color: 'var(--brass)',
+                                    border: '1px solid var(--brass)',
+                                    padding: '7px 14px',
+                                    borderRadius: '6px',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  title="Xem hồ sơ định danh chiến mã và thông tin chủ sở hữu"
+                                >
+                                  Xem hồ sơ
+                                </button>
+
+                                {isPending ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleConfirmGroomService(asgn)}
+                                    style={{
+                                      background: 'var(--brass)',
+                                      color: '#0A0D14',
+                                      border: 'none',
+                                      padding: '8px 16px',
+                                      borderRadius: '6px',
+                                      fontSize: '12px',
+                                      fontWeight: 800,
+                                      cursor: 'pointer',
+                                      boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    ✓ Nhận Chăm Sóc
+                                  </button>
+                                ) : (
+                                  <span style={{
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    color: '#10B981',
+                                    background: 'rgba(16, 185, 129, 0.12)',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    ✓ Đã Tiếp Nhận
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Dòng 2: Thông tin chi tiết ngăn cách bởi viền mờ */}
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '14px',
+                              flexWrap: 'wrap',
+                              paddingTop: '10px',
+                              borderTop: '1px solid var(--line)',
+                              fontSize: '12.5px'
+                            }}>
+                              <div style={{ color: 'var(--paper-dim)' }}>
+                                Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip}</span>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>Đội ngũ cùng phục vụ:</span>
+                                <span style={{
+                                  background: 'var(--bg-card)',
+                                  padding: '3px 10px',
+                                  borderRadius: '4px',
+                                  border: '1px solid var(--line)',
+                                  color: 'var(--paper)',
+                                  fontWeight: 600,
+                                  fontSize: '12px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  🏇 HLV {trClean}
+                                </span>
+                                <span style={{
+                                  background: 'var(--bg-card)',
+                                  padding: '3px 10px',
+                                  borderRadius: '4px',
+                                  border: '1px solid var(--line)',
+                                  color: 'var(--paper)',
+                                  fontWeight: 600,
+                                  fontSize: '12px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  🩺 BS. {vetClean}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="portal-cards-grid" style={{ display: 'grid', gap: '16px' }}>
                 {assignedStalls.map((s) => (
                   <div key={s.code} className="facility-card" style={{ padding: '18px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
@@ -610,8 +993,33 @@ export default function GroomPage() {
                           {s.code}
                         </span>
                         <div>
-                          <b style={{ fontSize: '15px', color: 'var(--paper)' }}>{s.horseName}</b>
-                          <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>{s.breed} · {s.microchip}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <b style={{ fontSize: '15px', color: 'var(--paper)' }}>{s.horseName}</b>
+                            {s.horseName && !s.horseName.includes('trống') && !s.horseName.includes('Trống') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const full = lookupFullHorseInfo(s.horseName || s.microchip);
+                                  setConfirmedHorseModal(full);
+                                }}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: 'var(--brass)',
+                                  cursor: 'pointer',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  textDecoration: 'underline'
+                                }}
+                              >
+                                Xem hồ sơ ↗
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>{s.breed} · {s.microchip || 'MC-VN-2026-662'}</div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 600, marginTop: '2px' }}>
+                            Chủ sở hữu: <span>{s.ownerName || s.owner || 'Phạm Tiến Thành'}</span>
+                          </div>
                         </div>
                       </div>
                       <span style={{
@@ -1105,6 +1513,14 @@ export default function GroomPage() {
             </form>
           </div>
         </div>
+      )}
+      {/* Modal Profile Chiến Mã của Chủ Sở Hữu khi Groom xác nhận */}
+      {confirmedHorseModal && (
+        <ConfirmedHorseProfileModal
+          horse={confirmedHorseModal}
+          role="GROOM"
+          onClose={() => setConfirmedHorseModal(null)}
+        />
       )}
     </div>
   );

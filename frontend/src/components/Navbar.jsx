@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { megaMenusData } from '../data/navigationData';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import ThemeToggle from './ThemeToggle';
 
 /* ─── HR Logo Badge ─── */
 function HRLogo() {
@@ -16,7 +16,6 @@ function HRLogo() {
 
 export default function Navbar({ onOpenAuth }) {
   const { currentUser, logout } = useAuth();
-  const { toggleTheme, isDark } = useTheme();
   const { lang, toggleLang, t } = useLanguage();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -42,11 +41,20 @@ export default function Navbar({ onOpenAuth }) {
         setMobileMenuOpen(false);
       }
     }
+    function handleResize() {
+      if (window.innerWidth > 1260) {
+        setMobileMenuOpen(false);
+        setActiveMega(null);
+      }
+    }
+
     document.addEventListener('click', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleResize);
     return () => {
       document.removeEventListener('click', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
 
@@ -55,13 +63,13 @@ export default function Navbar({ onOpenAuth }) {
   };
 
   const handleMouseEnter = (id) => {
-    if (window.innerWidth > 1140) {
+    if (window.innerWidth > 1260) {
       setActiveMega(id);
     }
   };
 
   const handleMouseLeave = () => {
-    if (window.innerWidth > 1140) {
+    if (window.innerWidth > 1260) {
       setActiveMega(null);
     }
   };
@@ -272,6 +280,154 @@ export default function Navbar({ onOpenAuth }) {
           </button>
         </nav>
       </div>
+
+      {/* 2. SIDE DRAWER DI ĐỘNG KHI BẤM 3 GẠCH (Trượt từ phải sang trái, 100vh, nền đặc sắc nét, KHÔNG MỜ) */}
+      <aside className={`mainnav-drawer ${mobileMenuOpen ? 'open' : ''}`}>
+        <div className="mainnav-drawer-header">
+          <div className="mainnav-drawer-title">
+            <span style={{ color: 'var(--brass)' }}>✦</span> {lang === 'vi' ? 'DANH MỤC HỆ THỐNG' : 'SYSTEM DIRECTORY'}
+          </div>
+          <button
+            type="button"
+            className="mainnav-drawer-close"
+            onClick={closeMenus}
+            aria-label="Đóng menu"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mainnav-drawer-links">
+          <Link to="/" onClick={closeMenus} className={`mainnav-drawer-item ${location.pathname === '/' ? 'active' : ''}`}>
+            {t('home')}
+          </Link>
+
+          {megaMenusData.map((menu) => {
+            const isOpen = activeMega === menu.id;
+            const label = lang === 'en' ? (menu.labelEn || menu.label) : (menu.labelVi || menu.label);
+            const title = lang === 'en' ? (menu.titleEn || menu.title) : (menu.titleVi || menu.title);
+            const ctaText = lang === 'en' ? (menu.ctaTextEn || menu.ctaText) : (menu.ctaTextVi || menu.ctaText);
+
+            return (
+              <div key={menu.id} className="mainnav-drawer-accordion">
+                <button
+                  type="button"
+                  className={`mainnav-drawer-accordion-btn ${isOpen ? 'open' : ''}`}
+                  onClick={() => toggleMega(menu.id)}
+                >
+                  <span>{label}</span>
+                  <span style={{ fontSize: '11px', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none' }}>▼</span>
+                </button>
+
+                {isOpen && (
+                  <div className="mainnav-drawer-accordion-content">
+                    <Link to={menu.ctaLink} onClick={closeMenus} className="mainnav-drawer-cta-link">
+                      ➜ {ctaText} ({title})
+                    </Link>
+                    {menu.links.map((sub, sIdx) => {
+                      const subTitle = lang === 'en' ? (sub.titleEn || sub.title) : (sub.titleVi || sub.title);
+                      return (
+                        <Link key={sIdx} to={sub.link} onClick={closeMenus} className="mainnav-drawer-sublink">
+                          • {subTitle}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* THÔNG TIN VAI TRÒ & NÚT HÀNH ĐỘNG TRONG DRAWER */}
+        <div className="mainnav-drawer-footer">
+          {currentUser ? (
+            <div className="mainnav-mobile-user-card">
+              <div className="mainnav-mobile-user-info">
+                <div className="mainnav-mobile-user-badge">
+                  {currentUser.role === 'TRAINER' ? '🏇 Huấn luyện viên' :
+                   currentUser.role === 'VET' ? '🩺 Bác sĩ Thú y' :
+                   (currentUser.role === 'GROOM' || currentUser.role_code === 'GROOM') ? '🌾 Nhân viên Chăm sóc' :
+                   (currentUser.role === 'OWNER' || currentUser.role_code === 'OWNER') ? '👑 Chủ sở hữu Ngựa' :
+                   '🛡️ Quản trị viên'}
+                </div>
+                <div className="mainnav-mobile-user-name">
+                  {currentUser.full_name || currentUser.username}
+                </div>
+              </div>
+
+              <div className="mainnav-mobile-buttons">
+                {currentUser.role === 'TRAINER' ? (
+                  <Link to="/trainer" className="btn btn-solid btn-role-trainer" onClick={closeMenus}>
+                    {t('trainerPortal')} ({currentUser.full_name || currentUser.username})
+                  </Link>
+                ) : currentUser.role === 'VET' ? (
+                  <Link to="/vet" className="btn btn-solid" style={{ background: '#8B5CF6', borderColor: '#8B5CF6', color: '#ffffff' }} onClick={closeMenus}>
+                    Cổng Bác sĩ Thú y ({currentUser.full_name || currentUser.username})
+                  </Link>
+                ) : (currentUser.role === 'GROOM' || currentUser.role_code === 'GROOM') ? (
+                  <Link to="/groom" className="btn btn-solid" style={{ background: '#0D9488', borderColor: '#0D9488', color: '#ffffff' }} onClick={closeMenus}>
+                    Cổng Chăm sóc ({currentUser.full_name || currentUser.username})
+                  </Link>
+                ) : (currentUser.role === 'OWNER' || currentUser.role_code === 'OWNER') ? (
+                  <Link to="/owner" className="btn btn-solid" style={{ background: 'var(--brass)', borderColor: 'var(--brass)', color: '#0A0D14' }} onClick={closeMenus}>
+                    Cổng Chủ ngựa ({currentUser.full_name || currentUser.username})
+                  </Link>
+                ) : (
+                  <Link to="/admin" className="btn btn-solid btn-role-admin" onClick={closeMenus}>
+                    {t('adminPortal')} ({currentUser.full_name || currentUser.username})
+                  </Link>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="btn-logout"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  <span>{t('logout')}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mainnav-mobile-auth-buttons">
+              <a 
+                className="btn btn-ghost" 
+                href="#register"
+                onClick={(e) => {
+                  e.preventDefault();
+                  closeMenus();
+                  if (onOpenAuth) onOpenAuth('register');
+                }}
+                style={{ flex: 1, textAlign: 'center' }}
+              >
+                {t('registerBtn')}
+              </a>
+              <a 
+                className="btn btn-solid" 
+                href="#login"
+                onClick={(e) => {
+                  e.preventDefault();
+                  closeMenus();
+                  if (onOpenAuth) onOpenAuth('login');
+                }}
+                style={{ flex: 1, textAlign: 'center' }}
+              >
+                {t('loginBtn')}
+              </a>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* 3. LỚP NỀN CHE PHÍA SAU KHI DRAWER MỞ (TUYỆT ĐỐI KHÔNG DÙNG BACKDROP BLUR) */}
+      {mobileMenuOpen && (
+        <div 
+          className="mainnav-backdrop" 
+          onClick={closeMenus}
+          aria-hidden="true"
+        />
+      )}
     </header>
   );
 }

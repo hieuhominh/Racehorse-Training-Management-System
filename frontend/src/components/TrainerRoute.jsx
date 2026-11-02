@@ -1,13 +1,12 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, getRolePortalPath } from '../context/AuthContext';
 
 /**
  * Route bảo vệ dành riêng cho Huấn luyện viên Trưởng (Role: TRAINER).
  * Tuân thủ chuẩn Protected Route của React Router:
  * - Nếu chưa đăng nhập: Tự động điều hướng về Trang chủ chính (/)
- * - Nếu đã đăng nhập nhưng không phải TRAINER: Tự động điều hướng về Trang chủ chính (/)
- * - Không hiển thị màn hình đăng nhập riêng lẻ cho từng vai trò.
+ * - Nếu đã đăng nhập nhưng không phải TRAINER: Tự động điều hướng về Cổng của vai trò người dùng đó
  */
 export default function TrainerRoute({ children }) {
   const { currentUser } = useAuth();
@@ -17,15 +16,10 @@ export default function TrainerRoute({ children }) {
     return <Navigate to="/" replace />;
   }
 
-  // 2. Cho phép TRAINER và ADMIN/MANAGER truy cập
-  const hasAccess = 
-    currentUser.role === 'TRAINER' || 
-    currentUser.role_code === 'TRAINER' || 
-    currentUser.role === 'MANAGER' || 
-    currentUser.role === 'ADMIN';
-
-  if (!hasAccess) {
-    return <Navigate to="/" replace />;
+  // 2. Chỉ cho phép vai trò TRAINER truy cập; các vai trò khác về Cổng của họ
+  const r = (currentUser.role || currentUser.role_code || '').toUpperCase();
+  if (r !== 'TRAINER') {
+    return <Navigate to={getRolePortalPath(currentUser)} replace />;
   }
 
   // 3. Đúng vai trò Huấn luyện viên: Hiển thị nội dung

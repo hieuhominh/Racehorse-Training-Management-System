@@ -4,6 +4,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
+import { getSystemNotifications } from '../services/notificationService';
 import { initialHorsesData } from '../data/horsesData';
 import {
   getHorsesApi,
@@ -113,12 +115,54 @@ export default function AdminPage() {
     navigate('/');
   };
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_tab_admin');
+      if (['overview', 'horses', 'stables', 'users', 'audit'].includes(saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'overview';
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
-  const [horseFilter, setHorseFilter] = useState('ALL');
-  const [userFilter, setUserFilter] = useState('ALL');
-  const [stableFilter, setStableFilter] = useState('ALL');
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('matruong_admin_view_mode');
+      if (['cards', 'table'].includes(saved)) return saved;
+    } catch {}
+    return 'cards';
+  }); // 'cards' | 'table'
+  const [horseFilter, setHorseFilter] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_admin_horse_filter') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+  const [userFilter, setUserFilter] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_admin_user_filter') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+  const [stableFilter, setStableFilter] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_admin_stable_filter') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('matruong_tab_admin', activeTab);
+      localStorage.setItem('matruong_admin_view_mode', viewMode);
+      localStorage.setItem('matruong_admin_horse_filter', horseFilter);
+      localStorage.setItem('matruong_admin_user_filter', userFilter);
+      localStorage.setItem('matruong_admin_stable_filter', stableFilter);
+    } catch {}
+  }, [activeTab, viewMode, horseFilter, userFilter, stableFilter]);
 
   // State danh sách ngựa quản lý
   const [horses, setHorses] = useState([
@@ -207,7 +251,7 @@ export default function AdminPage() {
     full_name: '',
     email: '',
     phone: '',
-    role: 'TRAINER',
+    role: 'OWNER',
     password: '123'
   });
 
@@ -227,6 +271,7 @@ export default function AdminPage() {
   const [newStallData, setNewStallData] = useState({
     stall_code: '',
     block: 'Block C',
+    tier: 'STANDARD',
     status: 'AVAILABLE',
     area: '16 m²',
     dim: '4.0 x 4.0m',
@@ -278,22 +323,100 @@ export default function AdminPage() {
       return url;
     };
 
-    getHorsesApi().then(res => {
-      if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
-        setHorses(res.data.map(h => ({ ...h, avatar: fixAvatar(h.avatar) })));
-      }
-    }).catch(() => {});
+    const loadHorses = () => {
+      getHorsesApi().then(res => {
+        if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
+          setHorses(res.data.map(h => ({ ...h, avatar: fixAvatar(h.avatar) })));
+        }
+      }).catch(() => {});
+    };
 
-    getStablesApi().then(res => {
-      if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
-        setStables(res.data.map(s => ({
-          ...s,
-          horse_avatar: s.horse_avatar ? fixAvatar(s.horse_avatar) : null
-        })));
-      }
-    }).catch(() => {});
+    const loadStables = () => {
+      getStablesApi().then(res => {
+        if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
+          setStables(res.data.map(s => ({
+            ...s,
+            horse_avatar: s.horse_avatar ? fixAvatar(s.horse_avatar) : null
+          })));
+        }
+      }).catch(() => {});
+    };
 
-    return () => { isMounted = false; };
+    loadHorses();
+    loadStables();
+
+    const handleStablesUpdated = () => {
+      loadStables();
+    };
+
+    window.addEventListener('matruong_stables_updated', handleStablesUpdated);
+    window.addEventListener('storage', handleStablesUpdated);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('matruong_stables_updated', handleStablesUpdated);
+      window.removeEventListener('storage', handleStablesUpdated);
+    };
+  }, []);
+
+  // Lắng nghe thông báo khi Chủ sở hữu xóa chiến mã
+  useEffect(() => {
+    const handleNotificationUpdate = () => {
+      const list = getSystemNotifications();
+      const latest = list[0];
+      if (latest && latest.type === 'HORSE_DELETED') {
+        const deletedName = latest.horseName || '';
+        const ownerName = latest.ownerName || 'Chủ sở hữu';
+        const stallCode = latest.stable || '';
+        const chip = latest.microchip || '';
+
+        // 1. Thêm sự kiện vào Audit Logs
+        setAuditLogs(prev => [
+          {
+            id: Date.now() + Math.random(),
+            time: latest.time || new Date().toLocaleString('vi-VN'),
+            user: `${ownerName} (Chủ sở hữu)`,
+            action: 'XÓA CHIẾN MÃ KHỎI HỆ THỐNG',
+            detail: `Chủ nuôi đã xóa chiến mã "${deletedName}" (Chip: ${chip || 'N/A'}${stallCode ? `, Vị trí: ${stallCode}` : ''}). Hệ thống đã tự động giải phóng ô chuồng và gửi thông báo tới HLV, Thú Y, Groom và Admin.`
+          },
+          ...prev
+        ]);
+
+        // 2. Giải phóng ô chuồng nếu có
+        if (stallCode || deletedName) {
+          const rawCode = stallCode.match(/[A-Z0-9]+/i)?.[0] || stallCode;
+          setStables(prev => prev.map(s => {
+            const matchStall = rawCode && s.stall_code.toLowerCase().includes(rawCode.toLowerCase());
+            const matchHorse = s.horse && deletedName && s.horse.toLowerCase().trim() === deletedName.toLowerCase().trim();
+            if (matchStall || matchHorse) {
+              return {
+                ...s,
+                status: 'AVAILABLE',
+                horse: '(Trống)',
+                breed: 'Vacant',
+                horse_avatar: null
+              };
+            }
+            return s;
+          }));
+        }
+
+        // 3. Xóa khỏi danh sách horses của Admin
+        setHorses(prev => prev.filter(h => {
+          const matchId = latest.horseId && String(h.id) === String(latest.horseId);
+          const matchChip = chip && h.microchip && h.microchip.toLowerCase() === chip.toLowerCase();
+          const matchName = deletedName && h.name && h.name.toLowerCase().trim() === deletedName.toLowerCase().trim();
+          return !(matchId || matchChip || matchName);
+        }));
+      }
+    };
+
+    window.addEventListener('matruong_notifications_updated', handleNotificationUpdate);
+    window.addEventListener('storage', handleNotificationUpdate);
+    return () => {
+      window.removeEventListener('matruong_notifications_updated', handleNotificationUpdate);
+      window.removeEventListener('storage', handleNotificationUpdate);
+    };
   }, []);
 
   // Thao tác khóa / mở y tế cho ngựa
@@ -509,16 +632,10 @@ export default function AdminPage() {
   // Thêm người dùng mới
   const handleCreateUser = (e) => {
     e.preventDefault();
-    const roleLabels = {
-      'MANAGER': 'Quản lý Câu lạc bộ',
-      'TRAINER': 'Huấn luyện viên Trưởng',
-      'VET': 'Bác sĩ Thú y',
-      'GROOM': 'Nhân viên Chăm sóc',
-      'OWNER': 'Chủ sở hữu Ngựa'
-    };
     registerUser({
       ...newUserData,
-      role_name: roleLabels[newUserData.role] || newUserData.role
+      role: 'OWNER',
+      role_name: 'Chủ sở hữu Ngựa'
     });
     setAuditLogs(prev => [
       {
@@ -526,12 +643,13 @@ export default function AdminPage() {
         time: new Date().toLocaleString('vi-VN'),
         user: `${currentUser?.username || 'admin'} (Admin)`,
         action: 'TẠO TÀI KHOẢN MỚI',
-        detail: `Thêm nhân sự ${newUserData.full_name} (${newUserData.username}) với vai trò ${roleLabels[newUserData.role]}`
+        detail: `Thêm tài khoản Chủ sở hữu ${newUserData.full_name} (${newUserData.username})`
       },
       ...prev
     ]);
     setShowAddUserModal(false);
-    setNewUserData({ username: '', full_name: '', email: '', phone: '', role: 'TRAINER', password: '123' });
+    setNewUserData({ username: '', full_name: '', email: '', phone: '', role: 'OWNER', password: '123' });
+    showToast(`Đã tạo tài khoản Chủ sở hữu "${newUserData.full_name}" thành công!`, 'TẠO TÀI KHOẢN', 'success');
   };
 
   // Mở modal sửa nhân sự
@@ -620,6 +738,21 @@ export default function AdminPage() {
     const targetName = deleteTargetUser.full_name;
     const targetUsername = deleteTargetUser.username;
     const targetRole = deleteTargetUser.role_name || deleteTargetUser.role;
+
+    // Không cho phép xóa 10 nhân sự cốt cán cố định
+    const fixedUsernames = ['admin', 'trainer_truong', 'trainer_nghia', 'trainer_anh', 'vet_an', 'vet_hoang', 'vet_linh', 'groom_nam', 'groom_dung', 'groom_thao'];
+    if (targetId <= 10 || fixedUsernames.includes(targetUsername)) {
+      showToast(
+        lang === 'en'
+          ? 'Cannot delete fixed club core staff (1 Admin, 3 Trainers, 3 Vets, 3 Grooms)!'
+          : 'Không thể xóa 10 nhân sự cố định của câu lạc bộ (1 Admin, 3 HLV, 3 BS Thú y, 3 Groom)!',
+        lang === 'en' ? 'FIXED STAFF' : 'NHÂN SỰ CỐ ĐỊNH',
+        'warning'
+      );
+      setShowDeleteModal(false);
+      setDeleteTargetUser(null);
+      return;
+    }
 
     deleteUser(targetId);
 
@@ -724,10 +857,13 @@ export default function AdminPage() {
     const isOccupied = newStallData.status === 'OCCUPIED';
     const horseName = isOccupied ? (newStallData.horse.trim() || 'Chiến mã mới') : '(Trống)';
     const breedName = isOccupied ? (newStallData.breed || 'Thoroughbred') : 'Vacant';
+    const isVipTier = newStallData.tier === 'VIP' || newStallData.block === 'Block VIP' || code.startsWith('VIP');
 
     const newStall = {
       stall_code: code,
       block: newStallData.block,
+      tier: isVipTier ? 'VIP' : 'STANDARD',
+      is_vip: isVipTier,
       status: newStallData.status,
       horse: horseName,
       breed: breedName,
@@ -748,13 +884,13 @@ export default function AdminPage() {
         time: new Date().toLocaleString('vi-VN'),
         user: `${currentUser?.username || 'admin'} (Admin)`,
         action: 'TẠO Ô CHUỒNG MỚI',
-        detail: `Khởi tạo thành công ô chuồng mới ${newStall.stall_code} (${newStall.block}, quy cách ${newStall.dim}, diện tích ${newStall.area})`
+        detail: `Khởi tạo thành công ô chuồng mới ${newStall.stall_code} (${newStall.block}, phân hạng ${newStall.tier === 'VIP' ? 'VIP' : 'Thường'}, quy cách ${newStall.dim}, diện tích ${newStall.area})`
       },
       ...prev
     ]);
 
     showToast(
-      lang === 'en' ? `Stall ${code} created successfully!` : `Đã tạo thành công ô chuồng mới ${code} (${newStall.block})!`,
+      lang === 'en' ? `Stall ${code} (${newStall.tier}) created successfully!` : `Đã tạo thành công ô chuồng mới ${code} (${newStall.block} - Phân hạng: ${newStall.tier === 'VIP' ? 'VIP' : 'Thường'})!`,
       lang === 'en' ? 'STALL CREATED' : 'TẠO CHUỒNG THÀNH CÔNG',
       'info'
     );
@@ -763,6 +899,7 @@ export default function AdminPage() {
     setNewStallData({
       stall_code: '',
       block: 'Block C',
+      tier: 'STANDARD',
       status: 'AVAILABLE',
       area: '16 m²',
       dim: '4.0 x 4.0m',
@@ -1138,6 +1275,7 @@ export default function AdminPage() {
               <IconGlobe size={15} color="var(--brass)" />
               <span>{lang === 'vi' ? 'VI' : 'EN'}</span>
             </button>
+            <NotificationBell role="ADMIN" currentUser={currentUser} />
             <ThemeToggle />
             <div className="portal-user-badge">
               <div className="portal-user-avatar">
@@ -1728,17 +1866,22 @@ export default function AdminPage() {
                 <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
                   {lang === 'en' ? 'RBAC Role' : 'Vai trò Nghiệp vụ (RBAC)'}
                 </label>
-                <select
-                  value={newUserData.role}
-                  onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                >
-                  <option value="TRAINER">{lang === 'en' ? 'Head Trainer' : 'Huấn luyện viên Trưởng (Trainer)'}</option>
-                  <option value="VET">{lang === 'en' ? 'Veterinarian (Vet)' : 'Bác sĩ Thú y (Veterinarian)'}</option>
-                  <option value="GROOM">{lang === 'en' ? 'Groom / Caretaker' : 'Nhân viên Chăm sóc (Groom)'}</option>
-                  <option value="OWNER">{lang === 'en' ? 'Horse Owner' : 'Chủ sở hữu Ngựa (Owner)'}</option>
-                  <option value="MANAGER">{lang === 'en' ? 'Club Manager' : 'Ban Quản lý Câu lạc bộ (Club Manager)'}</option>
-                </select>
+                <div style={{
+                  padding: '10px 12px',
+                  background: 'rgba(212, 175, 55, 0.08)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: 'var(--brass)',
+                  fontWeight: 700
+                }}>
+                  👑 {lang === 'en' ? 'Horse Owner (Owner)' : 'Chủ sở hữu Ngựa (Horse Owner)'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px', lineHeight: 1.4 }}>
+                  {lang === 'en'
+                    ? '* System core staff is fixed (1 Admin, 3 Trainers, 3 Vets, 3 Grooms). New accounts are added as Horse Owners.'
+                    : '* Hệ thống đã định biên cố định 10 nhân sự (1 Admin, 3 HLV, 3 BS Thú y, 3 Groom). Tài khoản mới tạo được phân quyền Chủ sở hữu ngựa để quản lý chiến mã.'}
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
@@ -2201,7 +2344,15 @@ export default function AdminPage() {
                     required
                     placeholder={lang === 'en' ? 'e.g. C1, B7, VIP-1' : 'Ví dụ: C1, B7, VIP-1'}
                     value={newStallData.stall_code}
-                    onChange={(e) => setNewStallData({ ...newStallData, stall_code: e.target.value.toUpperCase() })}
+                    onChange={(e) => {
+                      const codeVal = e.target.value.toUpperCase();
+                      const isVipCode = codeVal.startsWith('A') || codeVal.startsWith('B') || codeVal.startsWith('VIP');
+                      setNewStallData(prev => ({
+                        ...prev,
+                        stall_code: codeVal,
+                        tier: isVipCode ? 'VIP' : prev.tier
+                      }));
+                    }}
                     style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box', fontWeight: 700 }}
                   />
                 </div>
@@ -2211,15 +2362,82 @@ export default function AdminPage() {
                   </label>
                   <select
                     value={newStallData.block}
-                    onChange={(e) => setNewStallData({ ...newStallData, block: e.target.value })}
+                    onChange={(e) => {
+                      const blk = e.target.value;
+                      const isVipBlock = blk === 'Block VIP' || blk === 'Block A' || blk === 'Block B';
+                      setNewStallData({
+                        ...newStallData,
+                        block: blk,
+                        tier: isVipBlock ? 'VIP' : 'STANDARD'
+                      });
+                    }}
                     style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
                   >
-                    <option value="Block A">{lang === 'en' ? 'Block A (Main Training)' : 'Block A (Huấn luyện chính)'}</option>
-                    <option value="Block B">{lang === 'en' ? 'Block B (Standard Stalls)' : 'Block B (Chuồng tiêu chuẩn)'}</option>
-                    <option value="Block C">{lang === 'en' ? 'Block C (Expansion Zone)' : 'Block C (Khu mở rộng mới)'}</option>
-                    <option value="Block VIP">{lang === 'en' ? 'Block VIP (Equine Luxury)' : 'Block VIP (Chuồng cao cấp)'}</option>
+                    <option value="Block A">{lang === 'en' ? 'Block A (Main Training - VIP)' : 'Block A (Huấn luyện chính - VIP)'}</option>
+                    <option value="Block B">{lang === 'en' ? 'Block B (Standard VIP Stalls)' : 'Block B (Chuồng tiêu chuẩn VIP)'}</option>
+                    <option value="Block C">{lang === 'en' ? 'Block C (Standard Stalls)' : 'Block C (Chuồng thường tiêu chuẩn)'}</option>
+                    <option value="Block VIP">{lang === 'en' ? 'Block VIP (Equine Luxury)' : 'Block VIP (Chuồng cao cấp đặc quyền)'}</option>
                     <option value="Khu Y Tế">{lang === 'en' ? 'Vet Clinic & Quarantine' : 'Khu Y Tế & Cách Ly'}</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Phân hạng ô chuồng: Thường vs VIP */}
+              <div>
+                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+                  {lang === 'en' ? 'Stall Tier Classification *' : 'Phân Hạng Ô Chuồng (VIP / Chuồng Thường) *'}
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setNewStallData({ ...newStallData, tier: 'STANDARD' })}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      border: newStallData.tier === 'STANDARD' ? '2px solid var(--brass)' : '1px solid var(--line)',
+                      background: newStallData.tier === 'STANDARD' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
+                      color: newStallData.tier === 'STANDARD' ? 'var(--brass)' : 'var(--paper-dim)',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <span>🏷️</span>
+                    <span>{lang === 'en' ? 'Standard Stall' : 'Chuồng Thường (Tiêu chuẩn)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewStallData({ ...newStallData, tier: 'VIP' })}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      border: newStallData.tier === 'VIP' ? '2px solid #F59E0B' : '1px solid var(--line)',
+                      background: newStallData.tier === 'VIP' ? 'rgba(245, 158, 11, 0.18)' : 'var(--bg-secondary)',
+                      color: newStallData.tier === 'VIP' ? '#FBBF24' : 'var(--paper-dim)',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <span>👑</span>
+                    <span>{lang === 'en' ? 'VIP Stall' : 'Chuồng VIP (Chỉ VIP thấy)'}</span>
+                  </button>
+                </div>
+                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '5px' }}>
+                  {newStallData.tier === 'VIP'
+                    ? '👑 Chuồng VIP: Chỉ các chủ sở hữu có đăng ký gói VIP mới thấy ô chuồng này khi đăng ký ngựa.'
+                    : '🏷️ Chuồng Thường: Hiển thị cho tất cả chủ sở hữu (cả người chưa VIP lẫn người có VIP).'}
                 </div>
               </div>
 
