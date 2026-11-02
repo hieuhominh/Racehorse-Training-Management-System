@@ -349,6 +349,21 @@ export function AuthProvider({ children }) {
       return { success: false, error: 'Tài khoản hoặc mật khẩu không chính xác.' };
     }
 
+    if (found.status === 'PENDING') {
+      return { 
+        success: false, 
+        isPending: true,
+        error: 'Tài khoản của bạn đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin hoặc thử lại sau khi được kích hoạt!' 
+      };
+    }
+
+    if (found.status === 'REJECTED') {
+      return { 
+        success: false, 
+        error: 'Yêu cầu đăng ký tài khoản của bạn đã bị từ chối bởi Quản trị viên.' 
+      };
+    }
+
     if (found.status && found.status !== 'ACTIVE') {
       return { success: false, error: 'Tài khoản này hiện đang bị tạm khóa!' };
     }
@@ -418,7 +433,10 @@ export function AuthProvider({ children }) {
       phone: userData.phone || '0900000000',
       role: userRole,
       role_name: userData.role_name || roleMap[userRole] || 'Chủ sở hữu Ngựa',
-      status: 'ACTIVE'
+      status: 'PENDING',
+      isNewAccount: true,
+      registeredAt: new Date().toISOString(),
+      approvedAt: null
     };
 
     // Cập nhật ngay vào localStorage để hàm login gọi tức thì có thể tìm thấy ngay
@@ -427,6 +445,41 @@ export function AuthProvider({ children }) {
     setUsersList(updatedUsers);
 
     return newUser;
+  };
+
+  // Phê duyệt tài khoản mới (dành cho Admin)
+  const approveUser = (userId) => {
+    const approvedTime = new Date().toISOString();
+    updateUserApi(userId, { status: 'ACTIVE', approvedAt: approvedTime }).catch(() => {});
+    setUsersList(prev => {
+      const nextList = prev.map(u => {
+        if (Number(u.user_id) === Number(userId)) {
+          return { ...u, status: 'ACTIVE', approvedAt: approvedTime };
+        }
+        return u;
+      });
+      try {
+        localStorage.setItem('matruong_users_list', JSON.stringify(nextList));
+      } catch {}
+      return nextList;
+    });
+  };
+
+  // Từ chối phê duyệt tài khoản (dành cho Admin)
+  const rejectUser = (userId, reason = '') => {
+    updateUserApi(userId, { status: 'REJECTED', rejectReason: reason }).catch(() => {});
+    setUsersList(prev => {
+      const nextList = prev.map(u => {
+        if (Number(u.user_id) === Number(userId)) {
+          return { ...u, status: 'REJECTED', rejectReason: reason };
+        }
+        return u;
+      });
+      try {
+        localStorage.setItem('matruong_users_list', JSON.stringify(nextList));
+      } catch {}
+      return nextList;
+    });
   };
 
   // Cập nhật người dùng (dành cho Admin)
@@ -481,7 +534,9 @@ export function AuthProvider({ children }) {
       registerUser,
       updateUser,
       deleteUser,
-      toggleUserStatus
+      toggleUserStatus,
+      approveUser,
+      rejectUser
     }}>
       {children}
     </AuthContext.Provider>
