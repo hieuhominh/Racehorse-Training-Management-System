@@ -291,6 +291,93 @@ export function lookupFullHorseInfo(horseIdentifier) {
     String(item.id) === key
   );
 
+const DEFAULT_HORSE_PEDIGREES = {
+  'hắc phong': {
+    sire: 'Deep Impact (JPN)',
+    sireOfSire: 'Sunday Silence (USA)',
+    damOfSire: 'Wind in Her Hair (IRE)',
+    sireAchievements: 'Huyền thoại 7 danh hiệu G1, Vô địch Japan Cup',
+    dam: 'Northern Dancer (USA)',
+    sireOfDam: 'Nearctic (CAN)',
+    damOfDam: 'Natalma (USA)',
+    damAchievements: 'Dòng máu cái vĩ đại nhất lịch sử đua ngựa thế giới',
+    foaled: '2022 (4 tuổi)',
+    bloodline: 'Sunday Silence × Northern Dancer (98.5% thuần chủng)',
+    origin: 'Nhật Bản (JRA) & Hoa Kỳ',
+    studBookNo: 'VTB-SB-2024-001'
+  },
+  'xích thố': {
+    sire: 'Marwan Al Shaqab (QAT)',
+    sireOfSire: 'Gazal Al Shaqab (QAT)',
+    damOfSire: 'Little Liza Fame (USA)',
+    sireAchievements: 'Vô địch World Champion Stallion 3 năm liên tiếp',
+    dam: 'Al Adeed Al Shaqab (QAT)',
+    sireOfDam: 'Ansata Halim Shah (USA)',
+    damOfDam: 'Sundar Alisayyah (USA)',
+    damAchievements: 'Huyền thoại dòng Arabian thuần chủng sa mạc',
+    foaled: '2021 (5 tuổi)',
+    bloodline: 'Al Shaqab Desert Arabian (100% thuần chủng)',
+    origin: 'Qatar & UAE',
+    studBookNo: 'VTB-SB-2021-014'
+  },
+  'phi yến': {
+    sire: 'Frankel (GB)',
+    sireOfSire: 'Galileo (IRE)',
+    damOfSire: 'Kind (IRE)',
+    sireAchievements: 'Bất bại 14/14 chặng đua G1, Chiến mã số 1 hành tinh',
+    dam: 'Sea The Stars (IRE)',
+    sireOfDam: 'Cape Cross (IRE)',
+    damOfDam: 'Urban Sea (USA)',
+    damAchievements: 'Vô địch Prix de l\'Arc de Triomphe & 2000 Guineas',
+    foaled: '2023 (3 tuổi)',
+    bloodline: 'Frankel (GB) × Sea The Stars (IRE)',
+    origin: 'Anh Quốc (Weatherbys) & Ireland',
+    studBookNo: 'VTB-SB-2023-009'
+  },
+  'lôi chấn': {
+    sire: 'Corona Cartel (USA)',
+    sireOfSire: 'Holland Ease (USA)',
+    damOfSire: 'Corona Chick (USA)',
+    sireAchievements: 'Vua nước rút Quarter Horse, Hall of Fame AQHA',
+    dam: 'First Down Dash (USA)',
+    sireOfDam: 'Dash For Cash (USA)',
+    damOfDam: 'First Prize Rose (USA)',
+    damAchievements: 'Dòng dõi vô địch All American Futurity danh giá',
+    foaled: '2021 (5 tuổi)',
+    bloodline: 'Corona Cartel × Dash For Cash',
+    origin: 'Hoa Kỳ (AQHA Stud Book)',
+    studBookNo: 'VTB-SB-2022-088'
+  },
+  'bạch long': {
+    sire: 'Tapit (USA)',
+    sireOfSire: 'Pulpit (USA)',
+    damOfSire: 'Tap Your Heels (USA)',
+    sireAchievements: 'Đứng đầu danh sách Sire Bắc Mỹ 3 lần liên tiếp',
+    dam: 'Flightline (USA)',
+    sireOfDam: 'Tapit (USA)',
+    damOfDam: 'Feathered (USA)',
+    damAchievements: 'Chiến mã số 1 thế giới Longines World\'s Best Racehorse',
+    foaled: '2024 (2 tuổi)',
+    bloodline: 'Tapit × A.P. Indy Lineage',
+    origin: 'Hoa Kỳ (Keeneland)',
+    studBookNo: 'VTB-SB-2024-003'
+  },
+  'chiến mã hiếu': {
+    sire: 'Secretariat (USA)',
+    sireOfSire: 'Bold Ruler (USA)',
+    damOfSire: 'Somethingroyal (USA)',
+    sireAchievements: 'Huyền thoại Triple Crown Hoa Kỳ với kỷ lục bất bại',
+    dam: 'Zenyatta (USA)',
+    sireOfDam: 'Street Cry (IRE)',
+    damOfDam: 'Vertigineux (USA)',
+    damAchievements: 'Chiến mã cái bất bại 19 chặng đua G1 danh giá',
+    foaled: '2023 (3 tuổi)',
+    bloodline: 'Secretariat × Street Cry',
+    origin: 'Kentucky, Hoa Kỳ',
+    studBookNo: 'VTB-SB-2026-662'
+  }
+};
+
   const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
   const horseName = foundOwnerHorse?.name || matchAsgn?.horseName || horseIdentifier;
   const microchip = foundOwnerHorse?.microchip || matchAsgn?.microchip || 'MC-VN-2026-001';
@@ -300,10 +387,41 @@ export function lookupFullHorseInfo(horseIdentifier) {
   const gender = foundOwnerHorse?.gender || matchAsgn?.gender || 'Ngựa đực (Stallion)';
   const age = foundOwnerHorse?.age || matchAsgn?.age || '3 tuổi';
   const avatar = foundOwnerHorse?.avatar || matchAsgn?.avatar || defaultAvatar;
-  const pedigree = foundOwnerHorse?.pedigree || matchAsgn?.pedigree || {
-    sire: foundOwnerHorse?.sire || matchAsgn?.sire || 'Storm Cat (USA)',
-    dam: foundOwnerHorse?.dam || matchAsgn?.dam || 'Winning Colors (USA)'
+
+  const fallbackPed = DEFAULT_HORSE_PEDIGREES[horseName.toLowerCase()] ||
+                       DEFAULT_HORSE_PEDIGREES[String(microchip).toLowerCase()] || {
+    sire: 'Storm Cat (USA)',
+    sireOfSire: 'Storm Bird (CAN)',
+    damOfSire: 'Terlingua (USA)',
+    sireAchievements: 'Đầu dòng Sire xuất chúng hàng đầu thế giới',
+    dam: 'Winning Colors (USA)',
+    sireOfDam: 'Caro (IRE)',
+    damOfDam: 'All Rainbows (USA)',
+    damAchievements: 'Vô địch Kentucky Derby danh giá',
+    foaled: age || '2023 (3 tuổi)',
+    bloodline: 'Storm Cat × Caro (Thoroughbred F1)',
+    origin: 'Hoa Kỳ (The Jockey Club)',
+    studBookNo: `VTB-SB-${microchip ? microchip.replace(/\D/g, '').slice(-4) : '2026'}`
   };
+
+  const rawPed = foundOwnerHorse?.pedigree || matchAsgn?.pedigree || {};
+  const pedigree = {
+    ...fallbackPed,
+    ...rawPed,
+    sire: rawPed.sire || fallbackPed.sire,
+    dam: rawPed.dam || fallbackPed.dam,
+    sireOfSire: rawPed.sireOfSire || fallbackPed.sireOfSire,
+    damOfSire: rawPed.damOfSire || fallbackPed.damOfSire,
+    sireOfDam: rawPed.sireOfDam || fallbackPed.sireOfDam,
+    damOfDam: rawPed.damOfDam || fallbackPed.damOfDam,
+    sireAchievements: rawPed.sireAchievements || fallbackPed.sireAchievements,
+    damAchievements: rawPed.damAchievements || fallbackPed.damAchievements,
+    studBookNo: rawPed.studBookNo || fallbackPed.studBookNo,
+    foaled: rawPed.foaled || fallbackPed.foaled,
+    origin: rawPed.origin || fallbackPed.origin,
+    bloodline: rawPed.bloodline || fallbackPed.bloodline
+  };
+
   const ownershipShare = foundOwnerHorse?.ownershipShare || matchAsgn?.ownershipShare || 100;
 
   return {

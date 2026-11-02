@@ -33,20 +33,6 @@ function ScrollToTop() {
   return null;
 }
 
-/**
- * Route bảo vệ chỉ dành cho khách vãng lai (Chưa đăng nhập).
- * Khi đã đăng nhập ở bất kỳ vai trò nào (ADMIN/MANAGER, TRAINER, VET, GROOM, OWNER),
- * người dùng bắt buộc chỉ ở trong Cổng điều hành của vai trò đó,
- * tuyệt đối không hiển thị Trang chủ (/) hay các trang công cộng khác.
- */
-function PublicOnlyRoute({ children }) {
-  const { currentUser } = useAuth();
-  if (currentUser) {
-    return <Navigate to={getRolePortalPath(currentUser)} replace />;
-  }
-  return children;
-}
-
 function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
   const { currentUser } = useAuth();
   const location = useLocation();
@@ -63,22 +49,22 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
 
   return (
     <div className={`app-container ${isRolePortal ? 'in-portal' : ''}`}>
-      {/* 1. Chỉ hiển thị Ticker & Navbar trên các trang Public khi CHƯA đăng nhập */}
-      {!isRolePortal && !currentUser && <Ticker onOpenAuth={handleOpenAuth} />}
-      {!isRolePortal && !currentUser && <Navbar onOpenAuth={handleOpenAuth} />}
+      {/* 1. Hiển thị Ticker & Navbar trên các trang Public */}
+      {!isRolePortal && <Ticker onOpenAuth={handleOpenAuth} />}
+      {!isRolePortal && <Navbar onOpenAuth={handleOpenAuth} />}
 
       {/* 2. Dynamic Page Routing */}
       <Routes>
-        <Route path="/" element={<PublicOnlyRoute><HomePage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
-        <Route path="/ho-so-ngua" element={<PublicOnlyRoute><HorsesPage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
-        <Route path="/ho-so-ngua.html" element={<PublicOnlyRoute><HorsesPage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
-        <Route path="/ho-so-ngua/pedigree.html" element={<PublicOnlyRoute><HorsesPage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
-        <Route path="/thanh-tich" element={<PublicOnlyRoute><AchievementsPage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
-        <Route path="/thanh-tich.html" element={<PublicOnlyRoute><AchievementsPage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
-        <Route path="/ho-so-ngua/thanh-tich.html" element={<PublicOnlyRoute><AchievementsPage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
-        <Route path="/chuong-trai" element={<PublicOnlyRoute><StablesPage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
-        <Route path="/chuong-trai.html" element={<PublicOnlyRoute><StablesPage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
-        <Route path="/chuong-trai/so-do.html" element={<PublicOnlyRoute><StablesPage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
+        <Route path="/" element={<HomePage onOpenAuth={handleOpenAuth} />} />
+        <Route path="/ho-so-ngua" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
+        <Route path="/ho-so-ngua.html" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
+        <Route path="/ho-so-ngua/pedigree.html" element={<HorsesPage onOpenAuth={handleOpenAuth} />} />
+        <Route path="/thanh-tich" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
+        <Route path="/thanh-tich.html" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
+        <Route path="/ho-so-ngua/thanh-tich.html" element={<AchievementsPage onOpenAuth={handleOpenAuth} />} />
+        <Route path="/chuong-trai" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
+        <Route path="/chuong-trai.html" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
+        <Route path="/chuong-trai/so-do.html" element={<StablesPage onOpenAuth={handleOpenAuth} />} />
         
         {/* CỔNG QUẢN TRỊ VIÊN BẢO MẬT (ADMIN PORTAL) */}
         <Route 
@@ -234,11 +220,11 @@ function AppShell({ authModal, handleOpenAuth, handleCloseAuth }) {
           } 
         />
 
-        <Route path="*" element={<PublicOnlyRoute><HomePage onOpenAuth={handleOpenAuth} /></PublicOnlyRoute>} />
+        <Route path="*" element={<HomePage onOpenAuth={handleOpenAuth} />} />
       </Routes>
 
-      {/* 3. Chỉ hiển thị Chân trang trên các trang Public khi CHƯA đăng nhập */}
-      {!isRolePortal && !currentUser && <Footer onOpenAuth={handleOpenAuth} />}
+      {/* 3. Hiển thị Chân trang trên các trang Public */}
+      {!isRolePortal && <Footer onOpenAuth={handleOpenAuth} />}
 
       {/* Modal Đăng nhập & Đăng ký (khởi tạo chính xác tab khi bấm nút) */}
       {authModal.isOpen && (

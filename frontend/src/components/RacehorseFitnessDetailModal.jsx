@@ -1,41 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { getHorseFitnessTelemetry, calculateHorseFitnessOnSession, REQUIRED_WORKOUTS_TO_EVALUATE } from '../services/fitnessAlgorithm';
-
-// SVG Biểu tượng Chiến Mã Hồi Phục Đầy Uy Lực (Thay thế hình người que)
-const IconRacehorseSilhouette = ({ size = 68, color = '#10B981' }) => (
-  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" style={{ filter: `drop-shadow(0 2px 8px ${color}40)` }}>
-    {/* Dáng ngựa đua dũng mãnh, giương vó tự hào */}
-    <path
-      d="M10 48C13 44 16 41 20 40C23 39 26 39 29 38C30 35 29 30 27 26C26 23 23 20 25 16C26 13 29 11 34 10C37 9 40 8 43 9C45 10 46 12 45 15C43 18 40 20 42 24C44 27 49 30 53 31C55 32 56 34 55 36C53 39 49 40 46 40C44 43 42 47 40 52C39 54 36 55 34 54C32 53 33 49 34 46C32 45 28 45 25 47C23 49 22 53 20 56C18 58 15 57 14 55C12 52 11 50 10 48Z"
-      fill={color}
-    />
-    <path
-      d="M34 10C35 7 38 6 41 7C43 8 44 10 43 12C41 14 38 15 36 14C35 13 34 11 34 10Z"
-      fill={color}
-      opacity="0.9"
-    />
-    <path
-      d="M20 56L18 61C17 62 16 62 15 61C14 60 14 59 15 58L17 54"
-      stroke={color}
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    />
-    <path
-      d="M40 52L43 60C44 61 45 61 46 60C47 59 47 58 46 57L44 50"
-      stroke={color}
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    />
-    {/* Đuôi ngựa uyển chuyển */}
-    <path
-      d="M10 48C8 52 7 57 9 60C9 61 11 61 11 60C11 57 11 53 13 50"
-      stroke={color}
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-  </svg>
-);
+import { 
+  getHorseFitnessTelemetry, 
+  calculateHorseFitnessOnSession, 
+  REQUIRED_WORKOUTS_TO_EVALUATE,
+  computeCurrentDecayedRecovery 
+} from '../services/fitnessAlgorithm';
+import EquineRecoveryIcon from './EquineRecoveryIcon';
 
 export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHorse, sessions = [] }) {
   if (!horse) return null;
@@ -59,6 +30,18 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
     window.addEventListener('racehorse-fitness-updated', handleFitnessUpdate);
     return () => window.removeEventListener('racehorse-fitness-updated', handleFitnessUpdate);
   }, [horse]);
+
+  // Tự động tính toán phục hồi theo thời gian thực (Time-decay recovery)
+  useEffect(() => {
+    if (!telemetry || telemetry.isCalibrating) return;
+    const interval = setInterval(() => {
+      const live = computeCurrentDecayedRecovery(telemetry);
+      if (live !== telemetry.recoveryPercent) {
+        setTelemetry(prev => ({ ...prev, recoveryPercent: live }));
+      }
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [telemetry]);
 
   // Hàm kích hoạt thuật toán tính toán tức thì khi huấn luyện viên ghi nhận bài tập
   const triggerSessionAlgorithm = (status) => {
@@ -503,16 +486,14 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                       <div style={{ fontSize: '24px', fontWeight: 800, color: isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? '#10B981' : (isFitnessStable ? '#F59E0B' : '#EF4444')) }}>
                         {isCalibrating 
                           ? `Đang hiệu chuẩn (${telemetry.workoutCount || 0}/3 bài tập)`
-                          : (isFitnessIncreasing ? 'Tối ưu (Thể lực tăng mạnh)' : (isFitnessStable ? 'Ổn định (Duy trì phong độ)' : 'Cảnh báo (Mệt mỏi / Quá tải)'))}
+                          : (telemetry.statusText || (isFitnessIncreasing ? 'Tối ưu (Thể lực tăng mạnh)' : 'Cảnh báo (Mệt mỏi / Quá tải)'))}
                       </div>
                       <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: 1.55, marginTop: '8px' }}>
                         {isCalibrating
                           ? 'Chiến mã mới tiếp nhận phục vụ. Huấn luyện viên trưởng cần cho chiến mã chạy hoàn thành hoặc không hoàn thành đủ 3 bài tập để đo đạc chỉ số tim mạch, tốc độ sải chân và tải luyện tập.'
-                          : (isFitnessIncreasing
+                          : (telemetry.explanation || (isFitnessIncreasing
                             ? 'Chiến mã thích ứng hoàn hảo với giáo án huấn luyện. Tải ngắn hạn kích hoạt tốt quá trình trao đổi chất cơ bắp mà không gây tổn thương gân móng.'
-                            : (isFitnessStable
-                              ? 'Chiến mã duy trì nền tảng thể lực ổn định. Cần bổ sung các bài tập bứt tốc cự ly ngắn để kích thích bùng nổ trước thềm giải đấu.'
-                              : 'Chiến mã chưa hoàn thành trọn vẹn khối lượng bài tập hoặc có dấu hiệu mệt mỏi. Cần hạ tải, theo dõi cơ bắp và cho đi bộ xả cơ.'))}
+                            : 'Chiến mã chưa hoàn thành trọn vẹn khối lượng bài tập hoặc có dấu hiệu mệt mỏi. Cần hạ tải, theo dõi cơ bắp và cho đi bộ xả cơ.'))}
                       </p>
                     </div>
                   </div>
@@ -583,30 +564,39 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                   {/* Bar Chart 7 ngày */}
                   <div style={{ marginTop: '14px' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '110px', paddingBottom: '4px' }}>
-                      {[
-                        { day: 'T3', pct: isCalibrating ? 0 : 85, h: isCalibrating ? '0px' : '70px', active: !isCalibrating },
-                        { day: 'T4', pct: 0, h: '0px', active: false },
-                        { day: 'T5', pct: isCalibrating ? 0 : 60, h: isCalibrating ? '0px' : '50px', active: !isCalibrating },
-                        { day: 'T6', pct: 0, h: '0px', active: false },
-                        { day: 'Sat', pct: 0, h: '0px', active: false },
-                        { day: 'CN', pct: 0, h: '0px', active: false },
-                        { day: 'Hôm nay', pct: isCalibrating ? (telemetry.workoutCount ? 50 : 0) : telemetry.performanceToday, h: isCalibrating ? (telemetry.workoutCount ? '35px' : '0px') : `${Math.min(95, Math.round((telemetry.performanceToday / 120) * 90))}px`, active: (telemetry.workoutCount || 0) > 0 }
-                      ].map(bar => (
-                        <div key={bar.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flex: 1 }}>
-                          <div style={{ width: '18px', height: '85px', display: 'flex', alignItems: 'flex-end', background: 'rgba(255,255,255,0.03)', borderRadius: '3px' }}>
-                            {bar.active && (
-                              <div style={{
-                                width: '100%',
-                                height: bar.h,
-                                background: isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? 'linear-gradient(180deg, #00E5FF 0%, #10B981 100%)' : 'linear-gradient(180deg, #F59E0B 0%, #EF4444 100%)'),
-                                borderRadius: '3px',
-                                transition: 'height 0.4s ease'
-                              }} />
-                            )}
-                          </div>
-                          <span style={{ fontSize: '10px', color: '#94A3B8' }}>{bar.day}</span>
-                        </div>
-                      ))}
+                      {(() => {
+                        const days = ['T3', 'T4', 'T5', 'T6', 'Sat', 'CN', 'Hôm nay'];
+                        const hist = Array.isArray(telemetry.performanceHistory7Days) && telemetry.performanceHistory7Days.length === 7
+                          ? telemetry.performanceHistory7Days
+                          : [88, 0, 92, 0, 101, 85, telemetry.performanceToday || 101];
+
+                        return days.map((dayLabel, idx) => {
+                          const val = hist[idx] || 0;
+                          const hasVal = !isCalibrating && val > 0;
+                          const heightPx = isCalibrating 
+                            ? (idx === 6 && (telemetry.workoutCount || 0) > 0 ? 35 : 0) 
+                            : Math.min(85, Math.round((val / 125) * 85));
+
+                          return (
+                            <div key={dayLabel} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flex: 1 }}>
+                              <div style={{ width: '18px', height: '85px', display: 'flex', alignItems: 'flex-end', background: 'rgba(255,255,255,0.03)', borderRadius: '3px' }}>
+                                {(hasVal || (isCalibrating && heightPx > 0)) && (
+                                  <div style={{
+                                    width: '100%',
+                                    height: `${heightPx}px`,
+                                    background: isCalibrating 
+                                      ? '#F59E0B' 
+                                      : (val >= 95 ? 'linear-gradient(180deg, #00E5FF 0%, #10B981 100%)' : 'linear-gradient(180deg, #F59E0B 0%, #EF4444 100%)'),
+                                    borderRadius: '3px',
+                                    transition: 'height 0.4s ease'
+                                  }} />
+                                )}
+                              </div>
+                              <span style={{ fontSize: '10px', color: '#94A3B8' }}>{dayLabel}</span>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                     <div style={{ fontSize: '10.5px', color: '#64748B', textAlign: 'right', marginTop: '4px' }}>
                       {isCalibrating ? 'Cần 3 bài tập để hiển thị biểu đồ' : 'Chuẩn đua: 90% — 120%'}
@@ -692,7 +682,7 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
 
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '12px 0' }}>
                     <div style={{ marginBottom: '6px' }}>
-                      <IconRacehorseSilhouette size={64} color={recoveryColor} />
+                      <EquineRecoveryIcon recoveryPercent={telemetry.recoveryPercent} isCalibrating={isCalibrating} size={70} />
                     </div>
 
                     <div style={{ fontSize: '32px', fontWeight: 800, color: isCalibrating ? '#F59E0B' : '#FFFFFF', lineHeight: 1 }}>
@@ -701,8 +691,15 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                     <div style={{ fontSize: '12px', color: recoveryColor, fontWeight: 700, marginTop: '4px' }}>
                       {isCalibrating 
                         ? `Chờ phân tích sau đủ 3 bài tập (${telemetry.workoutCount || 0}/3)`
-                        : (telemetry.recoveryPercent >= 85 ? 'Hồi phục hoàn toàn (100%)' : (telemetry.recoveryPercent >= 60 ? 'Đang trong chu kỳ hồi phục tích cực' : 'Cần nghỉ ngơi / Mệt mỏi sau bài tập'))}
+                        : (telemetry.recoveryPercent >= 90 ? 'Hồi phục hoàn toàn (100%)' : (telemetry.recoveryPercent >= 65 ? 'Đang trong chu kỳ hồi phục tích cực' : 'Cần nghỉ ngơi / Mệt mỏi sau bài tập'))}
                     </div>
+                    {!isCalibrating && (
+                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px', background: 'rgba(255,255,255,0.04)', padding: '2px 8px', borderRadius: '4px' }}>
+                        {telemetry.recoveryPercent >= 95 
+                          ? '✓ Sẵn sàng cho bài tập bứt tốc cự ly đầy đủ'
+                          : `Dự kiến phục hồi 100%: ~${telemetry.hoursTo100Percent || 18} giờ`}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -825,14 +822,14 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '11px' }}>
-                    {[
+                    {(telemetry.hrZones || [
                       { dot: '#00E5FF', name: 'Đi bộ / Xả cơ thả lỏng', range: '< 110 bpm' },
                       { dot: '#10B981', name: 'Sức bền hiếu khí đường trường', range: '110 - 145 bpm' },
                       { dot: '#22C55E', name: 'Sức mạnh nhịp đều (Canter Tempo)', range: '146 - 170 bpm' },
                       { dot: '#EAB308', name: 'Ngưỡng Lactate bứt phá', range: '171 - 195 bpm' },
                       { dot: '#F97316', name: 'Sức bền kỵ khí tăng tốc', range: '196 - 210 bpm' },
                       { dot: '#EF4444', name: 'Nước rút đỉnh (Max Sprint Burst)', range: '> 210 bpm' }
-                    ].map(zone => (
+                    ]).map(zone => (
                       <div key={zone.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: zone.dot }} />
@@ -861,19 +858,19 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                   <div style={{ margin: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
                     <div style={{ fontSize: '10.5px', color: '#64748B' }}>Tốc độ ngưỡng Lactate (LT Pace)</div>
                     <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--brass)' }}>
-                      {isCalibrating ? 'Chờ đủ 3 bài tập' : '64.2 km/h (00\'56"/km)'}
+                      {isCalibrating ? 'Chờ đủ 3 bài tập' : (telemetry.ltPaceDisplay || '64.2 km/h (00\'56"/km)')}
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '11px' }}>
-                    {[
+                    {(telemetry.speedZones || [
                       { dot: '#00E5FF', name: 'Đi bộ hồi phục (Walk)', range: '< 15 km/h' },
                       { dot: '#10B981', name: 'Phi nước kiệu nhẹ (Trot)', range: '15 - 35 km/h' },
                       { dot: '#22C55E', name: 'Phi nước kiệu đều (Canter)', range: '36 - 52 km/h' },
                       { dot: '#EAB308', name: 'Ngưỡng tốc độ đua (Race Gallop)', range: '53 - 64 km/h' },
                       { dot: '#F97316', name: 'Tốc độ tăng tốc nước rút', range: '65 - 70 km/h' },
                       { dot: '#EF4444', name: 'Nước rút xé gió cực đại', range: '> 70 km/h' }
-                    ].map(zone => (
+                    ]).map(zone => (
                       <div key={zone.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: zone.dot }} />
@@ -1012,16 +1009,16 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                       </tr>
                     </thead>
                     <tbody>
-                      {[
+                      {(telemetry.racePredictions || [
                         { dist: '1.200m (Sprint Cup)', time: isCalibrating ? '--' : '01:08.5', pace: isCalibrating ? '--' : '63.1 km/h' },
                         { dist: '1.600m (Tiêu chuẩn Mile)', time: isCalibrating ? '--' : '01:33.2', pace: isCalibrating ? '--' : '61.8 km/h' },
                         { dist: '2.000m (Cúp Quốc Gia)', time: isCalibrating ? '--' : '01:58.4', pace: isCalibrating ? '--' : '60.9 km/h' },
                         { dist: '2.400m (Vô Địch Derby)', time: isCalibrating ? '--' : '02:25.1', pace: isCalibrating ? '--' : '59.5 km/h' }
-                      ].map((pred, idx) => (
+                      ]).map((pred, idx) => (
                         <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                           <td style={{ padding: '8px 4px', color: '#F1F5F9', fontWeight: 600 }}>{pred.dist}</td>
-                          <td style={{ padding: '8px 4px', color: '#00E5FF', fontWeight: 700 }}>{pred.time}</td>
-                          <td style={{ padding: '8px 4px', color: 'var(--brass)', textAlign: 'right' }}>{pred.pace}</td>
+                          <td style={{ padding: '8px 4px', color: '#00E5FF', fontWeight: 700 }}>{isCalibrating ? '--' : pred.time}</td>
+                          <td style={{ padding: '8px 4px', color: 'var(--brass)', textAlign: 'right' }}>{isCalibrating ? '--' : pred.pace}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1048,7 +1045,7 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                       <div>
                         <div style={{ fontSize: '10.5px', color: '#64748B' }}>Trạng thái phục hồi</div>
                         <div style={{ fontSize: '15px', fontWeight: 800, color: isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? '#10B981' : '#F59E0B') }}>
-                          {isCalibrating ? `Đang đo (${telemetry.workoutCount || 0}/3)` : (isFitnessIncreasing ? 'Tối ưu' : 'Bình thường')}
+                          {isCalibrating ? `Đang đo (${telemetry.workoutCount || 0}/3)` : (telemetry.hrvStatus || (isFitnessIncreasing ? 'Tối ưu' : 'Bình thường'))}
                         </div>
                       </div>
                       <div>
@@ -1057,32 +1054,48 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                       </div>
                       <div>
                         <div style={{ fontSize: '10.5px', color: '#64748B' }}>Phạm vi chuẩn</div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#94A3B8' }}>50-72 <span style={{ fontSize: '10px' }}>ms</span></div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#94A3B8' }}>50-78 <span style={{ fontSize: '10px' }}>ms</span></div>
                       </div>
                     </div>
 
                     <div style={{ fontSize: '11px', color: '#94A3B8', lineHeight: 1.45 }}>
                       {isCalibrating
                         ? 'Cảm biến IoT gắn ô chuồng đang thu thập dữ liệu nhịp thở ban đêm. Cần tích lũy đủ 3 buổi tập kèm giấc ngủ đêm để chuẩn hóa HRV.'
-                        : (isFitnessIncreasing
+                        : (telemetry.hrvDesc || (isFitnessIncreasing
                           ? 'Chỉ số biến thiên nhịp tim HRV của chiến mã trong chuồng đạt mức lý tưởng. Hệ thần kinh giao cảm thư giãn hoàn toàn, sẵn sàng tiếp nhận bài tập cường độ cao.'
-                          : 'HRV đang biến động nhẹ. Chiến mã cần được bổ sung vi khoáng, xông hơi bù khoáng và kiểm tra chất lượng giấc ngủ ô chuồng.')}
+                          : 'HRV đang biến động nhẹ. Chiến mã cần được bổ sung vi khoáng, xông hơi bù khoáng và kiểm tra chất lượng giấc ngủ ô chuồng.'))}
                     </div>
                   </div>
 
                   {/* Sparkline Line Chart */}
                   <div style={{ marginTop: '12px' }}>
-                    <svg width="100%" height="60" viewBox="0 0 280 60" style={{ overflow: 'visible' }}>
-                      <polyline
-                        fill="none"
-                        stroke={isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? '#00E5FF' : '#F59E0B')}
-                        strokeWidth="2.5"
-                        points="10,40 50,52 95,35 140,55 185,45 230,48 270,42"
-                      />
-                      {[[10,40], [50,52], [95,35], [140,55], [185,45], [230,48], [270,42]].map(([cx, cy], i) => (
-                        <circle key={i} cx={cx} cy={cy} r="3.5" fill={isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? '#00E5FF' : '#F59E0B')} />
-                      ))}
-                    </svg>
+                    {(() => {
+                      const hrvArr = Array.isArray(telemetry.hrvHistory) && telemetry.hrvHistory.length === 7
+                        ? telemetry.hrvHistory
+                        : [60, 54, 68, 52, 62, 59, typeof telemetry.hrvMs === 'number' ? telemetry.hrvMs : 64];
+
+                      const coords = hrvArr.map((val, i) => {
+                        const cx = 15 + i * 40;
+                        const clamped = Math.max(30, Math.min(90, Number(val) || 60));
+                        const cy = Math.round(52 - ((clamped - 30) / 60) * 42);
+                        return [cx, cy];
+                      });
+                      const ptsStr = coords.map(([x, y]) => `${x},${y}`).join(' ');
+
+                      return (
+                        <svg width="100%" height="60" viewBox="0 0 280 60" style={{ overflow: 'visible' }}>
+                          <polyline
+                            fill="none"
+                            stroke={isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? '#00E5FF' : '#F59E0B')}
+                            strokeWidth="2.5"
+                            points={ptsStr}
+                          />
+                          {coords.map(([cx, cy], i) => (
+                            <circle key={i} cx={cx} cy={cy} r="3.5" fill={isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? '#00E5FF' : '#F59E0B')} />
+                          ))}
+                        </svg>
+                      );
+                    })()}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9.5px', color: '#64748B', marginTop: '4px' }}>
                       <span>10/27</span>
                       <span>10/28</span>

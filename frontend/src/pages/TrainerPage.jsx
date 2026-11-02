@@ -16,6 +16,7 @@ import {
 import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
 import NotificationBell from '../components/NotificationBell';
 import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
+import HorsePedigreeViewModal from '../components/HorsePedigreeViewModal';
 import RacehorseFitnessDetailModal from '../components/RacehorseFitnessDetailModal';
 import { getSystemNotifications } from '../services/notificationService';
 import { 
@@ -337,6 +338,7 @@ export default function TrainerPage() {
   }, []);
 
   const [confirmedHorseModal, setConfirmedHorseModal] = useState(null);
+  const [selectedPedigreeHorse, setSelectedPedigreeHorse] = useState(null);
 
   // Lắng nghe thông báo khi chiến mã bị xóa từ phía Chủ sở hữu
   useEffect(() => {
@@ -1930,7 +1932,7 @@ export default function TrainerPage() {
                           </div>
                         </div>
 
-                        {/* Các nút hành động chính của thẻ ngựa (Cân bằng 50/50) */}
+                        {/* Các nút hành động chính của thẻ ngựa (Cân bằng 50/50: Xem hồ sơ & Gia phả hệ) */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
                           <button
                             type="button"
@@ -1951,15 +1953,20 @@ export default function TrainerPage() {
                               whiteSpace: 'nowrap',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
+                              transition: 'all 0.2s ease'
                             }}
+                            title="Xem hồ sơ thông tin chi tiết của chiến mã & chủ sở hữu"
                           >
                             Xem hồ sơ
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => setFitnessDetailModalHorse(horse)}
+                            onClick={() => {
+                              const full = lookupFullHorseInfo(horse.name || horse.microchip);
+                              setSelectedPedigreeHorse(full || horse);
+                            }}
                             style={{
                               height: '38px',
                               background: 'var(--brass)',
@@ -1973,14 +1980,13 @@ export default function TrainerPage() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: '4px',
                               whiteSpace: 'nowrap',
-                              boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
+                              boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)',
+                              transition: 'all 0.2s ease'
                             }}
-                            title="Xem biểu đồ phân tích thể lực viễn trắc chuyên sâu"
+                            title="Xem cây phả hệ gia phả 3 đời do chủ sở hữu cung cấp và cập nhật"
                           >
-                            <span>Xem thêm chi tiết</span>
-                            <span style={{ fontSize: '12px' }}>📊</span>
+                            Gia phả hệ
                           </button>
                         </div>
                       </div>
@@ -2049,14 +2055,19 @@ export default function TrainerPage() {
                                   borderRadius: '6px',
                                   fontSize: '12px',
                                   fontWeight: 700,
-                                  cursor: 'pointer'
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease'
                                 }}
+                                title="Xem hồ sơ thông tin chi tiết của chiến mã & chủ sở hữu"
                               >
                                 Xem hồ sơ
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setFitnessDetailModalHorse(horse)}
+                                onClick={() => {
+                                  const full = lookupFullHorseInfo(horse.name || horse.microchip);
+                                  setSelectedPedigreeHorse(full || horse);
+                                }}
                                 style={{
                                   padding: '6px 12px',
                                   background: 'var(--brass)',
@@ -2068,11 +2079,12 @@ export default function TrainerPage() {
                                   cursor: 'pointer',
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '4px'
+                                  justifyContent: 'center',
+                                  transition: 'all 0.2s ease'
                                 }}
+                                title="Xem cây phả hệ gia phả 3 đời do chủ sở hữu cung cấp và cập nhật"
                               >
-                                <span>Xem thêm chi tiết</span>
-                                <span>📊</span>
+                                Gia phả hệ
                               </button>
                             </td>
                           </tr>
@@ -2393,17 +2405,15 @@ export default function TrainerPage() {
                               fontWeight: 800,
                               fontSize: '12px',
                               cursor: 'pointer',
-                              display: 'flex',
+                              display: 'inline-flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: '6px',
                               boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)',
                               whiteSpace: 'nowrap'
                             }}
                             title="Xem chi tiết các biểu đồ thể lực, nhịp tim và tải luyện tập như EvoLab"
                           >
-                            <span>Xem thêm chi tiết</span>
-                            <span style={{ fontSize: '13px' }}>📊</span>
+                            Xem thêm chi tiết
                           </button>
 
                           <button
@@ -2502,12 +2512,11 @@ export default function TrainerPage() {
                                   cursor: 'pointer',
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '4px',
+                                  justifyContent: 'center',
                                   whiteSpace: 'nowrap'
                                 }}
                               >
-                                <span>Xem thêm chi tiết</span>
-                                <span>📊</span>
+                                Xem thêm chi tiết
                               </button>
                               <button
                                 onClick={() => {
@@ -4313,6 +4322,28 @@ export default function TrainerPage() {
           horse={confirmedHorseModal}
           role="TRAINER"
           onClose={() => setConfirmedHorseModal(null)}
+          onAction={(h) => {
+            setConfirmedHorseModal(null);
+            setActiveTab('vitals');
+            window.scrollTo({ top: 380, behavior: 'smooth' });
+          }}
+          onOpenPedigree={(h) => {
+            const full = lookupFullHorseInfo(h.name || h.microchip);
+            setSelectedPedigreeHorse(full || h);
+          }}
+        />
+      )}
+
+      {/* Modal Cây Phả Hệ Gia Phả 3 Đời do Chủ sở hữu cung cấp & cập nhật */}
+      {selectedPedigreeHorse && (
+        <HorsePedigreeViewModal
+          horse={selectedPedigreeHorse}
+          isOpen={!!selectedPedigreeHorse}
+          onClose={() => setSelectedPedigreeHorse(null)}
+          onOpenProfile={(h) => {
+            const full = lookupFullHorseInfo(h.name || h.microchip);
+            setConfirmedHorseModal(full || h);
+          }}
         />
       )}
 

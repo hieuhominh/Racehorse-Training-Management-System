@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
-export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', onClose }) {
+export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', onClose, onOpenPedigree, onAction }) {
   if (!horse) return null;
 
   const roleConfigs = {
@@ -10,21 +10,21 @@ export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', on
       badge: '🏇 HLV ĐÃ XÁC NHẬN PHỤC VỤ',
       badgeBg: 'rgba(212, 175, 55, 0.15)',
       badgeColor: 'var(--brass)',
-      actionText: 'Bắt Đầu Theo Dõi Thể Lực & Giáo Án'
+      actionText: 'Theo dõi thể lực'
     },
     VET: {
       title: 'Hồ Sơ Y Tế & Kiểm Dịch Chiến Mã',
       badge: '🩺 BÁC SĨ ĐÃ XÁC NHẬN PHỤ TRÁCH Y TẾ',
       badgeBg: 'rgba(59, 130, 246, 0.15)',
       badgeColor: '#60A5FA',
-      actionText: 'Bắt Đầu Lập Phác Đồ Y Tế'
+      actionText: 'Lập phác đồ y tế'
     },
     GROOM: {
       title: 'Hồ Sơ Chăm Sóc & Nuôi Dưỡng Chuồng Trại',
       badge: '🌾 GROOM ĐÃ TIẾP NHẬN CHĂM SÓC',
       badgeBg: 'rgba(16, 185, 129, 0.15)',
       badgeColor: '#34D399',
-      actionText: 'Bắt Đầu Ca Trực & Khẩu Phần'
+      actionText: 'Nhận chăm sóc'
     }
   };
 
@@ -229,9 +229,41 @@ export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', on
 
         {/* Buttons */}
         <div style={{ display: 'flex', gap: '10px' }}>
+          {onOpenPedigree && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenPedigree(horse);
+              }}
+              style={{
+                flex: 1,
+                padding: '11px',
+                borderRadius: '8px',
+                background: 'transparent',
+                border: '1px solid var(--brass)',
+                color: 'var(--brass)',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Gia phả hệ
+            </button>
+          )}
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              if (onAction) {
+                onAction(horse);
+              } else {
+                onClose();
+              }
+            }}
             style={{
               flex: 1,
               padding: '11px',
@@ -241,7 +273,11 @@ export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', on
               border: 'none',
               fontWeight: 800,
               fontSize: '13px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
             ✓ {config.actionText}
