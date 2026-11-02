@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, FIXED_TRAINERS, FIXED_VETS, FIXED_GROOMS } from '../context/AuthContext';
+import { useAuth, getRolePortalPath, FIXED_TRAINERS, FIXED_VETS, FIXED_GROOMS } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
 import { COUNTRY_PHONE_CODES, DEFAULT_COUNTRY } from '../data/countryPhoneCodes';
@@ -34,20 +34,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
 
   const redirectToRolePortal = (user) => {
     if (!user) return;
-    const r = (user.role || user.role_code || '').toUpperCase();
-    if (r === 'TRAINER') {
-      navigate('/trainer');
-    } else if (r === 'VET') {
-      navigate('/vet');
-    } else if (r === 'GROOM') {
-      navigate('/groom');
-    } else if (r === 'OWNER') {
-      navigate('/owner');
-    } else if (r === 'MANAGER' || r === 'ADMIN') {
-      navigate('/admin');
-    } else {
-      navigate('/owner');
-    }
+    navigate(getRolePortalPath(user));
   };
 
   const [activeTab, setActiveTab] = useState(initialTab);

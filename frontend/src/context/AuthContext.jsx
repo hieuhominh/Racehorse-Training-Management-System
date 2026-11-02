@@ -495,3 +495,17 @@ export function useAuth() {
   }
   return context;
 }
+
+/**
+ * Lấy đường dẫn cổng điều hành tương ứng chính xác với vai trò người dùng
+ */
+export function getRolePortalPath(user) {
+  if (!user) return '/';
+  const r = (user.role || user.role_code || '').toUpperCase();
+  if (r === 'TRAINER') return '/trainer';
+  if (r === 'VET') return '/vet';
+  if (r === 'GROOM') return '/groom';
+  if (r === 'OWNER') return '/owner';
+  if (r === 'MANAGER' || r === 'ADMIN') return '/admin';
+  return '/owner';
+}

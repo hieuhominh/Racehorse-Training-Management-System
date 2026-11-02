@@ -2265,7 +2265,7 @@ export default function OwnerPage() {
               </div>
 
               {/* BANNER PHÂN BIỆT BÁO CÁO TÓM TẮT vs IOT REAL-TIME */}
-              {membershipTier !== 'PREMIUM' ? (
+              {membershipTier !== 'PREMIUM' && (
                 <div style={{
                   background: 'rgba(212, 175, 55, 0.08)',
                   border: '1px solid rgba(212, 175, 55, 0.3)',
@@ -2310,22 +2310,6 @@ export default function OwnerPage() {
                   >
                     ⚡ Mở Khóa IoT Real-Time
                   </button>
-                </div>
-              ) : (
-                <div style={{
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  borderRadius: '8px',
-                  padding: '10px 16px',
-                  marginBottom: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '12.5px',
-                  color: '#10B981'
-                }}>
-                  <span>👑</span>
-                  <span><b>Đặc quyền VIP hoạt động:</b> Kết nối IoT Real-Time đo nhịp tim & vận tốc từng mét chạy từ thiết bị đeo trên chiến mã.</span>
                 </div>
               )}
 
