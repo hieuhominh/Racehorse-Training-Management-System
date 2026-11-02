@@ -1,34 +1,80 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
-export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', onClose, onOpenPedigree, onAction }) {
+export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', onClose, onOpenPedigree, onAction, onConfirmService }) {
   if (!horse) return null;
+
+  const roleCode = (role || 'TRAINER').toUpperCase();
+  const statusField = roleCode === 'VET' ? 'vetStatus' : (roleCode === 'GROOM' ? 'groomStatus' : 'trainerStatus');
+
+  const isPending = Boolean(
+    horse.isPendingConfirmation ||
+    horse[statusField] === 'PENDING' ||
+    horse.assignmentData?.[statusField] === 'PENDING' ||
+    horse.serviceStatus === 'PENDING'
+  );
+
+  const ownerDisplayName = horse.ownerName || horse.owner || 'Chủ sở hữu';
 
   const roleConfigs = {
     TRAINER: {
-      title: 'Hồ Sơ Chiến Mã Tiếp Nhận Huấn Luyện',
-      badge: '🏇 HLV ĐÃ XÁC NHẬN PHỤC VỤ',
-      badgeBg: 'rgba(212, 175, 55, 0.15)',
-      badgeColor: 'var(--brass)',
-      actionText: 'Theo dõi thể lực'
+      pending: {
+        title: 'Hồ Sơ Yêu Cầu Huấn Luyện Chiến Mã',
+        badge: '🏇 YÊU CẦU HUẤN LUYỆN CHỜ XÁC NHẬN',
+        badgeBg: 'rgba(245, 158, 11, 0.15)',
+        badgeColor: '#F59E0B',
+        desc: `Chủ sở hữu ${ownerDisplayName} đã gửi yêu cầu chỉ định bạn làm Huấn luyện viên trưởng. Vui lòng kiểm tra hồ sơ và bấm xác nhận để tiếp nhận vào đàn huấn luyện.`,
+        actionText: 'Xác Nhận Phục Vụ'
+      },
+      confirmed: {
+        title: 'Hồ Sơ Chiến Mã Tiếp Nhận Huấn Luyện',
+        badge: '🏇 HLV ĐÃ XÁC NHẬN PHỤC VỤ',
+        badgeBg: 'rgba(212, 175, 55, 0.15)',
+        badgeColor: 'var(--brass)',
+        desc: `Chiến mã thuộc quyền sở hữu của ${ownerDisplayName} đã chính thức liên kết vào cổng chuyên môn của bạn.`,
+        actionText: 'Theo dõi thể lực'
+      }
     },
     VET: {
-      title: 'Hồ Sơ Y Tế & Kiểm Dịch Chiến Mã',
-      badge: '🩺 BÁC SĨ ĐÃ XÁC NHẬN PHỤ TRÁCH Y TẾ',
-      badgeBg: 'rgba(59, 130, 246, 0.15)',
-      badgeColor: '#60A5FA',
-      actionText: 'Lập phác đồ y tế'
+      pending: {
+        title: 'Hồ Sơ Yêu Cầu Y Tế & Kiểm Dịch',
+        badge: '🩺 YÊU CẦU PHỤ TRÁCH Y TẾ CHỜ XÁC NHẬN',
+        badgeBg: 'rgba(245, 158, 11, 0.15)',
+        badgeColor: '#F59E0B',
+        desc: `Chủ sở hữu ${ownerDisplayName} đã chỉ định bạn làm Bác sĩ thú y phụ trách. Vui lòng thẩm định hồ sơ và xác nhận phục vụ.`,
+        actionText: 'Xác Nhận Phụ Trách Y Tế'
+      },
+      confirmed: {
+        title: 'Hồ Sơ Y Tế & Kiểm Dịch Chiến Mã',
+        badge: '🩺 BÁC SĨ ĐÃ XÁC NHẬN PHỤ TRÁCH Y TẾ',
+        badgeBg: 'rgba(59, 130, 246, 0.15)',
+        badgeColor: '#60A5FA',
+        desc: `Chiến mã thuộc quyền sở hữu của ${ownerDisplayName} đã chính thức liên kết vào cổng thú y.`,
+        actionText: 'Lập phác đồ y tế'
+      }
     },
     GROOM: {
-      title: 'Hồ Sơ Chăm Sóc & Nuôi Dưỡng Chuồng Trại',
-      badge: '🌾 GROOM ĐÃ TIẾP NHẬN CHĂM SÓC',
-      badgeBg: 'rgba(16, 185, 129, 0.15)',
-      badgeColor: '#34D399',
-      actionText: 'Nhận chăm sóc'
+      pending: {
+        title: 'Hồ Sơ Yêu Cầu Chăm Sóc & Nuôi Dưỡng',
+        badge: '🌾 YÊU CẦU CHĂM SÓC CHỜ TIẾP NHẬN',
+        badgeBg: 'rgba(245, 158, 11, 0.15)',
+        badgeColor: '#F59E0B',
+        desc: `Chủ sở hữu ${ownerDisplayName} đã chỉ định bạn làm Chuyên viên chăm sóc chuồng trại. Vui lòng tiếp nhận chiến mã.`,
+        actionText: 'Xác Nhận Chăm Sóc'
+      },
+      confirmed: {
+        title: 'Hồ Sơ Chăm Sóc & Nuôi Dưỡng Chuồng Trại',
+        badge: '🌾 GROOM ĐÃ TIẾP NHẬN CHĂM SÓC',
+        badgeBg: 'rgba(16, 185, 129, 0.15)',
+        badgeColor: '#34D399',
+        desc: `Chiến mã thuộc quyền sở hữu của ${ownerDisplayName} đã chính thức vào danh sách chăm sóc của bạn.`,
+        actionText: 'Nhận chăm sóc'
+      }
     }
   };
 
-  const config = roleConfigs[role] || roleConfigs.TRAINER;
+  const groupConfig = roleConfigs[roleCode] || roleConfigs.TRAINER;
+  const config = isPending ? groupConfig.pending : groupConfig.confirmed;
 
   const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
   const avatar = horse.avatar || horse.horse_avatar || defaultAvatar;
@@ -115,7 +161,7 @@ export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', on
             {config.title}
           </h3>
           <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--paper-dim)' }}>
-            Chiến mã thuộc quyền sở hữu của <b style={{ color: 'var(--brass)' }}>{horse.ownerName || horse.owner || 'Chủ sở hữu'}</b> đã chính thức liên kết vào cổng chuyên môn của bạn.
+            {config.desc}
           </p>
         </div>
 
@@ -255,33 +301,66 @@ export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', on
               Gia phả hệ
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => {
-              if (onAction) {
-                onAction(horse);
-              } else {
-                onClose();
-              }
-            }}
-            style={{
-              flex: 1,
-              padding: '11px',
-              borderRadius: '8px',
-              background: 'var(--brass)',
-              color: '#0A0D14',
-              border: 'none',
-              fontWeight: 800,
-              fontSize: '13px',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            ✓ {config.actionText}
-          </button>
+          {isPending ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (onConfirmService) {
+                  onConfirmService(horse.assignmentData || horse);
+                } else if (onAction) {
+                  onAction(horse);
+                } else {
+                  onClose();
+                }
+              }}
+              style={{
+                flex: 1,
+                padding: '11px',
+                borderRadius: '8px',
+                background: 'var(--brass)',
+                color: '#0A0D14',
+                border: 'none',
+                fontWeight: 800,
+                fontSize: '13px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
+              }}
+            >
+              ✓ {config.actionText}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (onAction) {
+                  onAction(horse);
+                } else {
+                  onClose();
+                }
+              }}
+              style={{
+                flex: 1,
+                padding: '11px',
+                borderRadius: '8px',
+                background: 'var(--brass)',
+                color: '#0A0D14',
+                border: 'none',
+                fontWeight: 800,
+                fontSize: '13px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ✓ {config.actionText}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -316,8 +316,14 @@ public class OwnerApiController extends HttpServlet {
 
             String horseId = "";
             String pathInfo = request.getPathInfo();
+            boolean isPedigreeOnly = false;
             if (pathInfo != null && pathInfo.length() > 1) {
-                horseId = pathInfo.substring(1).trim();
+                String sub = pathInfo.substring(1).trim();
+                if (sub.endsWith("/pedigree")) {
+                    isPedigreeOnly = true;
+                    sub = sub.substring(0, sub.indexOf("/pedigree"));
+                }
+                horseId = sub;
             } else {
                 horseId = SecurityUtil.getString(body, "id", "").trim();
             }
@@ -325,6 +331,38 @@ public class OwnerApiController extends HttpServlet {
             if (horseId.isEmpty() || SecurityUtil.containsMaliciousPayload(horseId)) {
                 SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
                     "Thiếu ID chiến mã cần cập nhật.");
+                return;
+            }
+
+            List<Map<String, Object>> list = ownerHorsesStore.computeIfAbsent(
+                ownerKey.toLowerCase(), k -> Collections.synchronizedList(new ArrayList<>())
+            );
+
+            // Cập nhật riêng phả hệ (Pedigree)
+            if (isPedigreeOnly || (body.has("pedigree") && !body.has("name"))) {
+                Object pedigreeObj = gson.fromJson(body.get("pedigree"), Object.class);
+                Map<String, Object> target = null;
+                synchronized (list) {
+                    for (Map<String, Object> h : list) {
+                        if (horseId.equals(String.valueOf(h.get("id")))) {
+                            h.put("pedigree", pedigreeObj);
+                            target = h;
+                            break;
+                        }
+                    }
+                    if (target == null) {
+                        target = new HashMap<>();
+                        target.put("id", horseId);
+                        target.put("pedigree", pedigreeObj);
+                        target.put("ownerKey", ownerKey.toLowerCase());
+                        list.add(target);
+                    }
+                }
+                response.setStatus(HttpServletResponse.SC_OK);
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(target));
+                    out.flush();
+                }
                 return;
             }
 
@@ -358,9 +396,6 @@ public class OwnerApiController extends HttpServlet {
             updatedHorse.put("ownerKey", ownerKey.toLowerCase());
             updatedHorse.put("success", true);
 
-            List<Map<String, Object>> list = ownerHorsesStore.computeIfAbsent(
-                ownerKey.toLowerCase(), k -> Collections.synchronizedList(new ArrayList<>())
-            );
             synchronized (list) {
                 boolean found = false;
                 for (int i = 0; i < list.size(); i++) {

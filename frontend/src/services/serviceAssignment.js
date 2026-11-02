@@ -1,6 +1,7 @@
 // Quản lý việc Chủ sở hữu chỉ định Đội ngũ phục vụ (3 HLV, 3 BS Thú y, 3 Groom)
 // và Xác nhận phục vụ từ phía từng nhân sự chuyên trách
 import { saveServiceAssignmentApi, confirmServiceAssignmentApi as confirmApi } from './api';
+import { notifyTrainingRequested, notifyServiceConfirmed } from './notificationService';
 
 const STORAGE_KEY = 'matruong_service_assignments';
 const EVENT_NAME = 'matruong_service_assignment_updated';
@@ -197,6 +198,14 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
   const targetItem = foundIndex >= 0 ? list[foundIndex] : list[list.length - 1];
   if (targetItem) {
     saveServiceAssignmentApi(targetItem).catch(() => {});
+    // Gửi thông báo đến Huấn luyện viên khi Chủ sở hữu chỉ định/yêu cầu huấn luyện
+    if (targetItem.trainerStatus === 'PENDING') {
+      try {
+        notifyTrainingRequested(horse, ownerUser, targetItem.trainerName);
+      } catch (err) {
+        console.error('Error notifying training requested:', err);
+      }
+    }
   }
   return list;
 }
@@ -209,6 +218,7 @@ export function confirmServiceAssignment(horseIdentifier, roleType, staffUsernam
   const nowStr = new Date().toLocaleDateString('vi-VN');
 
   let updated = false;
+  let confirmedItem = null;
   const nextList = list.map(item => {
     const match = (item.microchip && item.microchip.toLowerCase() === key) ||
                   (item.horseName && item.horseName.toLowerCase() === key) ||
@@ -217,21 +227,31 @@ export function confirmServiceAssignment(horseIdentifier, roleType, staffUsernam
 
     if (roleType === 'TRAINER') {
       updated = true;
-      return { ...item, trainerStatus: 'CONFIRMED', trainerConfirmedAt: nowStr, trainerConfirmedBy: staffUsername };
+      confirmedItem = { ...item, trainerStatus: 'CONFIRMED', trainerConfirmedAt: nowStr, trainerConfirmedBy: staffUsername };
+      return confirmedItem;
     }
     if (roleType === 'VET') {
       updated = true;
-      return { ...item, vetStatus: 'CONFIRMED', vetConfirmedAt: nowStr, vetConfirmedBy: staffUsername };
+      confirmedItem = { ...item, vetStatus: 'CONFIRMED', vetConfirmedAt: nowStr, vetConfirmedBy: staffUsername };
+      return confirmedItem;
     }
     if (roleType === 'GROOM') {
       updated = true;
-      return { ...item, groomStatus: 'CONFIRMED', groomConfirmedAt: nowStr, groomConfirmedBy: staffUsername };
+      confirmedItem = { ...item, groomStatus: 'CONFIRMED', groomConfirmedAt: nowStr, groomConfirmedBy: staffUsername };
+      return confirmedItem;
     }
     return item;
   });
 
   if (updated) {
     saveServiceAssignments(nextList);
+    if (confirmedItem) {
+      try {
+        notifyServiceConfirmed(confirmedItem, { username: staffUsername }, roleType);
+      } catch (err) {
+        console.error('Error notifying service confirmed:', err);
+      }
+    }
   }
   return nextList;
 }

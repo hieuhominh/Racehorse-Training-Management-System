@@ -897,6 +897,25 @@ export async function saveTrainingProgramApi(programData) {
   return newProgram;
 }
 
+export async function deleteTrainingProgramApi(programId) {
+  try {
+    const res = await fetch(`/api/training/programs/${programId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) return await res.json();
+  } catch {
+    // Fallback
+  }
+
+  const key = 'matruong_trainer_programs';
+  const local = getLocalData(key, []);
+  const updated = local.filter(p => p.id !== programId);
+  setLocalData(key, updated);
+  return { success: true };
+}
+
 export async function recordTelemetryApi(telemetryData) {
   try {
     const res = await fetch('/api/training/telemetry', {
@@ -1172,6 +1191,16 @@ export async function updateFeedingStatusApi(scheduleId, isCompleted) {
 }
 
 export async function getCareLogsApi() {
+  try {
+    const res = await fetch('/api/groom/care-logs', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
   return getLocalData('matruong_groom_care_logs', [
     { id: 1, task: 'Tắm xả cơ bắp bằng vòi lạnh & sấy khô', horseName: 'Bạch Long', groomName: 'Lê Hoàng Nam', date: '24/10/2026', status: 'DONE' },
     { id: 2, task: 'Vệ sinh hốc móng & thoa dầu móng chống nứt', horseName: 'Xích Thố', groomName: 'Lê Hoàng Nam', date: '24/10/2026', status: 'DONE' },
@@ -1180,6 +1209,21 @@ export async function getCareLogsApi() {
 }
 
 export async function recordCareActivityApi(activityData) {
+  try {
+    const res = await fetch('/api/groom/care-logs', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(activityData)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const key = 'matruong_groom_care_logs';
+      const list = getLocalData(key, []);
+      setLocalData(key, [data, ...list]);
+      return data;
+    }
+  } catch {}
   const key = 'matruong_groom_care_logs';
   const list = await getCareLogsApi();
   const newActivity = { ...activityData, id: Date.now(), status: 'DONE', date: new Date().toLocaleDateString('vi-VN') };
@@ -1210,6 +1254,21 @@ export async function getSuppliesInventoryApi() {
 }
 
 export async function requestSupplyRestockApi(supplyName, quantity) {
+  try {
+    const res = await fetch('/api/groom/supplies', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ supplyName, quantity })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const key = 'matruong_groom_restock_requests';
+      const requests = getLocalData(key, []);
+      setLocalData(key, [data, ...requests]);
+      return data;
+    }
+  } catch {}
   const key = 'matruong_groom_restock_requests';
   const requests = getLocalData(key, []);
   const newReq = { id: Date.now(), supplyName, quantity, status: 'SUBMITTED', date: new Date().toLocaleDateString('vi-VN') };
@@ -1325,6 +1384,16 @@ export async function deleteOwnerHorseApi(ownerKey, horseId) {
 }
 
 export async function getOwnerTelemetryApi(ownerKey) {
+  try {
+    const res = await fetch('/api/training/telemetry', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
   const key = `matruong_owner_telemetry_${ownerKey}`;
   return getLocalData(key, []);
 }
@@ -1658,6 +1727,16 @@ export async function getOwnerFinancialStatementsApi(ownerKey) {
 }
 
 export async function getOwnerVetLogsApi(ownerKey) {
+  try {
+    const res = await fetch('/api/vet/medical-logs', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
   const key = `matruong_owner_health_${ownerKey}`;
   return getLocalData(key, []);
 }
@@ -2007,4 +2086,70 @@ export async function updateHorsePedigreeApi(ownerKey, horseId, pedigreeData) {
   const updated = existing.map(h => String(h.id) === String(horseId) ? { ...h, pedigree: pedigreeData } : h);
   setLocalData(storageKey, updated);
   return pedigreeData;
+}
+
+// =========================================================================
+// 13. QUẢN LÝ THÔNG BÁO HỆ THỐNG LIÊN THÔNG (SYSTEM NOTIFICATIONS API)
+// =========================================================================
+
+export async function getNotificationsApi(role = 'ALL', username = '') {
+  try {
+    const params = new URLSearchParams();
+    if (role && role !== 'ALL') params.append('role', role);
+    if (username) params.append('username', username);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`/api/notifications${queryString}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch {}
+  return getLocalData('matruong_system_notifications', []);
+}
+
+export async function createNotificationApi(notifData) {
+  try {
+    const res = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(notifData)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+  return notifData;
+}
+
+export async function markNotificationReadApi(notifId, username, markAll = false) {
+  try {
+    const res = await fetch('/api/notifications/read', {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ id: notifId, username, markAll })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+  return { success: true };
+}
+
+export async function clearNotificationsApi() {
+  try {
+    const res = await fetch('/api/notifications/clear', {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+  return { success: true };
 }

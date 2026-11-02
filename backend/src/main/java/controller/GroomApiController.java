@@ -315,6 +315,24 @@ public class GroomApiController extends HttpServlet {
             result.put("success", true);
             result.put("recordedAt", System.currentTimeMillis());
 
+            if ("/api/groom/supplies".equals(request.getServletPath())) {
+                String supplyName = SecurityUtil.getString(body, "supplyName", task).trim();
+                String quantity = SecurityUtil.getString(body, "quantity", "1").trim();
+                Map<String, Object> req = new HashMap<>();
+                req.put("id", System.currentTimeMillis());
+                req.put("supplyName", SecurityUtil.sanitize(supplyName));
+                req.put("quantity", SecurityUtil.sanitize(quantity));
+                req.put("status", "SUBMITTED");
+                req.put("date", "Hôm nay");
+                req.put("requestedBy", authUser.getFullName());
+                response.setStatus(HttpServletResponse.SC_CREATED);
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(req));
+                    out.flush();
+                }
+                return;
+            }
+
             if ("/api/groom/care-logs".equals(request.getServletPath())) {
                 memoryCareLogs.add(0, result);
             }

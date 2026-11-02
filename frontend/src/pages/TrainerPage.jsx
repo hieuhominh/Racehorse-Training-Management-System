@@ -6,6 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { 
   getTrainingProgramsApi, 
   saveTrainingProgramApi,
+  deleteTrainingProgramApi,
   getTelemetrySessionsApi,
   recordTelemetryApi,
   getHorsesApi,
@@ -18,7 +19,7 @@ import NotificationBell from '../components/NotificationBell';
 import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
 import HorsePedigreeViewModal from '../components/HorsePedigreeViewModal';
 import RacehorseFitnessDetailModal from '../components/RacehorseFitnessDetailModal';
-import { getSystemNotifications } from '../services/notificationService';
+import { getSystemNotifications, notifyServiceConfirmed } from '../services/notificationService';
 import { 
   calculateHorseFitnessOnSession, 
   getHorseFitnessTelemetry, 
@@ -116,12 +117,12 @@ export default function TrainerPage() {
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const saved = localStorage.getItem('matruong_tab_trainer');
-      if (['horses', 'vitals', 'programs', 'sessions', 'review', 'approvals'].includes(saved)) {
+      if (['horses', 'vitals', 'programs', 'review', 'approvals'].includes(saved)) {
         return saved;
       }
     } catch {}
     return 'horses';
-  }); // 'horses' | 'vitals' | 'programs' | 'sessions' | 'review' | 'approvals'
+  }); // 'horses' | 'vitals' | 'programs' | 'review' | 'approvals'
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -421,9 +422,17 @@ export default function TrainerPage() {
       return next;
     });
 
-    // Mở popup toàn bộ Profile chi tiết của ngựa chủ sở hữu
+    // Phát thông báo tiếp nhận thành công lên toàn hệ thống (chuông thông báo)
+    notifyServiceConfirmed(asgn, currentUser, 'TRAINER');
+
+    // Mở hoặc cập nhật popup Profile sang trạng thái ĐÃ XÁC NHẬN để HLV có thể bấm "Theo dõi thể lực"
     if (fullHorse) {
-      setConfirmedHorseModal(fullHorse);
+      setConfirmedHorseModal({
+        ...fullHorse,
+        isPendingConfirmation: false,
+        trainerStatus: 'CONFIRMED',
+        assignmentData: { ...(asgn || {}), trainerStatus: 'CONFIRMED' }
+      });
     }
 
     showToast(`Đã tiếp nhận huấn luyện "${asgn.horseName}"! Chiến mã đã hiện diện ngay tại Thể lực tàu ngựa.`, 'TIẾP NHẬN THÀNH CÔNG', 'success');
@@ -1005,6 +1014,146 @@ export default function TrainerPage() {
     feedback: ''
   });
 
+  // Trạng thái chạy bài tập trực quan & 2 giai đoạn (Đang chạy bài -> Đánh giá & ghi chú)
+  const [activeRunningSession, setActiveRunningSession] = useState(null);
+
+  // Định dạng đồng hồ đếm thời gian
+  const formatWorkoutTimer = (secs) => {
+    const mins = Math.floor(secs / 60);
+    const remSecs = secs % 60;
+    return `${String(mins).padStart(2, '0')}:${String(remSecs).padStart(2, '0')}`;
+  };
+
+  // Bộ đếm thời gian & mô phỏng viễn trắc khi ngựa đang trong thời gian chạy bài
+  useEffect(() => {
+    if (!activeRunningSession || activeRunningSession.phase !== 'RUNNING') return;
+    const interval = setInterval(() => {
+      setActiveRunningSession(prev => {
+        if (!prev || prev.phase !== 'RUNNING') return prev;
+        const newSecs = prev.elapsedSeconds + 1;
+        const speedWave = Math.sin(newSecs * 0.4) * 2.8 + (Math.random() * 1.4 - 0.7);
+        const liveSpeed = +(Math.max(48, Math.min(68, 59.5 + speedWave))).toFixed(1);
+        const baseHr = 172 + Math.min(26, Math.floor(newSecs * 0.8));
+        const liveHr = Math.min(215, Math.max(165, baseHr + Math.floor(Math.random() * 5 - 2)));
+        const metersPerSec = (liveSpeed * 1000) / 3600;
+        const liveDist = Math.min(prev.targetDistance, Math.round(prev.currentDistance + metersPerSec * 2.2));
+
+        return {
+          ...prev,
+          elapsedSeconds: newSecs,
+          currentSpeed: liveSpeed,
+          currentHeartRate: liveHr,
+          currentDistance: liveDist
+        };
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeRunningSession?.phase]);
+
+  // Bắt đầu chạy bài tập từ giáo án
+  const handleStartWorkout = (prog) => {
+    const targetDist = Number(prog.targetDistance) || 1600;
+    const targetHorse = trainerHorses.find(h => (h.name || '').toLowerCase() === (prog.horseName || '').toLowerCase())
+      || allHorses.find(h => (h.name || '').toLowerCase() === (prog.horseName || '').toLowerCase())
+      || {
+        name: prog.horseName,
+        stall: 'Ô A1',
+        microchip: 'MC-VN-2024-001',
+        breed: 'Quarter Horse',
+        avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80'
+      };
+
+    setActiveRunningSession({
+      phase: 'RUNNING', // Giai đoạn 1: Ngựa đang trong thời gian chạy bài
+      program: prog,
+      horse: targetHorse,
+      startTime: Date.now(),
+      elapsedSeconds: 0,
+      currentSpeed: 58.6,
+      currentHeartRate: 174,
+      currentDistance: 0,
+      targetDistance: targetDist,
+      status: 'COMPLETED',
+      finalDuration: '00:00',
+      finalDistance: targetDist,
+      avgSpeed: 59.8,
+      maxHeartRate: 196,
+      score: 9.0,
+      evaluation: '',
+      recoveryNotes: ''
+    });
+  };
+
+  // Hoàn thành hoặc Không hoàn thành bài tập -> Chuyển sang phần đánh giá & ghi chú
+  const handleFinishRunningSession = (isCompleted) => {
+    setActiveRunningSession(prev => {
+      if (!prev) return null;
+      const mins = Math.floor(prev.elapsedSeconds / 60);
+      const secs = prev.elapsedSeconds % 60;
+      const durationStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      const finalDist = isCompleted ? prev.targetDistance : Math.max(120, prev.currentDistance);
+      const finalSpeed = prev.currentSpeed || 59.5;
+      const finalHr = prev.currentHeartRate || 188;
+      const defaultScore = isCompleted ? 9.0 : 5.5;
+      const defaultEval = isCompleted
+        ? `Chiến mã ${prev.horse.name} đã hoàn thành xuất sắc toàn bộ ${finalDist}m bài tập "${prev.program.title}". Sải chân mượt mà, bứt tốc mạnh mẽ ở giai đoạn nước rút, thể trạng duy trì phong độ tối ưu.`
+        : `Chiến mã ${prev.horse.name} dừng bài tập ở cự ly ${finalDist}m / ${prev.targetDistance}m. Nhịp thở có dấu hiệu dốc và nhịp tim tăng nhanh, Huấn luyện viên chủ động cho dừng lại an toàn để tránh quá tải cơ gân.`;
+      const defaultRecovery = isCompleted
+        ? 'Dắt thả lỏng 15 phút, chườm lạnh 4 cổ chân 20 phút, bổ sung điện giải và khẩu phần dinh dưỡng giàu yến mạch phục hồi gân cơ.'
+        : 'Đưa ngay về chuồng tĩnh dưỡng, theo dõi hạ nhịp tim sau 15-30 phút, kiểm tra nhiệt độ móng & gân khoeo, báo bác sĩ thú y nếu có biểu hiện cứng cơ.';
+
+      return {
+        ...prev,
+        phase: 'EVALUATING', // Giai đoạn 2: Đánh giá và ghi chú
+        status: isCompleted ? 'COMPLETED' : 'INCOMPLETE',
+        finalDuration: durationStr,
+        finalDistance: finalDist,
+        avgSpeed: finalSpeed,
+        maxHeartRate: finalHr,
+        score: defaultScore,
+        evaluation: defaultEval,
+        recoveryNotes: defaultRecovery
+      };
+    });
+  };
+
+  // Lưu đánh giá và cập nhật thể lực
+  const handleSaveEvaluatedSession = (e) => {
+    if (e) e.preventDefault();
+    if (!activeRunningSession) return;
+
+    const isOverLimit = Number(activeRunningSession.maxHeartRate) > 210;
+    const combinedFeedback = `${activeRunningSession.evaluation}${activeRunningSession.recoveryNotes ? ` | [Dặn dò phục hồi]: ${activeRunningSession.recoveryNotes}` : ''}`;
+
+    const newSess = {
+      id: Date.now(),
+      time: new Date().toLocaleString('vi-VN'),
+      horseName: activeRunningSession.horse.name,
+      programTitle: activeRunningSession.program.title,
+      distanceRun: Number(activeRunningSession.finalDistance),
+      avgSpeed: Number(activeRunningSession.avgSpeed),
+      maxHeartRate: Number(activeRunningSession.maxHeartRate),
+      isOverLimit,
+      status: activeRunningSession.status,
+      score: Number(activeRunningSession.score) || (activeRunningSession.status === 'COMPLETED' ? 9.0 : 5.5),
+      feedback: combinedFeedback
+    };
+
+    const updatedSessions = [newSess, ...sessions];
+    setSessions(updatedSessions);
+    try {
+      localStorage.setItem('matruong_training_telemetry', JSON.stringify(updatedSessions));
+    } catch {}
+    recordTelemetryApi(newSess).catch(() => {});
+
+    // Chạy thuật toán cập nhật viễn trắc thể lực tức thì
+    applyFitnessAlgorithm(activeRunningSession.horse.name, newSess);
+
+    showToast(`Đã lưu đánh giá & cập nhật thể lực cho ${activeRunningSession.horse.name}!`, 'ĐÃ LƯU ĐÁNH GIÁ', 'success');
+    setActiveRunningSession(null);
+    setActiveTab('review');
+  };
+
   // Modal chỉnh sửa nhận xét & chấm điểm bài tập
   const [showEditFeedbackModal, setShowEditFeedbackModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -1041,6 +1190,26 @@ export default function TrainerPage() {
       startDate: new Date().toISOString().split('T')[0],
       endDate: ''
     });
+  };
+
+  // State & Handler xóa giáo án bài tập
+  const [deleteTargetProgram, setDeleteTargetProgram] = useState(null);
+
+  const handleConfirmDeleteProgram = () => {
+    if (!deleteTargetProgram) return;
+    const progId = deleteTargetProgram.id;
+    const progTitle = deleteTargetProgram.title || 'Bài tập';
+    const progHorse = deleteTargetProgram.horseName || 'chiến mã';
+
+    const updated = programs.filter(p => p.id !== progId);
+    setPrograms(updated);
+    try {
+      localStorage.setItem('matruong_trainer_programs', JSON.stringify(updated));
+    } catch {}
+    deleteTrainingProgramApi(progId).catch(() => {});
+
+    showToast(`Đã xóa bài tập "${progTitle}" của chiến mã ${progHorse}!`, 'ĐÃ XÓA BÀI TẬP', 'info');
+    setDeleteTargetProgram(null);
   };
 
   // Thuật toán cập nhật thể lực viễn trắc chiến mã tức thì khi xong/không xong bài tập
@@ -1278,15 +1447,6 @@ export default function TrainerPage() {
           </button>
 
           <button
-            className={`portal-nav-item ${activeTab === 'sessions' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('sessions'); setSidebarOpen(false); }}
-          >
-            <span className="portal-nav-icon"><IconTimer size={18} /></span>
-            <span className="portal-nav-label">{t('trainerTabSessions')}</span>
-            <span className="portal-nav-badge">{sessions.length}</span>
-          </button>
-
-          <button
             className={`portal-nav-item ${activeTab === 'review' ? 'active' : ''}`}
             onClick={() => { setActiveTab('review'); setSidebarOpen(false); }}
           >
@@ -1330,7 +1490,6 @@ export default function TrainerPage() {
                 {activeTab === 'horses' && t('trainerTitleHorses')}
                 {activeTab === 'vitals' && t('trainerTitleVitals')}
                 {activeTab === 'programs' && t('trainerTitlePrograms')}
-                {activeTab === 'sessions' && t('trainerTitleSessions')}
                 {activeTab === 'review' && t('trainerTitleReview')}
                 {activeTab === 'approvals' && (lang === 'en' ? 'Tournament Nominations & Approvals' : 'Thẩm Định & Phê Duyệt Đăng Ký Thi Đấu')}
               </h2>
@@ -1338,7 +1497,6 @@ export default function TrainerPage() {
                 {activeTab === 'horses' && t('trainerSubHorses')}
                 {activeTab === 'vitals' && t('trainerSubVitals')}
                 {activeTab === 'programs' && t('trainerSubPrograms')}
-                {activeTab === 'sessions' && t('trainerSubSessions')}
                 {activeTab === 'review' && t('trainerSubReview')}
                 {activeTab === 'approvals' && (lang === 'en' ? 'Review horse owner nominations, evaluate cardiovascular fitness and authorize official barrier draw' : 'Thẩm định hồ sơ đăng ký giải đấu từ Chủ sở hữu ngựa, đánh giá thể lực & cấp phép xuất phát')}
               </div>
@@ -1580,7 +1738,16 @@ export default function TrainerPage() {
                                       type="button"
                                       onClick={() => {
                                         const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
-                                        setConfirmedHorseModal(full);
+                                        setConfirmedHorseModal({
+                                          ...(full || {}),
+                                          name: full?.name || asgn.horseName,
+                                          microchip: full?.microchip || asgn.microchip,
+                                          stable: full?.stable || asgn.stable,
+                                          ownerName: full?.ownerName || asgn.ownerName,
+                                          isPendingConfirmation: true,
+                                          trainerStatus: 'PENDING',
+                                          assignmentData: asgn
+                                        });
                                       }}
                                       style={{
                                         background: 'transparent',
@@ -2195,7 +2362,9 @@ export default function TrainerPage() {
                     const isCalibrating = workoutCount < REQUIRED_WORKOUTS_TO_EVALUATE;
                     const remainingWorkouts = Math.max(0, REQUIRED_WORKOUTS_TO_EVALUATE - workoutCount);
 
+                    const fullInfo = lookupFullHorseInfo(horse.name || horse.microchip);
                     const cleanStall = (horse.stall || horse.stable || 'Ô A1').split('•')[0].split('(')[0].trim();
+                    const horseAvatar = horse.avatar || fullInfo?.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
                     const condVal = parseFloat(horse.condition) || 88;
                     const isIncreasing = !isCalibrating && !horse.isLockedByVet && (horse.trend === 'INCREASING' || condVal >= 88);
                     const isStable = !isCalibrating && !horse.isLockedByVet && (horse.trend === 'STABLE' || (condVal >= 80 && condVal < 88));
@@ -2275,28 +2444,65 @@ export default function TrainerPage() {
                           )}
                         </div>
 
-                        {/* Tên chiến mã & Mã vi chip */}
+                        {/* Tên chiến mã, Ảnh nhận diện & Mã vi chip */}
                         <div style={{ marginTop: '12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--paper)', letterSpacing: '0.01em' }}>
-                              {horse.name}
-                            </h3>
-                            <span style={{
-                              fontSize: '11px',
-                              color: 'var(--brass)',
-                              fontFamily: 'monospace',
-                              background: 'var(--bg-secondary)',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              border: '1px solid var(--line)',
-                              letterSpacing: '0.04em',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {horse.microchip}
-                            </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <img
+                              src={horseAvatar}
+                              alt={horse.name}
+                              style={{
+                                width: '46px',
+                                height: '46px',
+                                borderRadius: '8px',
+                                objectFit: 'cover',
+                                border: '1px solid var(--line)',
+                                flexShrink: 0
+                              }}
+                              onError={(e) => {
+                                e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+                              }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+                                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--paper)', letterSpacing: '0.01em' }}>
+                                  {horse.name}
+                                </h3>
+                                <span style={{
+                                  fontSize: '11px',
+                                  color: 'var(--brass)',
+                                  fontFamily: 'monospace',
+                                  background: 'var(--bg-secondary)',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid var(--line)',
+                                  letterSpacing: '0.04em',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {horse.microchip}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                                <span style={{
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  color: 'var(--brass)',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.03em',
+                                  background: 'rgba(212, 175, 55, 0.08)',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  border: '1px solid rgba(212, 175, 55, 0.2)'
+                                }}>
+                                  {horse.breed || 'Thoroughbred'}
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                                  {horse.age || '3 tuổi'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
 
-                          <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '6px' }}>
                             Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{horse.owner || horse.ownerName || 'Phạm Tiến Thành'}</b>
                           </div>
                           <p style={{
@@ -2391,12 +2597,13 @@ export default function TrainerPage() {
                           </div>
                         </div>
 
-                        {/* NÚT BẤM THAO TÁC (CHIA ĐỀU 50/50 CÂN ĐỐI) */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: 'auto' }}>
+                        {/* NÚT BẤM THAO TÁC */}
+                        <div style={{ marginTop: 'auto' }}>
                           <button
                             type="button"
                             onClick={() => setFitnessDetailModalHorse(horse)}
                             style={{
+                              width: '100%',
                               height: '38px',
                               background: 'var(--brass)',
                               color: '#0A0D14',
@@ -2414,33 +2621,6 @@ export default function TrainerPage() {
                             title="Xem chi tiết các biểu đồ thể lực, nhịp tim và tải luyện tập như EvoLab"
                           >
                             Xem thêm chi tiết
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
-                              setShowAddSessionModal(true);
-                            }}
-                            disabled={horse.isLockedByVet}
-                            style={{
-                              height: '38px',
-                              background: horse.isLockedByVet ? 'rgba(255,255,255,0.04)' : 'var(--bg-secondary)',
-                              color: horse.isLockedByVet ? 'var(--paper-dim)' : 'var(--paper)',
-                              border: '1px solid var(--line)',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              cursor: horse.isLockedByVet ? 'not-allowed' : 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '6px',
-                              whiteSpace: 'nowrap',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <span>{horse.isLockedByVet ? 'Đang khóa' : '+ Lên bài tập'}</span>
                           </button>
                         </div>
                       </div>
@@ -2463,6 +2643,8 @@ export default function TrainerPage() {
                     </thead>
                     <tbody>
                       {trainerHorses.map(horse => {
+                        const fullInfo = lookupFullHorseInfo(horse.name || horse.microchip);
+                        const horseAvatar = horse.avatar || fullInfo?.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
                         const condVal = parseFloat(horse.condition) || 88;
                         const isIncreasing = !horse.isLockedByVet && condVal >= 88;
                         const isStable = !horse.isLockedByVet && condVal >= 80 && condVal < 88;
@@ -2470,8 +2652,27 @@ export default function TrainerPage() {
                         return (
                           <tr key={horse.id} style={{ borderBottom: '1px solid var(--line)' }}>
                             <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>
-                              <div>{horse.name}</div>
-                              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{horse.stall} · {horse.microchip}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <img
+                                  src={horseAvatar}
+                                  alt={horse.name}
+                                  style={{
+                                    width: '38px',
+                                    height: '38px',
+                                    borderRadius: '6px',
+                                    objectFit: 'cover',
+                                    border: '1px solid var(--line)',
+                                    flexShrink: 0
+                                  }}
+                                  onError={(e) => {
+                                    e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+                                  }}
+                                />
+                                <div>
+                                  <div>{horse.name}</div>
+                                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{horse.stall} · {horse.microchip}</div>
+                                </div>
+                              </div>
                             </td>
                             <td style={{ padding: '14px 18px' }}>
                               {isIncreasing && (
@@ -2497,12 +2698,12 @@ export default function TrainerPage() {
                             <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.avgHeartRate} bpm</td>
                             <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.maxSpeed} km/h</td>
                             <td style={{ padding: '14px 18px', color: isIncreasing ? '#10B981' : 'var(--brass)', fontWeight: 700 }}>{horse.condition}</td>
-                            <td style={{ padding: '14px 18px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <td style={{ padding: '14px 18px' }}>
                               <button
                                 type="button"
                                 onClick={() => setFitnessDetailModalHorse(horse)}
                                 style={{
-                                  padding: '6px 12px',
+                                  padding: '6px 14px',
                                   background: 'var(--brass)',
                                   color: '#0A0D14',
                                   border: 'none',
@@ -2517,26 +2718,6 @@ export default function TrainerPage() {
                                 }}
                               >
                                 Xem thêm chi tiết
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setNewSessionData(prev => ({ ...prev, horseName: horse.name }));
-                                  setShowAddSessionModal(true);
-                                }}
-                                disabled={horse.isLockedByVet}
-                                style={{
-                                  padding: '6px 10px',
-                                  background: horse.isLockedByVet ? 'var(--bg-secondary)' : 'transparent',
-                                  color: horse.isLockedByVet ? 'var(--paper-dim)' : 'var(--paper)',
-                                  border: '1px solid var(--line)',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: 700,
-                                  cursor: horse.isLockedByVet ? 'not-allowed' : 'pointer',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                + Lên bài tập
                               </button>
                             </td>
                           </tr>
@@ -2653,15 +2834,41 @@ export default function TrainerPage() {
                       </div>
 
                       <div className="facility-card-actions">
-                        <div className="actions-left">
+                        <div className="actions-left" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button
                             className="facility-btn-action"
-                            onClick={() => {
-                              setNewSessionData(prev => ({ ...prev, horseName: prog.horseName, programTitle: prog.title }));
-                              setShowAddSessionModal(true);
-                            }}
+                            onClick={() => handleStartWorkout(prog)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
                             {lang === 'en' ? 'Run Workout' : 'Chạy bài này'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTargetProgram(prog)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              color: '#EF4444',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              padding: '7px 12px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title="Xóa giáo án bài tập này"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Xóa
                           </button>
                         </div>
                         <span className="facility-link-action" style={{ cursor: 'default' }}>
@@ -2672,40 +2879,110 @@ export default function TrainerPage() {
                   ))}
                 </div>
               ) : (
-                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
-                  <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Horse' : 'Chiến mã'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Curriculum Title' : 'Tên giáo án'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Phase' : 'Giai đoạn'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Target Dist' : 'Cự ly mục tiêu'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Surface' : 'Mặt sân'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Duration' : 'Thời gian'}</th>
-                        <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'en' ? 'Status' : 'Trạng thái'}</th>
+                        <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>{lang === 'en' ? 'Horse' : 'Chiến mã'}</th>
+                        <th style={{ padding: '12px 10px' }}>{lang === 'en' ? 'Curriculum Title' : 'Tên giáo án'}</th>
+                        <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>{lang === 'en' ? 'Phase' : 'Giai đoạn'}</th>
+                        <th style={{ padding: '12px 10px', whiteSpace: 'nowrap', textAlign: 'center' }}>{lang === 'en' ? 'Target Dist' : 'Cự ly mục tiêu'}</th>
+                        <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>{lang === 'en' ? 'Surface' : 'Mặt sân'}</th>
+                        <th style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>{lang === 'en' ? 'Duration' : 'Thời gian'}</th>
+                        <th style={{ padding: '12px 10px', whiteSpace: 'nowrap', textAlign: 'center' }}>{lang === 'en' ? 'Status' : 'Trạng thái'}</th>
+                        <th style={{ padding: '12px 10px', whiteSpace: 'nowrap', textAlign: 'center' }}>{lang === 'en' ? 'Actions' : 'Thao tác'}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {programs.map(prog => (
                         <tr key={prog.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{prog.horseName}</td>
-                          <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{prog.title}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{prog.phase}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--brass)', fontWeight: 600 }}>{prog.targetDistance} m</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{prog.surface}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', fontSize: '12.5px' }}>{prog.startDate} → {prog.endDate}</td>
-                          <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                          <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            {prog.horseName}
+                          </td>
+                          <td style={{ padding: '12px 10px', fontWeight: 600, color: 'var(--paper)', verticalAlign: 'middle' }}>
+                            {prog.title}
+                          </td>
+                          <td style={{ padding: '12px 10px', color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            {prog.phase}
+                          </td>
+                          <td style={{ padding: '12px 10px', color: 'var(--brass)', fontWeight: 700, textAlign: 'center', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            {prog.targetDistance} m
+                          </td>
+                          <td style={{ padding: '12px 10px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            {prog.surface}
+                          </td>
+                          <td style={{ padding: '12px 10px', color: 'var(--paper-dim)', fontSize: '12px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            {prog.startDate} <span style={{ color: 'var(--line-strong)', margin: '0 2px' }}>→</span> {prog.endDate}
+                          </td>
+                          <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                             <span style={{
-                              padding: '4px 12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '4px 10px',
                               borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              background: 'rgba(201, 162, 39, 0.12)',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: 'rgba(212, 175, 55, 0.12)',
                               color: 'var(--brass)',
-                              border: '1px solid var(--brass)'
+                              border: '1px solid var(--brass)',
+                              whiteSpace: 'nowrap'
                             }}>
                               {lang === 'en' ? 'Active' : 'Đang thực hiện'}
                             </span>
+                          </td>
+                          <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleStartWorkout(prog)}
+                                style={{
+                                  background: 'rgba(212, 175, 55, 0.15)',
+                                  color: 'var(--brass)',
+                                  border: '1px solid var(--brass)',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title="Bắt đầu chạy bài tập này"
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                {lang === 'en' ? 'Run' : 'Chạy bài này'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTargetProgram(prog)}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  color: '#EF4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title="Xóa giáo án bài tập này"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6"></polyline>
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Xóa
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -2713,162 +2990,6 @@ export default function TrainerPage() {
                   </table>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ===================== TAB 3: BUỔI TẬP & TELEMETRY ===================== */}
-          {activeTab === 'sessions' && (
-            <div>
-              <div className="portal-filter-bar">
-                <div className="portal-filter-pills">
-                  <button className="portal-pill-btn active">
-                    {lang === 'en' ? 'All Workouts' : 'Tất cả buổi tập'} <span className="pill-count">{sessions.length}</span>
-                  </button>
-                  <button
-                    className="portal-pill-btn"
-                    onClick={() => {
-                      setFilterStatus('COMPLETED');
-                      setActiveTab('review');
-                    }}
-                  >
-                    {t('trainerStatusCompleted')} <span className="pill-count">{sessions.filter(s => s.status === 'COMPLETED').length}</span>
-                  </button>
-                  <button
-                    className="portal-pill-btn"
-                    onClick={() => {
-                      setFilterStatus('INCOMPLETE');
-                      setActiveTab('review');
-                    }}
-                  >
-                    {t('trainerStatusIncomplete')} <span className="pill-count">{sessions.filter(s => s.status === 'INCOMPLETE').length}</span>
-                  </button>
-                </div>
-
-                <div className="portal-view-tools">
-                  <button
-                    onClick={() => setShowAddSessionModal(true)}
-                    className="portal-view-btn"
-                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
-                  >
-                    {t('trainerBtnAddSession')}
-                  </button>
-                </div>
-              </div>
-
-              <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
-                <table style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Timestamp' : 'Thời gian'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Horse & Curriculum' : 'Chiến mã & Giáo án'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Distance' : 'Quãng đường'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Avg Speed' : 'Vận tốc TB'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Heart Rate' : 'Nhịp tim'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Alert' : 'Cảnh báo'}</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'en' ? 'Workout Status' : 'Trạng thái bài tập'}</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'en' ? 'Score' : 'Điểm đánh giá'}</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'en' ? 'Actions' : 'Thao tác'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sessions.map(sess => {
-                      const isCompleted = sess.status === 'COMPLETED';
-                      return (
-                        <tr key={sess.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
-                            {sess.time}
-                          </td>
-                          <td style={{ padding: '14px 18px' }}>
-                            <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{sess.horseName}</div>
-                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{sess.programTitle}</div>
-                          </td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{sess.distanceRun} m</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{sess.avgSpeed} km/h</td>
-                          <td style={{ padding: '14px 18px', color: sess.isOverLimit ? 'var(--brass)' : 'var(--paper)', fontWeight: 700 }}>
-                            {sess.maxHeartRate} bpm
-                          </td>
-                          <td style={{ padding: '14px 18px' }}>
-                            {sess.isOverLimit ? (
-                              <span style={{
-                                padding: '4px 8px',
-                                background: 'rgba(201, 162, 39, 0.12)',
-                                color: 'var(--brass)',
-                                border: '1px solid var(--brass)',
-                                borderRadius: '4px',
-                                fontSize: '11.5px',
-                                fontWeight: 700
-                              }}>
-                                {lang === 'en' ? 'Overload (>210)' : 'Quá tải (>210)'}
-                              </span>
-                            ) : (
-                              <span style={{
-                                padding: '4px 8px',
-                                background: 'var(--bg-secondary)',
-                                color: 'var(--paper-dim)',
-                                border: '1px solid var(--line)',
-                                borderRadius: '4px',
-                                fontSize: '11.5px',
-                                fontWeight: 600
-                              }}>
-                                {lang === 'en' ? 'Normal' : 'Bình thường'}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '14px 18px', textAlign: 'center' }}>
-                            <button
-                              onClick={() => handleToggleSessionStatus(sess.id)}
-                              title={lang === 'en' ? 'Click to toggle status' : 'Nhấp để đổi trạng thái bài tập'}
-                              style={{
-                                padding: '5px 12px',
-                                borderRadius: '20px',
-                                fontSize: '12px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                background: isCompleted ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
-                                color: isCompleted ? 'var(--brass)' : 'var(--paper-dim)',
-                                border: isCompleted ? '1px solid var(--brass)' : '1px solid var(--line)',
-                                transition: 'all 0.2s ease'
-                              }}
-                            >
-                              {isCompleted ? (lang === 'en' ? 'Completed' : 'Hoàn thành') : (lang === 'en' ? 'Incomplete' : 'Chưa đạt')}
-                            </button>
-                          </td>
-                          <td style={{ padding: '14px 18px', textAlign: 'center' }}>
-                            <span style={{
-                              padding: '4px 10px',
-                              background: 'rgba(201, 162, 39, 0.12)',
-                              color: 'var(--brass)',
-                              border: '1px solid var(--brass)',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              fontWeight: 700
-                            }}>
-                              {sess.score !== undefined ? sess.score : 8.0}/10
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 18px', textAlign: 'center' }}>
-                            <button
-                              onClick={() => handleOpenEvaluationModal(sess)}
-                              style={{
-                                padding: '6px 12px',
-                                background: 'var(--bg-secondary)',
-                                border: '1px solid var(--line)',
-                                color: 'var(--paper)',
-                                borderRadius: '4px',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {lang === 'en' ? 'Review' : 'Đánh giá'}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
             </div>
           )}
 
@@ -2921,11 +3042,18 @@ export default function TrainerPage() {
 
                 <div className="portal-view-tools">
                   <button
-                    onClick={() => setShowAddSessionModal(true)}
+                    onClick={() => {
+                      const prog = programs.find(p => p.horseName === filterHorse) || programs[0];
+                      if (prog) handleStartWorkout(prog);
+                      else setActiveTab('programs');
+                    }}
                     className="portal-view-btn"
-                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
+                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
-                    {lang === 'en' ? '+ New Session' : '+ Ghi Nhận Mới'}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    {lang === 'en' ? '+ Run Workout' : '+ Chạy Bài Tập Mới'}
                   </button>
                 </div>
               </div>
@@ -3653,13 +3781,13 @@ export default function TrainerPage() {
         </div>
       )}
 
-      {/* ===================== MODAL GHI NHẬN BUỔI TẬP MỚI ===================== */}
-      {showAddSessionModal && (
+      {/* ===================== MODAL CHẠY BÀI TẬP & ĐÁNH GIÁ GHI CHÚ 2 GIAI ĐOẠN ===================== */}
+      {activeRunningSession && (
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
+          background: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -3668,151 +3796,478 @@ export default function TrainerPage() {
         }}>
           <div style={{
             background: 'var(--bg-card)',
-            border: '1px solid var(--line)',
-            borderRadius: '12px',
+            border: '1px solid var(--brass)',
+            borderRadius: '16px',
             width: '100%',
-            maxWidth: '520px',
-            maxHeight: '90vh',
+            maxWidth: '680px',
+            maxHeight: '92vh',
             overflowY: 'auto',
             padding: '28px',
             color: 'var(--paper)',
-            boxShadow: 'var(--shadow)'
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(212, 175, 55, 0.15)'
           }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>
-              {lang === 'en' ? 'Log Workout Session & Telemetry' : 'Ghi Nhận Buổi Tập & Telemetry Mới'}
-            </h3>
-            <form onSubmit={handleCreateSession} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+            {/* GIAI ĐOẠN 1: NGỰA ĐANG TRONG THỜI GIAN CHẠY BÀI */}
+            {activeRunningSession.phase === 'RUNNING' && (
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Racehorse' : 'Chiến mã tập luyện'}
-                </label>
-                <select
-                  value={newSessionData.horseName}
-                  onChange={(e) => setNewSessionData({ ...newSessionData, horseName: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                >
-                  {trainerHorses.map(h => (
-                    <option key={h.id} value={h.name}>{h.name} ({h.microchip})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Curriculum / Workout Title' : 'Tên bài tập / Giáo án'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={lang === 'en' ? 'e.g. Endurance build 2,000m sand' : 'Ví dụ: Rèn sức bền 2.000m sân cát'}
-                  value={newSessionData.programTitle}
-                  onChange={(e) => setNewSessionData({ ...newSessionData, programTitle: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                    {lang === 'en' ? 'Distance Run (m)' : 'Quãng đường chạy (m)'}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={newSessionData.distanceRun}
-                    onChange={(e) => setNewSessionData({ ...newSessionData, distanceRun: e.target.value })}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                    {lang === 'en' ? 'Avg Velocity (km/h)' : 'Vận tốc TB (km/h)'}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={newSessionData.avgSpeed}
-                    onChange={(e) => setNewSessionData({ ...newSessionData, avgSpeed: e.target.value })}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                    {lang === 'en' ? 'Peak Heart Rate (bpm)' : 'Nhịp tim tối đa (bpm)'}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    placeholder={lang === 'en' ? 'Safe threshold <= 210' : 'Ngưỡng an toàn <= 210'}
-                    value={newSessionData.maxHeartRate}
-                    onChange={(e) => setNewSessionData({ ...newSessionData, maxHeartRate: e.target.value })}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                    {lang === 'en' ? 'Workout Status' : 'Trạng thái bài tập'}
-                  </label>
-                  <select
-                    value={newSessionData.status}
-                    onChange={(e) => setNewSessionData({ ...newSessionData, status: e.target.value })}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                {/* Header status bar */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid var(--line)', paddingBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10B981',
+                      border: '1px solid #10B981',
+                      padding: '6px 14px',
+                      borderRadius: '30px',
+                      fontSize: '12.5px',
+                      fontWeight: 800,
+                      letterSpacing: '0.5px'
+                    }}>
+                      <span style={{
+                        width: '9px',
+                        height: '9px',
+                        borderRadius: '50%',
+                        background: '#10B981',
+                        boxShadow: '0 0 10px #10B981',
+                        animation: 'pulse 1.5s infinite'
+                      }} />
+                      {lang === 'en' ? 'WORKOUT IN PROGRESS' : 'NGỰA ĐANG TRONG THỜI GIAN CHẠY BÀI'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setActiveRunningSession(null)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--paper-dim)',
+                      cursor: 'pointer',
+                      fontSize: '20px',
+                      lineHeight: '1'
+                    }}
+                    title="Đóng / Hủy"
                   >
-                    <option value="COMPLETED">{lang === 'en' ? 'Workout Completed' : 'Hoàn thành bài tập'}</option>
-                    <option value="INCOMPLETE">{lang === 'en' ? 'Workout Incomplete' : 'Không hoàn thành bài tập'}</option>
-                  </select>
+                    ✕
+                  </button>
+                </div>
+
+                {/* Chiến mã & Giáo án Header Card */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  marginBottom: '20px'
+                }}>
+                  <img
+                    src={activeRunningSession.horse.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80'}
+                    alt={activeRunningSession.horse.name}
+                    style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', border: '2px solid var(--brass)', flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--paper)' }}>
+                        {activeRunningSession.horse.name}
+                      </h4>
+                      <span style={{ fontSize: '12px', background: 'rgba(212, 175, 55, 0.15)', color: 'var(--brass)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                        {activeRunningSession.horse.stall || 'Ô Chuồng A4'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                        Chip: {activeRunningSession.horse.microchip || 'MC-VN-2022-088'}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '6px', fontSize: '13px', color: 'var(--paper-dim)' }}>
+                      Bài tập: <b style={{ color: 'var(--brass)' }}>{activeRunningSession.program.title}</b>
+                    </div>
+                    <div style={{ marginTop: '4px', display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                      <span>Mục tiêu: <b style={{ color: 'var(--paper)' }}>{activeRunningSession.targetDistance} m</b></span>
+                      <span>•</span>
+                      <span>Mặt sân: <b style={{ color: 'var(--paper)' }}>{activeRunningSession.program.surface}</b></span>
+                      <span>•</span>
+                      <span>Giai đoạn: <b style={{ color: 'var(--paper)' }}>{activeRunningSession.program.phase}</b></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Đồng hồ bấm giờ thực tế (Live Stopwatch) */}
+                <div style={{
+                  textAlign: 'center',
+                  background: 'linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(10, 13, 20, 0.6) 100%)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: '14px',
+                  padding: '20px 16px',
+                  marginBottom: '20px'
+                }}>
+                  <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--paper-dim)', marginBottom: '4px', fontWeight: 700 }}>
+                    {lang === 'en' ? 'LIVE WORKOUT TIMER' : 'THỜI GIAN CHẠY THỰC TẾ'}
+                  </div>
+                  <div style={{
+                    fontFamily: 'monospace, ui-monospace, Consolas',
+                    fontSize: '48px',
+                    fontWeight: 900,
+                    color: '#10B981',
+                    letterSpacing: '3px',
+                    textShadow: '0 0 20px rgba(16, 185, 129, 0.4)'
+                  }}>
+                    {formatWorkoutTimer(activeRunningSession.elapsedSeconds)}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                    Tín hiệu viễn trắc thu nhận trực tiếp từ cảm biến yên cương & định vị GPS
+                  </div>
+                </div>
+
+                {/* 3 Thẻ Chỉ Số Telemetry Trực Tiếp */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+                  {/* Nhịp tim */}
+                  <div style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '10px',
+                    padding: '14px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#EF4444', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>
+                      <span style={{ fontSize: '16px' }}>❤️</span>
+                      {lang === 'en' ? 'LIVE HEART RATE' : 'NHỊP TIM TỨC THÌ'}
+                    </div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: activeRunningSession.currentHeartRate > 210 ? '#EF4444' : 'var(--paper)' }}>
+                      {activeRunningSession.currentHeartRate} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>bpm</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                      {activeRunningSession.currentHeartRate > 210 ? '⚠️ Cảnh báo ngưỡng cao' : 'Ngưỡng Lactate bứt tốc'}
+                    </div>
+                  </div>
+
+                  {/* Vận tốc */}
+                  <div style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '10px',
+                    padding: '14px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--brass)', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>
+                      <span style={{ fontSize: '16px' }}>⚡</span>
+                      {lang === 'en' ? 'LIVE VELOCITY' : 'VẬN TỐC TỨC THÌ'}
+                    </div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--paper)' }}>
+                      {activeRunningSession.currentSpeed} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>km/h</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                      Sải chân duy trì tốc độ cao
+                    </div>
+                  </div>
+
+                  {/* Quãng đường */}
+                  <div style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '10px',
+                    padding: '14px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#3B82F6', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>
+                      <span style={{ fontSize: '16px' }}>📍</span>
+                      {lang === 'en' ? 'DISTANCE' : 'QUÃNG ĐƯỜNG'}
+                    </div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--paper)' }}>
+                      {activeRunningSession.currentDistance} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>/ {activeRunningSession.targetDistance} m</span>
+                    </div>
+                    <div style={{ width: '100%', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', height: '6px', marginTop: '8px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${Math.min(100, Math.round((activeRunningSession.currentDistance / activeRunningSession.targetDistance) * 100))}%`,
+                        background: '#3B82F6',
+                        height: '100%',
+                        transition: 'width 0.4s ease'
+                      }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Phần dưới: NÚT HOÀN THÀNH BÀI VÀ KHÔNG HOÀN THÀNH BÀI */}
+                <div style={{ borderTop: '1px solid var(--line)', paddingTop: '20px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginBottom: '12px', textAlign: 'center', fontWeight: 600 }}>
+                    Xác nhận kết quả chạy bài tập để chuyển sang Đánh giá & Ghi chú chuyên môn:
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleFinishRunningSession(true)}
+                      style={{
+                        padding: '14px 20px',
+                        background: '#10B981',
+                        color: '#0A0D14',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontSize: '15px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                      {lang === 'en' ? 'Complete Workout' : 'Hoàn thành bài'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleFinishRunningSession(false)}
+                      style={{
+                        padding: '14px 20px',
+                        background: '#EF4444',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontSize: '15px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                      {lang === 'en' ? 'Incomplete Workout' : 'Không hoàn thành bài'}
+                    </button>
+                  </div>
                 </div>
               </div>
+            )}
 
-              <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Performance Rating (1.0 - 10.0 scale)' : 'Chấm điểm đánh giá (thang điểm 1.0 - 10.0)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="10"
-                  required
-                  value={newSessionData.score}
-                  onChange={(e) => setNewSessionData({ ...newSessionData, score: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                />
-              </div>
+            {/* GIAI ĐOẠN 2: ĐÁNH GIÁ VÀ GHI CHÚ */}
+            {activeRunningSession.phase === 'EVALUATING' && (
+              <form onSubmit={handleSaveEvaluatedSession}>
+                {/* Header trạng thái sau khi chạy */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', borderBottom: '1px solid var(--line)', paddingBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {activeRunningSession.status === 'COMPLETED' ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10B981',
+                        border: '1px solid #10B981',
+                        padding: '6px 14px',
+                        borderRadius: '30px',
+                        fontSize: '13px',
+                        fontWeight: 800
+                      }}>
+                        ✓ ĐÃ HOÀN THÀNH BÀI TẬP
+                      </span>
+                    ) : (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        color: '#EF4444',
+                        border: '1px solid #EF4444',
+                        padding: '6px 14px',
+                        borderRadius: '30px',
+                        fontSize: '13px',
+                        fontWeight: 800
+                      }}>
+                        ✕ KHÔNG HOÀN THÀNH BÀI TẬP
+                      </span>
+                    )}
+                    <span style={{ fontSize: '13px', color: 'var(--paper-dim)' }}>
+                      Chiến mã: <b style={{ color: 'var(--paper)' }}>{activeRunningSession.horse.name}</b>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveRunningSession(null)}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--paper-dim)', cursor: 'pointer', fontSize: '20px' }}
+                  >
+                    ✕
+                  </button>
+                </div>
 
-              <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Trainer Remarks & Field Notes' : 'Ghi chú bài tập & Nhận xét của HLV'}
-                </label>
-                <textarea
-                  rows="3"
-                  placeholder={lang === 'en' ? 'Note stride fluidity, breathing recovery or reason if incomplete...' : 'Ghi nhận xét về phong độ, độ giãn bước, sức bền hoặc lý do nếu bài tập chưa hoàn thành...'}
-                  value={newSessionData.feedback}
-                  onChange={(e) => setNewSessionData({ ...newSessionData, feedback: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box', resize: 'vertical' }}
-                />
-              </div>
+                {/* Hộp tổng kết thông số đã ghi nhận */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '10px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  marginBottom: '18px',
+                  textAlign: 'center'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Thời gian chạy</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                      {activeRunningSession.finalDuration}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Quãng đường</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                      {activeRunningSession.finalDistance} m
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Vận tốc TB</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                      {activeRunningSession.avgSpeed} km/h
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Nhịp tim đỉnh</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: activeRunningSession.maxHeartRate > 210 ? '#EF4444' : 'var(--brass)', marginTop: '2px' }}>
+                      {activeRunningSession.maxHeartRate} bpm
+                    </div>
+                  </div>
+                </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowAddSessionModal(false)}
-                  style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer' }}
-                >
-                  {lang === 'en' ? 'Cancel' : 'Hủy'}
-                </button>
-                <button
-                  type="submit"
-                  style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
-                >
-                  {lang === 'en' ? 'Save Workout' : 'Lưu Bài Tập'}
-                </button>
-              </div>
-            </form>
+                {/* Điểm đánh giá */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '13px', color: 'var(--paper-dim)', fontWeight: 600 }}>
+                      {lang === 'en' ? 'Performance Rating' : 'Điểm đánh giá phong độ (Thang 1.0 - 10.0)'}
+                    </label>
+                    <span style={{
+                      background: 'rgba(212, 175, 55, 0.15)',
+                      color: 'var(--brass)',
+                      border: '1px solid var(--brass)',
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: 800
+                    }}>
+                      {activeRunningSession.score} / 10
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="0.1"
+                    value={activeRunningSession.score}
+                    onChange={(e) => setActiveRunningSession({ ...activeRunningSession, score: parseFloat(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--brass)', cursor: 'pointer' }}
+                  />
+                </div>
+
+                {/* Textarea 1: Đánh giá của Huấn luyện viên */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ fontSize: '13px', color: 'var(--paper)', display: 'block', marginBottom: '6px', fontWeight: 700 }}>
+                    📝 {lang === 'en' ? 'Trainer Field Evaluation' : 'Đánh giá chuyên môn của Huấn luyện viên'}
+                  </label>
+                  <textarea
+                    rows="3"
+                    required
+                    placeholder="Ghi nhận xét chi tiết về sức rướn, phong độ bứt tốc, độ bền sải chân, hoặc nguyên nhân nếu chưa hoàn thành..."
+                    value={activeRunningSession.evaluation}
+                    onChange={(e) => setActiveRunningSession({ ...activeRunningSession, evaluation: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box',
+                      fontSize: '13px',
+                      lineHeight: '1.5',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                {/* Textarea 2: Ghi chú phục hồi & Dặn dò thú y / groom */}
+                <div style={{ marginBottom: '22px' }}>
+                  <label style={{ fontSize: '13px', color: 'var(--paper)', display: 'block', marginBottom: '6px', fontWeight: 700 }}>
+                    🧊 {lang === 'en' ? 'Recovery Notes & Stable Directions' : 'Ghi chú & Dặn dò phục hồi chuồng trại / Thú y'}
+                  </label>
+                  <textarea
+                    rows="3"
+                    placeholder="Dặn dò chuyên viên Groom và Bác sĩ Thú y: chườm lạnh gân cơ, ngâm chân, điện giải, dinh dưỡng yến mạch hoặc theo dõi hạ nhịp tim..."
+                    value={activeRunningSession.recoveryNotes}
+                    onChange={(e) => setActiveRunningSession({ ...activeRunningSession, recoveryNotes: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box',
+                      fontSize: '13px',
+                      lineHeight: '1.5',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                {/* Bottom Action buttons */}
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveRunningSession(null)}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      borderRadius: '8px',
+                      fontSize: '13.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {lang === 'en' ? 'Cancel' : 'Hủy bỏ'}
+                  </button>
+
+                  <button
+                    type="submit"
+                    style={{
+                      flex: 2,
+                      padding: '12px',
+                      background: 'var(--brass)',
+                      border: 'none',
+                      color: '#14100A',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 14px rgba(212, 175, 55, 0.35)'
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    {lang === 'en' ? 'Save Review & Update Fitness' : 'Lưu Đánh Giá & Cập Nhật Thể Lực'}
+                  </button>
+                </div>
+              </form>
+            )}
+
           </div>
         </div>
       )}
@@ -4322,6 +4777,10 @@ export default function TrainerPage() {
           horse={confirmedHorseModal}
           role="TRAINER"
           onClose={() => setConfirmedHorseModal(null)}
+          onConfirmService={(h) => {
+            const targetAsgn = h.assignmentData || h;
+            handleConfirmTrainerService(targetAsgn);
+          }}
           onAction={(h) => {
             setConfirmedHorseModal(null);
             setActiveTab('vitals');
@@ -4357,6 +4816,85 @@ export default function TrainerPage() {
             setTrainerHorses(prev => prev.map(h => (h.microchip === updatedH.microchip || h.id === updatedH.id || (h.name || '').toLowerCase() === (updatedH.name || '').toLowerCase()) ? { ...h, ...updatedH } : h));
           }}
         />
+      )}
+
+      {/* Modal Xác Nhận Xóa Giáo Án Huấn Luyện */}
+      {deleteTargetProgram && (
+        <div
+          onClick={() => setDeleteTargetProgram(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.82)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999999,
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              borderRadius: '12px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '460px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.85)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '24px' }}>🗑️</span>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--paper)' }}>
+                Xác Nhận Xóa Bài Tập Huấn Luyện
+              </h3>
+            </div>
+            <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--paper-dim)', lineHeight: 1.5 }}>
+              Bạn có chắc chắn muốn xóa bài tập <b style={{ color: 'var(--brass)' }}>"{deleteTargetProgram.title}"</b> của chiến mã <b style={{ color: 'var(--paper)' }}>{deleteTargetProgram.horseName}</b> khỏi giáo án huấn luyện? Thao tác này không thể hoàn tác.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setDeleteTargetProgram(null)}
+                style={{
+                  padding: '9px 18px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  color: 'var(--paper)',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  fontSize: '12.5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteProgram}
+                style={{
+                  padding: '9px 18px',
+                  background: '#EF4444',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  borderRadius: '6px',
+                  fontWeight: 800,
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)'
+                }}
+              >
+                Xác Nhận Xóa
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

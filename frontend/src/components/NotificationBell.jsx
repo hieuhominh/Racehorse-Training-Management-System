@@ -5,6 +5,7 @@ import {
   markAllNotificationsAsRead,
   clearAllSystemNotifications
 } from '../services/notificationService';
+import { getNotificationsApi } from '../services/api';
 
 export default function NotificationBell({ role = 'TRAINER', currentUser }) {
   const [notifications, setNotifications] = useState(() => getSystemNotifications());
@@ -21,6 +22,14 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
   });
 
   const unreadCount = myNotifications.filter(n => !n.readBy || !n.readBy.includes(username)).length;
+
+  useEffect(() => {
+    getNotificationsApi(roleCode, username).then(data => {
+      if (Array.isArray(data) && data.length > 0) {
+        setNotifications(data);
+      }
+    }).catch(() => {});
+  }, [roleCode, username]);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -190,6 +199,30 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
               myNotifications.map(n => {
                 const isRead = n.readBy && n.readBy.includes(username);
                 const isHorseDeleted = n.type === 'HORSE_DELETED';
+                const isTrainingRequest = n.type === 'TRAINING_REQUEST';
+                const isServiceConfirmed = n.type === 'SERVICE_CONFIRMED';
+
+                let tagText = '📢 THÔNG BÁO';
+                let tagBg = 'rgba(212, 175, 55, 0.15)';
+                let tagColor = 'var(--brass)';
+                let borderLeftColor = '3px solid var(--brass)';
+
+                if (isHorseDeleted) {
+                  tagText = '⚠️ XÓA CHIẾN MÃ';
+                  tagBg = 'rgba(239, 68, 68, 0.15)';
+                  tagColor = '#EF4444';
+                  borderLeftColor = '3px solid #EF4444';
+                } else if (isTrainingRequest) {
+                  tagText = '🏇 YÊU CẦU HUẤN LUYỆN';
+                  tagBg = 'rgba(245, 158, 11, 0.15)';
+                  tagColor = '#F59E0B';
+                  borderLeftColor = '3px solid #F59E0B';
+                } else if (isServiceConfirmed) {
+                  tagText = '✅ TIẾP NHẬN THÀNH CÔNG';
+                  tagBg = 'rgba(16, 185, 129, 0.15)';
+                  tagColor = '#10B981';
+                  borderLeftColor = '3px solid #10B981';
+                }
 
                 return (
                   <div
@@ -204,7 +237,7 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
                       background: isRead ? 'transparent' : 'rgba(212, 175, 55, 0.05)',
                       cursor: 'pointer',
                       transition: 'background 0.2s ease',
-                      borderLeft: isHorseDeleted ? '3px solid #EF4444' : '3px solid var(--brass)'
+                      borderLeft: borderLeftColor
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
@@ -213,10 +246,10 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
                         fontWeight: 800,
                         padding: '1px 6px',
                         borderRadius: '3px',
-                        background: isHorseDeleted ? 'rgba(239, 68, 68, 0.15)' : 'rgba(212, 175, 55, 0.15)',
-                        color: isHorseDeleted ? '#EF4444' : 'var(--brass)'
+                        background: tagBg,
+                        color: tagColor
                       }}>
-                        {isHorseDeleted ? '⚠️ XÓA CHIẾN MÃ' : '📢 THÔNG BÁO'}
+                        {tagText}
                       </span>
                       <span style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>
                         {n.time}

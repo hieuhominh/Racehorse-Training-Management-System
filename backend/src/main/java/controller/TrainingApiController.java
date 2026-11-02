@@ -35,6 +35,9 @@ import java.util.concurrent.ConcurrentHashMap;
     "/api/training/programs",
     "/api/training/programs/*",
     "/api/training/telemetry",
+    "/api/training/telemetry/*",
+    "/api/training/sessions",
+    "/api/training/sessions/*",
     "/api/trainer/horses",
     "/api/trainer/nominations",
     "/api/trainer/nominations/review",
@@ -150,7 +153,7 @@ public class TrainingApiController extends HttpServlet {
                 return;
             }
 
-            if ("/api/training/telemetry".equals(path)) {
+            if ("/api/training/telemetry".equals(path) || "/api/training/sessions".equals(path)) {
                 synchronized (memoryTelemetry) {
                     out.print(gson.toJson(memoryTelemetry));
                 }
@@ -232,8 +235,8 @@ public class TrainingApiController extends HttpServlet {
                 return;
             }
 
-            // 2. POST /api/training/telemetry: Ghi nhận chỉ số viễn trắc
-            if ("/api/training/telemetry".equals(path)) {
+            // 2. POST /api/training/telemetry hoặc /api/training/sessions: Ghi nhận chỉ số viễn trắc & đánh giá buổi tập
+            if ("/api/training/telemetry".equals(path) || "/api/training/sessions".equals(path)) {
                 String horse = SecurityUtil.getString(body, "horse",
                     SecurityUtil.getString(body, "horseName", "")).trim();
                 if (horse.isEmpty() || SecurityUtil.containsMaliciousPayload(horse)) {
@@ -242,9 +245,12 @@ public class TrainingApiController extends HttpServlet {
                     return;
                 }
 
-                int heartRate = SecurityUtil.getInt(body, "heartRate", 180);
-                double speed = SecurityUtil.getDouble(body, "speed", 55.0);
-                int distance = SecurityUtil.getInt(body, "distance", 1200);
+                int heartRate = SecurityUtil.getInt(body, "maxHeartRate",
+                    SecurityUtil.getInt(body, "heartRate", 180));
+                double speed = SecurityUtil.getDouble(body, "avgSpeed",
+                    SecurityUtil.getDouble(body, "speed", 55.0));
+                int distance = SecurityUtil.getInt(body, "distanceRun",
+                    SecurityUtil.getInt(body, "distance", 1200));
 
                 if (heartRate <= 0 || heartRate > 300 || speed < 0 || distance < 0) {
                     SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
@@ -252,15 +258,33 @@ public class TrainingApiController extends HttpServlet {
                     return;
                 }
 
+                String programTitle = SecurityUtil.getString(body, "programTitle",
+                    SecurityUtil.getString(body, "title", "Bài tập rèn luyện")).trim();
+                String status = SecurityUtil.getString(body, "status", "COMPLETED").trim();
+                double score = SecurityUtil.getDouble(body, "score", 8.5);
+                String feedback = SecurityUtil.getString(body, "feedback",
+                    SecurityUtil.getString(body, "trainerFeedback", "")).trim();
+                String sessionTime = SecurityUtil.getString(body, "time",
+                    SecurityUtil.getString(body, "sessionTime", "Hôm nay")).trim();
+
                 Map<String, Object> newTel = new HashMap<>();
                 newTel.put("id", System.currentTimeMillis());
-                newTel.put("sessionTime", SecurityUtil.getString(body, "sessionTime", "Hôm nay"));
+                newTel.put("time", sessionTime);
+                newTel.put("sessionTime", sessionTime);
                 newTel.put("horse", SecurityUtil.sanitize(horse));
+                newTel.put("horseName", SecurityUtil.sanitize(horse));
+                newTel.put("programTitle", SecurityUtil.sanitize(programTitle));
                 newTel.put("heartRate", heartRate);
+                newTel.put("maxHeartRate", heartRate);
                 newTel.put("speed", speed);
+                newTel.put("avgSpeed", speed);
                 newTel.put("distance", distance);
+                newTel.put("distanceRun", distance);
                 newTel.put("alert", heartRate >= 210);
-                newTel.put("status", SecurityUtil.sanitize(SecurityUtil.getString(body, "status", "Hoàn thành")));
+                newTel.put("isOverLimit", heartRate >= 210);
+                newTel.put("status", SecurityUtil.sanitize(status));
+                newTel.put("score", score);
+                newTel.put("feedback", SecurityUtil.sanitize(feedback));
 
                 memoryTelemetry.add(0, newTel);
                 response.setStatus(HttpServletResponse.SC_CREATED);
@@ -385,6 +409,58 @@ public class TrainingApiController extends HttpServlet {
         } catch (Exception e) {
             SecurityUtil.sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                 "Lỗi máy chủ khi cập nhật nhận xét huấn luyện.");
+        }
+    }
+
+    /**
+     * DELETE /api/training/programs/{id}: Xóa giáo án huấn luyện
+     * DELETE /api/training/telemetry/{id} hoặc /api/training/sessions/{id}: Xóa buổi tập
+     */
+    @Override
+    protected void doDelete(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        User authUser = SecurityUtil.requireRole(request, response, "TRAINER", "MANAGER");
+        if (authUser == null) {
+            return;
+        }
+
+        String path = request.getServletPath();
+        String pathInfo = request.getPathInfo();
+        String targetId = "";
+
+        if (pathInfo != null && pathInfo.length() > 1) {
+            targetId = pathInfo.substring(1).trim();
+        } else {
+            targetId = request.getParameter("id");
+        }
+
+        if (targetId == null || targetId.isEmpty() || SecurityUtil.containsMaliciousPayload(targetId)) {
+            SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST, "Thiếu mã định danh cần xóa.");
+            return;
+        }
+
+        final String idToDelete = targetId;
+        boolean deleted = false;
+
+        if (path.contains("programs")) {
+            deleted = memoryPrograms.removeIf(p -> idToDelete.equals(String.valueOf(p.get("id"))));
+        } else {
+            deleted = memoryTelemetry.removeIf(t -> idToDelete.equals(String.valueOf(t.get("id"))));
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("deletedId", idToDelete);
+        result.put("found", deleted);
+        result.put("message", "Đã xóa thành công.");
+
+        response.setStatus(HttpServletResponse.SC_OK);
+        try (PrintWriter out = response.getWriter()) {
+            out.print(gson.toJson(result));
+            out.flush();
         }
     }
 }
