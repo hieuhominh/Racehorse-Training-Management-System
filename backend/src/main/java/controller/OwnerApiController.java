@@ -230,7 +230,15 @@ public class OwnerApiController extends HttpServlet {
                 List<Map<String, Object>> list = ownerHorsesStore.computeIfAbsent(
                     resolvedKey, k -> Collections.synchronizedList(new ArrayList<>())
                 );
-                list.add(0, newHorse);
+                synchronized (list) {
+                    list.removeIf(item -> {
+                        Object chip = item.get("microchip");
+                        Object hName = item.get("name");
+                        return (chip != null && chip.toString().equalsIgnoreCase(String.valueOf(newHorse.get("microchip")))) ||
+                               (hName != null && hName.toString().equalsIgnoreCase(name));
+                    });
+                    list.add(0, newHorse);
+                }
 
                 response.setStatus(HttpServletResponse.SC_CREATED);
                 try (PrintWriter out = response.getWriter()) {

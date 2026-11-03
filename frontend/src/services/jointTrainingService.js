@@ -1,0 +1,570 @@
+// Quản lý dịch vụ Đặt lịch tập luyện chung giữa Chủ sở hữu ngựa và Huấn luyện viên
+// Tích hợp kiểm tra nghiêm ngặt Quyền phủ quyết y tế (Medical Safety Veto của Bác sĩ Thú y)
+// Logic chống trùng lịch (Ưu tiên người đặt trước), Khung giờ 06:00 - 18:00 & Nghỉ trưa 11:45 - 13:00
+import { addSystemNotification } from './notificationService';
+
+const STORAGE_KEY = 'matruong_joint_training_sessions';
+const EVENT_NAME = 'matruong_joint_training_updated';
+
+/**
+ * Danh sách toàn bộ khung giờ tập chuẩn từ 06:00 đến 18:00
+ * Có thời gian nghỉ trưa cố định từ 11:45 đến 13:00 (Khóa bảo dưỡng sân bãi)
+ */
+export const TRAINING_TIME_SLOTS = [
+  { id: '06:00 - 07:00', label: '06:00 - 07:00', desc: 'Sáng sớm - Bứt tốc cự ly', isLunch: false },
+  { id: '07:00 - 08:00', label: '07:00 - 08:00', desc: 'Sáng sớm - Rèn sức bền', isLunch: false },
+  { id: '08:00 - 09:00', label: '08:00 - 09:00', desc: 'Buổi sáng - Kỹ thuật sải chân', isLunch: false },
+  { id: '09:00 - 10:00', label: '09:00 - 10:00', desc: 'Buổi sáng - Xuất phát máy', isLunch: false },
+  { id: '10:00 - 11:00', label: '10:00 - 11:00', desc: 'Buổi sáng - Chạy vòng cua', isLunch: false },
+  { id: '11:00 - 11:45', label: '11:00 - 11:45', desc: 'Trưa sớm - Thả lỏng & Hồi phục', isLunch: false },
+  { id: '11:45 - 13:00', label: '11:45 - 13:00', desc: '🍽️ Nghỉ trưa & Bảo dưỡng bãi tập (Khóa)', isLunch: true },
+  { id: '13:00 - 14:00', label: '13:00 - 14:00', desc: 'Đầu chiều - Thể lực nền', isLunch: false },
+  { id: '14:00 - 15:00', label: '14:00 - 15:00', desc: 'Buổi chiều - Bài tập sân cỏ', isLunch: false },
+  { id: '15:00 - 16:00', label: '15:00 - 16:00', desc: 'Buổi chiều - Bài tập sân cát', isLunch: false },
+  { id: '16:00 - 17:00', label: '16:00 - 17:00', desc: 'Chiều mát - Nước rút 400m', isLunch: false },
+  { id: '17:00 - 18:00', label: '17:00 - 18:00', desc: 'Hoàng hôn - Hạ nhiệt & Đi bộ', isLunch: false },
+];
+
+/**
+ * Chuẩn hóa chuỗi ngày tháng về định dạng YYYY-MM-DD để so sánh chính xác tuyệt đối
+ */
+export function normalizeDate(d) {
+  if (!d) return '';
+  const str = String(d).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+    const parts = str.split('/');
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    return `${year}-${month}-${day}`;
+  }
+  try {
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
+    }
+  } catch {}
+  return str;
+}
+
+/**
+ * Lấy phần tiền tố giờ (VD: '06:00 - 07:00') từ chuỗi giờ có kèm mô tả
+ */
+export function extractSlotPrefix(timeStr) {
+  if (!timeStr) return '';
+  const match = String(timeStr).match(/(\d{2}:\d{2}\s*-\s*\d{2}:\d{2})/);
+  if (match) return match[1].replace(/\s+/g, ' ').trim();
+  return String(timeStr).split(' (')[0].trim();
+}
+
+// Danh sách buổi tập chung mẫu khởi điểm
+const INITIAL_JOINT_SESSIONS = [
+  {
+    id: 1730000001,
+    horseId: 2,
+    horseName: 'Xích Thố',
+    microchip: 'MC-VN-2021-014',
+    stall: 'Ô A1 (Block A - 18 m²)',
+    avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80',
+    ownerName: 'Phạm Tiến Thành',
+    ownerKey: 'owner_thanh',
+    trainerUsername: 'trainer_truong',
+    trainerName: 'Trần Văn Hùng',
+    trainerTitle: 'HLV Trưởng - Cự ly Dài & Tổng thể',
+    sessionDate: '2026-11-04',
+    sessionTime: '07:00 - 08:00 (Sáng sớm - Rèn sức bền)',
+    goal: 'Quan sát sải chân bứt tốc & Đánh giá phối hợp xuất phát máy',
+    ownerNotes: 'Tôi muốn trực tiếp ra sân xem sải chân của Xích Thố khi vào khúc cua số 3 cự ly 2.400m.',
+    status: 'CONFIRMED',
+    trainerFeedback: 'Đã chuẩn bị cảm biến IoT viễn trắc nhịp tim và bố trí sân cỏ tự nhiên. Hẹn gặp Chủ sở hữu lúc 06:45 tại khán đài A.',
+    confirmedAt: '03/11/2026 09:30',
+    createdAt: '02/11/2026 14:00'
+  }
+];
+
+/**
+ * Lấy danh sách toàn bộ các buổi hẹn tập luyện chung
+ */
+export function getJointTrainingSessions() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return INITIAL_JOINT_SESSIONS;
+}
+
+/**
+ * Lưu danh sách các buổi hẹn tập luyện chung và phát sự kiện đồng bộ thời gian thực
+ */
+export function saveJointTrainingSessions(list) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    window.dispatchEvent(new Event(EVENT_NAME));
+    window.dispatchEvent(new Event('storage'));
+  } catch (err) {
+    console.error('Error saving joint training sessions:', err);
+  }
+}
+
+/**
+ * Lấy danh sách các slot đã bị đặt trước cho 1 HLV cụ thể vào 1 ngày cụ thể
+ * Ưu tiên người đặt trước: Bất kỳ lịch nào có trạng thái PENDING hoặc CONFIRMED
+ * đều được tính là đã có người đặt trước để bôi đen và không cho người khác đặt trùng.
+ */
+export function getBookedSlotsForTrainer(trainerUsername, sessionDate) {
+  if (!trainerUsername || !sessionDate) return [];
+  const targetDate = normalizeDate(sessionDate);
+  const allSessions = getJointTrainingSessions();
+
+  return allSessions.filter(s => {
+    // Cả PENDING (đang chờ duyệt) và CONFIRMED (đã duyệt) đều tính là đã có người đặt trước
+    if (s.status !== 'PENDING' && s.status !== 'CONFIRMED') return false;
+    if (s.trainerUsername !== trainerUsername) return false;
+    return normalizeDate(s.sessionDate) === targetDate;
+  });
+}
+
+/**
+ * Kiểm tra xem 1 slot có thể đặt được không
+ * Trả về { available: boolean, isLunch: boolean, isBooked: boolean, bookedSession: object | null, reason: string }
+ */
+export function getSlotBookingStatus(slotId, trainerUsername, sessionDate) {
+  const slotObj = TRAINING_TIME_SLOTS.find(s => s.id === slotId) || { id: slotId, isLunch: false };
+  if (slotObj.isLunch || slotId.includes('11:45 - 13:00')) {
+    return {
+      available: false,
+      isLunch: true,
+      isBooked: false,
+      hasPending: false,
+      bookedSession: null,
+      reason: 'Khoảng thời gian 11:45 - 13:00 là giờ nghỉ trưa & bảo dưỡng bãi tập'
+    };
+  }
+
+  const bookedList = getBookedSlotsForTrainer(trainerUsername, sessionDate);
+  const slotPrefix = extractSlotPrefix(slotId);
+  const bookedSession = bookedList.find(s => extractSlotPrefix(s.sessionTime) === slotPrefix);
+
+  if (bookedSession) {
+    const isPending = bookedSession.status === 'PENDING';
+    return {
+      available: false,
+      isLunch: false,
+      isBooked: true,
+      hasPending: isPending,
+      bookedSession: bookedSession,
+      reason: isPending
+        ? `Đã có chủ sở hữu (${bookedSession.ownerName}) đặt trước - Ưu tiên người đặt trước`
+        : `HLV đã xác nhận giữ chỗ cho chủ sở hữu ${bookedSession.ownerName}`
+    };
+  }
+
+  return {
+    available: true,
+    isLunch: false,
+    isBooked: false,
+    hasPending: false,
+    bookedSession: null,
+    reason: 'Còn trống'
+  };
+}
+
+/**
+ * Kiểm tra trạng thái Khóa Y Tế của chiến mã trên toàn bộ hệ thống
+ * (Đảm bảo nếu Bác sĩ Thú y cấm tập thì không được tập luyện chung hay đi thi đấu)
+ */
+export function checkHorseVetLockStatus(horseIdentifier) {
+  if (!horseIdentifier) return { isLocked: false, reason: '', horseName: '' };
+  const key = String(horseIdentifier).trim().toLowerCase();
+
+  // 1. Quét tìm trong danh sách Thú y quản lý
+  try {
+    const rawVet = localStorage.getItem('matruong_vet_horses_managed');
+    if (rawVet) {
+      const list = JSON.parse(rawVet);
+      if (Array.isArray(list)) {
+        const found = list.find(h =>
+          (h.id && String(h.id).toLowerCase() === key) ||
+          (h.microchip && h.microchip.toLowerCase() === key) ||
+          (h.name && h.name.toLowerCase() === key)
+        );
+        if (found && (found.locked || found.isLockedByVet || found.status === 'INJURED')) {
+          return {
+            isLocked: true,
+            reason: found.lockReason || found.statusText || 'Bác sĩ Thú y kích hoạt Lệnh Khóa Y Tế (Tạm cấm tập luyện & thi đấu)',
+            horseName: found.name || horseIdentifier
+          };
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Quét tìm trong Thể lực tàu ngựa của Huấn luyện viên
+  try {
+    const rawTrainer = localStorage.getItem('matruong_trainer_horses_managed');
+    if (rawTrainer) {
+      const list = JSON.parse(rawTrainer);
+      if (Array.isArray(list)) {
+        const found = list.find(h =>
+          (h.id && String(h.id).toLowerCase() === key) ||
+          (h.microchip && h.microchip.toLowerCase() === key) ||
+          (h.name && h.name.toLowerCase() === key)
+        );
+        if (found && (found.isLockedByVet || found.locked || found.status === 'INJURED')) {
+          return {
+            isLocked: true,
+            reason: found.vetNotice || found.lockReason || found.statusText || 'Khóa tập bởi Thú y do có dấu hiệu chấn thương',
+            horseName: found.name || horseIdentifier
+          };
+        }
+      }
+    }
+  } catch {}
+
+  // 3. Quét trong danh mục chiến mã chung (racehorse_api_horses)
+  try {
+    const rawGlobal = localStorage.getItem('racehorse_api_horses');
+    if (rawGlobal) {
+      const list = JSON.parse(rawGlobal);
+      if (Array.isArray(list)) {
+        const found = list.find(h =>
+          (h.id && String(h.id).toLowerCase() === key) ||
+          (h.chipId && h.chipId.toLowerCase() === key) ||
+          (h.microchip && h.microchip.toLowerCase() === key) ||
+          (h.name && h.name.toLowerCase() === key)
+        );
+        if (found && (found.locked || found.status === 'INJURED' || found.status === 'LOCKED')) {
+          return {
+            isLocked: true,
+            reason: found.desc || found.statusText || 'Tạm khóa y tế do Thú y chỉ định',
+            horseName: found.name || horseIdentifier
+          };
+        }
+      }
+    }
+  } catch {}
+
+  return { isLocked: false, reason: '', horseName: '' };
+}
+
+/**
+ * Chủ sở hữu đặt lịch tập luyện chung với Huấn luyện viên
+ * Logic:
+ *  - Nghiêm cấm đặt nếu chiến mã bị Thú y khóa y tế
+ *  - Khóa khung giờ nghỉ trưa 11:45 - 13:00
+ *  - Ưu tiên người đặt trước: nếu HLV đã có người đặt khung giờ đó vào ngày đó, chặn không cho đặt
+ */
+export function bookJointTrainingSession({
+  horse,
+  trainer,
+  sessionDate,
+  sessionTime,
+  goal,
+  ownerNotes,
+  ownerUser
+}) {
+  // 1. Kiểm tra nghiêm ngặt Quyền phủ quyết của Bác sĩ Thú Y
+  const lockStatus = checkHorseVetLockStatus(horse.microchip || horse.id || horse.name);
+  if (lockStatus.isLocked) {
+    return {
+      success: false,
+      isBlockedByVet: true,
+      error: `Chiến mã "${horse.name}" đang bị Bác sĩ Thú y KHÓA Y TẾ / CẤM TẬP (${lockStatus.reason})! Phải đợi Bác sĩ Thú y kiểm tra và dỡ bỏ lệnh khóa thì mới được phép đặt lịch tập luyện chung.`
+    };
+  }
+
+  // 2. Kiểm tra khung giờ nghỉ trưa (11:45 - 13:00)
+  if (sessionTime.includes('11:45 - 13:00') || sessionTime.includes('Nghỉ trưa')) {
+    return {
+      success: false,
+      error: 'Khung giờ 11:45 - 13:00 là thời gian nghỉ trưa và bảo dưỡng bãi tập của trường đua, không nhận lịch tập!'
+    };
+  }
+
+  // 3. Kiểm tra logic trùng lịch: Ưu tiên người đặt trước
+  const slotPrefix = extractSlotPrefix(sessionTime);
+  const slotStatus = getSlotBookingStatus(slotPrefix, trainer.username, sessionDate);
+  if (slotStatus.isBooked) {
+    const bookedBy = slotStatus.bookedSession?.ownerName ? ` (đặt bởi ${slotStatus.bookedSession.ownerName})` : '';
+    return {
+      success: false,
+      isConflict: true,
+      error: `Khung giờ ${slotPrefix} ngày ${sessionDate} của HLV ${trainer.name} ĐÃ CÓ NGƯỜI ĐẶT TRƯỚC${bookedBy}! Theo quy định ưu tiên người đặt trước, khung giờ này đã bị bôi đen và không thể đặt nữa. Vui lòng chọn khung giờ trống khác.`
+    };
+  }
+
+  const list = getJointTrainingSessions();
+  const ownerKey = (ownerUser?.username || ownerUser?.email || String(ownerUser?.user_id || 'owner')).toLowerCase();
+  const ownerName = ownerUser?.full_name || 'Chủ sở hữu chiến mã';
+
+  const newSession = {
+    id: Date.now(),
+    horseId: horse.id,
+    horseName: horse.name,
+    microchip: horse.microchip || '',
+    stall: horse.stable || 'Ô A1',
+    avatar: horse.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80',
+    ownerName: ownerName,
+    ownerKey: ownerKey,
+    trainerUsername: trainer.username,
+    trainerName: trainer.name,
+    trainerTitle: trainer.title || 'Huấn luyện viên',
+    sessionDate: sessionDate || new Date().toISOString().split('T')[0],
+    sessionTime: sessionTime || '06:00 - 07:00 (Sáng sớm - Bứt tốc cự ly)',
+    goal: goal || 'Quan sát và phối hợp tập luyện chung cùng Huấn luyện viên',
+    ownerNotes: ownerNotes || '',
+    status: 'PENDING', // 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED'
+    trainerFeedback: '',
+    confirmedAt: null,
+    createdAt: new Date().toLocaleString('vi-VN')
+  };
+
+  const nextList = [newSession, ...list];
+  saveJointTrainingSessions(nextList);
+
+  // Gửi thông báo đến Huấn Luyện Viên
+  try {
+    addSystemNotification({
+      type: 'JOINT_TRAINING_REQUESTED',
+      title: 'YÊU CẦU ĐẶT LỊCH TẬP CHUNG TỪ CHỦ SỞ HỮU',
+      content: `Chủ sở hữu ${ownerName} đã đặt lịch tập luyện chung cho chiến mã "${horse.name}" cùng Huấn Luyện Viên ${trainer.name} vào ngày ${newSession.sessionDate} (${newSession.sessionTime}).`,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+      horseName: horse.name,
+      microchip: horse.microchip,
+      ownerName: ownerName,
+      trainerUsername: trainer.username,
+      sessionId: newSession.id
+    });
+  } catch (err) {
+    console.error('Error notifying joint training request:', err);
+  }
+
+  return { success: true, session: newSession };
+}
+
+/**
+ * Huấn Luyện Viên xác nhận tiếp nhận buổi tập luyện chung
+ */
+export function confirmJointTrainingSession(sessionId, feedback = '', trainerUser = null) {
+  const list = getJointTrainingSessions();
+  const index = list.findIndex(s => String(s.id) === String(sessionId));
+  if (index === -1) {
+    return { success: false, error: 'Không tìm thấy thông tin lịch tập chung.' };
+  }
+
+  const target = list[index];
+
+  // Kiểm tra nếu chiến mã bị khóa y tế trước khi HLV bấm duyệt
+  const lockStatus = checkHorseVetLockStatus(target.microchip || target.horseId || target.horseName);
+  if (lockStatus.isLocked) {
+    return {
+      success: false,
+      isBlockedByVet: true,
+      error: `Không thể xác nhận buổi tập! Chiến mã "${target.horseName}" vừa bị Bác sĩ Thú y kích hoạt Lệnh Khóa Y Tế (${lockStatus.reason}). Cần chờ Thú y mở khóa an toàn!`
+    };
+  }
+
+  const trainerName = trainerUser?.full_name || target.trainerName;
+  const nowStr = new Date().toLocaleString('vi-VN');
+  const defaultFeedback = feedback.trim() || `Huấn Luyện Viên ${trainerName} đã xác nhận tiếp nhận buổi tập luyện chung đúng kế hoạch. Bố trí sân tập và chuẩn bị cảm biến thể lực sẵn sàng.`;
+
+  const updatedSession = {
+    ...target,
+    status: 'CONFIRMED',
+    trainerFeedback: defaultFeedback,
+    confirmedAt: nowStr,
+    confirmedBy: trainerUser?.username || target.trainerUsername
+  };
+
+  list[index] = updatedSession;
+  saveJointTrainingSessions(list);
+
+  // Gửi thông báo đến Chủ sở hữu chiến mã
+  try {
+    addSystemNotification({
+      type: 'JOINT_TRAINING_CONFIRMED',
+      title: 'HLV ĐÃ XÁC NHẬN LỊCH TẬP LUYỆN CHUNG',
+      content: `Huấn Luyện Viên ${trainerName} đã chính thức xác nhận tiếp nhận buổi tập luyện chung với chiến mã "${target.horseName}" vào ngày ${target.sessionDate} (${target.sessionTime}). Lời nhắn: "${defaultFeedback}"`,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+      horseName: target.horseName,
+      microchip: target.microchip,
+      ownerKey: target.ownerKey,
+      trainerName: trainerName,
+      sessionId: target.id
+    });
+  } catch (err) {
+    console.error('Error notifying joint training confirmed:', err);
+  }
+
+  return { success: true, session: updatedSession };
+}
+
+/**
+ * Huấn Luyện Viên từ chối hoặc yêu cầu đổi lịch
+ */
+export function rejectJointTrainingSession(sessionId, reason = '', trainerUser = null) {
+  const list = getJointTrainingSessions();
+  const index = list.findIndex(s => String(s.id) === String(sessionId));
+  if (index === -1) {
+    return { success: false, error: 'Không tìm thấy lịch tập cần phản hồi.' };
+  }
+
+  const target = list[index];
+  const trainerName = trainerUser?.full_name || target.trainerName;
+  const nowStr = new Date().toLocaleString('vi-VN');
+
+  const updatedSession = {
+    ...target,
+    status: 'REJECTED',
+    trainerFeedback: reason.trim() || 'HLV bận lịch thi đấu hoặc trùng khung giờ bài tập nặng, vui lòng chọn ngày khác.',
+    rejectedAt: nowStr
+  };
+
+  list[index] = updatedSession;
+  saveJointTrainingSessions(list);
+
+  try {
+    addSystemNotification({
+      type: 'JOINT_TRAINING_REJECTED',
+      title: 'HLV PHẢN HỒI LỊCH TẬP LUYỆN CHUNG',
+      content: `Huấn Luyện Viên ${trainerName} đã phản hồi về buổi tập ngày ${target.sessionDate} của chiến mã "${target.horseName}": "${updatedSession.trainerFeedback}"`,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+      horseName: target.horseName,
+      ownerKey: target.ownerKey,
+      trainerName: trainerName,
+      sessionId: target.id
+    });
+  } catch (err) {}
+
+  return { success: true, session: updatedSession };
+}
+
+/**
+ * Chủ sở hữu hủy buổi hẹn
+ */
+export function cancelJointTrainingSession(sessionId) {
+  const list = getJointTrainingSessions();
+  const nextList = list.filter(s => String(s.id) !== String(sessionId));
+  saveJointTrainingSessions(nextList);
+  return nextList;
+}
+
+/**
+ * Tự động kiểm tra và thực hiện Reset lịch trống lúc 18:00 tối mỗi ngày
+ * Logic nghiệp vụ:
+ *  - Giờ hoạt động huấn luyện là từ 06:00 đến 18:00 (18h tối).
+ *  - Tới tầm 18h tối, chu kỳ tập luyện trong ngày hoàn tất.
+ *  - Hệ thống tự động hoàn tất các lịch tập trong ngày (hoặc các ngày trước đó),
+ *    gỡ bỏ bôi đen toàn bộ các khung giờ và đưa bảng lịch về TRẠNG THÁI TRỐNG
+ *    để Chủ sở hữu ngựa có thể tiếp tục đặt lịch mới cho chu kỳ tiếp theo.
+ */
+export function checkAndAutoResetScheduleAt1800() {
+  try {
+    const allSessions = getJointTrainingSessions();
+    const now = new Date();
+    const todayStr = normalizeDate(now.toISOString().split('T')[0]);
+    const currentHour = now.getHours();
+
+    let hasChanges = false;
+    const updatedList = allSessions.map(session => {
+      // Chỉ xét các lịch đang chiếm giữ slot (PENDING hoặc CONFIRMED)
+      if (session.status !== 'PENDING' && session.status !== 'CONFIRMED') {
+        return session;
+      }
+
+      const sessionDateNorm = normalizeDate(session.sessionDate);
+
+      // Trường hợp 1: Lịch của những ngày trong quá khứ (< today) -> Tự động hoàn tất
+      const isPastDay = sessionDateNorm < todayStr;
+
+      // Trường hợp 2: Lịch của ngày hôm nay và đã qua 18h tối (currentHour >= 18) -> Tự động reset
+      const isTodayPast18 = (sessionDateNorm === todayStr && currentHour >= 18);
+
+      if (isPastDay || isTodayPast18) {
+        hasChanges = true;
+        return {
+          ...session,
+          status: 'COMPLETED',
+          completedAt: new Date().toLocaleString('vi-VN'),
+          resetAt1800: true,
+          trainerFeedback: session.trainerFeedback || 'Đã hoàn tất ngày tập (sau 18:00). Hệ thống đã reset lịch trống cho Chủ sở hữu đặt lịch mới.'
+        };
+      }
+
+      return session;
+    });
+
+    if (hasChanges) {
+      saveJointTrainingSessions(updatedList);
+      try {
+        addSystemNotification({
+          type: 'JOINT_TRAINING_18H_RESET',
+          title: 'HỆ THỐNG ĐÃ RESET LỊCH TẬP LÚC 18:00',
+          content: 'Đã tới mốc 18:00 tối: Bảng lịch tập luyện đã được tự động làm trống, bỏ bôi đen và sẵn sàng đón nhận lượt đặt lịch mới!',
+          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN')
+        });
+      } catch {}
+      return { resetOccurred: true, updatedList };
+    }
+  } catch (err) {
+    console.error('Error in checkAndAutoResetScheduleAt1800:', err);
+  }
+  return { resetOccurred: false };
+}
+
+/**
+ * Reset chủ động lịch trống (Mô phỏng hoặc thực thi mốc 18:00)
+ * Cho phép Chủ sở hữu hoặc HLV kích hoạt reset ngay lập tức các lịch đang bôi đen
+ * của ngày được chọn để mở lại toàn bộ slot trống.
+ */
+export function manualResetSchedule1800(targetDate = null, trainerUsername = null) {
+  const allSessions = getJointTrainingSessions();
+  const targetDateNorm = targetDate ? normalizeDate(targetDate) : null;
+
+  let resetCount = 0;
+  const updatedList = allSessions.map(session => {
+    if (session.status !== 'PENDING' && session.status !== 'CONFIRMED') {
+      return session;
+    }
+
+    const sessionDateNorm = normalizeDate(session.sessionDate);
+
+    // Nếu chỉ định ngày, kiểm tra trùng ngày
+    if (targetDateNorm && sessionDateNorm !== targetDateNorm) {
+      return session;
+    }
+
+    // Nếu chỉ định HLV, kiểm tra trùng HLV
+    if (trainerUsername && session.trainerUsername !== trainerUsername) {
+      return session;
+    }
+
+    resetCount++;
+    return {
+      ...session,
+      status: 'COMPLETED',
+      completedAt: new Date().toLocaleString('vi-VN'),
+      resetAt1800: true,
+      trainerFeedback: session.trainerFeedback || 'Buổi tập đã hoàn tất chu kỳ ngày. Khung giờ được giải phóng trống lúc 18:00.'
+    };
+  });
+
+  saveJointTrainingSessions(updatedList);
+
+  try {
+    addSystemNotification({
+      type: 'JOINT_TRAINING_18H_RESET',
+      title: 'ĐÃ RESET LỊCH TẬP (MỐC 18:00)',
+      content: `Đã reset giải phóng ${resetCount} khung giờ bị bôi đen${targetDate ? ` ngày ${targetDate}` : ''}. Tất cả khung giờ đã được mở trống để Chủ sở hữu đặt lịch mới.`,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN')
+    });
+  } catch {}
+
+  return { success: true, resetCount };
+}

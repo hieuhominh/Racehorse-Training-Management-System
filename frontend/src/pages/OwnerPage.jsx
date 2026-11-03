@@ -23,8 +23,39 @@ import {
   FIXED_GROOMS_LIST
 } from '../services/serviceAssignment';
 import { notifyHorseDeleted } from '../services/notificationService';
+import {
+  getJointTrainingSessions,
+  bookJointTrainingSession,
+  cancelJointTrainingSession,
+  checkHorseVetLockStatus,
+  TRAINING_TIME_SLOTS,
+  getBookedSlotsForTrainer,
+  getSlotBookingStatus,
+  normalizeDate,
+  extractSlotPrefix,
+  checkAndAutoResetScheduleAt1800,
+  manualResetSchedule1800
+} from '../services/jointTrainingService';
+import {
+  getPersonnelReports,
+  createPersonnelReport,
+  PREDEFINED_PERSONNEL,
+  REPORT_TARGET_ROLES,
+  REPORT_CATEGORIES,
+  REPORT_SEVERITIES,
+  REPORT_STATUSES
+} from '../services/reportService';
 
 // Minimalist High-End SVG Icons for Owner Portal (Strict 3-Color Palette)
+const IconCalendar = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+
 const IconCrown = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" />
@@ -102,6 +133,14 @@ const IconReceipt = ({ size = 18, color = 'currentColor' }) => (
     <path d="M14 8H8" />
     <path d="M16 12H8" />
     <path d="M13 16H8" />
+  </svg>
+);
+
+const IconReportAlert = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
 
@@ -354,6 +393,30 @@ const DEMO_HEALTH_VIP = [
   }
 ];
 
+// Hàm lọc trùng lặp danh sách chiến mã theo Microchip, ID và Tên
+export function deduplicateHorses(list) {
+  if (!Array.isArray(list)) return [];
+  const seenIds = new Set();
+  const seenChips = new Set();
+  const seenNames = new Set();
+
+  return list.filter(item => {
+    if (!item) return false;
+    const idKey = (item.id !== undefined && item.id !== null) ? String(item.id).trim() : null;
+    const chipKey = (item.microchip || item.chipId) ? String(item.microchip || item.chipId).trim().toLowerCase() : null;
+    const nameKey = item.name ? String(item.name).trim().toLowerCase() : null;
+
+    if (idKey && seenIds.has(idKey)) return false;
+    if (chipKey && seenChips.has(chipKey)) return false;
+    if (nameKey && seenNames.has(nameKey)) return false;
+
+    if (idKey) seenIds.add(idKey);
+    if (chipKey) seenChips.add(chipKey);
+    if (nameKey) seenNames.add(nameKey);
+    return true;
+  });
+}
+
 export default function OwnerPage() {
   const { currentUser, logout } = useAuth();
   const { showToast } = useToast();
@@ -362,7 +425,7 @@ export default function OwnerPage() {
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const saved = localStorage.getItem('matruong_tab_owner');
-      if (['horses', 'training', 'races', 'finance', 'vet', 'membership'].includes(saved)) {
+      if (['horses', 'schedule', 'training', 'races', 'finance', 'vet', 'membership'].includes(saved)) {
         return saved;
       }
     } catch {}
@@ -523,6 +586,41 @@ export default function OwnerPage() {
     } catch {}
   };
 
+  // Đồng hồ thời gian thực (Real-time Clock)
+  const [realTimeClock, setRealTimeClock] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setRealTimeClock(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Danh sách giáo án / bài tập từ Huấn luyện viên
+  const [trainerWorkouts, setTrainerWorkouts] = useState(() => {
+    try {
+      const raw = localStorage.getItem('matruong_trainer_programs');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    const handleSyncPrograms = () => {
+      try {
+        const raw = localStorage.getItem('matruong_trainer_programs');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) setTrainerWorkouts(parsed);
+        }
+      } catch {}
+    };
+    window.addEventListener('storage', handleSyncPrograms);
+    return () => window.removeEventListener('storage', handleSyncPrograms);
+  }, []);
+
+
+
   // State 1: Danh sách ngựa của Chủ sở hữu (Lưu riêng theo từng tài khoản, hỗ trợ đầy đủ xóa ngựa và F5)
   const [myHorses, setMyHorses] = useState(() => {
     try {
@@ -538,7 +636,8 @@ export default function OwnerPage() {
         const sanitized = stored.replace(/photo-1598974357801-cbca10065444/g, 'photo-1534447677768-be436bb09401');
         const parsed = JSON.parse(sanitized);
         if (Array.isArray(parsed)) {
-          const fixed = parsed.map(item => {
+          const deduped = deduplicateHorses(parsed);
+          const fixed = deduped.map(item => {
             if (item && item.name === 'Bạch Long' && (!item.avatar || item.avatar.includes('photo-1598974357801-cbca10065444'))) {
               return { ...item, avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80' };
             }
@@ -567,6 +666,253 @@ export default function OwnerPage() {
       return isDemoVip ? DEMO_HORSES_VIP : [];
     }
   });
+
+  // State: Quản lý lịch hẹn tập luyện chung với Huấn luyện viên
+  const [jointSessions, setJointSessions] = useState(() => getJointTrainingSessions());
+  const [showJointBookingModal, setShowJointBookingModal] = useState(false);
+  const [jointBookingForm, setJointBookingForm] = useState(() => {
+    const tmr = new Date();
+    tmr.setDate(tmr.getDate() + 1);
+    return {
+      horseId: '',
+      trainerUsername: 'trainer_truong',
+      sessionDate: tmr.toISOString().split('T')[0],
+      sessionTime: '06:00 - 07:00 (Sáng sớm - Bứt tốc cự ly)',
+      goal: 'Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV',
+      ownerNotes: ''
+    };
+  });
+
+  // Tự động chọn chiến mã đầu tiên nếu form chưa chọn
+  useEffect(() => {
+    if (!jointBookingForm.horseId && myHorses.length > 0) {
+      setJointBookingForm(prev => ({
+        ...prev,
+        horseId: String(myHorses[0].id)
+      }));
+    }
+  }, [myHorses]);
+
+  // Tự động chọn khung giờ hợp lệ nếu khung giờ hiện tại bị trùng lịch hoặc rơi vào giờ nghỉ trưa
+  useEffect(() => {
+    if (!jointBookingForm.trainerUsername || !jointBookingForm.sessionDate) return;
+    const currentPrefix = extractSlotPrefix(jointBookingForm.sessionTime);
+    const status = getSlotBookingStatus(currentPrefix, jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
+    if (!status.available) {
+      const nextAvailable = TRAINING_TIME_SLOTS.find(slot =>
+        !slot.isLunch && getSlotBookingStatus(slot.id, jointBookingForm.trainerUsername, jointBookingForm.sessionDate).available
+      );
+      if (nextAvailable) {
+        setJointBookingForm(prev => ({
+          ...prev,
+          sessionTime: `${nextAvailable.id} (${nextAvailable.desc})`
+        }));
+      }
+    }
+  }, [jointBookingForm.trainerUsername, jointBookingForm.sessionDate]);
+
+  // Đồng bộ thời gian thực lịch tập chung
+  useEffect(() => {
+    const handleSyncJoint = () => setJointSessions(getJointTrainingSessions());
+    window.addEventListener('matruong_joint_training_updated', handleSyncJoint);
+    window.addEventListener('storage', handleSyncJoint);
+    return () => {
+      window.removeEventListener('matruong_joint_training_updated', handleSyncJoint);
+      window.removeEventListener('storage', handleSyncJoint);
+    };
+  }, []);
+
+  // Tự động kiểm tra cơ chế Reset lịch lúc 18h tối (kết thúc chu kỳ ngày tập 06:00 - 18:00)
+  useEffect(() => {
+    checkAndAutoResetScheduleAt1800();
+    const interval18h = setInterval(() => {
+      checkAndAutoResetScheduleAt1800();
+    }, 30000);
+    return () => clearInterval(interval18h);
+  }, []);
+
+  const handleReset18hSchedule = () => {
+    const res = manualResetSchedule1800(jointBookingForm.sessionDate, jointBookingForm.trainerUsername);
+    setJointSessions(getJointTrainingSessions());
+    showToast(
+      `Đã kích hoạt Reset lịch lúc 18:00! Toàn bộ các khung giờ ngày ${jointBookingForm.sessionDate} đã được mở trống, gỡ bỏ bôi đen và sẵn sàng nhận lượt đặt mới.`,
+      'RESET LỊCH TRỐNG 18:00',
+      'success'
+    );
+  };
+
+  const handleOpenJointBookingModal = (horse = null) => {
+    const defaultHorse = horse || (myHorses.length > 0 ? myHorses[0] : null);
+    const defaultTrainer = defaultHorse?.trainer?.toLowerCase().includes('nghĩa')
+      ? 'trainer_nghia'
+      : defaultHorse?.trainer?.toLowerCase().includes('anh')
+      ? 'trainer_anh'
+      : 'trainer_truong';
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    setJointBookingForm({
+      horseId: defaultHorse ? String(defaultHorse.id) : '',
+      trainerUsername: defaultTrainer,
+      sessionDate: tomorrowStr,
+      sessionTime: '06:00 - 07:00 (Sáng sớm - Bứt tốc cự ly)',
+      goal: 'Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV',
+      ownerNotes: ''
+    });
+    setActiveTab('schedule');
+  };
+
+  const handleSubmitJointBooking = (e) => {
+    if (e) e.preventDefault();
+    if (!jointBookingForm.horseId) {
+      showToast('Vui lòng chọn chiến mã để đặt lịch tập!', 'CHƯA CHỌN NGỰA', 'warning');
+      return;
+    }
+
+    const selectedHorse = myHorses.find(h => String(h.id) === String(jointBookingForm.horseId)) || myHorses[0];
+    if (!selectedHorse) return;
+
+    // Kiểm tra nghiêm ngặt Quyền phủ quyết y tế của Bác sĩ Thú y
+    const lockStatus = checkHorseVetLockStatus(selectedHorse.microchip || selectedHorse.id || selectedHorse.name);
+    if (lockStatus.isLocked || selectedHorse.isLockedByVet || selectedHorse.status === 'INJURED') {
+      showToast(
+        `Chiến mã "${selectedHorse.name}" đang bị Bác sĩ Thú y KHÓA Y TẾ / CẤM TẬP (${lockStatus.reason || 'Chấn thương thể lực'})! Phải chờ Bác sĩ Thú y kiểm tra và dỡ bỏ lệnh khóa thì mới được phép đặt lịch tập luyện chung.`,
+        'CẤM TẬP DO KHÓA Y TẾ',
+        'error'
+      );
+      return;
+    }
+
+    // Kiểm tra xem khung giờ có bị trùng lịch hoặc giờ nghỉ trưa không
+    const slotPrefix = extractSlotPrefix(jointBookingForm.sessionTime);
+    const slotStatus = getSlotBookingStatus(slotPrefix, jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
+    if (slotStatus.isLunch) {
+      showToast('Khung giờ 11:45 - 13:00 là thời gian nghỉ trưa & bảo dưỡng bãi tập, không thể đặt!', 'KHUNG GIỜ NGHỈ TRƯA', 'warning');
+      return;
+    }
+    if (slotStatus.isBooked) {
+      const bookedBy = slotStatus.bookedSession?.ownerName ? ` (${slotStatus.bookedSession.ownerName})` : '';
+      showToast(`Khung giờ ${slotPrefix} ngày ${jointBookingForm.sessionDate} đã có người đặt trước${bookedBy}! Khung giờ này đã bị bôi đen và không thể đặt nữa. Vui lòng chọn khung giờ trống khác.`, 'TRÙNG LỊCH - ĐÃ CÓ NGƯỜI ĐẶT', 'warning');
+      return;
+    }
+
+    const trObj = FIXED_TRAINERS_LIST.find(t => t.username === jointBookingForm.trainerUsername) || FIXED_TRAINERS_LIST[0];
+
+    const result = bookJointTrainingSession({
+      horse: selectedHorse,
+      trainer: trObj,
+      sessionDate: jointBookingForm.sessionDate,
+      sessionTime: jointBookingForm.sessionTime,
+      goal: jointBookingForm.goal,
+      ownerNotes: jointBookingForm.ownerNotes,
+      ownerUser: currentUser
+    });
+
+    if (!result.success) {
+      showToast(result.error, 'LỖI ĐẶT LỊCH', 'error');
+      return;
+    }
+
+    setJointSessions(getJointTrainingSessions());
+    setShowJointBookingModal(false);
+    showToast(`Đã gửi yêu cầu đặt lịch tập luyện chung cho chiến mã "${selectedHorse.name}" đến HLV ${trObj.name}!`, 'ĐẶT LỊCH THÀNH CÔNG', 'success');
+    setActiveTab('schedule');
+  };
+
+  const handleCancelJointSession = (sessionId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn tập luyện chung này?')) return;
+    cancelJointTrainingSession(sessionId);
+    setJointSessions(getJointTrainingSessions());
+    showToast('Đã hủy lịch hẹn tập luyện chung.', 'ĐÃ HỦY LỊCH', 'info');
+  };
+
+  // State: Quản lý Khiếu nại & Báo cáo Nhân sự (HLV, Bác Sĩ, Chăm Sóc)
+  const [personnelReports, setPersonnelReports] = useState(() => getPersonnelReports());
+  const [showCreateReportModal, setShowCreateReportModal] = useState(false);
+  const [selectedReportDetail, setSelectedReportDetail] = useState(null);
+  const [reportRoleFilter, setReportRoleFilter] = useState('ALL');
+  const [reportForm, setReportForm] = useState({
+    targetRole: 'TRAINER',
+    targetPersonnelId: 'trainer_truong',
+    horseId: '',
+    category: 'Thái độ phục vụ & Ứng xử thiếu chuẩn mực',
+    severity: 'MEDIUM',
+    title: '',
+    content: '',
+    evidenceNote: ''
+  });
+
+  // Đồng bộ thời gian thực Báo cáo nhân sự
+  useEffect(() => {
+    const handleSyncReports = () => setPersonnelReports(getPersonnelReports());
+    window.addEventListener('matruong_personnel_reports_updated', handleSyncReports);
+    window.addEventListener('storage', handleSyncReports);
+    return () => {
+      window.removeEventListener('matruong_personnel_reports_updated', handleSyncReports);
+      window.removeEventListener('storage', handleSyncReports);
+    };
+  }, []);
+
+  // Danh sách báo cáo của riêng Chủ sở hữu này
+  const myReports = personnelReports.filter(r => {
+    if (!currentUser) return true;
+    const curKey = (currentUser.username || currentUser.email || String(currentUser.user_id || '')).toLowerCase();
+    return r.ownerKey === curKey || r.ownerName === currentUser.full_name;
+  });
+
+  const handleOpenCreateReport = (preselectedRole = 'TRAINER') => {
+    const firstPersonnel = PREDEFINED_PERSONNEL.find(p => p.role === preselectedRole) || PREDEFINED_PERSONNEL[0];
+    setReportForm({
+      targetRole: preselectedRole,
+      targetPersonnelId: firstPersonnel.id,
+      horseId: myHorses.length > 0 ? String(myHorses[0].id) : '',
+      category: 'Thái độ phục vụ & Ứng xử thiếu chuẩn mực',
+      severity: 'MEDIUM',
+      title: '',
+      content: '',
+      evidenceNote: ''
+    });
+    setShowCreateReportModal(true);
+  };
+
+  const handleSubmitReport = (e) => {
+    if (e) e.preventDefault();
+    if (!reportForm.title.trim()) {
+      showToast('Vui lòng nhập tiêu đề khiếu nại / phản ánh!', 'THIẾU TIÊU ĐỀ', 'warning');
+      return;
+    }
+    if (!reportForm.content.trim()) {
+      showToast('Vui lòng mô tả chi tiết nội dung sự việc!', 'THIẾU NỘI DUNG', 'warning');
+      return;
+    }
+
+    const selectedHorse = myHorses.find(h => String(h.id) === String(reportForm.horseId)) || myHorses[0];
+
+    const res = createPersonnelReport({
+      ownerUser: currentUser,
+      targetRole: reportForm.targetRole,
+      targetPersonnelId: reportForm.targetPersonnelId,
+      horse: selectedHorse,
+      category: reportForm.category,
+      severity: reportForm.severity,
+      title: reportForm.title,
+      content: reportForm.content,
+      evidenceNote: reportForm.evidenceNote
+    });
+
+    if (res.success) {
+      setPersonnelReports(getPersonnelReports());
+      setShowCreateReportModal(false);
+      showToast(
+        'Khiếu nại của bạn đã được gửi trực tiếp tới Ban Quản Trị (Admin) để thẩm tra và giải quyết!',
+        'GỬI KHIẾU NẠI THÀNH CÔNG',
+        'success'
+      );
+      setActiveTab('reports');
+    }
+  };
 
   // State 2: Danh sách giải đua đã đăng ký / đề cử
   const [raceNominations, setRaceNominations] = useState(() => {
@@ -688,14 +1034,43 @@ export default function OwnerPage() {
     }
   });
 
+  // Đảm bảo đồng bộ và chống nhân bản chiến mã khi chuyển đổi vai trò/tài khoản
+  useEffect(() => {
+    try {
+      let stored = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
+      if (stored === null && isDemoVip) {
+        stored = localStorage.getItem('matruong_owner_horses_owner_thanh') ??
+                 localStorage.getItem('matruong_owner_horses_6') ??
+                 localStorage.getItem('matruong_owner_horses_11');
+      }
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const deduped = deduplicateHorses(parsed);
+          setMyHorses(deduped);
+          if (deduped.length !== parsed.length) {
+            localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(deduped));
+          }
+          return;
+        }
+      }
+      if (isDemoVip) {
+        setMyHorses(DEMO_HORSES_VIP);
+      } else {
+        setMyHorses([]);
+      }
+    } catch {}
+  }, [ownerKey, isDemoVip]);
+
   // Đồng bộ lưu localStorage khi state thay đổi
   useEffect(() => {
     try {
-      localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(myHorses));
+      const deduped = deduplicateHorses(myHorses);
+      localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(deduped));
       if (isDemoVip) {
-        localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(myHorses));
-        localStorage.setItem('matruong_owner_horses_6', JSON.stringify(myHorses));
-        localStorage.setItem('matruong_owner_horses_11', JSON.stringify(myHorses));
+        localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(deduped));
+        localStorage.setItem('matruong_owner_horses_6', JSON.stringify(deduped));
+        localStorage.setItem('matruong_owner_horses_11', JSON.stringify(deduped));
       }
     } catch {}
   }, [myHorses, ownerKey, isDemoVip]);
@@ -900,7 +1275,7 @@ export default function OwnerPage() {
     };
 
     setMyHorses(prev => {
-      const next = prev.map(h => h.id === selectedHorsePedigree.id ? updatedHorse : h);
+      const next = deduplicateHorses(prev.map(h => h.id === selectedHorsePedigree.id ? updatedHorse : h));
       try {
         localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
       } catch {}
@@ -962,7 +1337,7 @@ export default function OwnerPage() {
     const gmObj = FIXED_GROOMS_LIST.find(g => g.username === selectedTeamStaff.groomUsername);
 
     setMyHorses(prev => {
-      const next = prev.map(h => {
+      const mapped = prev.map(h => {
         if (h.id === teamModalHorse.id) {
           return {
             ...h,
@@ -973,6 +1348,7 @@ export default function OwnerPage() {
         }
         return h;
       });
+      const next = deduplicateHorses(mapped);
       try {
         localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
       } catch {}
@@ -1236,7 +1612,12 @@ export default function OwnerPage() {
     registerOwnerHorseApi(ownerKey, newHorse).catch(() => {});
 
     setMyHorses(prev => {
-      const next = [newHorse, ...prev];
+      const filtered = prev.filter(h =>
+        String(h.id) !== String(newHorse.id) &&
+        (!newHorse.microchip || (h.microchip || '').toLowerCase() !== newHorse.microchip.toLowerCase()) &&
+        (!newHorse.name || (h.name || '').toLowerCase() !== newHorse.name.toLowerCase())
+      );
+      const next = deduplicateHorses([newHorse, ...filtered]);
       try {
         localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
         if (isDemoVip) {
@@ -1441,8 +1822,9 @@ export default function OwnerPage() {
     updateOwnerHorseApi(ownerKey, updatedHorse).catch(() => {});
     setMyHorses(prev => {
       const next = prev.map(h => String(h.id) === String(editingHorse.id) ? updatedHorse : h);
+      const deduped = deduplicateHorses(next);
       try {
-        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
+        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(deduped));
         if (isDemoVip) {
           localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(next));
           localStorage.setItem('matruong_owner_horses_6', JSON.stringify(next));
@@ -1479,9 +1861,13 @@ export default function OwnerPage() {
 
     // 1. Cập nhật state và lưu đồng bộ ngay lập tức vào tất cả các alias LocalStorage
     setMyHorses(prev => {
-      const next = prev.filter(h => String(h.id) !== String(horseId));
+      const next = prev.filter(h =>
+        String(h.id) !== String(horseId) &&
+        (h.name || '').toLowerCase() !== (horseName || '').toLowerCase()
+      );
+      const deduped = deduplicateHorses(next);
       try {
-        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
+        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(deduped));
         if (isDemoVip) {
           localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(next));
           localStorage.setItem('matruong_owner_horses_6', JSON.stringify(next));
@@ -1537,8 +1923,17 @@ export default function OwnerPage() {
     const selectedHorse = isDelegated ? null : (myHorses.find(h => String(h.id) === String(raceRegForm.horseId)) || myHorses[0]);
     const tournament = OPEN_TOURNAMENTS.find(t => t.id === raceRegForm.tournamentId) || selectedTournamentToRegister || OPEN_TOURNAMENTS[0];
 
-    // Kiểm tra đã đăng ký chưa
+    // Kiểm tra đã đăng ký chưa & Kiểm tra Lệnh Khóa Y Tế Thú y
     if (!isDelegated) {
+      const lockStatus = checkHorseVetLockStatus(selectedHorse.microchip || selectedHorse.id || selectedHorse.name);
+      if (lockStatus.isLocked || selectedHorse.isLockedByVet || selectedHorse.status === 'INJURED') {
+        showToast(
+          `Chiến mã "${selectedHorse.name}" đang bị Bác sĩ Thú y KHÓA Y TẾ / CẤM THI ĐẤU (${lockStatus.reason || 'Chấn thương'})! Phải đợi Bác sĩ Thú y kiểm tra và dỡ bỏ lệnh khóa thì mới được cho đi thi đấu.`,
+          'CẤM THI ĐẤU DO KHÓA Y TẾ',
+          'error'
+        );
+        return;
+      }
       const alreadyRegistered = raceNominations.some(r => r.raceName === tournament.name && r.horseName === selectedHorse.name);
       if (alreadyRegistered) {
         showToast(`Chiến mã "${selectedHorse.name}" đã được đăng ký tham gia giải này rồi!`, 'ĐÃ TỒN TẠI', 'warning');
@@ -1690,6 +2085,19 @@ export default function OwnerPage() {
 
           <button
             type="button"
+            className={`portal-nav-item ${activeTab === 'schedule' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('schedule'); setSidebarOpen(false); }}
+            title="Lịch Tập Luyện Theo Thời Gian Thực & Đặt Lịch Huấn Luyện Chung"
+          >
+            <span className="portal-nav-icon"><IconCalendar size={18} /></span>
+            <span className="portal-nav-label">Lịch tập & Đặt lịch</span>
+            <span className="portal-nav-badge" style={{ background: 'rgba(212, 175, 55, 0.15)', color: 'var(--brass)' }}>
+              {jointSessions.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
             className={`portal-nav-item ${activeTab === 'training' ? 'active' : ''}`}
             onClick={() => { setActiveTab('training'); setSidebarOpen(false); }}
             title="Báo Cáo Huấn Luyện & Viễn Trắc Từ HLV"
@@ -1747,6 +2155,25 @@ export default function OwnerPage() {
             }}>
               {membershipTier === 'PREMIUM' ? 'PREMIUM' : 'FREE'}
             </span>
+          </button>
+
+          <button
+            type="button"
+            className={`portal-nav-item ${activeTab === 'reports' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('reports'); setSidebarOpen(false); }}
+            title="Khiếu Nại & Báo Cáo Nhân Sự (HLV, Bác sĩ, Chăm sóc)"
+          >
+            <span className="portal-nav-icon"><IconReportAlert size={18} /></span>
+            <span className="portal-nav-label">Khiếu nại & Báo cáo</span>
+            {myReports.length > 0 && (
+              <span className="portal-nav-badge" style={{
+                background: myReports.some(r => r.status === 'PENDING') ? '#F59E0B' : 'rgba(212, 175, 55, 0.2)',
+                color: myReports.some(r => r.status === 'PENDING') ? '#000' : 'var(--brass)',
+                fontWeight: 700
+              }}>
+                {myReports.length}
+              </span>
+            )}
           </button>
         </nav>
       </aside>
@@ -2413,13 +2840,1028 @@ export default function OwnerPage() {
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 2: TIẾN ĐỘ HUẤN LUYỆN (TRAINING & TELEMETRY) */}
+          {/* TAB DEDICATED: LỊCH TẬP LUYỆN THEO THỜI GIAN THỰC & ĐẶT LỊCH VỚI HLV     */}
+          {/* ========================================================================= */}
+          {activeTab === 'schedule' && (
+            <div className="tab-pane">
+              <div className="pane-header" style={{ marginBottom: '16px' }}>
+                <h2 className="pane-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>📅</span> Lịch Tập Luyện Thời Gian Thực & Đặt Lịch Cùng HLV
+                </h2>
+                <p className="pane-desc">
+                  Một phía là lịch tập theo thời gian thực do Huấn luyện viên sắp xếp bài tập cho chiến mã. Bên góc phải nhỏ là nơi Chủ sở hữu đăng ký đặt lịch ra sân cùng HLV.
+                </p>
+              </div>
+
+              {/* BỐ CỤC 2 PHÍA (SPLIT LAYOUT) */}
+              <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                
+                {/* ===================================================================== */}
+                {/* PHÍA TRÁI (CHÍNH): LỊCH THỜI GIAN THỰC & BÀI TẬP DO HLV SẮP XẾP     */}
+                {/* ===================================================================== */}
+                <div style={{ flex: '1 1 540px', minWidth: '320px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  
+                  {/* KHỐI 1: ĐỒNG HỒ THỜI GIAN THỰC & ĐỒNG BỘ TRƯỜNG ĐUA */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(20, 26, 38, 0.95), rgba(12, 17, 26, 0.95))',
+                    border: '1px solid rgba(212, 175, 55, 0.35)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: '#10B981',
+                          boxShadow: '0 0 10px #10B981'
+                        }} />
+                        <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#10B981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Lịch Huấn Luyện Thời Gian Thực (Live IoT Sync)
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--paper)', marginTop: '4px', letterSpacing: '-0.02em' }}>
+                        {realTimeClock.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      background: 'rgba(0, 0, 0, 0.45)',
+                      border: '1px solid rgba(212, 175, 55, 0.5)',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      textAlign: 'right'
+                    }}>
+                      <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 600 }}>
+                        Đồng hồ thời gian thực
+                      </div>
+                      <div style={{
+                        fontSize: '22px',
+                        fontWeight: 800,
+                        fontFamily: 'monospace',
+                        color: 'var(--brass)',
+                        letterSpacing: '0.05em'
+                      }}>
+                        {realTimeClock.toLocaleTimeString('vi-VN')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* KHỐI 2: LỊCH TUẦN TRỰC QUAN 7 NGÀY (THỨ 2 ĐẾN CHỦ NHẬT) */}
+                  <div style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '12px',
+                    padding: '16px'
+                  }}>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--paper)', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Lịch Hoạt Động Tuần Này (Thứ 2 — Chủ Nhật)</span>
+                      <span style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 600 }}>Tuần 45/2026 · Trường đua Quốc Tế</span>
+                    </div>
+
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(7, 1fr)',
+                      gap: '8px',
+                      textAlign: 'center'
+                    }}>
+                      {[
+                        { day: 'T2', date: '02/11', isToday: false },
+                        { day: 'T3', date: '03/11', isToday: true },
+                        { day: 'T4', date: '04/11', isToday: false },
+                        { day: 'T5', date: '05/11', isToday: false },
+                        { day: 'T6', date: '06/11', isToday: false },
+                        { day: 'T7', date: '07/11', isToday: false },
+                        { day: 'CN', date: '08/11', isToday: false },
+                      ].map(d => (
+                        <div
+                          key={d.day}
+                          style={{
+                            padding: '10px 4px',
+                            borderRadius: '8px',
+                            background: d.isToday ? 'rgba(212, 175, 55, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                            border: d.isToday ? '1.5px solid var(--brass)' : '1px solid var(--line)',
+                            boxShadow: d.isToday ? '0 0 12px rgba(212, 175, 55, 0.2)' : 'none'
+                          }}
+                        >
+                          <div style={{ fontSize: '11.5px', fontWeight: d.isToday ? 800 : 600, color: d.isToday ? 'var(--brass)' : 'var(--paper-dim)' }}>
+                            {d.day}
+                          </div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: d.isToday ? 'var(--paper)' : 'var(--paper-dim)', margin: '3px 0' }}>
+                            {d.date}
+                          </div>
+                          {d.isToday ? (
+                            <span style={{ fontSize: '9.5px', fontWeight: 800, background: 'var(--brass)', color: '#0A0D14', padding: '1px 5px', borderRadius: '3px' }}>
+                              HÔM NAY
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '9.5px', color: 'var(--paper-dim)' }}>Lịch tập</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* KHỐI 3: DANH SÁCH BÀI TẬP DO HUẤN LUYỆN VIÊN SẮP XẾP THEO THỜI GIAN THỰC */}
+                  <div style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '12px',
+                    padding: '18px 20px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '18px' }}>🏇</span>
+                        <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--paper)', fontWeight: 700 }}>
+                          Thông Tin Bài Tập Do Huấn Luyện Viên Sắp Xếp
+                        </h3>
+                      </div>
+                      <span style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 600 }}>
+                        Lên lịch tự động bởi HLV phụ trách
+                      </span>
+                    </div>
+
+                    {myHorses.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                        Chưa có chiến mã nào để HLV sắp xếp bài tập. Vui lòng đăng ký chiến mã vào đàn trước.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {myHorses.map(horse => {
+                          const lockStatus = checkHorseVetLockStatus(horse.microchip || horse.id || horse.name);
+                          const isLocked = lockStatus.isLocked || horse.isLockedByVet;
+                          
+                          // Lấy giáo án từ TrainerPage hoặc tạo bài tập phù hợp với HLV phụ trách
+                          const matchedProg = trainerWorkouts.find(p => (p.horseName || '').toLowerCase() === (horse.name || '').toLowerCase());
+                          const defaultTitle = horse.trainer?.toLowerCase().includes('nghĩa')
+                            ? 'Bài tập bứt tốc cự ly 1.600m & rèn sức bền sân cỏ'
+                            : horse.trainer?.toLowerCase().includes('anh')
+                            ? 'Luyện xuất phát máy & nước rút 400m chặng cuối'
+                            : 'Nâng cao thể lực nền sức bền 2.400m & kiểm soát nhịp tim';
+
+                          const workoutTitle = matchedProg?.title || defaultTitle;
+                          const targetDistance = matchedProg?.targetDistance || (horse.trainer?.toLowerCase().includes('nghĩa') ? 1600 : 2400);
+                          const surface = matchedProg?.surface || 'GRASS (Sân cỏ Tự Nhiên)';
+
+                          return (
+                            <div key={horse.id} style={{
+                              background: 'var(--bg-primary)',
+                              border: isLocked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--line)',
+                              borderRadius: '10px',
+                              padding: '14px 16px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '10px'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                  <img
+                                    src={horse.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80'}
+                                    alt={horse.name}
+                                    style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover' }}
+                                  />
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <h4 style={{ margin: 0, fontSize: '15px', color: 'var(--paper)', fontWeight: 700 }}>
+                                        {horse.name}
+                                      </h4>
+                                      <span style={{ fontSize: '11px', color: 'var(--paper-dim)', background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: '4px' }}>
+                                        {horse.stable || 'Ô C2'}
+                                      </span>
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: 'var(--brass)', marginTop: '2px', fontWeight: 600 }}>
+                                      🏇 HLV Phụ trách: {horse.trainer || 'Trần Văn Hùng (HLV Trưởng)'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div style={{ textAlign: 'right' }}>
+                                  {isLocked ? (
+                                    <span style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      padding: '3px 8px',
+                                      borderRadius: '4px',
+                                      background: 'rgba(239, 68, 68, 0.15)',
+                                      color: '#EF4444',
+                                      border: '1px solid rgba(239, 68, 68, 0.4)'
+                                    }}>
+                                      🔒 Khóa Y Tế (Cấm Tập)
+                                    </span>
+                                  ) : (
+                                    <span style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      padding: '3px 8px',
+                                      borderRadius: '4px',
+                                      background: 'rgba(16, 185, 129, 0.15)',
+                                      color: '#10B981',
+                                      border: '1px solid rgba(16, 185, 129, 0.4)'
+                                    }}>
+                                      ● Đang Áp Dụng Hôm Nay
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Chi tiết giáo án do HLV bố trí */}
+                              <div style={{
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                border: '1px solid var(--line)',
+                                borderRadius: '8px',
+                                padding: '10px 12px',
+                                fontSize: '12.5px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px'
+                              }}>
+                                <div style={{ fontWeight: 700, color: 'var(--paper)' }}>
+                                  📋 Bài tập: <span style={{ color: 'var(--brass)' }}>{workoutTitle}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', color: 'var(--paper-dim)', fontSize: '12px' }}>
+                                  <span>Cự ly mục tiêu: <b style={{ color: 'var(--paper)' }}>{targetDistance}m</b></span>
+                                  <span>Mặt sân: <b style={{ color: 'var(--paper)' }}>{surface}</b></span>
+                                  <span>Khung giờ HLV xếp: <b style={{ color: 'var(--paper)' }}>Sáng sớm 06:30 - 08:30</b></span>
+                                </div>
+                              </div>
+
+                              {/* Cảnh báo y tế nếu bị khóa */}
+                              {isLocked && (
+                                <div style={{
+                                  padding: '8px 10px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                                  color: '#EF4444',
+                                  fontSize: '11.5px',
+                                  fontWeight: 600,
+                                  lineHeight: 1.4
+                                }}>
+                                  ⛔ <b>Lệnh cấm tập từ Thú Y:</b> {lockStatus.reason || 'Bác sĩ Thú y kích hoạt Khóa Y Tế'}. Phải đợi Bác sĩ Thú y kiểm tra và mở khóa tại Cổng Thú Y thì mới được tập tiếp!
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* KHỐI 4: LỊCH TẬP LUYỆN CHUNG TRÊN SÂN (HIỂN THỊ CHI TIẾT LỊCH CỦA BẠN & TÔ ĐEN KHÓA LỊCH CỦA NGƯỜI KHÁC) */}
+                  {jointSessions.length > 0 && (
+                    <div style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '12px',
+                      padding: '16px 18px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '18px' }}>🤝</span>
+                          <h3 style={{ margin: 0, fontSize: '14.5px', color: 'var(--paper)', fontWeight: 700 }}>
+                            Lịch Tập Luyện Chung Trên Bãi Tập (06:00 — 18:00)
+                          </h3>
+                        </div>
+                        <span style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 600 }}>
+                          Ưu tiên người đặt trước · Lịch kín được bảo mật
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {jointSessions.map(session => {
+                          const isMyBooking = (String(session.ownerKey) === String(ownerKey) || session.ownerName === currentUser?.full_name);
+                          const isConfirmed = session.status === 'CONFIRMED';
+                          const isPending = session.status === 'PENDING';
+
+                          // Nếu là lịch của người khác: Tô đen và khóa không cho xem chi tiết
+                          if (!isMyBooking) {
+                            return (
+                              <div key={session.id} style={{
+                                background: '#020408',
+                                border: '1px solid #1a202c',
+                                borderRadius: '8px',
+                                padding: '10px 14px',
+                                color: '#475569',
+                                cursor: 'not-allowed',
+                                userSelect: 'none',
+                                opacity: 0.65
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>🔒</span> KHUNG GIỜ ĐÃ KÍN (Đã có chủ sở hữu khác đặt trước)
+                                  </span>
+                                  <span style={{ fontSize: '11px', background: '#0b0f19', color: '#64748b', padding: '2px 8px', borderRadius: '4px', border: '1px solid #1e293b' }}>
+                                    {session.sessionDate} · {extractSlotPrefix(session.sessionTime)}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#334155', marginTop: '4px' }}>
+                                  HLV phụ trách: <b>{session.trainerName}</b> · <i>[Thông tin chiến mã và yêu cầu riêng tư được bảo mật, không thể xem]</i>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // Nếu là lịch của chính chủ sở hữu đang đăng nhập: Hiển thị đầy đủ
+                          return (
+                            <div key={session.id} style={{
+                              background: 'var(--bg-primary)',
+                              border: isConfirmed ? '1px solid rgba(16, 185, 129, 0.4)' : isPending ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--line)',
+                              borderRadius: '8px',
+                              padding: '12px 14px',
+                              fontSize: '12.5px'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <b style={{ color: 'var(--paper)' }}>Chiến mã: {session.horseName}</b>
+                                  <span style={{ fontSize: '11px', color: 'var(--brass)' }}>· HLV: {session.trainerName}</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ color: isConfirmed ? '#10B981' : '#F59E0B', fontWeight: 700 }}>
+                                    {session.sessionDate} ({session.sessionTime.split(' (')[0]})
+                                  </span>
+                                  <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    background: isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                    color: isConfirmed ? '#10B981' : '#F59E0B'
+                                  }}>
+                                    {isConfirmed ? '✓ ĐÃ DUYỆT' : '⏳ CHỜ DUYỆT'}
+                                  </span>
+                                </div>
+                              </div>
+                              <div style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>
+                                🎯 Mục tiêu: {session.goal}
+                              </div>
+                              {session.trainerFeedback && (
+                                <div style={{ marginTop: '6px', padding: '6px 10px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.08)', borderLeft: '3px solid #10B981', color: 'var(--paper)', fontSize: '11.5px' }}>
+                                  <b>Lời dặn của HLV:</b> {session.trainerFeedback}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* ===================================================================== */}
+                {/* PHÍA GÓC PHẢI NHỎ: NƠI ĐẶT LỊCH CỦA CHỦ SỞ HỮU                       */}
+                {/* ===================================================================== */}
+                <div style={{
+                  width: '370px',
+                  maxWidth: '100%',
+                  flexShrink: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px'
+                }}>
+                  {/* FORM ĐẶT LỊCH TRỰC TIẾP TRÊN TRANG (THIẾT KẾ TINH GỌN, CAO CẤP, CHỐNG TRÙNG LỊCH) */}
+                  <div style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid rgba(212, 175, 55, 0.4)',
+                    borderRadius: '10px',
+                    padding: '13px 15px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+                  }}>
+                    {/* Header gọn gàng */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '8px', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '15px' }}>✍️</span>
+                        <h4 style={{ margin: 0, fontSize: '13.5px', color: 'var(--brass)', fontWeight: 800, letterSpacing: '0.01em' }}>
+                          Đặt Lịch Tập Cùng HLV
+                        </h4>
+                      </div>
+                      <span style={{ fontSize: '9.5px', color: '#10B981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                        06:00 — 18:00
+                      </span>
+                    </div>
+
+                    <form onSubmit={handleSubmitJointBooking} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {/* Chọn chiến mã */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                          <label style={{ fontSize: '11px', color: 'var(--paper)', fontWeight: 700 }}>
+                            Chiến mã ra sân
+                          </label>
+                          <span style={{ fontSize: '10px', color: 'var(--paper-dim)' }}>Chọn từ đàn ngựa</span>
+                        </div>
+                        <select
+                          className="portal-input"
+                          value={jointBookingForm.horseId}
+                          onChange={(e) => setJointBookingForm({ ...jointBookingForm, horseId: e.target.value })}
+                          style={{ width: '100%', boxSizing: 'border-box', fontWeight: 600, padding: '6px 8px', fontSize: '11.5px', borderRadius: '6px' }}
+                        >
+                          {myHorses.map(h => {
+                            const lockStatus = checkHorseVetLockStatus(h.microchip || h.id || h.name);
+                            const isLocked = lockStatus.isLocked || h.isLockedByVet;
+                            return (
+                              <option key={h.id} value={h.id}>
+                                {h.name} ({h.stable || 'Ô A1'}) {isLocked ? '⛔ [Khóa Y Tế]' : '✓ [Sẵn sàng]'}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Cảnh báo khóa y tế nếu có */}
+                      {(() => {
+                        const currHorse = myHorses.find(h => String(h.id) === String(jointBookingForm.horseId)) || myHorses[0];
+                        if (!currHorse) return null;
+                        const lockStatus = checkHorseVetLockStatus(currHorse.microchip || currHorse.id || currHorse.name);
+                        if (lockStatus.isLocked || currHorse.isLockedByVet) {
+                          return (
+                            <div style={{
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              border: '1px solid rgba(239, 68, 68, 0.45)',
+                              color: '#EF4444',
+                              fontSize: '10.5px',
+                              lineHeight: 1.35
+                            }}>
+                              ⛔ <b>Khóa y tế:</b> {lockStatus.reason || 'Dấu hiệu chấn thương'}. Phải đợi BS Thú y mở khóa!
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      {/* Hàng 2: HLV & Ngày tập */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--paper)', fontWeight: 700, marginBottom: '3px' }}>
+                            Huấn luyện viên
+                          </label>
+                          <select
+                            className="portal-input"
+                            value={jointBookingForm.trainerUsername}
+                            onChange={(e) => setJointBookingForm({ ...jointBookingForm, trainerUsername: e.target.value })}
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '6px 7px', fontSize: '11px', borderRadius: '6px' }}
+                          >
+                            {FIXED_TRAINERS_LIST.map(t => (
+                              <option key={t.username} value={t.username}>
+                                🏇 {t.name.split(' (')[0]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--paper)', fontWeight: 700, marginBottom: '3px' }}>
+                            Ngày tập
+                          </label>
+                          <input
+                            type="date"
+                            className="portal-input"
+                            value={jointBookingForm.sessionDate}
+                            onChange={(e) => setJointBookingForm({ ...jointBookingForm, sessionDate: e.target.value })}
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '5.5px 7px', fontSize: '11px', borderRadius: '6px' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Hàng 3: Khung giờ & Logic chống trùng lịch (Tô đen lịch đã đặt & giờ nghỉ trưa) */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                          <label style={{ fontSize: '11px', color: 'var(--paper)', fontWeight: 700 }}>
+                            Khung giờ (06:00 — 18:00)
+                          </label>
+                          <span style={{ fontSize: '9.5px', color: '#F59E0B' }}>
+                            🍽️ Nghỉ trưa 11:45 — 13:00 (Khóa)
+                          </span>
+                        </div>
+                        <select
+                          className="portal-input"
+                          value={jointBookingForm.sessionTime}
+                          onChange={(e) => setJointBookingForm({ ...jointBookingForm, sessionTime: e.target.value })}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: '11px', borderRadius: '6px' }}
+                        >
+                          {TRAINING_TIME_SLOTS.map(slot => {
+                            const status = getSlotBookingStatus(slot.id, jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
+                            const isLunch = slot.isLunch;
+                            const isBooked = status.isBooked;
+                            const valueStr = `${slot.id} (${slot.desc})`;
+                            return (
+                              <option
+                                key={slot.id}
+                                value={valueStr}
+                                disabled={isLunch || isBooked}
+                                style={{
+                                  background: isLunch || isBooked ? '#000000' : '#141a24',
+                                  color: isLunch ? '#78716c' : isBooked ? '#71717a' : '#F3F4F6'
+                                }}
+                              >
+                                {isLunch
+                                  ? '🍽️ 11:45 - 13:00 [NGHỈ TRƯA & BẢO DƯỠNG SÂN BÃI]'
+                                  : isBooked
+                                  ? `🔒 ${slot.label} [ĐÃ CÓ NGƯỜI ĐẶT TRƯỚC - BÔI ĐEN]`
+                                  : `🟢 ${slot.label} (${slot.desc.split(' - ')[1] || slot.desc})`}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Trực quan hóa ma trận khung giờ: Slot đã đặt hoặc nghỉ trưa bị tô đen, không bấm xem được */}
+                      <div style={{
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '6px 8px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--paper-dim)', fontWeight: 600 }}>
+                            Sơ đồ giờ tập theo ngày:
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <button
+                              type="button"
+                              onClick={handleReset18hSchedule}
+                              title="Tới tầm 18:00 tối hệ thống tự động reset. Bấm nút này để kích hoạt reset toàn bộ slot trống lúc 18h ngay lập tức"
+                              style={{
+                                background: 'rgba(212, 175, 55, 0.16)',
+                                border: '1px solid rgba(212, 175, 55, 0.45)',
+                                color: 'var(--brass)',
+                                borderRadius: '4px',
+                                fontSize: '8.5px',
+                                padding: '1.5px 5px',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px'
+                              }}
+                            >
+                              🔄 Reset 18h
+                            </button>
+                            <span style={{ fontSize: '9px', color: '#94a3b8' }}>
+                              ⬛ Bôi đen = Đã đặt
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '9px',
+                          color: 'var(--paper-dim)',
+                          marginBottom: '6px',
+                          padding: '2px 6px',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          borderRadius: '4px'
+                        }}>
+                          <span>⏰ Tập: 06:00 - 18:00</span>
+                          <span style={{ color: '#10B981' }}>✓ 18:00 tự động mở trống</span>
+                        </div>
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(4, 1fr)',
+                          gap: '4px'
+                        }}>
+                          {TRAINING_TIME_SLOTS.map(slot => {
+                            const status = getSlotBookingStatus(slot.id, jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
+                            const isLunch = slot.isLunch;
+                            const isBooked = status.isBooked;
+                            const isSelected = extractSlotPrefix(jointBookingForm.sessionTime) === slot.id;
+
+                            // Giờ nghỉ trưa: Tô đen có viền nét đứt vàng nhạt, không bấm được
+                            if (isLunch) {
+                              return (
+                                <div
+                                  key={slot.id}
+                                  title="11:45 - 13:00 là thời gian nghỉ trưa & bảo dưỡng bãi tập"
+                                  style={{
+                                    gridColumn: 'span 2',
+                                    padding: '4px 2px',
+                                    background: '#040608',
+                                    border: '1px dashed rgba(245, 158, 11, 0.3)',
+                                    borderRadius: '4px',
+                                    color: '#78716c',
+                                    fontSize: '9.5px',
+                                    textAlign: 'center',
+                                    cursor: 'not-allowed',
+                                    userSelect: 'none',
+                                    pointerEvents: 'none',
+                                    opacity: 0.65
+                                  }}
+                                >
+                                  🍽️ 11:45-13:00 (Nghỉ trưa)
+                                </div>
+                              );
+                            }
+
+                            // Slot đã bị chủ sở hữu khác đặt trước: Tô đen hoàn toàn, không bấm xem được nữa
+                            if (isBooked) {
+                              return (
+                                <div
+                                  key={slot.id}
+                                  title="Đã có người đặt trước (Ưu tiên người đặt trước) - Đã bôi đen và không thể đặt"
+                                  style={{
+                                    padding: '5px 2px',
+                                    background: '#000000',
+                                    border: '1px solid #27272a',
+                                    borderRadius: '4px',
+                                    color: '#52525b',
+                                    fontSize: '9.5px',
+                                    fontWeight: 700,
+                                    textAlign: 'center',
+                                    cursor: 'not-allowed',
+                                    userSelect: 'none',
+                                    pointerEvents: 'none',
+                                    textDecoration: 'line-through',
+                                    boxShadow: 'inset 0 0 8px rgba(0,0,0,0.95)'
+                                  }}
+                                >
+                                  🔒 {slot.label.split(' - ')[0]}
+                                </div>
+                              );
+                            }
+
+                            // Slot trống: Cho phép chọn
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                onClick={() => setJointBookingForm(prev => ({
+                                  ...prev,
+                                  sessionTime: `${slot.id} (${slot.desc})`
+                                }))}
+                                style={{
+                                  padding: '4px 2px',
+                                  background: isSelected ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                                  border: isSelected ? '1.5px solid var(--brass)' : '1px solid var(--line)',
+                                  borderRadius: '4px',
+                                  color: isSelected ? 'var(--brass)' : 'var(--paper)',
+                                  fontSize: '10px',
+                                  fontWeight: isSelected ? 800 : 500,
+                                  textAlign: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.1s ease'
+                                }}
+                              >
+                                {slot.label.split(' - ')[0]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Mục tiêu buổi tập */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--paper)', fontWeight: 700, marginBottom: '3px' }}>
+                          Mục tiêu buổi tập
+                        </label>
+                        <select
+                          className="portal-input"
+                          value={jointBookingForm.goal}
+                          onChange={(e) => setJointBookingForm({ ...jointBookingForm, goal: e.target.value })}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '6px 6px', fontSize: '10.5px', borderRadius: '6px' }}
+                        >
+                          <option value="Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV">🔍 Sải chân & thể lực</option>
+                          <option value="Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa">🏇 Phối hợp chủ - ngựa</option>
+                          <option value="Kiểm tra phản xạ xuất phát máy & chạy vòng cua">⚡ Phản xạ xuất phát & cua</option>
+                          <option value="Thử sức cự ly dài 2.400m sân cỏ tự nhiên">🌿 Cự ly dài 2.400m</option>
+                          <option value="Luyện bứt tốc nước rút 400m cuối sân cát">💨 Nước rút 400m cuối</option>
+                        </select>
+                      </div>
+
+                      {/* Hàng 4: Ghi chú dòng đơn gọn gàng */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '2px' }}>
+                          Ghi chú cho HLV (Tùy chọn)
+                        </label>
+                        <input
+                          type="text"
+                          className="portal-input"
+                          value={jointBookingForm.ownerNotes}
+                          onChange={(e) => setJointBookingForm({ ...jointBookingForm, ownerNotes: e.target.value })}
+                          placeholder="Ví dụ: Đo sải chân ở góc cua số 3..."
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: '11px', borderRadius: '6px' }}
+                        />
+                      </div>
+
+                      {/* Nút gửi đặt lịch */}
+                      {(() => {
+                        const currHorse = myHorses.find(h => String(h.id) === String(jointBookingForm.horseId)) || myHorses[0];
+                        const isLocked = currHorse ? (checkHorseVetLockStatus(currHorse.microchip || currHorse.id || currHorse.name).isLocked || currHorse.isLockedByVet) : false;
+                        const slotStatus = getSlotBookingStatus(extractSlotPrefix(jointBookingForm.sessionTime), jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
+                        const isUnavailable = isLocked || !slotStatus.available;
+
+                        return (
+                          <button
+                            type="submit"
+                            disabled={isUnavailable}
+                            style={{
+                              marginTop: '3px',
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              background: isUnavailable ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, var(--brass) 0%, #B89230 100%)',
+                              color: isUnavailable ? 'var(--paper-dim)' : '#120E04',
+                              fontWeight: 800,
+                              fontSize: '12px',
+                              border: 'none',
+                              cursor: isUnavailable ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '5px',
+                              boxShadow: isUnavailable ? 'none' : '0 3px 10px rgba(212, 175, 55, 0.25)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {isLocked
+                              ? '⛔ Đang Khóa Y Tế (Cấm Tập)'
+                              : slotStatus.isLunch
+                              ? '🍽️ Giờ Nghỉ Trưa (Không Nhận Lịch)'
+                              : slotStatus.isBooked
+                              ? '🔒 Khung Giờ Đã Kín (Người Đặt Trước)'
+                              : '🤝 Gửi Yêu Cầu Đặt Lịch'}
+                          </button>
+                        );
+                      })()}
+                    </form>
+                  </div>
+
+                  {/* KHỐI CÁC YÊU CẦU ĐẶT LỊCH ĐÃ GỬI CỦA BẠN */}
+                  <div style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '12px',
+                    padding: '16px'
+                  }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Yêu Cầu Đặt Lịch Của Bạn</span>
+                      <span style={{ fontSize: '11px', color: 'var(--brass)' }}>
+                        {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).length} lịch
+                      </span>
+                    </div>
+
+                    {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).length === 0 ? (
+                      <div style={{ padding: '16px 8px', textAlign: 'center', color: 'var(--paper-dim)', fontSize: '12px' }}>
+                        Chưa có lịch hẹn nào. Hãy gửi yêu cầu ở form phía trên!
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).map(session => {
+                          const isPending = session.status === 'PENDING';
+                          const isConfirmed = session.status === 'CONFIRMED';
+
+                          return (
+                            <div key={session.id} style={{
+                              background: 'var(--bg-primary)',
+                              border: isPending ? '1px solid rgba(245, 158, 11, 0.4)' : isConfirmed ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--line)',
+                              borderRadius: '8px',
+                              padding: '10px 12px',
+                              fontSize: '12px'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <b style={{ color: 'var(--paper)' }}>{session.horseName}</b>
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  padding: '1px 6px',
+                                  borderRadius: '3px',
+                                  background: isPending ? 'rgba(245, 158, 11, 0.15)' : isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                  color: isPending ? '#F59E0B' : isConfirmed ? '#10B981' : '#EF4444'
+                                }}>
+                                  {isPending ? '⏳ Chờ HLV duyệt' : isConfirmed ? '✓ Đã xác nhận' : 'HLV phản hồi'}
+                                </span>
+                              </div>
+                              <div style={{ color: 'var(--paper-dim)', fontSize: '11.5px' }}>
+                                📅 {session.sessionDate} ({session.sessionTime})
+                              </div>
+                              <div style={{ color: 'var(--brass)', fontSize: '11px', marginTop: '2px' }}>
+                                🏇 HLV: {session.trainerName}
+                              </div>
+                              {session.trainerFeedback && (
+                                <div style={{ marginTop: '4px', padding: '4px 6px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '3px', color: 'var(--paper)', fontSize: '11px' }}>
+                                  <b>HLV dặn:</b> {session.trainerFeedback}
+                                </div>
+                              )}
+                              {isPending && (
+                                <div style={{ marginTop: '6px', textAlign: 'right' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelJointSession(session.id)}
+                                    style={{
+                                      padding: '2px 6px',
+                                      borderRadius: '3px',
+                                      border: '1px solid var(--line)',
+                                      background: 'transparent',
+                                      color: 'var(--paper-dim)',
+                                      fontSize: '10.5px',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Hủy yêu cầu
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 3: TIẾN ĐỘ HUẤN LUYỆN (TRAINING & TELEMETRY) */}
           {/* ========================================================================= */}
           {activeTab === 'training' && (
             <div className="tab-pane">
-              <div className="pane-header" style={{ marginBottom: '16px' }}>
-                <h2 className="pane-title">Chỉ Số Viễn Trắc & Đánh Giá Huấn Luyện (Training Telemetry)</h2>
-                <p className="pane-desc">Thông số nhịp tim, tốc độ nước rút và nhận xét phong độ trực tiếp từ Huấn luyện viên trưởng.</p>
+              <div className="pane-header" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h2 className="pane-title">Chỉ Số Viễn Trắc & Lịch Huấn Luyện Chung (Training & Telemetry)</h2>
+                  <p className="pane-desc">Chủ sở hữu có thể đặt lịch tập luyện chung với HLV, theo dõi nhịp tim viễn trắc và nhận xét phong độ trực tiếp.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenJointBookingModal()}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '12.5px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>🤝</span> + Đặt Lịch Tập Luyện Chung Với HLV
+                </button>
+              </div>
+
+              {/* KHỐI LỊCH HẸN TẬP LUYỆN CHUNG CÙNG HUẤN LUYỆN VIÊN */}
+              <div style={{
+                marginBottom: '20px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--line)',
+                borderRadius: '12px',
+                padding: '18px 20px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '20px' }}>📅</span>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--paper)', fontWeight: 700 }}>
+                        Lịch Hẹn Tập Luyện Chung Cùng HLV & Chiến Mã
+                      </h3>
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                        Đồng hành trực tiếp tại trường đua cùng Huấn luyện viên để kiểm tra phản xạ, tốc độ nước rút và sự gắn kết với chiến mã.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenJointBookingModal()}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '5px',
+                      background: 'rgba(212, 175, 55, 0.12)',
+                      border: '1px solid rgba(212, 175, 55, 0.4)',
+                      color: 'var(--brass)',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + Đặt Lịch Mới
+                  </button>
+                </div>
+
+                {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                    Bạn chưa có lịch hẹn tập luyện chung nào. Bấm <b>"+ Đặt Lịch Mới"</b> để đăng ký một buổi ra sân cùng Huấn luyện viên!
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
+                    {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).map(session => {
+                      const isLocked = checkHorseVetLockStatus(session.microchip || session.horseName).isLocked;
+                      const isPending = session.status === 'PENDING';
+                      const isConfirmed = session.status === 'CONFIRMED';
+
+                      return (
+                        <div key={session.id} style={{
+                          background: 'var(--bg-primary)',
+                          border: isPending ? '1px solid rgba(245, 158, 11, 0.4)' : isConfirmed ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--line)',
+                          borderRadius: '8px',
+                          padding: '14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between'
+                        }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <img
+                                  src={session.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80'}
+                                  alt={session.horseName}
+                                  style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }}
+                                />
+                                <div>
+                                  <h4 style={{ margin: 0, fontSize: '14px', color: 'var(--paper)', fontWeight: 700 }}>
+                                    {session.horseName}
+                                  </h4>
+                                  <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                                    HLV: <b style={{ color: 'var(--brass)' }}>{session.trainerName}</b>
+                                  </span>
+                                </div>
+                              </div>
+
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                background: isPending ? 'rgba(245, 158, 11, 0.15)' : isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                color: isPending ? '#F59E0B' : isConfirmed ? '#10B981' : '#EF4444',
+                                border: `1px solid ${isPending ? 'rgba(245, 158, 11, 0.4)' : isConfirmed ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                              }}>
+                                {isPending ? '⏳ Chờ HLV duyệt' : isConfirmed ? '✓ HLV Đã xác nhận' : 'HLV phản hồi'}
+                              </span>
+                            </div>
+
+                            {/* Cảnh báo khóa y tế */}
+                            {isLocked && (
+                              <div style={{
+                                margin: '6px 0',
+                                padding: '6px 10px',
+                                borderRadius: '4px',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                color: '#EF4444',
+                                fontSize: '11.5px',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}>
+                                <span>🔒</span>
+                                <span>Chiến mã đang bị Thú Y khóa! Phải chờ Thú y mở khóa mới được tập.</span>
+                              </div>
+                            )}
+
+                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.5, margin: '8px 0' }}>
+                              <div>📅 <b>Thời gian:</b> <span style={{ color: 'var(--paper)' }}>{session.sessionDate}</span> ({session.sessionTime})</div>
+                              <div>🎯 <b>Mục tiêu:</b> <span style={{ color: 'var(--brass)' }}>{session.goal}</span></div>
+                              {session.ownerNotes && (
+                                <div style={{ marginTop: '4px', fontStyle: 'italic' }}>
+                                  Ghi chú của bạn: "{session.ownerNotes}"
+                                </div>
+                              )}
+                              {session.trainerFeedback && (
+                                <div style={{ marginTop: '6px', padding: '6px 8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.03)', borderLeft: '3px solid #10B981', fontSize: '11.5px', color: 'var(--paper)' }}>
+                                  <b>Phản hồi từ HLV:</b> {session.trainerFeedback}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {isPending && (
+                            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleCancelJointSession(session.id)}
+                                style={{
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid var(--line)',
+                                  background: 'transparent',
+                                  color: 'var(--paper-dim)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Hủy yêu cầu
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* BANNER PHÂN BIỆT BÁO CÁO TÓM TẮT vs IOT REAL-TIME */}
@@ -3810,6 +5252,373 @@ export default function OwnerPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 7: KHIẾU NẠI & BÁO CÁO NHÂN SỰ (STAFF INCIDENT & PERFORMANCE REPORTS) */}
+          {/* ========================================================================= */}
+          {activeTab === 'reports' && (
+            <div className="tab-pane">
+              <div className="pane-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h2 className="pane-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>Khiếu Nại & Báo Cáo Nhân Sự</span>
+                    <span style={{ fontSize: '11px', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 700 }}>
+                      GỬI TRỰC TIẾP ADMIN
+                    </span>
+                  </h2>
+                  <p className="pane-desc">
+                    Quyền hạn Chủ sở hữu: Phản ánh trực tiếp tới Ban Quản Trị về Huấn Luyện Viên, Bác Sĩ Thú Y và Nhân Viên Chăm Sóc. Mọi khiếu nại đều được Admin thẩm tra độc lập và phản hồi minh bạch.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreateReport('TRAINER')}
+                  style={{
+                    padding: '9px 18px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 10px rgba(212, 175, 55, 0.25)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>📢</span>
+                  <span>+ Gửi Khiếu Nại Mới</span>
+                </button>
+              </div>
+
+              {/* 4 THỐNG KÊ KHIẾU NẠI */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px 16px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 700, textTransform: 'uppercase' }}>
+                    TỔNG KHIẾU NẠI ĐÃ GỬI
+                  </div>
+                  <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--paper)', margin: '4px 0 2px' }}>
+                    {myReports.length}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                    Bản ghi khiếu nại của bạn
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid #F59E0B', borderRadius: '8px', padding: '14px 16px' }}>
+                  <div style={{ fontSize: '11px', color: '#F59E0B', fontWeight: 700, textTransform: 'uppercase' }}>
+                    CHỜ ADMIN TIẾP NHẬN
+                  </div>
+                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#F59E0B', margin: '4px 0 2px' }}>
+                    {myReports.filter(r => r.status === 'PENDING').length}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                    Admin đang tiếp nhận hồ sơ
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid #3B82F6', borderRadius: '8px', padding: '14px 16px' }}>
+                  <div style={{ fontSize: '11px', color: '#3B82F6', fontWeight: 700, textTransform: 'uppercase' }}>
+                    ĐANG THẨM TRA & GIẢI TRÌNH
+                  </div>
+                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#3B82F6', margin: '4px 0 2px' }}>
+                    {myReports.filter(r => r.status === 'INVESTIGATING').length}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                    Đang yêu cầu nhân sự đối chất
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '8px', padding: '14px 16px' }}>
+                  <div style={{ fontSize: '11px', color: '#10B981', fontWeight: 700, textTransform: 'uppercase' }}>
+                    ĐÃ GIẢI QUYẾT XONG
+                  </div>
+                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#10B981', margin: '4px 0 2px' }}>
+                    {myReports.filter(r => r.status === 'RESOLVED').length}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                    Đã có kết luận & biện pháp xử lý
+                  </div>
+                </div>
+              </div>
+
+              {/* BỘ LỌC ĐỐI TƯỢNG */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setReportRoleFilter('ALL')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: reportRoleFilter === 'ALL' ? 'var(--brass)' : 'var(--bg-secondary)',
+                      color: reportRoleFilter === 'ALL' ? '#0A0D14' : 'var(--paper)',
+                      border: '1px solid var(--line)'
+                    }}
+                  >
+                    Tất cả ({myReports.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReportRoleFilter('TRAINER')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: reportRoleFilter === 'TRAINER' ? 'var(--brass)' : 'var(--bg-secondary)',
+                      color: reportRoleFilter === 'TRAINER' ? '#0A0D14' : 'var(--paper)',
+                      border: '1px solid var(--line)'
+                    }}
+                  >
+                    🏇 Huấn Luyện Viên ({myReports.filter(r => r.targetRole === 'TRAINER').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReportRoleFilter('VET')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: reportRoleFilter === 'VET' ? 'var(--brass)' : 'var(--bg-secondary)',
+                      color: reportRoleFilter === 'VET' ? '#0A0D14' : 'var(--paper)',
+                      border: '1px solid var(--line)'
+                    }}
+                  >
+                    🩺 Bác Sĩ Thú Y ({myReports.filter(r => r.targetRole === 'VET').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReportRoleFilter('CARETAKER')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: reportRoleFilter === 'CARETAKER' ? 'var(--brass)' : 'var(--bg-secondary)',
+                      color: reportRoleFilter === 'CARETAKER' ? '#0A0D14' : 'var(--paper)',
+                      border: '1px solid var(--line)'
+                    }}
+                  >
+                    🌾 Nhân Viên Chăm Sóc ({myReports.filter(r => r.targetRole === 'CARETAKER').length})
+                  </button>
+                </div>
+              </div>
+
+              {/* DANH SÁCH BÁO CÁO KHIẾU NẠI */}
+              {(() => {
+                const filtered = myReports.filter(r => reportRoleFilter === 'ALL' || r.targetRole === reportRoleFilter);
+
+                if (filtered.length === 0) {
+                  return (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '45px 20px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px dashed var(--line)',
+                      borderRadius: '10px'
+                    }}>
+                      <div style={{ fontSize: '38px', marginBottom: '10px' }}>🛡️</div>
+                      <h4 style={{ margin: 0, fontSize: '15px', color: 'var(--paper)', fontWeight: 700 }}>
+                        Chưa có khiếu nại nào được ghi nhận
+                      </h4>
+                      <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', maxWidth: '440px', margin: '6px auto 14px' }}>
+                        Nếu bạn nhận thấy Huấn Luyện Viên, Bác Sĩ Thú Y hoặc Nhân Viên Chăm Sóc có dấu hiệu thiếu trách nhiệm, vi phạm giờ giấc hoặc ứng xử không đúng mực, hãy gửi báo cáo để Admin xử lý kịp thời.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCreateReport('TRAINER')}
+                        style={{
+                          padding: '8px 18px',
+                          background: 'var(--brass)',
+                          color: '#0A0D14',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontWeight: 800,
+                          fontSize: '12.5px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + Gửi Khiếu Nại Đầu Tiên
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {filtered.map(report => {
+                      const roleMeta = REPORT_TARGET_ROLES[report.targetRole] || { label: report.targetRole, icon: '👤', color: 'var(--paper)' };
+                      const sevMeta = REPORT_SEVERITIES.find(s => s.id === report.severity) || REPORT_SEVERITIES[1];
+                      const statMeta = REPORT_STATUSES.find(s => s.id === report.status) || REPORT_STATUSES[0];
+
+                      return (
+                        <div
+                          key={report.id}
+                          style={{
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--line)',
+                            borderRadius: '10px',
+                            padding: '18px 20px',
+                            boxShadow: 'var(--shadow)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px'
+                          }}
+                        >
+                          {/* Card Header: Role & Status */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid var(--line)', paddingBottom: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                color: roleMeta.color,
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                border: `1px solid ${roleMeta.color}50`
+                              }}>
+                                {roleMeta.icon} {roleMeta.label.toUpperCase()}
+                              </span>
+                              <b style={{ fontSize: '14.5px', color: 'var(--paper)' }}>
+                                {report.targetName}
+                              </b>
+                              <span style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                                ({report.targetTitle})
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                color: sevMeta.color,
+                                background: sevMeta.badgeBg,
+                                border: `1px solid ${sevMeta.color}40`,
+                                padding: '3px 8px',
+                                borderRadius: '4px'
+                              }}>
+                                {sevMeta.label.split(' (')[0]}
+                              </span>
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                color: statMeta.color,
+                                background: statMeta.badgeBg,
+                                border: `1px solid ${statMeta.color}50`,
+                                padding: '3px 8px',
+                                borderRadius: '4px'
+                              }}>
+                                {statMeta.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Thông tin sự việc */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                            <span>Mã khiếu nại: <b style={{ color: 'var(--brass)', fontFamily: 'monospace' }}>#{report.id}</b> · Gửi lúc {report.createdAt}</span>
+                            <span>Chiến mã liên quan: <b style={{ color: 'var(--paper)' }}>🏇 {report.horseName}</b> ({report.stall})</span>
+                            <span>Danh mục: <b style={{ color: 'var(--paper)' }}>{report.category}</b></span>
+                          </div>
+
+                          {/* Nội dung phản ánh */}
+                          <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--line)', borderRadius: '6px', padding: '12px 14px' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13.5px', marginBottom: '4px' }}>
+                              {report.title}
+                            </div>
+                            <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', lineHeight: 1.5 }}>
+                              {report.content}
+                            </div>
+                            {report.evidenceNote && (
+                              <div style={{ marginTop: '6px', fontSize: '11.5px', color: 'var(--paper-dim)', fontStyle: 'italic', borderTop: '1px dashed var(--line)', paddingTop: '4px' }}>
+                                📎 Bằng chứng / Ghi chú đính kèm: {report.evidenceNote}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* KẾT LUẬN & PHẢN HỒI TỪ BAN QUẢN TRỊ (ADMIN) */}
+                          {report.status === 'RESOLVED' || report.adminFeedback ? (
+                            <div style={{
+                              background: 'rgba(16, 185, 129, 0.08)',
+                              border: '1px solid rgba(16, 185, 129, 0.35)',
+                              borderRadius: '8px',
+                              padding: '12px 16px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 800, color: '#10B981', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  <span>✓</span>
+                                  <span>KẾT LUẬN & BIỆN PHÁP XỬ LÝ TỪ BAN QUẢN TRỊ (ADMIN)</span>
+                                </span>
+                                {report.resolvedAt && (
+                                  <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                                    Xử lý lúc {report.resolvedAt}
+                                  </span>
+                                )}
+                              </div>
+                              {report.adminAction && (
+                                <div style={{ fontSize: '12.5px', color: 'var(--paper)' }}>
+                                  <b>Biện pháp kỷ luật / chấn chỉnh:</b> {report.adminAction}
+                                </div>
+                              )}
+                              <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', lineHeight: 1.45 }}>
+                                <b>Phản hồi gửi Chủ sở hữu:</b> "{report.adminFeedback || 'Ban Quản Trị đã tiến hành chấn chỉnh và bố trí phương án khắc phục triệt để.'}"
+                              </div>
+                            </div>
+                          ) : report.status === 'INVESTIGATING' ? (
+                            <div style={{
+                              background: 'rgba(59, 130, 246, 0.08)',
+                              border: '1px solid rgba(59, 130, 246, 0.35)',
+                              borderRadius: '8px',
+                              padding: '10px 14px',
+                              fontSize: '12px',
+                              color: '#3B82F6',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}>
+                              <span>🔍</span>
+                              <span>
+                                <b>Admin đang tiến hành thẩm tra:</b> Đã lập hồ sơ xác minh và yêu cầu nhân sự {report.targetName} báo cáo giải trình. Kết quả xử lý sẽ sớm được thông báo tới bạn.
+                              </span>
+                            </div>
+                          ) : (
+                            <div style={{
+                              background: 'rgba(245, 158, 11, 0.08)',
+                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                              borderRadius: '8px',
+                              padding: '10px 14px',
+                              fontSize: '12px',
+                              color: '#F59E0B',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}>
+                              <span>⏳</span>
+                              <span>
+                                <b>Đang chờ Admin tiếp nhận:</b> Hồ sơ khiếu nại đã chuyển trực tiếp tới Ban Quản Trị mã trường để đối soát.
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </main>
@@ -5231,12 +7040,46 @@ export default function OwnerPage() {
                         cursor: 'pointer'
                       }}
                     >
-                      {myHorses.map(h => (
-                        <option key={h.id} value={h.id}>
-                          {h.name} ({h.breed} - {h.statusText})
-                        </option>
-                      ))}
+                      {myHorses.map(h => {
+                        const lCheck = checkHorseVetLockStatus(h.microchip || h.id || h.name);
+                        const isLocked = lCheck.isLocked || h.isLockedByVet;
+                        return (
+                          <option key={h.id} value={h.id}>
+                            {h.name} ({h.breed}) {isLocked ? '⛔ [KHÓA Y TẾ - CẤM ĐUA]' : '✓ [Đủ điều kiện]'}
+                          </option>
+                        );
+                      })}
                     </select>
+
+                    {/* Cảnh báo khóa y tế thi đấu */}
+                    {(() => {
+                      const selHorse = myHorses.find(h => String(h.id) === String(raceRegForm.horseId)) || myHorses[0];
+                      if (!selHorse) return null;
+                      const lockCheck = checkHorseVetLockStatus(selHorse.microchip || selHorse.id || selHorse.name);
+                      if (lockCheck.isLocked || selHorse.isLockedByVet || selHorse.status === 'INJURED') {
+                        return (
+                          <div style={{
+                            marginTop: '8px',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.5)',
+                            color: '#EF4444',
+                            fontSize: '12px',
+                            lineHeight: 1.45
+                          }}>
+                            <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>⛔</span> CHIẾN MÃ ĐANG BỊ KHÓA Y TẾ THÚ Y (CẤM THI ĐẤU)!
+                            </div>
+                            <div><b>Lý do:</b> {lockCheck.reason || 'Dấu hiệu chấn thương hoặc kiểm dịch'}</div>
+                            <div style={{ marginTop: '2px', color: 'var(--paper)' }}>
+                              Chiến mã phải đợi Bác sĩ Thú y kiểm tra và dỡ bỏ lệnh khóa tại Cổng Thú Y thì mới được đăng ký thi đấu.
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 )}
 
@@ -5317,21 +7160,30 @@ export default function OwnerPage() {
                   >
                     Hủy
                   </button>
-                  <button
-                    type="submit"
-                    style={{
-                      padding: '8px 20px',
-                      borderRadius: '6px',
-                      background: 'var(--brass)',
-                      color: '#0A0D14',
-                      fontWeight: 700,
-                      border: 'none',
-                      fontSize: '13px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Xác Nhận Ghi Danh Thi Đấu
-                  </button>
+                  {(() => {
+                    const isDelegated = raceRegForm.selectionMode === 'DELEGATE_TRAINER';
+                    const selHorse = isDelegated ? null : (myHorses.find(h => String(h.id) === String(raceRegForm.horseId)) || myHorses[0]);
+                    const isLocked = !isDelegated && selHorse ? (checkHorseVetLockStatus(selHorse.microchip || selHorse.id || selHorse.name).isLocked || selHorse.isLockedByVet) : false;
+
+                    return (
+                      <button
+                        type="submit"
+                        disabled={isLocked}
+                        style={{
+                          padding: '8px 20px',
+                          borderRadius: '6px',
+                          background: isLocked ? 'rgba(255, 255, 255, 0.1)' : 'var(--brass)',
+                          color: isLocked ? 'var(--paper-dim)' : '#0A0D14',
+                          fontWeight: 700,
+                          border: 'none',
+                          fontSize: '13px',
+                          cursor: isLocked ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {isLocked ? '⛔ Đang Khóa Y Tế (Cấm Thi Đấu)' : 'Xác Nhận Ghi Danh Thi Đấu'}
+                      </button>
+                    );
+                  })()}
                 </div>
               </form>
             )}
@@ -6806,6 +8658,632 @@ export default function OwnerPage() {
                   }}
                 >
                   ✓ Lưu & Gửi Yêu Cầu Phục Vụ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL CHỦ SỞ HỮU ĐẶT LỊCH TẬP LUYỆN CHUNG VỚI HLV */}
+      {showJointBookingModal && (
+        <div className="modal-backdrop" onClick={() => setShowJointBookingModal(false)}>
+          <div className="modal-card" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Đặt Lịch Tập Luyện Chung Cùng Huấn Luyện Viên</h3>
+              <button className="modal-close" onClick={() => setShowJointBookingModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSubmitJointBooking}>
+              <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* 1. Chọn chiến mã */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
+                    Chọn chiến mã ra sân:
+                  </label>
+                  <select
+                    className="portal-input"
+                    value={jointBookingForm.horseId}
+                    onChange={(e) => setJointBookingForm({ ...jointBookingForm, horseId: e.target.value })}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  >
+                    {myHorses.map(h => {
+                      const lockStatus = checkHorseVetLockStatus(h.microchip || h.id || h.name);
+                      const isLocked = lockStatus.isLocked || h.isLockedByVet;
+                      return (
+                        <option key={h.id} value={h.id}>
+                          {h.name} ({h.stable || 'Ô A1'}) {isLocked ? '⛔ [ĐANG KHÓA Y TẾ - CẤM TẬP]' : '✓ [Đủ điều kiện]'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Kiểm tra và hiển thị cảnh báo đỏ nếu ngựa bị khóa y tế */}
+                {(() => {
+                  const currHorse = myHorses.find(h => String(h.id) === String(jointBookingForm.horseId)) || myHorses[0];
+                  if (!currHorse) return null;
+                  const lockStatus = checkHorseVetLockStatus(currHorse.microchip || currHorse.id || currHorse.name);
+                  if (lockStatus.isLocked || currHorse.isLockedByVet) {
+                    return (
+                      <div style={{
+                        padding: '12px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        border: '1px solid rgba(239, 68, 68, 0.5)',
+                        color: '#EF4444',
+                        fontSize: '12.5px',
+                        lineHeight: 1.5
+                      }}>
+                        <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                          <span>⛔</span> CHIẾN MÃ ĐANG BỊ KHÓA Y TẾ BỞI BÁC SĨ THÚ Y!
+                        </div>
+                        <div><b>Lý do phong tỏa:</b> {lockStatus.reason || 'Dấu hiệu chấn thương hoặc kiểm dịch'}</div>
+                        <div style={{ marginTop: '4px', fontSize: '11.5px', color: 'var(--paper)' }}>
+                          ⚠️ <b>Quy định bắt buộc:</b> Bạn phải chờ Bác sĩ Thú y kiểm tra sức khỏe và xác nhận dỡ bỏ lệnh khóa y tế tại Cổng Thú Y thì mới được phép cho tập luyện hoặc thi đấu.
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* 2. Chọn Huấn Luyện Viên */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
+                    Chọn Huấn luyện viên phụ trách:
+                  </label>
+                  <select
+                    className="portal-input"
+                    value={jointBookingForm.trainerUsername}
+                    onChange={(e) => setJointBookingForm({ ...jointBookingForm, trainerUsername: e.target.value })}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  >
+                    {FIXED_TRAINERS_LIST.map(t => (
+                      <option key={t.username} value={t.username}>
+                        🏇 {t.name} ({t.title})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Ngày tập & Khung giờ */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
+                      Ngày tập dự kiến:
+                    </label>
+                    <input
+                      type="date"
+                      className="portal-input"
+                      value={jointBookingForm.sessionDate}
+                      onChange={(e) => setJointBookingForm({ ...jointBookingForm, sessionDate: e.target.value })}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
+                      Khung giờ tập:
+                    </label>
+                    <select
+                      className="portal-input"
+                      value={jointBookingForm.sessionTime}
+                      onChange={(e) => setJointBookingForm({ ...jointBookingForm, sessionTime: e.target.value })}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    >
+                      {TRAINING_TIME_SLOTS.map(slot => {
+                        const status = getSlotBookingStatus(slot.id, jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
+                        const isLunch = slot.isLunch;
+                        const isBooked = status.isBooked;
+                        const valueStr = `${slot.id} (${slot.desc})`;
+                        return (
+                          <option
+                            key={slot.id}
+                            value={valueStr}
+                            disabled={isLunch || isBooked}
+                            style={{
+                              background: isLunch || isBooked ? '#000000' : '#141a24',
+                              color: isLunch ? '#78716c' : isBooked ? '#71717a' : '#F3F4F6'
+                            }}
+                          >
+                            {isLunch
+                              ? '🍽️ 11:45 - 13:00 [NGHỈ TRƯA & BẢO DƯỠNG BÃI TẬP]'
+                              : isBooked
+                              ? `🔒 ${slot.label} [ĐÃ CÓ NGƯỜI ĐẶT TRƯỚC - BÔI ĐEN]`
+                              : `🟢 ${slot.label} (${slot.desc.split(' - ')[1] || slot.desc})`}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Sơ đồ khung giờ trực quan trong modal: slot trùng/đặt trước bị bôi đen hoàn toàn */}
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.45)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '8px 10px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 600 }}>
+                      Sơ đồ khung giờ trong ngày:
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={handleReset18hSchedule}
+                        title="Tới tầm 18:00 tối hệ thống tự động reset. Bấm nút này để kích hoạt reset toàn bộ slot trống lúc 18h ngay lập tức"
+                        style={{
+                          background: 'rgba(212, 175, 55, 0.16)',
+                          border: '1px solid rgba(212, 175, 55, 0.45)',
+                          color: 'var(--brass)',
+                          borderRadius: '4px',
+                          fontSize: '9.5px',
+                          padding: '2px 7px',
+                          cursor: 'pointer',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}
+                      >
+                        🔄 Reset lịch 18h
+                      </button>
+                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                        ⬛ Bôi đen = Đã đặt trước
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '10px',
+                    color: 'var(--paper-dim)',
+                    marginBottom: '8px',
+                    padding: '3px 8px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    borderRadius: '4px'
+                  }}>
+                    <span>⏰ Khung giờ hoạt động: <b>06:00 - 18:00</b></span>
+                    <span style={{ color: '#10B981', fontWeight: 600 }}>✓ Tới 18:00 tự động reset mở lịch trống mới</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
+                    {TRAINING_TIME_SLOTS.map(slot => {
+                      const status = getSlotBookingStatus(slot.id, jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
+                      const isLunch = slot.isLunch;
+                      const isBooked = status.isBooked;
+                      const isSelected = extractSlotPrefix(jointBookingForm.sessionTime) === slot.id;
+
+                      if (isLunch) {
+                        return (
+                          <div
+                            key={slot.id}
+                            title="11:45 - 13:00: Nghỉ trưa & bảo dưỡng bãi tập"
+                            style={{
+                              gridColumn: 'span 2',
+                              padding: '5px 2px',
+                              background: '#040608',
+                              border: '1px dashed rgba(245, 158, 11, 0.3)',
+                              borderRadius: '4px',
+                              color: '#78716c',
+                              fontSize: '10px',
+                              textAlign: 'center',
+                              cursor: 'not-allowed',
+                              userSelect: 'none',
+                              pointerEvents: 'none',
+                              opacity: 0.65
+                            }}
+                          >
+                            🍽️ 11:45-13:00 (Nghỉ trưa)
+                          </div>
+                        );
+                      }
+
+                      if (isBooked) {
+                        return (
+                          <div
+                            key={slot.id}
+                            title="Đã có người đặt trước (Ưu tiên người đặt trước) - Đã bôi đen và không thể đặt"
+                            style={{
+                              padding: '5px 2px',
+                              background: '#000000',
+                              border: '1px solid #27272a',
+                              borderRadius: '4px',
+                              color: '#52525b',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              textAlign: 'center',
+                              cursor: 'not-allowed',
+                              userSelect: 'none',
+                              pointerEvents: 'none',
+                              textDecoration: 'line-through',
+                              boxShadow: 'inset 0 0 8px rgba(0,0,0,0.95)'
+                            }}
+                          >
+                            🔒 {slot.label.split(' - ')[0]}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={slot.id}
+                          type="button"
+                          onClick={() => setJointBookingForm(prev => ({
+                            ...prev,
+                            sessionTime: `${slot.id} (${slot.desc})`
+                          }))}
+                          style={{
+                            padding: '5px 2px',
+                            background: isSelected ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                            border: isSelected ? '1.5px solid var(--brass)' : '1px solid var(--line)',
+                            borderRadius: '4px',
+                            color: isSelected ? 'var(--brass)' : 'var(--paper)',
+                            fontSize: '10.5px',
+                            fontWeight: isSelected ? 800 : 500,
+                            textAlign: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {slot.label.split(' - ')[0]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Mục tiêu buổi tập */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
+                    Mục tiêu & Nội dung tập chung:
+                  </label>
+                  <select
+                    className="portal-input"
+                    value={jointBookingForm.goal}
+                    onChange={(e) => setJointBookingForm({ ...jointBookingForm, goal: e.target.value })}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  >
+                    <option value="Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV">🔍 Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV</option>
+                    <option value="Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa">🏇 Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa</option>
+                    <option value="Kiểm tra phản xạ xuất phát máy & chạy vòng cua">⚡ Kiểm tra phản xạ xuất phát máy & chạy vòng cua</option>
+                    <option value="Thử sức cự ly dài 2.400m sân cỏ tự nhiên">🌿 Thử sức cự ly dài 2.400m sân cỏ tự nhiên</option>
+                    <option value="Luyện bứt tốc nước rút 400m cuối sân cát">💨 Luyện bứt tốc nước rút 400m cuối sân cát</option>
+                  </select>
+                </div>
+
+                {/* 5. Ghi chú gửi HLV */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
+                    Ghi chú / Yêu cầu gửi Huấn luyện viên:
+                  </label>
+                  <textarea
+                    rows={2}
+                    className="portal-input"
+                    value={jointBookingForm.ownerNotes}
+                    onChange={(e) => setJointBookingForm({ ...jointBookingForm, ownerNotes: e.target.value })}
+                    placeholder="Ví dụ: Tôi muốn HLV gắn thiết bị đo nhịp tim chuyên sâu và xem ngựa có bị dốc sức khi vào cua..."
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="portal-view-btn"
+                  onClick={() => setShowJointBookingModal(false)}
+                >
+                  Đóng
+                </button>
+                {(() => {
+                  const currHorse = myHorses.find(h => String(h.id) === String(jointBookingForm.horseId)) || myHorses[0];
+                  const isLocked = currHorse ? (checkHorseVetLockStatus(currHorse.microchip || currHorse.id || currHorse.name).isLocked || currHorse.isLockedByVet) : false;
+                  return (
+                    <button
+                      type="submit"
+                      disabled={isLocked}
+                      className="portal-view-btn"
+                      style={{
+                        background: isLocked ? 'rgba(255, 255, 255, 0.1)' : 'var(--brass)',
+                        color: isLocked ? 'var(--paper-dim)' : '#14100A',
+                        border: 'none',
+                        fontWeight: 700,
+                        cursor: isLocked ? 'not-allowed' : 'pointer'
+                      }}
+                      title={isLocked ? 'Chiến mã đang bị Khóa Y Tế - Không thể đặt lịch tập' : 'Gửi yêu cầu đặt lịch tập chung'}
+                    >
+                      {isLocked ? '⛔ Đang Khóa Y Tế (Cấm Tập)' : '🤝 Gửi Yêu Cầu Đặt Lịch'}
+                    </button>
+                  );
+                })()}
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: CHỦ SỞ HỮU TẠO KHIẾU NẠI & BÁO CÁO NHÂN SỰ GỬI ADMIN */}
+      {/* ========================================================================= */}
+      {showCreateReportModal && (
+        <div
+          onClick={() => setShowCreateReportModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.78)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999999,
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              border: '1.5px solid var(--line-strong)',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '620px',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              color: 'var(--paper)',
+              boxShadow: '0 20px 45px rgba(0, 0, 0, 0.55)',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--line)',
+              background: 'var(--bg-secondary)'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--brass)' }}>
+                  📢 Gửi Khiếu Nại & Báo Cáo Nhân Sự
+                </h3>
+                <span style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                  Báo cáo trực tiếp đến Ban Quản Trị (Admin) để thẩm tra và xử lý
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateReportModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--paper-dim)',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '4px 8px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleSubmitReport} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 1. Chọn nhóm đối tượng */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '8px' }}>
+                  1. Đối tượng bạn muốn khiếu nại / phản ánh:
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {[
+                    { role: 'TRAINER', label: 'Huấn Luyện Viên', icon: '🏇' },
+                    { role: 'VET', label: 'Bác Sĩ Thú Y', icon: '🩺' },
+                    { role: 'CARETAKER', label: 'Nhân Viên Chăm Sóc', icon: '🌾' }
+                  ].map(item => {
+                    const isSelected = reportForm.targetRole === item.role;
+                    return (
+                      <button
+                        key={item.role}
+                        type="button"
+                        onClick={() => {
+                          const firstInRole = PREDEFINED_PERSONNEL.find(p => p.role === item.role) || PREDEFINED_PERSONNEL[0];
+                          setReportForm(prev => ({
+                            ...prev,
+                            targetRole: item.role,
+                            targetPersonnelId: firstInRole.id
+                          }));
+                        }}
+                        style={{
+                          padding: '10px 8px',
+                          borderRadius: '8px',
+                          background: isSelected ? 'rgba(212, 175, 55, 0.18)' : 'var(--bg-secondary)',
+                          border: isSelected ? '1.5px solid var(--brass)' : '1px solid var(--line)',
+                          color: isSelected ? 'var(--brass)' : 'var(--paper)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontWeight: isSelected ? 800 : 600,
+                          fontSize: '12px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span style={{ fontSize: '18px' }}>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Chọn nhân sự cụ thể & Chiến mã */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '5px' }}>
+                    2. Chọn nhân sự cụ thể:
+                  </label>
+                  <select
+                    className="portal-input"
+                    value={reportForm.targetPersonnelId}
+                    onChange={(e) => setReportForm({ ...reportForm, targetPersonnelId: e.target.value })}
+                    style={{ width: '100%', boxSizing: 'border-box', fontWeight: 600 }}
+                  >
+                    {PREDEFINED_PERSONNEL.filter(p => p.role === reportForm.targetRole).map(person => (
+                      <option key={person.id} value={person.id}>
+                        {person.name} ({person.title})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '5px' }}>
+                    3. Chiến mã liên quan:
+                  </label>
+                  <select
+                    className="portal-input"
+                    value={reportForm.horseId}
+                    onChange={(e) => setReportForm({ ...reportForm, horseId: e.target.value })}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  >
+                    {myHorses.map(h => (
+                      <option key={h.id} value={h.id}>
+                        🏇 {h.name} ({h.stable || 'Ô A1'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 3. Danh mục vi phạm & Mức độ */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '5px' }}>
+                    4. Danh mục vi phạm:
+                  </label>
+                  <select
+                    className="portal-input"
+                    value={reportForm.category}
+                    onChange={(e) => setReportForm({ ...reportForm, category: e.target.value })}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  >
+                    {REPORT_CATEGORIES.map((cat, idx) => (
+                      <option key={idx} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '5px' }}>
+                    5. Mức độ nghiêm trọng:
+                  </label>
+                  <select
+                    className="portal-input"
+                    value={reportForm.severity}
+                    onChange={(e) => setReportForm({ ...reportForm, severity: e.target.value })}
+                    style={{ width: '100%', boxSizing: 'border-box', fontWeight: 700 }}
+                  >
+                    {REPORT_SEVERITIES.map(sev => (
+                      <option key={sev.id} value={sev.id}>
+                        {sev.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 4. Tiêu đề khiếu nại */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '5px' }}>
+                  6. Tiêu đề khiếu nại (Tóm tắt sự việc): *
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="portal-input"
+                  value={reportForm.title}
+                  onChange={(e) => setReportForm({ ...reportForm, title: e.target.value })}
+                  placeholder="Ví dụ: HLV đến trễ buổi tập sáng không báo trước / Đệm rơm ô chuồng ẩm mốc..."
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              {/* 5. Nội dung phản ánh chi tiết */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '5px' }}>
+                  7. Nội dung phản ánh chi tiết sự việc: *
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  className="portal-input"
+                  value={reportForm.content}
+                  onChange={(e) => setReportForm({ ...reportForm, content: e.target.value })}
+                  placeholder="Mô tả cụ thể thời gian, địa điểm, hành vi vi phạm hoặc thái độ phục vụ của nhân sự..."
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: '12.5px' }}
+                />
+              </div>
+
+              {/* 6. Bằng chứng đính kèm */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '5px' }}>
+                  8. Bằng chứng đính kèm / Ghi chú (Ảnh chụp, camera, thời gian):
+                </label>
+                <input
+                  type="text"
+                  className="portal-input"
+                  value={reportForm.evidenceNote}
+                  onChange={(e) => setReportForm({ ...reportForm, evidenceNote: e.target.value })}
+                  placeholder="Ví dụ: Đã lưu video trích xuất camera chuồng lúc 15:30 ngày 02/11..."
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px' }}
+                />
+              </div>
+
+              {/* Cam kết */}
+              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', background: 'rgba(255, 255, 255, 0.03)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                ℹ️ <b>Quy trình xử lý:</b> Báo cáo sẽ được chuyển trực tiếp tới hộp thư Ban Quản Trị (Admin). Admin sẽ tiến hành thẩm tra, trích xuất dữ liệu camera/viễn trắc, yêu cầu nhân sự giải trình và đưa ra biện pháp xử lý kỷ luật minh bạch.
+              </div>
+
+              {/* Footer buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateReportModal(false)}
+                  style={{
+                    padding: '9px 18px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: '13px'
+                  }}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 24px',
+                    background: 'var(--brass)',
+                    border: 'none',
+                    color: '#0A0D14',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    boxShadow: '0 2px 10px rgba(212, 175, 55, 0.3)'
+                  }}
+                >
+                  📢 Gửi Khiếu Nại Cho Admin
                 </button>
               </div>
             </form>

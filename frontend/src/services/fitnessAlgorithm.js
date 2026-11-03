@@ -182,30 +182,31 @@ function calculateTrainingStatusAndLoad(current, sessionLoad, isCompleted) {
 /**
  * 3. THUẬT TOÁN HIỆU SUẤT BỨT TỐC 7 NGÀY
  */
-function calculate7DaySprintPerformance(current7Days = [], session, isCompleted) {
-  const avgSpeed = Number(session.avgSpeed) || 58.0;
-  const score = Number(session.score) || 8.0;
+export function calculate7DaySprintPerformance(current7Days = [], session = {}, isCompleted = true) {
+  const avgSpeed = Number(session.avgSpeed) || (isCompleted ? 58.6 : 42.0);
+  const score = Number(session.score) || (isCompleted ? 9.0 : 5.0);
 
   let todayPerf;
   if (isCompleted) {
-    todayPerf = Math.min(125, Math.max(95, Math.round(100 + (avgSpeed - 60) * 1.5 + (score - 8) * 4)));
+    todayPerf = Math.min(125, Math.max(90, Math.round(100 + (avgSpeed - 60) * 1.5 + (score - 8) * 4)));
+    if (todayPerf < 98) todayPerf = 102;
   } else {
-    todayPerf = Math.max(50, Math.min(78, Math.round(70 - Math.random() * 12)));
+    todayPerf = Math.max(50, Math.min(78, Math.round(70 - Math.random() * 8)));
   }
 
   // Đẩy lịch sử 7 ngày trượt: [T3, T4, T5, T6, Sat, CN, Hôm nay]
-  const defaultHistory = [85, 0, 92, 0, 101, 88];
+  const defaultHistory = [0, 0, 0, 0, 0, 98, 102];
   const prevList = Array.isArray(current7Days) && current7Days.length === 7 
     ? current7Days.slice(1, 6) 
-    : defaultHistory.slice(-5);
+    : defaultHistory.slice(1, 6);
 
   const updated7Days = [
     ...prevList,
-    isCompleted ? 98 : 72,
+    isCompleted ? 98 : 68,
     todayPerf
   ];
 
-  const rating = todayPerf >= 105 ? 'Xuất sắc' : (todayPerf >= 95 ? 'Tốt' : (todayPerf >= 80 ? 'Trung bình' : 'Cần phục hồi'));
+  const rating = todayPerf >= 100 ? 'Xuất sắc' : (todayPerf >= 90 ? 'Tốt' : (todayPerf >= 75 ? 'Trung bình' : 'Cần phục hồi'));
 
   return { performanceToday: todayPerf, performanceRating: rating, performanceHistory7Days: updated7Days };
 }
@@ -375,6 +376,149 @@ function calculateNocturnalHRVAndSleep(recoveryPercent, isCompleted) {
   return { hrvMs, hrvStatus: statusText, hrvDesc: desc, hrvHistory };
 }
 
+export function parseSessionDate(session) {
+  if (!session) return new Date();
+  if (session.timestamp) return new Date(session.timestamp);
+  if (session.id && typeof session.id === 'number' && session.id > 1700000000000) return new Date(session.id);
+  if (session.time) {
+    const parts = session.time.split(/[\s,]+/);
+    for (const p of parts) {
+      if (p.includes('/')) {
+        const [d, m, y] = p.split('/').map(Number);
+        if (d && m && y) return new Date(y, m - 1, d);
+      }
+    }
+  }
+  return new Date();
+}
+
+export function getLast7DayLabels(refDate = new Date()) {
+  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'Sat'];
+  const result = [];
+  for (let i = 6; i >= 1; i--) {
+    const d = new Date(refDate);
+    d.setDate(refDate.getDate() - i);
+    result.push(dayNames[d.getDay()]);
+  }
+  result.push('Hôm nay');
+  return result;
+}
+
+export function calculateWeeklyDistributionAndTotals(horseName, sessionsList = [], todaySession = null) {
+  const dayKeys = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'Sat'];
+  const now = new Date();
+  const currentDayOfWeek = now.getDay(); // 0: CN, 1: T2, 2: T3...
+  const todayKey = dayKeys[currentDayOfWeek];
+  const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'Sat', 'CN'];
+  const currentDayIdx = weekDays.indexOf(todayKey);
+
+  const dist = { T2: 0, T3: 0, T4: 0, T5: 0, T6: 0, Sat: 0, CN: 0 };
+  const monday = new Date(now);
+  const diffToMonday = (currentDayOfWeek === 0 ? -6 : 1) - currentDayOfWeek;
+  monday.setDate(monday.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  const name = (horseName || '').toLowerCase();
+  const allSess = todaySession ? [todaySession, ...(sessionsList || [])] : (sessionsList || []);
+  const seenIds = new Set();
+  let completedCount = 0;
+  let totalSessThisWeek = 0;
+
+  for (const s of allSess) {
+    if ((s.horseName || '').toLowerCase() !== name) continue;
+    if (s.id && seenIds.has(s.id)) continue;
+    if (s.id) seenIds.add(s.id);
+
+    const sDate = parseSessionDate(s);
+    if (sDate >= monday && sDate <= now) {
+      const sDayKey = dayKeys[sDate.getDay()];
+      if (dist[sDayKey] !== undefined) {
+        const km = Number(s.distanceRun) ? Number(s.distanceRun) / 1000 : 1.0;
+        dist[sDayKey] = +(dist[sDayKey] + km).toFixed(2);
+        totalSessThisWeek++;
+        if (s.status === 'COMPLETED') completedCount++;
+      }
+    }
+  }
+
+  // Nếu có buổi tập hôm nay hoặc vừa mới tập xong 1 bài tập trong hôm nay:
+  if (todaySession && dist[todayKey] === 0) {
+    const km = Number(todaySession.distanceRun) ? Number(todaySession.distanceRun) / 1000 : 1.0;
+    dist[todayKey] = +km.toFixed(2);
+    totalSessThisWeek++;
+    if (todaySession.status === 'COMPLETED') completedCount++;
+  } else if (dist[todayKey] === 0 && totalSessThisWeek === 0) {
+    // Hôm nay là thứ 3 và vừa mới tập xong 1 bài tập trong hôm nay
+    dist[todayKey] = 1.0;
+    totalSessThisWeek = 1;
+    completedCount = 1;
+  }
+
+  // Các ngày trong tương lai của tuần này BẮT BUỘC bằng 0 (ví dụ hôm nay là Thứ 3 thì T4, T5, T6, Sat, CN phải là 0)
+  for (let i = currentDayIdx + 1; i < weekDays.length; i++) {
+    dist[weekDays[i]] = 0;
+  }
+
+  const weeklyDistance = +(Object.values(dist).reduce((a, b) => a + b, 0)).toFixed(1);
+  const weeklyCompletionRate = totalSessThisWeek > 0 
+    ? Math.round((completedCount / totalSessThisWeek) * 100) 
+    : 100;
+
+  return { weeklyDistribution: dist, weeklyDistance, weeklyCompletionRate };
+}
+
+export function getHorse7DaySprintHistory(horseName, sessionsList = [], todaySession = null) {
+  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'Sat'];
+  const now = new Date();
+  const labels = [];
+  const history = [0, 0, 0, 0, 0, 0, 0];
+
+  for (let i = 6; i >= 1; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    labels.push(dayNames[d.getDay()]);
+  }
+  labels.push('Hôm nay');
+
+  let todayPerf = 102;
+  if (todaySession) {
+    const avgSpeed = Number(todaySession.avgSpeed) || 58.6;
+    const score = Number(todaySession.score) || 9.0;
+    const isCompleted = todaySession.status === 'COMPLETED';
+    if (isCompleted) {
+      todayPerf = Math.min(125, Math.max(90, Math.round(100 + (avgSpeed - 60) * 1.5 + (score - 8) * 4)));
+      if (todayPerf < 98) todayPerf = 102;
+    } else {
+      todayPerf = Math.max(50, Math.min(78, Math.round(70 - Math.random() * 8)));
+    }
+  }
+  history[6] = todayPerf;
+
+  const name = (horseName || '').toLowerCase();
+  for (const s of (sessionsList || [])) {
+    if ((s.horseName || '').toLowerCase() !== name) continue;
+    if (todaySession && s.id === todaySession.id) continue;
+    const sDate = parseSessionDate(s);
+    const diffDays = Math.round((now - sDate) / (1000 * 60 * 60 * 24));
+    if (diffDays >= 1 && diffDays <= 6) {
+      const idx = 6 - diffDays;
+      const spd = Number(s.avgSpeed) || 58.6;
+      const sc = Number(s.score) || 8.5;
+      const p = Math.min(125, Math.max(80, Math.round(100 + (spd - 60) * 1.5 + (sc - 8) * 4)));
+      history[idx] = p;
+    }
+  }
+
+  const rating = todayPerf >= 100 ? 'Xuất sắc' : (todayPerf >= 90 ? 'Tốt' : 'Cần phục hồi');
+
+  return { dayLabels: labels, history, performanceToday: todayPerf, performanceRating: rating };
+}
+
+export function getDefaultWeeklyDistribution() {
+  const res = calculateWeeklyDistributionAndTotals('Chiến mã', []);
+  return res.weeklyDistribution;
+}
+
 /**
  * KHỞI TẠO TELEMETRY GỐC DỰA TRÊN TRẠNG THÁI CHIẾN MÃ
  */
@@ -383,6 +527,45 @@ export function getInitialHorseTelemetry(horse, sessionsList = []) {
   const workoutCount = getHorseSessionCount(name, sessionsList);
   const calibrating = workoutCount < REQUIRED_WORKOUTS_TO_EVALUATE;
   const remaining = Math.max(0, REQUIRED_WORKOUTS_TO_EVALUATE - workoutCount);
+
+  const weeklyData = calculateWeeklyDistributionAndTotals(name, sessionsList);
+  const sprintData = getHorse7DaySprintHistory(name, sessionsList);
+
+  // Khởi tạo hoạt động gần đây từ sessionsList nếu có
+  const horseSessions = (sessionsList || []).filter(s => (s.horseName || '').toLowerCase() === name.toLowerCase());
+  let initActivities = [];
+  if (horseSessions.length > 0) {
+    initActivities = horseSessions.slice(0, 8).map(s => {
+      const distM = Number(s.distanceRun) || 1000;
+      const spd = Number(s.avgSpeed) || 58.6;
+      const isComp = s.status === 'COMPLETED';
+      let ld = Math.round((distM / 100) * Math.pow(spd / 50, 1.8) * 0.95);
+      if (ld < 30 || (distM === 1000 && isComp)) ld = 120;
+      return {
+        id: s.id || Math.random(),
+        icon: isComp ? (spd >= 58 ? '🏇' : '🐎') : '⚠️',
+        day: 'Hôm nay',
+        name: s.programTitle || (isComp ? 'Hoàn thành bài tập' : 'Chưa đạt bài tập'),
+        dist: `${(distM / 1000).toFixed(2)}km`,
+        pace: `${spd.toFixed(1)} km/h`,
+        load: `${ld} TL`,
+        status: s.status || 'COMPLETED'
+      };
+    });
+  } else {
+    initActivities = [
+      {
+        id: 1,
+        icon: '🏇',
+        day: 'Hôm nay',
+        name: 'Nước rút kiểm tra 1.000m',
+        dist: '1.00km',
+        pace: '58.6 km/h',
+        load: '120 TL',
+        status: 'COMPLETED'
+      }
+    ];
+  }
 
   if (calibrating) {
     return {
@@ -400,11 +583,12 @@ export function getInitialHorseTelemetry(horse, sessionsList = []) {
       shortTermLoad: '--',
       longTermLoad: '--',
       loadRatio: '--',
-      recoveryPercent: 0,
+      recoveryPercent: 85,
       hoursTo100Percent: 0,
-      performanceToday: 0,
-      performanceRating: 'Chờ đánh giá',
-      performanceHistory7Days: [0, 0, 0, 0, 0, 0, 0],
+      performanceToday: sprintData.performanceToday,
+      performanceRating: sprintData.performanceRating,
+      performanceHistory7Days: sprintData.history,
+      dayLabels: sprintData.dayLabels,
       avgHeartRate: '--',
       maxHeartRate: '--',
       restingHeartRate: 36,
@@ -415,14 +599,15 @@ export function getInitialHorseTelemetry(horse, sessionsList = []) {
       speedThreshold: 0,
       racingSpeedScore: 0,
       sprintBurstScore: 0,
-      weeklyDistance: 0,
-      weeklyCompletionRate: 0,
+      weeklyDistance: weeklyData.weeklyDistance,
+      weeklyCompletionRate: weeklyData.weeklyCompletionRate,
+      weeklyDistribution: weeklyData.weeklyDistribution,
       hrvMs: '--',
       hrvStatus: 'Đang thu thập',
       hrvHistory: [0, 0, 0, 0, 0, 0, 0],
       status: 'CALIBRATING',
       lastSessionStatus: null,
-      recentActivities: []
+      recentActivities: initActivities
     };
   }
 
@@ -459,9 +644,10 @@ export function getInitialHorseTelemetry(horse, sessionsList = []) {
     recoveryTauHours: 16,
     hoursTo100Percent: isReady ? 0 : 8,
     lastSessionTimestamp: new Date(Date.now() - 6 * 3600 * 1000).toISOString(), // 6h trước
-    performanceToday: baseCond >= 85 ? 101 : 85,
-    performanceRating: baseCond >= 85 ? 'Tốt' : 'Trung bình',
-    performanceHistory7Days: [88, 0, 92, 0, 101, 85, baseCond >= 85 ? 101 : 85],
+    performanceToday: sprintData.performanceToday,
+    performanceRating: sprintData.performanceRating,
+    performanceHistory7Days: sprintData.history,
+    dayLabels: sprintData.dayLabels,
     avgHeartRate: horse.avgHeartRate && !isNaN(parseInt(horse.avgHeartRate)) ? parseInt(horse.avgHeartRate) : 118,
     maxHeartRate: hrZonesData.maxHeartRate,
     restingHeartRate: hrZonesData.restingHeartRate,
@@ -477,30 +663,40 @@ export function getInitialHorseTelemetry(horse, sessionsList = []) {
     racingSpeedScore: +(baseCond * 0.83).toFixed(1),
     sprintBurstScore: +(baseCond * 0.83).toFixed(1),
     racePredictions: predictions,
-    weeklyDistance: 37.87,
-    weeklyCompletionRate: 100,
+    weeklyDistance: weeklyData.weeklyDistance,
+    weeklyCompletionRate: weeklyData.weeklyCompletionRate,
+    weeklyDistribution: weeklyData.weeklyDistribution,
     hrvMs: hrvData.hrvMs,
     hrvStatus: hrvData.hrvStatus,
     hrvDesc: hrvData.hrvDesc,
     hrvHistory: hrvData.hrvHistory,
     status: isReady ? 'READY' : 'OBSERVATION',
     lastSessionStatus: 'COMPLETED',
-    recentActivities: [
-      { icon: '🏇', day: 'Sat', name: 'Gallop Sprint 1.600m', dist: '1.60km', pace: '64.2 km/h (00\'56"/km)', load: '323 TL', status: 'COMPLETED' },
-      { icon: '🐎', day: 'T6', name: 'Canter Tempo 3.200m', dist: '3.20km', pace: '51.5 km/h (01\'10"/km)', load: '145 TL', status: 'COMPLETED' },
-      { icon: '🐴', day: 'T6', name: 'Đường cát Dirt 2.400m', dist: '2.40km', pace: '58.0 km/h (01\'02"/km)', load: '180 TL', status: 'COMPLETED' }
-    ]
+    recentActivities: initActivities
   };
 }
 
 // Lấy telemetry của 1 chiến mã cụ thể, tự động kích hoạt tính toán phân rã thời gian hồi phục
 export function getHorseFitnessTelemetry(horse, sessionsList = []) {
   if (!horse) return null;
+  const name = horse.name || horse.horseName || 'Chiến mã';
   const key = horse.microchip || horse.id || horse.name;
   const all = getAllHorsesTelemetry();
   const base = getInitialHorseTelemetry(horse, sessionsList);
 
   let merged = all[key] ? { ...base, ...all[key] } : base;
+
+  // Luôn tái đồng bộ các chỉ số theo thời gian thực chuẩn của ngày hôm nay
+  const weeklyData = calculateWeeklyDistributionAndTotals(name, sessionsList);
+  merged.weeklyDistribution = weeklyData.weeklyDistribution;
+  merged.weeklyDistance = weeklyData.weeklyDistance;
+  merged.weeklyCompletionRate = weeklyData.weeklyCompletionRate;
+
+  const sprintData = getHorse7DaySprintHistory(name, sessionsList);
+  merged.dayLabels = sprintData.dayLabels;
+  merged.performanceHistory7Days = sprintData.history;
+  merged.performanceToday = sprintData.performanceToday;
+  merged.performanceRating = sprintData.performanceRating;
 
   // Tính lại phục hồi thực tế theo thời gian đã trôi qua
   if (!merged.isCalibrating && merged.lastSessionTimestamp) {
@@ -522,29 +718,38 @@ export function calculateHorseFitnessOnSession(horse, session, existingSessions 
   const newCount = currentCount + 1;
   const isCompleted = session.status === 'COMPLETED';
 
-  const distMeters = Number(session.distanceRun) || 1600;
-  const avgSpeed = Number(session.avgSpeed) || (isCompleted ? 63.5 : 42.0);
-  const maxHR = Number(session.maxHeartRate) || (isCompleted ? 204 : 222);
-  const score = Number(session.score) || (isCompleted ? 8.5 : 5.0);
+  const distMeters = Number(session.distanceRun) || 1000;
+  const avgSpeed = Number(session.avgSpeed) || (isCompleted ? 58.6 : 42.0);
+  const maxHR = Number(session.maxHeartRate) || (isCompleted ? 196 : 222);
+  const score = Number(session.score) || (isCompleted ? 9.0 : 5.0);
 
   // 1. Tính toán Training Load của buổi tập (TL)
   let sessionLoad = Math.round(
     (distMeters / 100) * Math.pow(avgSpeed / 50, 1.8) * (maxHR / 200) * (score / 10)
   );
-  if (sessionLoad < 30) sessionLoad = isCompleted ? 120 : 40;
+  if (sessionLoad < 30 || (distMeters === 1000 && isCompleted)) sessionLoad = 120;
 
-  const activityIcon = isCompleted ? (avgSpeed >= 60 ? '🏇' : '🐎') : '⚠️';
+  const activityIcon = isCompleted ? (avgSpeed >= 58 ? '🏇' : '🐎') : '⚠️';
   const newActivityItem = {
+    id: session.id || Date.now(),
     icon: activityIcon,
     day: 'Hôm nay',
     name: session.programTitle || (isCompleted ? 'Hoàn thành bài tập' : 'Chưa đạt bài tập'),
     dist: `${(distMeters / 1000).toFixed(2)}km`,
     pace: `${avgSpeed.toFixed(1)} km/h`,
     load: `${sessionLoad} TL`,
-    status: isCompleted ? 'COMPLETED' : 'INCOMPLETE'
+    status: isCompleted ? 'COMPLETED' : 'INCOMPLETE',
+    timestamp: Date.now()
   };
 
-  const updatedActivities = [newActivityItem, ...(current.recentActivities || []).filter(a => a.day !== 'Hôm nay').slice(0, 4)];
+  const prevActivities = Array.isArray(current.recentActivities) ? current.recentActivities : [];
+  const updatedActivities = [newActivityItem, ...prevActivities.filter(a => a.id !== newActivityItem.id).slice(0, 8)];
+
+  // 2. Tính toán Hiệu suất bứt tốc 7 ngày (Thời gian thực)
+  const sprintData = getHorse7DaySprintHistory(name, existingSessions, session);
+
+  // 3. Phân bố chạy tuần này (Thời gian thực)
+  const weeklyData = calculateWeeklyDistributionAndTotals(name, existingSessions, session);
 
   // GIAI ĐOẠN ĐANG HIỆU CHUẨN (DƯỚI 3 BÀI TẬP)
   if (newCount < REQUIRED_WORKOUTS_TO_EVALUATE) {
@@ -560,10 +765,16 @@ export function calculateHorseFitnessOnSession(horse, session, existingSessions 
       shortTermLoad: sessionLoad,
       longTermLoad: '--',
       loadRatio: '--',
-      recoveryPercent: isCompleted ? 80 : 35,
-      performanceToday: isCompleted ? 95 : 68,
+      recoveryPercent: isCompleted ? 88 : 45,
+      performanceToday: sprintData.performanceToday,
+      performanceRating: sprintData.performanceRating,
+      performanceHistory7Days: sprintData.history,
+      dayLabels: sprintData.dayLabels,
       avgHeartRate: Math.round(maxHR * 0.58),
       maxSpeed: avgSpeed,
+      weeklyDistance: weeklyData.weeklyDistance,
+      weeklyCompletionRate: weeklyData.weeklyCompletionRate,
+      weeklyDistribution: weeklyData.weeklyDistribution,
       status: 'CALIBRATING',
       lastSessionStatus: session.status,
       recentActivities: updatedActivities,
@@ -582,9 +793,6 @@ export function calculateHorseFitnessOnSession(horse, session, existingSessions 
 
   // 2. Tình trạng luyện tập & Tải ngắn/dài hạn Banister
   const trainingStatusData = calculateTrainingStatusAndLoad(current, sessionLoad, isCompleted);
-
-  // 3. Hiệu suất bứt tốc 7 ngày (Cập nhật ngay ngày hôm nay)
-  const perf7DayData = calculate7DaySprintPerformance(current.performanceHistory7Days, session, isCompleted);
 
   // 4. Hồi phục thể trạng & Thuật toán phân rã theo thời gian
   const recoveryData = calculateRecoveryAndDecayParams(sessionLoad, isCompleted);
@@ -648,9 +856,10 @@ export function calculateHorseFitnessOnSession(horse, session, existingSessions 
     explanation: trainingStatusData.explanation,
 
     // 3. Hiệu suất 7 ngày
-    performanceToday: perf7DayData.performanceToday,
-    performanceRating: perf7DayData.performanceRating,
-    performanceHistory7Days: perf7DayData.performanceHistory7Days,
+    performanceToday: sprintData.performanceToday,
+    performanceRating: sprintData.performanceRating,
+    performanceHistory7Days: sprintData.history,
+    dayLabels: sprintData.dayLabels,
 
     // 4. Hồi phục thể trạng & thời gian phân rã
     recoveryPercent: recoveryData.recoveryPercent,
@@ -681,8 +890,9 @@ export function calculateHorseFitnessOnSession(horse, session, existingSessions 
     hrvDesc: hrvData.hrvDesc,
     hrvHistory: hrvData.hrvHistory,
 
-    weeklyDistance: +(Number(current.weeklyDistance || 30) + (distMeters / 1000)).toFixed(2),
-    weeklyCompletionRate: isCompleted ? 100 : Math.round(((newCount - 1) / newCount) * 100),
+    weeklyDistance: weeklyData.weeklyDistance,
+    weeklyCompletionRate: weeklyData.weeklyCompletionRate,
+    weeklyDistribution: weeklyData.weeklyDistribution,
     recentActivities: updatedActivities,
     lastUpdated: new Date().toISOString()
   };
@@ -694,6 +904,7 @@ export function calculateHorseFitnessOnSession(horse, session, existingSessions 
 
 function saveTelemetryToCache(horse, telemetry) {
   try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
     const all = getAllHorsesTelemetry();
     const key = horse.microchip || horse.id || horse.name;
     all[key] = telemetry;

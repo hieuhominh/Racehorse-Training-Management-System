@@ -1323,7 +1323,12 @@ export async function registerOwnerHorseApi(ownerKey, horseData) {
     totalStarts: 0,
     totalPrizeEarned: 0
   };
-  const nextList = [newHorse, ...existing];
+  const filtered = existing.filter(h =>
+    String(h.id) !== String(newHorse.id) &&
+    (!newHorse.microchip || (h.microchip || '').toLowerCase() !== (newHorse.microchip || '').toLowerCase()) &&
+    (!newHorse.name || (h.name || '').toLowerCase() !== (newHorse.name || '').toLowerCase())
+  );
+  const nextList = [newHorse, ...filtered];
   setLocalData(storageKey, nextList);
   if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
     setLocalData('matruong_owner_horses_owner_thanh', nextList);
@@ -1348,8 +1353,23 @@ export async function updateOwnerHorseApi(ownerKey, horseData) {
 
   const storageKey = `matruong_owner_horses_${ownerKey}`;
   const existing = getLocalData(storageKey, []);
-  const updated = existing.map(h => String(h.id) === String(horseData.id) ? { ...h, ...horseData } : h);
-  setLocalData(storageKey, updated);
+  let found = false;
+  const updated = existing.map(h => {
+    if (String(h.id) === String(horseData.id) || (h.microchip && horseData.microchip && h.microchip.toLowerCase() === horseData.microchip.toLowerCase())) {
+      found = true;
+      return { ...h, ...horseData };
+    }
+    return h;
+  });
+  if (!found) updated.unshift(horseData);
+  const seen = new Set();
+  const deduped = updated.filter(h => {
+    const k = (h.microchip || h.id || h.name || '').toLowerCase();
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  setLocalData(storageKey, deduped);
   if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
     setLocalData('matruong_owner_horses_owner_thanh', updated);
     setLocalData('matruong_owner_horses_6', updated);

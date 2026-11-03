@@ -17,7 +17,7 @@ import {
 import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
 import NotificationBell from '../components/NotificationBell';
 import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
-import { getSystemNotifications } from '../services/notificationService';
+import { getSystemNotifications, addSystemNotification } from '../services/notificationService';
 
 // Minimalist High-End SVG Icons for Veterinary Medical Portal
 const IconStethoscope = ({ size = 18, color = 'currentColor' }) => (
@@ -593,37 +593,130 @@ export default function VetPage() {
     // Đồng bộ với API Backend
     toggleHorseLockApi(horse.id, nextLocked).catch(() => {});
 
-    setHorses(prev => prev.map(h => {
-      if (h.id === horse.id) {
-        return {
-          ...h,
-          locked: nextLocked,
-          lockReason: nextLocked ? reason : '',
-          status: nextLocked ? 'INJURED' : 'ELIGIBLE',
-          statusText: nextLocked ? 'Khóa y tế Thú y' : 'Đủ điều kiện thi đấu'
-        };
-      }
-      return h;
-    }));
+    setHorses(prev => {
+      const next = prev.map(h => {
+        if (h.id === horse.id || (h.name && h.name.toLowerCase() === horse.name.toLowerCase())) {
+          return {
+            ...h,
+            locked: nextLocked,
+            lockReason: nextLocked ? reason : '',
+            status: nextLocked ? 'INJURED' : 'ELIGIBLE',
+            statusText: nextLocked ? 'Khóa y tế Thú y' : 'Đủ điều kiện thi đấu / Tập luyện'
+          };
+        }
+        return h;
+      });
+      try {
+        localStorage.setItem('matruong_vet_horses_managed', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
 
     // Cập nhật trạng thái phê duyệt giải đua tương ứng
-    setRaceClearanceList(prev => prev.map(rc => {
-      if (rc.horseName.toLowerCase() === horse.name.toLowerCase()) {
-        return {
-          ...rc,
-          vetStatus: nextLocked ? 'REJECTED_INJURY' : 'CLEARED',
-          notes: nextLocked ? `LỆNH KHÓA Y TẾ KÍCH HOẠT: ${reason}` : 'Đã được Bác sĩ Thú y gỡ bỏ lệnh khóa, cho phép thi đấu.'
-        };
+    setRaceClearanceList(prev => {
+      const next = prev.map(rc => {
+        if (rc.horseName.toLowerCase() === horse.name.toLowerCase()) {
+          return {
+            ...rc,
+            vetStatus: nextLocked ? 'REJECTED_INJURY' : 'CLEARED',
+            notes: nextLocked ? `LỆNH KHÓA Y TẾ KÍCH HOẠT: ${reason}` : 'Đã được Bác sĩ Thú y gỡ bỏ lệnh khóa, cho phép thi đấu & tập luyện.'
+          };
+        }
+        return rc;
+      });
+      try {
+        localStorage.setItem('matruong_vet_race_clearance', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    // Đồng bộ trạng thái khóa y tế sang danh sách của HLV & Chủ sở hữu
+    try {
+      // 1. Huấn luyện viên
+      const rawTrainer = localStorage.getItem('matruong_trainer_horses_managed');
+      if (rawTrainer) {
+        const trHorses = JSON.parse(rawTrainer);
+        if (Array.isArray(trHorses)) {
+          const updatedTr = trHorses.map(th => {
+            if (
+              (th.id && String(th.id) === String(horse.id)) ||
+              (th.microchip && horse.microchip && th.microchip.toLowerCase() === horse.microchip.toLowerCase()) ||
+              (th.name && th.name.toLowerCase() === horse.name.toLowerCase())
+            ) {
+              return {
+                ...th,
+                isLockedByVet: nextLocked,
+                locked: nextLocked,
+                status: nextLocked ? 'INJURED' : 'READY',
+                statusText: nextLocked ? 'Khóa tập bởi Thú y' : 'Sẵn sàng thi đấu / Tập luyện',
+                vetNotice: nextLocked ? reason : null
+              };
+            }
+            return th;
+          });
+          localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(updatedTr));
+        }
       }
-      return rc;
-    }));
+
+      // 2. Toàn bộ danh sách của Chủ sở hữu
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('matruong_owner_horses_')) {
+          const rawOwn = localStorage.getItem(k);
+          if (rawOwn) {
+            const ownHorses = JSON.parse(rawOwn);
+            if (Array.isArray(ownHorses)) {
+              const updatedOwn = ownHorses.map(oh => {
+                if (
+                  (oh.id && String(oh.id) === String(horse.id)) ||
+                  (oh.microchip && horse.microchip && oh.microchip.toLowerCase() === horse.microchip.toLowerCase()) ||
+                  (oh.name && oh.name.toLowerCase() === horse.name.toLowerCase())
+                ) {
+                  return {
+                    ...oh,
+                    isLockedByVet: nextLocked,
+                    locked: nextLocked,
+                    lockReason: nextLocked ? reason : '',
+                    status: nextLocked ? 'INJURED' : 'ELIGIBLE',
+                    statusText: nextLocked ? (reason ? `Khóa y tế: ${reason}` : 'Khóa y tế Thú y') : 'Đủ chuẩn thi đấu'
+                  };
+                }
+                return oh;
+              });
+              localStorage.setItem(k, JSON.stringify(updatedOwn));
+            }
+          }
+        }
+      }
+
+      // 3. Gửi thông báo hệ thống liên thông
+      addSystemNotification({
+        type: nextLocked ? 'VET_LOCK_ACTIVATED' : 'VET_LOCK_RELEASED',
+        title: nextLocked ? 'LỆNH KHÓA Y TẾ THÚ Y ĐÃ KÍCH HOẠT' : 'ĐÃ DỠ BỎ LỆNH KHÓA Y TẾ - CHO PHÉP TẬP TIẾP & THI ĐẤU',
+        content: nextLocked
+          ? `Bác sĩ Thú y ${currentUser?.full_name || 'Nguyễn An'} đã kích hoạt Lệnh Khóa Y Tế đối với chiến mã "${horse.name}". Chiến mã bị tạm cấm tập luyện & cấm thi đấu. Lý do: "${reason}".`
+          : `Bác sĩ Thú y ${currentUser?.full_name || 'Nguyễn An'} đã kiểm tra và dỡ bỏ lệnh phong tỏa y tế cho chiến mã "${horse.name}". Chiến mã đủ điều kiện trở lại tập luyện và thi đấu bình thường!`,
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+        horseName: horse.name,
+        microchip: horse.microchip,
+        isLocked: nextLocked,
+        reason: reason
+      });
+
+      window.dispatchEvent(new CustomEvent('matruong_vet_lock_updated', {
+        detail: { horseId: horse.id, horseName: horse.name, microchip: horse.microchip, locked: nextLocked, reason }
+      }));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.error('Error broadcasting vet lock:', e);
+    }
 
     showToast(
       nextLocked
-        ? `ĐÃ KÍCH HOẠT KHÓA Y TẾ THÚ Y cho chiến mã ${horse.name}! Toàn bộ bài tập nặng bị phong tỏa.`
-        : `ĐÃ MỞ KHÓA Y TẾ cho ${horse.name}. Chiến mã đủ điều kiện trở lại tập luyện!`,
-      nextLocked ? 'LỆNH KHÓA AN TOÀN Y TẾ' : 'MỞ KHÓA THI ĐẤU',
-      nextLocked ? 'error' : 'info'
+        ? `ĐÃ KÍCH HOẠT KHÓA Y TẾ THÚ Y cho chiến mã ${horse.name}! Toàn bộ bài tập và đăng ký thi đấu bị phong tỏa cho đến khi Thú y kiểm tra và dỡ khóa.`
+        : `ĐÃ MỞ KHÓA Y TẾ cho ${horse.name}. Bác sĩ Thú y xác nhận chiến mã đủ điều kiện an toàn để trở lại tập luyện và đi thi đấu!`,
+      nextLocked ? 'LỆNH KHÓA AN TOÀN Y TẾ' : 'MỞ KHÓA THI ĐẤU & TẬP LUYỆN',
+      nextLocked ? 'error' : 'success'
     );
 
     setLockModalTarget(null);

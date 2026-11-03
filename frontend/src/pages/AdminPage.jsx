@@ -17,6 +17,14 @@ import {
   reassignStallHorseApi,
   deleteStallApi
 } from '../services/api';
+import {
+  getPersonnelReports,
+  updateReportAdminReview,
+  deletePersonnelReport,
+  REPORT_TARGET_ROLES,
+  REPORT_SEVERITIES,
+  REPORT_STATUSES
+} from '../services/reportService';
 
 // Minimalist SVG Icons
 const IconGlobe = ({ size = 15, color = 'currentColor' }) => (
@@ -71,6 +79,14 @@ const IconAudit = () => (
     <polyline points="14 2 14 8 20 8" />
     <line x1="16" y1="13" x2="8" y2="13" />
     <line x1="16" y1="17" x2="8" y2="17" />
+  </svg>
+);
+
+const IconReport = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
 
@@ -163,6 +179,64 @@ export default function AdminPage() {
       localStorage.setItem('matruong_admin_stable_filter', stableFilter);
     } catch {}
   }, [activeTab, viewMode, horseFilter, userFilter, stableFilter]);
+
+  // State: Quản lý Khiếu Nại & Báo Cáo Nhân Sự (HLV, Bác Sĩ, Chăm Sóc)
+  const [personnelReports, setPersonnelReports] = useState(() => getPersonnelReports());
+  const [reportRoleFilter, setReportRoleFilter] = useState('ALL');
+  const [reportStatusFilter, setReportStatusFilter] = useState('ALL');
+  const [reportSearch, setReportSearch] = useState('');
+  const [selectedReportForReview, setSelectedReportForReview] = useState(null);
+  const [adminReviewStatus, setAdminReviewStatus] = useState('INVESTIGATING');
+  const [adminReviewNotes, setAdminReviewNotes] = useState('');
+  const [adminReviewAction, setAdminReviewAction] = useState('');
+  const [adminReviewFeedback, setAdminReviewFeedback] = useState('');
+
+  // Đồng bộ thời gian thực Báo cáo nhân sự
+  useEffect(() => {
+    const handleSyncReports = () => setPersonnelReports(getPersonnelReports());
+    window.addEventListener('matruong_personnel_reports_updated', handleSyncReports);
+    window.addEventListener('storage', handleSyncReports);
+    return () => {
+      window.removeEventListener('matruong_personnel_reports_updated', handleSyncReports);
+      window.removeEventListener('storage', handleSyncReports);
+    };
+  }, []);
+
+  const pendingReportsCount = personnelReports.filter(r => r.status === 'PENDING').length;
+
+  const handleOpenReviewModal = (report) => {
+    setSelectedReportForReview(report);
+    setAdminReviewStatus(report.status === 'PENDING' ? 'INVESTIGATING' : report.status);
+    setAdminReviewNotes(report.adminNotes || '');
+    setAdminReviewAction(report.adminAction || '');
+    setAdminReviewFeedback(report.adminFeedback || '');
+  };
+
+  const handleSaveAdminReview = (e) => {
+    if (e) e.preventDefault();
+    if (!selectedReportForReview) return;
+
+    const res = updateReportAdminReview(selectedReportForReview.id, {
+      status: adminReviewStatus,
+      adminNotes: adminReviewNotes,
+      adminAction: adminReviewAction,
+      adminFeedback: adminReviewFeedback,
+      adminUser: currentUser
+    });
+
+    if (res.success) {
+      setPersonnelReports(getPersonnelReports());
+      setSelectedReportForReview(null);
+      showToast('Đã lưu kết quả thẩm tra & gửi phản hồi chính thức đến Chủ sở hữu!', 'XỬ LÝ KHIẾU NẠI THÀNH CÔNG', 'success');
+    }
+  };
+
+  const handleDeleteReport = (reportId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bản ghi khiếu nại này khỏi hệ thống?')) return;
+    deletePersonnelReport(reportId);
+    setPersonnelReports(getPersonnelReports());
+    showToast('Đã xóa bản ghi khiếu nại.', 'ĐÃ XÓA', 'info');
+  };
 
   // State danh sách ngựa quản lý
   const [horses, setHorses] = useState([
@@ -1216,6 +1290,22 @@ export default function AdminPage() {
             <span className="portal-nav-icon"><IconAudit /></span>
             <span className="portal-nav-label">{t('adminTabAudit')}</span>
           </button>
+
+          <button
+            className={`portal-nav-item ${activeTab === 'reports' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('reports'); setSidebarOpen(false); }}
+            title="Khiếu Nại & Báo Cáo Nhân Sự từ Chủ Sở Hữu"
+          >
+            <span className="portal-nav-icon"><IconReport /></span>
+            <span className="portal-nav-label">Khiếu Nại & Báo Cáo</span>
+            {pendingReportsCount > 0 ? (
+              <span className="portal-nav-badge" style={{ background: '#EF4444', color: '#fff', fontWeight: 800 }}>
+                {pendingReportsCount} mới
+              </span>
+            ) : (
+              <span className="portal-nav-badge">{personnelReports.length}</span>
+            )}
+          </button>
         </nav>
       </aside>
 
@@ -1239,6 +1329,7 @@ export default function AdminPage() {
                 {activeTab === 'stables' && t('adminTitleStables')}
                 {activeTab === 'users' && t('adminTitleUsers')}
                 {activeTab === 'audit' && t('adminTitleAudit')}
+                {activeTab === 'reports' && 'Quản Lý Báo Cáo & Khiếu Nại Nhân Sự'}
               </h2>
               <div className="portal-page-subtitle">
                 {activeTab === 'overview' && t('adminSubOverview')}
@@ -1246,6 +1337,7 @@ export default function AdminPage() {
                 {activeTab === 'stables' && t('adminSubStables')}
                 {activeTab === 'users' && t('adminSubUsers')}
                 {activeTab === 'audit' && t('adminSubAudit')}
+                {activeTab === 'reports' && 'Tiếp nhận, thẩm tra và xử lý phản ánh của Chủ sở hữu về Huấn luyện viên, Bác sĩ Thú y & Nhân viên chăm sóc'}
               </div>
             </div>
           </div>
@@ -1277,7 +1369,7 @@ export default function AdminPage() {
             </button>
             <NotificationBell role="ADMIN" currentUser={currentUser} />
             <ThemeToggle />
-            <div className="portal-user-badge">
+              <div className="portal-user-badge">
               <div className="portal-user-avatar">
                 {getInitials(currentUser?.full_name)}
               </div>
@@ -1300,7 +1392,581 @@ export default function AdminPage() {
         <main className="portal-main">
 
           {/* ===================== TAB 1: OVERVIEW ===================== */}
-          {(activeTab === 'overview' || activeTab === 'users') && (
+                    {activeTab === 'overview' && (
+            <div>
+              {/* Top Filter Bar */}
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button className="portal-pill-btn active">
+                    {t('adminFilterAll')} <span className="pill-count">100%</span>
+                  </button>
+                  <button className="portal-pill-btn" onClick={() => setActiveTab('horses')}>
+                    {t('adminFilterHorses')} <span className="pill-count">{horses.length}</span>
+                  </button>
+                  <button className="portal-pill-btn" onClick={() => setActiveTab('stables')}>
+                    {t('adminFilterStables')} <span className="pill-count">{stables.length}</span>
+                  </button>
+                  <button className="portal-pill-btn" onClick={() => setActiveTab('users')}>
+                    {t('adminFilterUsers')} <span className="pill-count">{usersList.length}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '18px', marginBottom: '28px' }}>
+                <div className="facility-card" style={{ padding: '22px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'TOTAL RACEHORSES' : 'TỔNG ĐÀN CHIẾN MÃ'}</span>
+                    <span style={{ color: 'var(--brass)' }}><IconHorse /></span>
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
+                    {horses.length} {lang === 'en' ? 'horses' : 'con'}
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
+                    {lang === 'en' ? '2 Cleared · 1 Monitored · 1 Locked' : '2 Đủ điều kiện · 1 Theo dõi · 1 Tạm khóa'}
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '22px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'BARN OCCUPANCY RATE' : 'CÔNG SUẤT CHUỒNG TRẠI'}</span>
+                    <span style={{ color: 'var(--brass)' }}><IconStable /></span>
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
+                    {stables.filter(s => s.status === 'OCCUPIED').length} / {stables.length} {lang === 'en' ? 'stalls' : 'ô'}
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--brass)', fontWeight: 500 }}>
+                    {lang === 'en' ? 'Occupancy: 91.7% (1 stall vacant)' : 'Lấp đầy: 91.7% (1 chuồng trống)'}
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '22px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'TOTAL STAFF USERS (RBAC)' : 'TỔNG NHÂN SỰ RBAC'}</span>
+                    <span style={{ color: 'var(--brass)' }}><IconUsers /></span>
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
+                    {usersList.length} {lang === 'en' ? 'accounts' : 'tài khoản'}
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
+                    {lang === 'en' ? 'Delegated across 5 functional tiers' : 'Phân quyền 5 nhóm chức năng'}
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '22px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'PRIZE PURSE & OPS FUND' : 'QUỸ GIẢI ĐẤU & HOẠT ĐỘNG'}</span>
+                    <span style={{ color: 'var(--brass)' }}><IconShield /></span>
+                  </div>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--brass)', margin: '12px 0 6px' }}>
+                    500.000.000 ₫
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
+                    {lang === 'en' ? 'National Championship 2026 (Approved)' : 'Giải Vô địch Quốc gia 2026 (Đã duyệt)'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Status and business workflow */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px' }}>
+                <div className="facility-card" style={{ padding: '24px' }}>
+                  <h3 style={{ fontSize: '16px', color: 'var(--brass)', marginBottom: '16px', fontWeight: 600 }}>
+                    Thông Báo Trực Ban Điều Hành
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px' }}>Khóa y tế: Ngựa Phi Yến (Ô A5)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                        Bác sĩ thú y kích hoạt lệnh khóa y tế do giãn dây chằng. HLV tạm ngừng lịch tập cường độ cao.
+                      </div>
+                    </div>
+                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px' }}>Theo dõi thể lực: Ngựa Hắc Phong (Ô A3)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                        Buổi tập gần nhất đạt nhịp tim 210 bpm. Đã thông báo cho Groom bổ sung điện giải và theo dõi nhịp thở.
+                      </div>
+                    </div>
+                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--brass)', fontSize: '13px' }}>Sẵn sàng thi đấu: Ngựa Xích Thố (Ô A1)</div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                        Đạt phong độ tiêu chuẩn, hoàn tất kiểm định thú y và đủ điều kiện xuất trận.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '24px' }}>
+                  <h3 style={{ fontSize: '16px', color: 'var(--paper)', marginBottom: '16px', fontWeight: 600 }}>
+                    Quy Trình Nghiệp Vụ Tương Tác
+                  </h3>
+                  <div style={{ fontSize: '13.5px', color: 'var(--paper-dim)', lineHeight: 1.75 }}>
+                    <p style={{ margin: '0 0 10px' }}>Hệ thống vận hành theo chu trình khép kín và tự động đối soát:</p>
+                    <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <li><b style={{ color: 'var(--paper)' }}>Ban Quản lý (Admin)</b>: Cấp tài khoản, giám sát ngân sách, phân bổ ô chuồng.</li>
+                      <li><b style={{ color: 'var(--paper)' }}>Thú y (Vet)</b>: Độc quyền quyền <i>Khóa / Mở khóa y tế</i> để bảo vệ tính mạng ngựa đua.</li>
+                      <li><b style={{ color: 'var(--paper)' }}>HLV (Trainer)</b>: Lập giáo án và theo dõi telemetry chỉ số buổi chạy.</li>
+                      <li><b style={{ color: 'var(--paper)' }}>Groom (Chăm sóc)</b>: Báo cáo bữa ăn và sự cố thực tế chuồng trại.</li>
+                      <li><b style={{ color: 'var(--paper)' }}>Chủ ngựa (Owner)</b>: Theo dõi báo cáo minh bạch chi phí và kết quả giải.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================== TAB 2: HORSES ===================== */}
+          {activeTab === 'horses' && (
+            <div>
+              {/* Filter and View Mode Switcher */}
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button
+                    className={`portal-pill-btn ${horseFilter === 'ALL' ? 'active' : ''}`}
+                    onClick={() => setHorseFilter('ALL')}
+                  >
+                    {lang === 'en' ? 'All Horses' : 'Tất cả'} <span className="pill-count">{horses.length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${horseFilter === 'ELIGIBLE' ? 'active' : ''}`}
+                    onClick={() => setHorseFilter('ELIGIBLE')}
+                  >
+                    {t('adminHorseEligible')} <span className="pill-count">{horses.filter(h => h.status === 'ELIGIBLE' && !h.locked).length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${horseFilter === 'WATCH' ? 'active' : ''}`}
+                    onClick={() => setHorseFilter('WATCH')}
+                  >
+                    {t('adminHorseWatch')} <span className="pill-count">{horses.filter(h => h.status === 'WATCH').length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${horseFilter === 'LOCKED' ? 'active' : ''}`}
+                    onClick={() => setHorseFilter('LOCKED')}
+                  >
+                    {lang === 'en' ? 'Vet Locked' : 'Khóa Y Tế'} <span className="pill-count">{horses.filter(h => h.locked || h.status === 'INJURED').length}</span>
+                  </button>
+                </div>
+
+                <div className="portal-view-tools">
+                  <button
+                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                    onClick={() => setViewMode('cards')}
+                  >
+                    {lang === 'en' ? 'Card Grid' : 'Lưới thẻ'}
+                  </button>
+                  <button
+                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                  >
+                    {lang === 'en' ? 'Data Table' : 'Bảng dữ liệu'}
+                  </button>
+                  <button
+                    onClick={() => setShowAddHorseModal(true)}
+                    className="portal-view-btn"
+                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
+                  >
+                    {t('adminBtnAddHorse')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Card Grid View */}
+              {viewMode === 'cards' ? (
+                <div className="portal-cards-grid">
+                  {filteredHorses.map((h) => {
+                    const badgeClass = h.breed === 'Thoroughbred' ? 'badge-gold' : 'badge-slate';
+                    const genderDisplay = h.gender.includes('đực')
+                      ? (lang === 'en' ? 'Stallion' : 'Đực')
+                      : h.gender.includes('thiến')
+                        ? (lang === 'en' ? 'Gelding' : 'Thiến')
+                        : (lang === 'en' ? 'Mare' : 'Cái');
+                    return (
+                      <div key={h.id} className="facility-card">
+                        {/* Top Badge */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className={`facility-card-badge ${badgeClass}`}>
+                            <span>{h.breed.toUpperCase()}</span>
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>
+                            {h.microchip}
+                          </span>
+                        </div>
+
+                        {/* Title & Desc */}
+                        <h3 className="facility-card-title">{h.name}</h3>
+                        <p className="facility-card-desc">{h.desc}</p>
+                        
+                        <div className="facility-card-bullets">
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>{lang === 'en' ? 'RFID Microchip:' : 'Mã chip định danh:'} <b>{h.microchip}</b></span>
+                          </div>
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>{lang === 'en' ? 'Assigned Barn Stall:' : 'Chuồng nuôi dưỡng:'} <b>{lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}</b></span>
+                          </div>
+                        </div>
+
+                        {/* 3-column specs grid */}
+                        <div className="facility-specs-grid">
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">{lang === 'en' ? 'Gender' : 'Giới tính'}</span>
+                            <span className="spec-val">{genderDisplay}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">{lang === 'en' ? 'Stall' : 'Ô Chuồng'}</span>
+                            <span className="spec-val" style={{ color: 'var(--brass)', fontWeight: 700 }}>{lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">{lang === 'en' ? 'Owner' : 'Chủ sở hữu'}</span>
+                            <span className="spec-val" style={{ fontSize: '11.5px' }}>{h.owner.split(' ').slice(-1)[0]}</span>
+                          </div>
+                        </div>
+
+                        {/* Status/Price Box */}
+                        <div className="facility-price-box">
+                          <div>
+                            <div className="price-label">{lang === 'en' ? 'Health Status' : 'Trạng thái sức khỏe'}</div>
+                            <div className="price-value" style={{ fontSize: '15px', color: 'var(--paper)' }}>
+                              {h.statusText}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '3px 7px',
+                            borderRadius: '4px',
+                            background: 'var(--bg-primary)',
+                            color: h.locked ? 'var(--paper-dim)' : 'var(--brass)',
+                            border: '1px solid var(--line)'
+                          }}>
+                            {h.locked ? (lang === 'en' ? 'LOCKED' : 'TẠM KHÓA') : (lang === 'en' ? 'ACTIVE' : 'KHẢ DỤNG')}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="facility-card-actions">
+                          <div className="actions-left">
+                            <button
+                              className="facility-btn-action"
+                              onClick={() => showToast(lang === 'en' ? `Viewing file of ${h.name} (Chip: ${h.microchip})` : `Xem chi tiết hồ sơ mã ${h.name} (Chip: ${h.microchip})`, lang === 'en' ? 'HORSE PROFILE' : 'HỒ SƠ CHIẾN MÃ')}
+                            >
+                              {lang === 'en' ? 'View Details' : 'Xem chi tiết'}
+                            </button>
+                            <button
+                              className={`facility-btn-action ${h.locked ? 'btn-danger' : ''}`}
+                              onClick={() => {
+                                handleToggleHorseLock(h.id);
+                                showToast(h.locked ? (lang === 'en' ? `Training unlocked for ${h.name}` : `Đã mở khóa huấn luyện cho chiến mã ${h.name}`) : (lang === 'en' ? `Emergency veterinary lock enabled for ${h.name}` : `Đã khóa y tế khẩn cấp cho chiến mã ${h.name}`), lang === 'en' ? 'STATUS UPDATE' : 'CẬP NHẬT TRẠNG THÁI');
+                              }}
+                            >
+                              {h.locked ? (lang === 'en' ? 'Unlock' : 'Mở khóa') : (lang === 'en' ? 'Lock (Vet)' : 'Khóa y tế')}
+                            </button>
+                          </div>
+                          <button
+                            className="facility-link-action"
+                            onClick={() => showToast(lang === 'en' ? `Opening vet medical records and velocities of ${h.name}` : `Đang mở hồ sơ bệnh án thú y và chỉ số chạy của ${h.name}`, lang === 'en' ? 'VET & TELEMETRY RECORDS' : 'HỒ SƠ BỆNH ÁN & VẬN TỐC')}
+                          >
+                            {lang === 'en' ? 'Stall Info →' : 'Chi tiết ô →'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Table View */
+                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'RFID Chip / Horse Name' : 'Mã Chip / Tên Ngựa'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Breed & Gender' : 'Giống loài & Giới tính'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Allocation' : 'Chuồng phân bổ'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Owner' : 'Chủ sở hữu'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Health Status' : 'Trạng thái Sức khỏe'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Vet Lock' : 'Khóa Y Tế Thú Y'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action' : 'Hành động'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredHorses.map(h => (
+                        <tr key={h.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                          <td style={{ padding: '14px 18px' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--brass)', fontSize: '15px' }}>{h.name}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>{h.microchip}</div>
+                          </td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
+                            <div>{h.breed}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{h.gender}</div>
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <span style={{ padding: '4px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '4px', fontWeight: 600 }}>
+                              {lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{h.owner}</td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              background: 'var(--bg-secondary)',
+                              color: 'var(--paper)',
+                              border: '1px solid var(--line)'
+                            }}>
+                              {h.statusText}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            {h.locked ? (
+                              <span style={{ color: 'var(--brass)', fontWeight: 600, fontSize: '12px' }}>
+                                {lang === 'en' ? 'Vet Locked' : 'Tạm khóa y tế'}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>
+                                {lang === 'en' ? 'Normal' : 'Bình thường'}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <button
+                              onClick={() => handleToggleHorseLock(h.id)}
+                              style={{
+                                padding: '5px 12px',
+                                background: 'var(--bg-secondary)',
+                                border: '1px solid var(--line)',
+                                color: 'var(--paper)',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                fontWeight: 500
+                              }}
+                            >
+                              {h.locked ? (lang === 'en' ? 'Unlock' : 'Mở Khóa') : (lang === 'en' ? 'Vet Lock' : 'Khóa Y Tế')}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===================== TAB 3: STABLES ===================== */}
+          {activeTab === 'stables' && (
+            <div>
+              <div className="portal-filter-bar">
+                <div className="portal-filter-pills">
+                  <button
+                    className={`portal-pill-btn ${stableFilter === 'ALL' ? 'active' : ''}`}
+                    onClick={() => setStableFilter('ALL')}
+                  >
+                    {lang === 'en' ? 'All 12 Stalls' : 'Tất cả 12 ô'} <span className="pill-count">{stables.length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${stableFilter === 'AVAILABLE' ? 'active' : ''}`}
+                    onClick={() => setStableFilter('AVAILABLE')}
+                  >
+                    {lang === 'en' ? 'Available' : 'Còn trống'} <span className="pill-count">{stables.filter(s => s.status === 'AVAILABLE').length}</span>
+                  </button>
+                  <button
+                    className={`portal-pill-btn ${stableFilter === 'OCCUPIED' ? 'active' : ''}`}
+                    onClick={() => setStableFilter('OCCUPIED')}
+                  >
+                    {lang === 'en' ? 'Occupied' : 'Đã lấp đầy'} <span className="pill-count">{stables.filter(s => s.status === 'OCCUPIED').length}</span>
+                  </button>
+                </div>
+
+                <div className="portal-view-tools">
+                  <button
+                    className={`portal-view-btn ${viewMode === 'cards' ? 'active' : ''}`}
+                    onClick={() => setViewMode('cards')}
+                  >
+                    {lang === 'en' ? 'Card Grid' : 'Lưới thẻ'}
+                  </button>
+                  <button
+                    className={`portal-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                  >
+                    {lang === 'en' ? 'Data Table' : 'Bảng danh sách'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const nextCode = 'C' + (stables.filter(s => s.block === 'Block C').length + 1);
+                      setNewStallData(prev => ({ ...prev, stall_code: nextCode }));
+                      setShowAddStallModal(true);
+                    }}
+                    className="portal-view-btn"
+                    style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
+                  >
+                    {lang === 'en' ? '+ Add New Stall' : '+ Tạo ô chuồng mới'}
+                  </button>
+                </div>
+              </div>
+
+              {viewMode === 'cards' ? (
+                <div className="portal-cards-grid">
+                  {filteredStables.map(s => {
+                    const isOccupied = s.status === 'OCCUPIED';
+                    const isAvailable = s.status === 'AVAILABLE';
+                    const badgeClass = isOccupied ? 'badge-gold' : 'badge-slate';
+
+                    return (
+                      <div key={s.stall_code} className="facility-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className={`facility-card-badge ${badgeClass}`}>
+                            <span>{s.block.toUpperCase()}</span>
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 600 }}>
+                            {s.stall_code}
+                          </span>
+                        </div>
+
+                        <h3 className="facility-card-title">{lang === 'en' ? `Barn Stall ${s.stall_code}` : `Ô Chuồng ${s.stall_code}`}</h3>
+                        <p className="facility-card-desc">
+                          {isOccupied
+                            ? (lang === 'en' ? `Housing racehorse ${s.horse}. Premium equine amenities.` : `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.`)
+                            : (lang === 'en' ? 'Clean empty stall ready for horse intake.' : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.')}
+                        </p>
+
+                        <div className="facility-card-bullets">
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>{lang === 'en' ? 'Resident horse:' : 'Chiến mã lưu trú:'} <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)' }}>{s.horse}</b></span>
+                          </div>
+                          <div className="facility-bullet-item">
+                            <span className="bullet-dot" />
+                            <span>{lang === 'en' ? 'Barn block:' : 'Khu chuồng:'} <b>{s.block}</b></span>
+                          </div>
+                        </div>
+
+                        <div className="facility-specs-grid">
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">{lang === 'en' ? 'Area' : 'Diện tích'}</span>
+                            <span className="spec-val">{s.area || '14 m²'}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">{lang === 'en' ? 'Dimensions' : 'Kích thước'}</span>
+                            <span className="spec-val">{s.dim || '3.8 x 3.8m'}</span>
+                          </div>
+                          <div className="facility-spec-cell">
+                            <span className="spec-label">{lang === 'en' ? 'Standard' : 'Tiêu chuẩn'}</span>
+                            <span className="spec-val">Pro Stall</span>
+                          </div>
+                        </div>
+
+                        <div className="facility-price-box">
+                          <div>
+                            <div className="price-label">{lang === 'en' ? 'Stall Status' : 'Trạng thái ô'}</div>
+                            <div className="price-value" style={{ fontSize: '14.5px', color: isOccupied ? 'var(--brass)' : 'var(--paper)' }}>
+                              {isOccupied
+                                ? (lang === 'en' ? 'Currently Occupied' : 'Đang nuôi dưỡng')
+                                : isAvailable
+                                  ? (lang === 'en' ? 'Available & Ready' : 'Còn trống sẵn sàng')
+                                  : (lang === 'en' ? 'Under Maintenance' : 'Đang bảo dưỡng')}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '3px 7px',
+                            borderRadius: '4px',
+                            background: 'var(--bg-primary)',
+                            color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)',
+                            border: '1px solid var(--line)'
+                          }}>
+                            {isOccupied
+                              ? (lang === 'en' ? 'OCCUPIED' : 'LẤP ĐẦY')
+                              : isAvailable
+                                ? (lang === 'en' ? 'VACANT' : 'TRỐNG')
+                                : (lang === 'en' ? 'SERVICE' : 'BẢO TRÌ')}
+                          </span>
+                        </div>
+
+                        <div className="facility-card-actions">
+                          <div className="actions-left">
+                            <button
+                              className="facility-btn-action"
+                              onClick={() => handleToggleStable(s.stall_code)}
+                            >
+                              {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
+                            </button>
+                          </div>
+                          <span className="facility-link-action" style={{ cursor: 'default' }}>
+                            {s.block} →
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Code' : 'Mã Ô Chuồng'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Barn Block' : 'Khu Vực'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Resident Runner' : 'Chiến Mã Đang Ở'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Status' : 'Trạng Thái'}</th>
+                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action' : 'Thao Tác'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredStables.map(s => {
+                        const isOccupied = s.status === 'OCCUPIED';
+                        const isAvailable = s.status === 'AVAILABLE';
+                        return (
+                          <tr key={s.stall_code} style={{ borderBottom: '1px solid var(--line)' }}>
+                            <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{lang === 'en' ? 'Stall ' : 'Ô '}{s.stall_code}</td>
+                            <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{s.block}</td>
+                            <td style={{ padding: '14px 18px', color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 600 }}>{s.horse}</td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11.5px',
+                                fontWeight: 600,
+                                background: 'var(--bg-secondary)',
+                                color: isOccupied ? 'var(--brass)' : 'var(--paper)',
+                                border: '1px solid var(--line)'
+                              }}>
+                                {isOccupied ? (lang === 'en' ? 'Occupied' : 'Đang dùng') : isAvailable ? (lang === 'en' ? 'Available' : 'Còn trống') : (lang === 'en' ? 'Maintenance' : 'Bảo trì')}
+                              </span>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <button
+                                onClick={() => handleToggleStable(s.stall_code)}
+                                style={{
+                                  padding: '5px 12px',
+                                  background: 'var(--bg-secondary)',
+                                  border: '1px solid var(--line)',
+                                  borderRadius: '4px',
+                                  color: 'var(--paper)',
+                                  fontSize: '12px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===================== TAB 4: USERS & RBAC ===================== */}
+
+          {/* ===================== TAB 4: USERS & RBAC ===================== */}
+          {activeTab === 'users' && (
             <div>
               {/* Cảnh báo tài khoản mới chờ Admin xét duyệt */}
               {usersList.some(u => u.status === 'PENDING') && (
@@ -1769,6 +2435,315 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* ===================== TAB 6: KHIẾU NẠI & BÁO CÁO NHÂN SỰ ===================== */}
+          {activeTab === 'reports' && (
+            <div>
+              {/* THỐNG KÊ TỔNG QUAN */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '22px' }}>
+                <div className="facility-card" style={{ padding: '18px 20px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, textTransform: 'uppercase' }}>
+                    TỔNG SỐ KHIẾU NẠI
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--paper)', margin: '6px 0 2px' }}>
+                    {personnelReports.length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    Từ các Chủ sở hữu gửi lên
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '18px 20px', border: '1px solid #F59E0B', background: 'rgba(245, 158, 11, 0.08)' }}>
+                  <div style={{ fontSize: '12px', color: '#F59E0B', fontWeight: 700, textTransform: 'uppercase' }}>
+                    CHỜ ADMIN TIẾP NHẬN
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#F59E0B', margin: '6px 0 2px' }}>
+                    {personnelReports.filter(r => r.status === 'PENDING').length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    Cần xác minh & mở thẩm tra
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '18px 20px', border: '1px solid #3B82F6', background: 'rgba(59, 130, 246, 0.08)' }}>
+                  <div style={{ fontSize: '12px', color: '#3B82F6', fontWeight: 700, textTransform: 'uppercase' }}>
+                    ĐANG THẨM TRA & GIẢI TRÌNH
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#3B82F6', margin: '6px 0 2px' }}>
+                    {personnelReports.filter(r => r.status === 'INVESTIGATING').length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    Yêu cầu nhân sự báo cáo giải trình
+                  </div>
+                </div>
+
+                <div className="facility-card" style={{ padding: '18px 20px', border: '1px solid rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.08)' }}>
+                  <div style={{ fontSize: '12px', color: '#10B981', fontWeight: 700, textTransform: 'uppercase' }}>
+                    ĐÃ GIẢI QUYẾT & KỶ LUẬT
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#10B981', margin: '6px 0 2px' }}>
+                    {personnelReports.filter(r => r.status === 'RESOLVED').length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                    Đã có kết luận & phản hồi cho Chủ
+                  </div>
+                </div>
+              </div>
+
+              {/* BỘ LỌC VÀ TÌM KIẾM */}
+              <div className="portal-filter-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
+                <div className="portal-filter-pills" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className={`portal-pill-btn ${reportRoleFilter === 'ALL' ? 'active' : ''}`}
+                    onClick={() => setReportRoleFilter('ALL')}
+                  >
+                    Tất cả <span className="pill-count">{personnelReports.length}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`portal-pill-btn ${reportRoleFilter === 'TRAINER' ? 'active' : ''}`}
+                    onClick={() => setReportRoleFilter('TRAINER')}
+                  >
+                    🏇 HLV <span className="pill-count">{personnelReports.filter(r => r.targetRole === 'TRAINER').length}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`portal-pill-btn ${reportRoleFilter === 'VET' ? 'active' : ''}`}
+                    onClick={() => setReportRoleFilter('VET')}
+                  >
+                    🩺 Thú Y <span className="pill-count">{personnelReports.filter(r => r.targetRole === 'VET').length}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`portal-pill-btn ${reportRoleFilter === 'CARETAKER' ? 'active' : ''}`}
+                    onClick={() => setReportRoleFilter('CARETAKER')}
+                  >
+                    🌾 Chăm Sóc <span className="pill-count">{personnelReports.filter(r => r.targetRole === 'CARETAKER').length}</span>
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select
+                    className="portal-input"
+                    value={reportStatusFilter}
+                    onChange={(e) => setReportStatusFilter(e.target.value)}
+                    style={{ padding: '7px 10px', fontSize: '12px', minWidth: '170px' }}
+                  >
+                    <option value="ALL">Tất cả trạng thái ({personnelReports.length})</option>
+                    <option value="PENDING">⏳ Chờ Admin tiếp nhận</option>
+                    <option value="INVESTIGATING">🔍 Đang thẩm tra</option>
+                    <option value="RESOLVED">✓ Đã giải quyết</option>
+                    <option value="DISMISSED">✕ Bác bỏ</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    className="portal-input"
+                    value={reportSearch}
+                    onChange={(e) => setReportSearch(e.target.value)}
+                    placeholder="Tìm theo chủ, nhân sự, ngựa, tiêu đề..."
+                    style={{ padding: '7px 12px', fontSize: '12.5px', minWidth: '220px' }}
+                  />
+                </div>
+              </div>
+
+              {/* BẢNG DANH SÁCH BÁO CÁO KHIẾU NẠI */}
+              {(() => {
+                const filteredReports = personnelReports.filter(report => {
+                  if (reportRoleFilter !== 'ALL' && report.targetRole !== reportRoleFilter) return false;
+                  if (reportStatusFilter !== 'ALL' && report.status !== reportStatusFilter) return false;
+                  if (reportSearch.trim()) {
+                    const q = reportSearch.toLowerCase().trim();
+                    const text = `${report.ownerName} ${report.targetName} ${report.targetTitle} ${report.horseName} ${report.title} ${report.content}`.toLowerCase();
+                    if (!text.includes(q)) return false;
+                  }
+                  return true;
+                });
+
+                if (filteredReports.length === 0) {
+                  return (
+                    <div style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px' }}>
+                      <div style={{ fontSize: '36px', marginBottom: '10px' }}>🛡️</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--paper)' }}>Không có khiếu nại nhân sự nào phù hợp</div>
+                      <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginTop: '4px' }}>Mọi phản ánh từ Chủ sở hữu đối với HLV, Bác sĩ và Nhân viên chăm sóc sẽ hiển thị đầy đủ tại đây.</div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                          <th style={{ padding: '12px 16px' }}>Mã & Ngày gửi</th>
+                          <th style={{ padding: '12px 16px' }}>Chủ sở hữu khiếu nại</th>
+                          <th style={{ padding: '12px 16px' }}>Đối tượng bị báo cáo</th>
+                          <th style={{ padding: '12px 16px' }}>Chiến mã liên quan</th>
+                          <th style={{ padding: '12px 16px' }}>Danh mục & Mức độ</th>
+                          <th style={{ padding: '12px 16px' }}>Tiêu đề & Nội dung</th>
+                          <th style={{ padding: '12px 16px' }}>Trạng thái</th>
+                          <th style={{ padding: '12px 16px', textAlign: 'right' }}>Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredReports.map(report => {
+                          const roleMeta = REPORT_TARGET_ROLES[report.targetRole] || { label: report.targetRole, icon: '👤', color: 'var(--paper)' };
+                          const sevMeta = REPORT_SEVERITIES.find(s => s.id === report.severity) || REPORT_SEVERITIES[1];
+                          const statMeta = REPORT_STATUSES.find(s => s.id === report.status) || REPORT_STATUSES[0];
+
+                          return (
+                            <tr key={report.id} style={{ borderBottom: '1px solid var(--line)', transition: 'background 0.15s ease' }}>
+                              {/* Mã & Ngày gửi */}
+                              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--brass)', fontFamily: 'monospace', fontSize: '12px' }}>
+                                  #{report.id}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                  {report.createdAt}
+                                </div>
+                              </td>
+
+                              {/* Chủ sở hữu */}
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--paper)' }}>
+                                  {report.ownerName}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                  SĐT: {report.ownerPhone}
+                                </div>
+                              </td>
+
+                              {/* Đối tượng bị báo cáo */}
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10.5px', fontWeight: 800, color: roleMeta.color, background: 'rgba(255, 255, 255, 0.04)', padding: '2px 6px', borderRadius: '4px', border: `1px solid ${roleMeta.color}40`, marginBottom: '4px' }}>
+                                  <span>{roleMeta.icon}</span>
+                                  <span>{roleMeta.label}</span>
+                                </div>
+                                <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13px' }}>
+                                  {report.targetName}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                                  {report.targetTitle}
+                                </div>
+                              </td>
+
+                              {/* Chiến mã */}
+                              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--paper)' }}>
+                                  🏇 {report.horseName}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                                  {report.stall}
+                                </div>
+                              </td>
+
+                              {/* Danh mục & Mức độ */}
+                              <td style={{ padding: '12px 16px', minWidth: '160px' }}>
+                                <div style={{
+                                  display: 'inline-block',
+                                  fontSize: '10.5px',
+                                  fontWeight: 800,
+                                  color: sevMeta.color,
+                                  background: sevMeta.badgeBg,
+                                  border: `1px solid ${sevMeta.color}50`,
+                                  padding: '2px 7px',
+                                  borderRadius: '4px',
+                                  marginBottom: '4px'
+                                }}>
+                                  {sevMeta.label.split(' (')[0]}
+                                </div>
+                                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', lineHeight: 1.3 }}>
+                                  {report.category}
+                                </div>
+                              </td>
+
+                              {/* Tiêu đề & Nội dung tóm tắt */}
+                              <td style={{ padding: '12px 16px', maxWidth: '280px' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--paper)', marginBottom: '3px' }}>
+                                  {report.title}
+                                </div>
+                                <div style={{
+                                  fontSize: '11.5px',
+                                  color: 'var(--paper-dim)',
+                                  lineHeight: 1.4,
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden'
+                                }}>
+                                  {report.content}
+                                </div>
+                                {report.adminFeedback && (
+                                  <div style={{ marginTop: '5px', fontSize: '11px', color: '#10B981', background: 'rgba(16, 185, 129, 0.08)', padding: '3px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                    ✓ Đã phản hồi: {report.adminFeedback}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Trạng thái */}
+                              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  color: statMeta.color,
+                                  background: statMeta.badgeBg,
+                                  border: `1px solid ${statMeta.color}50`
+                                }}>
+                                  {statMeta.label}
+                                </span>
+                              </td>
+
+                              {/* Thao tác */}
+                              <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenReviewModal(report)}
+                                    style={{
+                                      padding: '5px 12px',
+                                      background: 'rgba(212, 175, 55, 0.15)',
+                                      border: '1px solid var(--brass)',
+                                      color: 'var(--brass)',
+                                      borderRadius: '4px',
+                                      fontSize: '12px',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    ⚖️ Thẩm Tra & Xử Lý
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteReport(report.id)}
+                                    style={{
+                                      padding: '5px 8px',
+                                      background: 'rgba(239, 68, 68, 0.1)',
+                                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                                      color: '#EF4444',
+                                      borderRadius: '4px',
+                                      fontSize: '12px',
+                                      cursor: 'pointer'
+                                    }}
+                                    title="Xóa bản ghi khiếu nại"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -3308,6 +4283,257 @@ export default function AdminPage() {
           </div>
         );
       })()}
+
+      {/* ===================== MODAL THẨM TRA & XỬ LÝ KHIẾU NẠI NHÂN SỰ ===================== */}
+      {selectedReportForReview && (
+        <div
+          onClick={() => setSelectedReportForReview(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.78)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999999,
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              border: '1.5px solid var(--line-strong)',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '680px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              color: 'var(--paper)',
+              boxShadow: '0 20px 45px rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '18px 22px',
+              borderBottom: '1px solid var(--line)',
+              background: 'var(--bg-secondary)'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: 800, color: 'var(--brass)' }}>
+                  ⚖️ Thẩm Tra & Xử Lý Khiếu Nại Nhân Sự
+                </h3>
+                <span style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                  Mã khiếu nại: #{selectedReportForReview.id} · Gửi lúc {selectedReportForReview.createdAt}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedReportForReview(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--paper-dim)',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '4px 8px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSaveAdminReview} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Box tóm tắt thông tin vụ việc */}
+              <div style={{ background: 'var(--bg-secondary)', padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', fontSize: '13px' }}>
+                  <span>Chủ sở hữu khiếu nại: <b style={{ color: 'var(--paper)' }}>{selectedReportForReview.ownerName}</b> ({selectedReportForReview.ownerPhone})</span>
+                  <span>Chiến mã: <b style={{ color: 'var(--brass)' }}>{selectedReportForReview.horseName}</b> ({selectedReportForReview.stall})</span>
+                </div>
+                <div style={{ fontSize: '13px', paddingTop: '4px', borderTop: '1px dashed var(--line)' }}>
+                  Đối tượng bị báo cáo: <b style={{ color: '#EF4444' }}>{REPORT_TARGET_ROLES[selectedReportForReview.targetRole]?.label || selectedReportForReview.targetRole} — {selectedReportForReview.targetName}</b> ({selectedReportForReview.targetTitle})
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)' }}>
+                  Danh mục: <span style={{ color: 'var(--paper)' }}>{selectedReportForReview.category}</span>
+                </div>
+              </div>
+
+              {/* Chi tiết nội dung phản ánh của chủ sở hữu */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '4px' }}>
+                  Nội dung phản ánh từ Chủ sở hữu:
+                </label>
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  padding: '12px 14px',
+                  fontSize: '13px',
+                  lineHeight: 1.5,
+                  color: 'var(--paper)'
+                }}>
+                  <div style={{ fontWeight: 700, color: 'var(--brass)', marginBottom: '4px' }}>
+                    {selectedReportForReview.title}
+                  </div>
+                  <div>{selectedReportForReview.content}</div>
+                  {selectedReportForReview.evidenceNote && (
+                    <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--paper-dim)', fontStyle: 'italic', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px' }}>
+                      📎 Bằng chứng đính kèm / Ghi chú: {selectedReportForReview.evidenceNote}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Quyết định xử lý của Admin */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '6px' }}>
+                    1. Cập nhật trạng thái xử lý:
+                  </label>
+                  <select
+                    className="portal-input"
+                    value={adminReviewStatus}
+                    onChange={(e) => setAdminReviewStatus(e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box', fontWeight: 700 }}
+                  >
+                    <option value="INVESTIGATING">🔍 Đang thẩm tra & Yêu cầu giải trình</option>
+                    <option value="RESOLVED">✓ Đã giải quyết & Xử lý kỷ luật / chấn chỉnh</option>
+                    <option value="DISMISSED">✕ Bác bỏ khiếu nại (Không đủ căn cứ vi phạm)</option>
+                    <option value="PENDING">⏳ Tiếp tục chờ xác minh thêm</option>
+                  </select>
+                </div>
+
+                {/* Gợi ý biện pháp nhanh */}
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                    Chọn nhanh phương án xử lý:
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {[
+                      'Yêu cầu giải trình văn bản trong vòng 24h & tạm đình chỉ buổi tập',
+                      'Nhắc nhở nội bộ & chấn chỉnh quy trình phục vụ',
+                      'Phạt trừ thi đua tháng và bố trí nhân sự khác phụ trách',
+                      'Đã tổ chức hòa giải, nhân sự đã nhận khuyết điểm và xin lỗi Chủ sở hữu',
+                      'Bác bỏ khiếu nại do sự việc bất khả kháng có camera đối soát'
+                    ].map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setAdminReviewAction(preset);
+                          if (!adminReviewFeedback) {
+                            setAdminReviewFeedback(`Ban Quản Trị đã tiến hành xác minh: ${preset}. Cảm ơn Chủ sở hữu đã phản ánh để nâng cao chất lượng mã trường.`);
+                          }
+                        }}
+                        style={{
+                          fontSize: '11px',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid var(--line)',
+                          color: 'var(--paper-dim)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + {preset.slice(0, 32)}...
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '6px' }}>
+                    2. Biện pháp xử lý / Kỷ luật nội bộ:
+                  </label>
+                  <input
+                    type="text"
+                    className="portal-input"
+                    value={adminReviewAction}
+                    onChange={(e) => setAdminReviewAction(e.target.value)}
+                    placeholder="Ví dụ: Phạt trừ điểm thi đua nhân viên, thay đổi HLV phụ trách theo yêu cầu của chủ..."
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '6px' }}>
+                    3. Lời kết luận & Phản hồi chính thức gửi Chủ sở hữu:
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="portal-input"
+                    value={adminReviewFeedback}
+                    onChange={(e) => setAdminReviewFeedback(e.target.value)}
+                    placeholder="Nhập nội dung phản hồi chính thức từ Ban Quản Trị gửi đến Chủ sở hữu chiến mã..."
+                    style={{ width: '100%', boxSizing: 'border-box', fontSize: '13px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '4px' }}>
+                    Ghi chú thẩm tra nội bộ (Chỉ Admin thấy):
+                  </label>
+                  <textarea
+                    rows={2}
+                    className="portal-input"
+                    value={adminReviewNotes}
+                    onChange={(e) => setAdminReviewNotes(e.target.value)}
+                    placeholder="Ghi chú hồ sơ nhân viên, trích xuất camera hoặc biên bản đối chất..."
+                    style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Footer buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedReportForReview(null)}
+                  style={{
+                    padding: '9px 18px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: '13px'
+                  }}
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 22px',
+                    background: 'var(--brass)',
+                    border: 'none',
+                    color: '#0A0D14',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    boxShadow: '0 2px 10px rgba(212, 175, 55, 0.3)'
+                  }}
+                >
+                  ✓ Lưu Kết Luận & Gửi Phản Hồi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

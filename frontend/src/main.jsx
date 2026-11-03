@@ -3,6 +3,28 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
+// Hỗ trợ tự động xóa/reset toàn bộ dữ liệu về trạng thái ban đầu khi truy cập URL ?reset=1, ?reset=true hoặc #reset
+if (typeof window !== 'undefined') {
+  try {
+    const search = window.location.search || '';
+    const hash = window.location.hash || '';
+    if (search.includes('reset=1') || search.includes('reset=true') || search.includes('reset=all') || hash === '#reset') {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.replace(window.location.origin + window.location.pathname);
+    }
+  } catch {}
+
+  // Hàm toàn cục tiện dụng: gõ resetAllData() trong Console để reset toàn bộ bất kỳ lúc nào
+  window.resetAllData = function() {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
+    } catch {}
+  };
+}
+
 class RootErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -19,13 +41,8 @@ class RootErrorBoundary extends React.Component {
 
   handleReset = () => {
     try {
-      const tabKeys = [
-        'matruong_tab_owner', 'matruong_tab_admin', 'matruong_tab_trainer', 
-        'matruong_tab_vet', 'matruong_tab_groom', 'matruong_tab_achievements',
-        'matruong_stables_selected_code', 'matruong_home_selected_stall',
-        'matruong_horses_status_filter', 'matruong_horses_view_mode'
-      ];
-      tabKeys.forEach(k => localStorage.removeItem(k));
+      localStorage.clear();
+      sessionStorage.clear();
     } catch {}
     window.location.reload();
   };

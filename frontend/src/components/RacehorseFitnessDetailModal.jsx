@@ -19,6 +19,10 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
 
   // Lắng nghe sự kiện cập nhật viễn trắc theo thời gian thực (Real-time reactivity)
   useEffect(() => {
+    setTelemetry(getHorseFitnessTelemetry(horse, sessions));
+  }, [horse, sessions]);
+
+  useEffect(() => {
     const handleFitnessUpdate = (e) => {
       const { horse: updatedH, telemetry: newTelem } = e.detail || {};
       const thisKey = horse.microchip || horse.id || horse.name;
@@ -47,17 +51,18 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
   const triggerSessionAlgorithm = (status) => {
     setIsSimulating(true);
     const nextWorkoutNum = (telemetry.workoutCount || 0) + 1;
+    const isCompleted = status === 'COMPLETED';
     const mockSession = {
       id: Date.now(),
       status,
       horseName: horse.name,
-      distanceRun: 1600,
-      avgSpeed: status === 'COMPLETED' ? 64.5 : 42.0,
-      maxHeartRate: status === 'COMPLETED' ? 204 : 222,
-      score: status === 'COMPLETED' ? 9.0 : 4.5,
-      programTitle: status === 'COMPLETED' 
-        ? `Bài tập kiểm tra thể lực #${nextWorkoutNum} (1.600m)` 
-        : `Bài tập kiểm tra #${nextWorkoutNum} (Không hoàn thành)`
+      distanceRun: 1000,
+      avgSpeed: isCompleted ? 58.6 : 42.0,
+      maxHeartRate: isCompleted ? 196 : 222,
+      score: isCompleted ? 9.0 : 4.5,
+      programTitle: isCompleted 
+        ? `Nước rút kiểm tra 1.000m` 
+        : `Bài tập kiểm tra #${nextWorkoutNum} (Chưa hoàn thành)`
     };
 
     const updated = calculateHorseFitnessOnSession(horse, mockSession, sessions);
@@ -545,18 +550,20 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
                       <div style={{ fontSize: '22px', fontWeight: 800, color: '#FFFFFF' }}>
-                        Hôm nay: <span style={{ color: isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? 'var(--brass)' : '#EF4444') }}>{isCalibrating ? '--' : `${telemetry.performanceToday}%`}</span>
+                        Hôm nay: <span style={{ color: (telemetry.performanceToday || 102) >= 90 ? 'var(--brass)' : '#EF4444' }}>
+                          {telemetry.performanceToday ? `${telemetry.performanceToday}%` : '102%'}
+                        </span>
                       </div>
                       <span style={{
                         fontSize: '11.5px',
                         fontWeight: 700,
-                        color: isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? '#10B981' : '#EF4444'),
-                        background: isCalibrating ? 'rgba(245, 158, 11, 0.15)' : (isFitnessIncreasing ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'),
-                        border: isCalibrating ? '1px solid rgba(245, 158, 11, 0.3)' : (isFitnessIncreasing ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'),
+                        color: (telemetry.performanceToday || 102) >= 100 ? '#10B981' : ((telemetry.performanceToday || 102) >= 90 ? 'var(--brass)' : '#EF4444'),
+                        background: (telemetry.performanceToday || 102) >= 100 ? 'rgba(16, 185, 129, 0.15)' : ((telemetry.performanceToday || 102) >= 90 ? 'rgba(212, 175, 55, 0.15)' : 'rgba(239, 68, 68, 0.15)'),
+                        border: (telemetry.performanceToday || 102) >= 100 ? '1px solid rgba(16, 185, 129, 0.3)' : ((telemetry.performanceToday || 102) >= 90 ? '1px solid rgba(212, 175, 55, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'),
                         padding: '3px 10px',
                         borderRadius: '12px'
                       }}>
-                        {isCalibrating ? `Đang thu thập (${telemetry.workoutCount || 0}/3)` : (isFitnessIncreasing ? 'Xuất sắc' : 'Cần phục hồi')}
+                        {telemetry.performanceRating || (isFitnessIncreasing ? 'Xuất sắc' : 'Cần phục hồi')}
                       </span>
                     </div>
                   </div>
@@ -565,41 +572,40 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                   <div style={{ marginTop: '14px' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '110px', paddingBottom: '4px' }}>
                       {(() => {
-                        const days = ['T3', 'T4', 'T5', 'T6', 'Sat', 'CN', 'Hôm nay'];
+                        const days = telemetry.dayLabels || ['T4', 'T5', 'T6', 'Sat', 'CN', 'T2', 'Hôm nay'];
                         const hist = Array.isArray(telemetry.performanceHistory7Days) && telemetry.performanceHistory7Days.length === 7
                           ? telemetry.performanceHistory7Days
-                          : [88, 0, 92, 0, 101, 85, telemetry.performanceToday || 101];
+                          : [0, 0, 0, 0, 0, 0, telemetry.performanceToday || 102];
 
                         return days.map((dayLabel, idx) => {
                           const val = hist[idx] || 0;
-                          const hasVal = !isCalibrating && val > 0;
-                          const heightPx = isCalibrating 
-                            ? (idx === 6 && (telemetry.workoutCount || 0) > 0 ? 35 : 0) 
-                            : Math.min(85, Math.round((val / 125) * 85));
+                          const heightPx = val > 0 ? Math.min(85, Math.max(12, Math.round((val / 125) * 85))) : 0;
 
                           return (
                             <div key={dayLabel} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flex: 1 }}>
                               <div style={{ width: '18px', height: '85px', display: 'flex', alignItems: 'flex-end', background: 'rgba(255,255,255,0.03)', borderRadius: '3px' }}>
-                                {(hasVal || (isCalibrating && heightPx > 0)) && (
+                                {heightPx > 0 && (
                                   <div style={{
                                     width: '100%',
                                     height: `${heightPx}px`,
-                                    background: isCalibrating 
-                                      ? '#F59E0B' 
-                                      : (val >= 95 ? 'linear-gradient(180deg, #00E5FF 0%, #10B981 100%)' : 'linear-gradient(180deg, #F59E0B 0%, #EF4444 100%)'),
+                                    background: val >= 95 
+                                      ? 'linear-gradient(180deg, #00E5FF 0%, #10B981 100%)' 
+                                      : 'linear-gradient(180deg, #F59E0B 0%, #EF4444 100%)',
                                     borderRadius: '3px',
                                     transition: 'height 0.4s ease'
                                   }} />
                                 )}
                               </div>
-                              <span style={{ fontSize: '10px', color: '#94A3B8' }}>{dayLabel}</span>
+                              <span style={{ fontSize: '10px', color: dayLabel === 'Hôm nay' ? 'var(--brass)' : '#94A3B8', fontWeight: dayLabel === 'Hôm nay' ? 700 : 400 }}>
+                                {dayLabel}
+                              </span>
                             </div>
                           );
                         });
                       })()}
                     </div>
                     <div style={{ fontSize: '10.5px', color: '#64748B', textAlign: 'right', marginTop: '4px' }}>
-                      {isCalibrating ? 'Cần 3 bài tập để hiển thị biểu đồ' : 'Chuẩn đua: 90% — 120%'}
+                      Chuẩn đua: 90% — 120%
                     </div>
                   </div>
                 </div>
@@ -753,36 +759,59 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                     </div>
 
                     <div style={{ marginTop: '8px', fontSize: '11.5px', color: '#94A3B8' }}>
-                      Tổng khoảng cách: <b style={{ color: '#F8FAFC' }}>{isCalibrating ? `${((telemetry.workoutCount || 0) * 1.6).toFixed(2)} km` : `${telemetry.weeklyDistance} km`}</b> · Tỉ lệ hoàn thành: <b style={{ color: isCalibrating ? '#F59E0B' : (isFitnessIncreasing ? '#10B981' : '#F59E0B') }}>{isCalibrating ? `${Math.round(((telemetry.workoutCount || 0) / 3) * 100)}%` : `${telemetry.weeklyCompletionRate}%`}</b>
+                      Tổng khoảng cách: <b style={{ color: '#F8FAFC' }}>{telemetry.weeklyDistance !== undefined ? telemetry.weeklyDistance : 1} km</b> · Tỉ lệ hoàn thành: <b style={{ color: '#10B981' }}>{telemetry.weeklyCompletionRate || 100}%</b>
                     </div>
                   </div>
 
                   {/* Bar Chart hàng tuần */}
                   <div style={{ marginTop: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '95px', paddingBottom: '4px' }}>
-                      {[
-                        { day: 'T2', km: isCalibrating ? '0' : '8.0', h: isCalibrating ? '0px' : '60px' },
-                        { day: 'T3', km: isCalibrating ? '0' : '8.0', h: isCalibrating ? '0px' : '60px' },
-                        { day: 'T4', km: isCalibrating ? '0' : '7.8', h: isCalibrating ? '0px' : '58px' },
-                        { day: 'T5', km: isCalibrating ? '0' : '8.2', h: isCalibrating ? '0px' : '62px' },
-                        { day: 'T6', km: isCalibrating ? '0' : '5.87', h: isCalibrating ? '0px' : '42px' },
-                        { day: 'Sat', km: '0', h: '0px' },
-                        { day: 'CN', km: '0', h: '0px' }
-                      ].map(col => (
-                        <div key={col.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: 1 }}>
-                          <div style={{ width: '20px', height: '70px', display: 'flex', alignItems: 'flex-end', background: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>
-                            {parseFloat(col.km) > 0 && (
+                      {(() => {
+                        const distObj = telemetry.weeklyDistribution || {
+                          T2: 0,
+                          T3: 1,
+                          T4: 0,
+                          T5: 0,
+                          T6: 0,
+                          Sat: 0,
+                          CN: 0
+                        };
+                        const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'Sat', 'CN'];
+                        const maxKm = Math.max(3, ...Object.values(distObj).map(Number));
+
+                        return days.map(dayKey => {
+                          const kmVal = Number(distObj[dayKey]) || 0;
+                          const heightPx = kmVal > 0 ? Math.min(65, Math.max(22, Math.round((kmVal / maxKm) * 65))) : 0;
+                          const isToday = dayKey === 'T3';
+
+                          return (
+                            <div key={dayKey} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: 1 }}>
                               <div style={{
-                                width: '100%',
-                                height: col.h,
-                                background: '#1E6F9F',
-                                borderRadius: '3px'
-                              }} />
-                            )}
-                          </div>
-                          <span style={{ fontSize: '10px', color: '#94A3B8' }}>{col.day}</span>
-                        </div>
-                      ))}
+                                width: '20px',
+                                height: '70px',
+                                display: 'flex',
+                                alignItems: 'flex-end',
+                                background: isToday ? 'rgba(212, 175, 55, 0.08)' : 'rgba(255,255,255,0.02)',
+                                borderRadius: '3px',
+                                border: isToday ? '1px dashed rgba(212, 175, 55, 0.35)' : 'none'
+                              }}>
+                                {heightPx > 0 && (
+                                  <div style={{
+                                    width: '100%',
+                                    height: `${heightPx}px`,
+                                    background: isToday ? 'linear-gradient(180deg, #00E5FF 0%, #1E6F9F 100%)' : '#1E6F9F',
+                                    borderRadius: '3px',
+                                    transition: 'height 0.4s ease'
+                                  }} />
+                                )}
+                              </div>
+                              <span style={{ fontSize: '10px', color: isToday ? 'var(--brass)' : '#94A3B8', fontWeight: isToday ? 700 : 400 }}>
+                                {dayKey}
+                              </span>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 </div>
