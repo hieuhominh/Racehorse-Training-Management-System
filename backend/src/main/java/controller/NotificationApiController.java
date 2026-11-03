@@ -177,14 +177,9 @@ public class NotificationApiController extends HttpServlet {
                 return;
             }
 
-            String username = SecurityUtil.getString(body, "username", "").trim();
+            String username = SecurityUtil.getString(body, "username", "ALL").trim();
             boolean markAll = SecurityUtil.getBoolean(body, "markAll", false);
-            long notifId = SecurityUtil.getInt(body, "id", 0);
-
-            if (username.isEmpty()) {
-                SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST, "Vui lòng truyền username người đọc.");
-                return;
-            }
+            String notifIdStr = SecurityUtil.getString(body, "id", "").trim();
 
             synchronized (memoryNotifications) {
                 for (Map<String, Object> item : memoryNotifications) {
@@ -196,13 +191,13 @@ public class NotificationApiController extends HttpServlet {
                     }
 
                     if (markAll) {
-                        if (!readBy.contains(username)) {
-                            readBy.add(username);
-                        }
-                    } else if (notifId > 0 && String.valueOf(item.get("id")).equals(String.valueOf(notifId))) {
-                        if (!readBy.contains(username)) {
-                            readBy.add(username);
-                        }
+                        if (!readBy.contains(username)) readBy.add(username);
+                        if (!readBy.contains("ALL")) readBy.add("ALL");
+                        item.put("isRead", true);
+                    } else if (!notifIdStr.isEmpty() && String.valueOf(item.get("id")).equals(notifIdStr)) {
+                        if (!readBy.contains(username)) readBy.add(username);
+                        if (!readBy.contains("ALL")) readBy.add("ALL");
+                        item.put("isRead", true);
                     }
                 }
             }

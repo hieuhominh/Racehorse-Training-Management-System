@@ -3,13 +3,15 @@ import {
   getSystemNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
-  clearAllSystemNotifications
+  clearAllSystemNotifications,
+  isNotificationRead
 } from '../services/notificationService';
 import { getNotificationsApi } from '../services/api';
 
 export default function NotificationBell({ role = 'TRAINER', currentUser }) {
   const [notifications, setNotifications] = useState(() => getSystemNotifications());
   const [isOpen, setIsOpen] = useState(false);
+  const [filterTab, setFilterTab] = useState('ALL'); // 'ALL' | 'UNREAD'
   const dropdownRef = useRef(null);
 
   const username = currentUser?.username || 'user';
@@ -21,7 +23,14 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
     return n.recipientRoles.includes(roleCode) || n.recipientRoles.includes('ALL');
   });
 
-  const unreadCount = myNotifications.filter(n => !n.readBy || !n.readBy.includes(username)).length;
+  const unreadCount = myNotifications.filter(n => !isNotificationRead(n, username)).length;
+
+  const displayedNotifications = myNotifications.filter(n => {
+    if (filterTab === 'UNREAD') {
+      return !isNotificationRead(n, username);
+    }
+    return true;
+  });
 
   useEffect(() => {
     getNotificationsApi(roleCode, username).then(data => {
@@ -61,7 +70,15 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
   }, [isOpen]);
 
   const handleToggle = () => {
-    setIsOpen(prev => !prev);
+    setIsOpen(prev => {
+      const next = !prev;
+      // Khi người dùng bấm mở xem thông báo -> Tự động chuyển toàn bộ trạng thái sang đã đọc
+      if (next && unreadCount > 0) {
+        markAllNotificationsAsRead(username);
+        setNotifications(getSystemNotifications());
+      }
+      return next;
+    });
   };
 
   const handleMarkAllRead = () => {
@@ -130,8 +147,8 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
           position: 'absolute',
           top: '46px',
           right: 0,
-          width: '340px',
-          maxWidth: '90vw',
+          width: '350px',
+          maxWidth: '92vw',
           background: 'var(--bg-card)',
           border: '1px solid var(--line-strong)',
           borderRadius: '12px',
@@ -188,16 +205,62 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
             )}
           </div>
 
+          {/* Filter Bar */}
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            padding: '8px 16px',
+            background: 'rgba(0,0,0,0.18)',
+            borderBottom: '1px solid var(--line)'
+          }}>
+            <button
+              type="button"
+              onClick={() => setFilterTab('ALL')}
+              style={{
+                background: filterTab === 'ALL' ? 'rgba(212, 175, 55, 0.15)' : 'transparent',
+                color: filterTab === 'ALL' ? 'var(--brass)' : 'var(--paper-dim)',
+                border: filterTab === 'ALL' ? '1px solid var(--brass)' : '1px solid transparent',
+                borderRadius: '20px',
+                padding: '2px 10px',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              Tất cả ({myNotifications.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('UNREAD')}
+              style={{
+                background: filterTab === 'UNREAD' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                color: filterTab === 'UNREAD' ? '#EF4444' : 'var(--paper-dim)',
+                border: filterTab === 'UNREAD' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent',
+                borderRadius: '20px',
+                padding: '2px 10px',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              Chưa đọc ({unreadCount})
+            </button>
+          </div>
+
           {/* List */}
           <div style={{ maxHeight: '340px', overflowY: 'auto', padding: '6px 0' }}>
-            {myNotifications.length === 0 ? (
+            {displayedNotifications.length === 0 ? (
               <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--paper-dim)', fontSize: '12.5px' }}>
-                <div style={{ fontSize: '26px', marginBottom: '6px' }}>📭</div>
-                Hiện không có thông báo nào mới.
+                <div style={{ fontSize: '26px', marginBottom: '6px' }}>
+                  {filterTab === 'UNREAD' ? '🎉' : '📭'}
+                </div>
+                {filterTab === 'UNREAD'
+                  ? 'Bạn đã xem hết tất cả thông báo.'
+                  : 'Hiện không có thông báo nào.'}
               </div>
             ) : (
-              myNotifications.map(n => {
-                const isRead = n.readBy && n.readBy.includes(username);
+              displayedNotifications.map(n => {
+                const isRead = isNotificationRead(n, username);
                 const isHorseDeleted = n.type === 'HORSE_DELETED';
                 const isTrainingRequest = n.type === 'TRAINING_REQUEST';
                 const isServiceConfirmed = n.type === 'SERVICE_CONFIRMED';
@@ -234,10 +297,11 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
                     style={{
                       padding: '10px 14px',
                       borderBottom: '1px solid var(--line)',
-                      background: isRead ? 'transparent' : 'rgba(212, 175, 55, 0.05)',
+                      background: isRead ? 'transparent' : 'rgba(212, 175, 55, 0.06)',
                       cursor: 'pointer',
                       transition: 'background 0.2s ease',
-                      borderLeft: borderLeftColor
+                      borderLeft: borderLeftColor,
+                      opacity: isRead ? 0.75 : 1
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>

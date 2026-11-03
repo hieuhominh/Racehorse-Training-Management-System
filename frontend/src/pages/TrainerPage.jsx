@@ -23,6 +23,7 @@ import { getSystemNotifications, notifyServiceConfirmed } from '../services/noti
 import { 
   calculateHorseFitnessOnSession, 
   getHorseFitnessTelemetry, 
+  getAllHorsesTelemetry,
   getHorseSessionCount, 
   isHorseCalibrating, 
   REQUIRED_WORKOUTS_TO_EVALUATE 
@@ -526,22 +527,55 @@ export default function TrainerPage() {
 
     try {
       const saved = localStorage.getItem('matruong_trainer_horses_managed');
+      const allTel = getAllHorsesTelemetry();
+      const map = new Map();
+      defaultList.forEach(h => {
+        const k = (h.name || '').toLowerCase();
+        const tel = allTel[h.microchip] || allTel[h.id] || allTel[h.name];
+        if (tel && !tel.isCalibrating) {
+          map.set(k, {
+            ...h,
+            condition: tel.condition !== undefined ? (String(tel.condition).includes('%') ? tel.condition : `${tel.condition}%`) : h.condition,
+            trend: tel.trend || h.trend,
+            trendPercent: tel.trendPercent || h.trendPercent,
+            shortTermLoad: tel.shortTermLoad || h.shortTermLoad,
+            longTermLoad: tel.longTermLoad || h.longTermLoad,
+            loadRatio: tel.loadRatio || h.loadRatio,
+            recoveryPercent: tel.recoveryPercent || h.recoveryPercent,
+            performanceToday: tel.performanceToday || h.performanceToday,
+            maxSpeed: tel.maxSpeed || h.maxSpeed,
+            status: tel.status === 'READY' ? 'READY' : (parseFloat(tel.condition) < 80 ? 'WATCH' : h.status)
+          });
+        } else {
+          map.set(k, h);
+        }
+      });
+
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map();
-          defaultList.forEach(h => map.set(h.name.toLowerCase(), h));
           parsed.forEach(h => {
             const k = (h.name || '').toLowerCase();
-            if (map.has(k)) {
-              map.set(k, { ...map.get(k), ...h });
-            } else {
-              map.set(k, h);
+            const tel = allTel[h.microchip] || allTel[h.id] || allTel[h.name];
+            const existing = map.get(k) || {};
+            const mergedItem = { ...existing, ...h };
+            if (tel && !tel.isCalibrating) {
+              mergedItem.condition = tel.condition !== undefined ? (String(tel.condition).includes('%') ? tel.condition : `${tel.condition}%`) : mergedItem.condition;
+              mergedItem.trend = tel.trend || mergedItem.trend;
+              mergedItem.trendPercent = tel.trendPercent || mergedItem.trendPercent;
+              mergedItem.shortTermLoad = tel.shortTermLoad || mergedItem.shortTermLoad;
+              mergedItem.longTermLoad = tel.longTermLoad || mergedItem.longTermLoad;
+              mergedItem.loadRatio = tel.loadRatio || mergedItem.loadRatio;
+              mergedItem.recoveryPercent = tel.recoveryPercent || mergedItem.recoveryPercent;
+              mergedItem.performanceToday = tel.performanceToday || mergedItem.performanceToday;
+              if (tel.maxSpeed) mergedItem.maxSpeed = tel.maxSpeed;
             }
+            map.set(k, mergedItem);
           });
           return Array.from(map.values());
         }
       }
+      return Array.from(map.values());
     } catch {}
 
     return defaultList;
@@ -619,6 +653,15 @@ export default function TrainerPage() {
     });
   }, [serviceAssignments, currentUser]);
 
+  // Tự động lưu trainerHorses vào localStorage khi có thay đổi
+  useEffect(() => {
+    if (trainerHorses && trainerHorses.length > 0) {
+      try {
+        localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(trainerHorses));
+      } catch {}
+    }
+  }, [trainerHorses]);
+
   // 2. Danh sách giáo án huấn luyện (Training Programs)
   const [programs, setPrograms] = useState(() => {
     try {
@@ -676,6 +719,15 @@ export default function TrainerPage() {
     ];
   });
 
+  // Tự động lưu programs vào localStorage khi có thay đổi
+  useEffect(() => {
+    if (programs && programs.length > 0) {
+      try {
+        localStorage.setItem('matruong_trainer_programs', JSON.stringify(programs));
+      } catch {}
+    }
+  }, [programs]);
+
   // Nạp giáo án & danh sách chiến mã từ API Backend khi khởi động
   useEffect(() => {
     let isMounted = true;
@@ -692,7 +744,12 @@ export default function TrainerPage() {
           endDate: '30/10/2026',
           status: p.status || 'ACTIVE'
         }));
-        setPrograms(prev => [...mapped, ...prev.slice(mapped.length)]);
+        setPrograms(prev => {
+          const existingIds = new Set(prev.map(p => String(p.id)));
+          const existingKeys = new Set(prev.map(p => `${(p.horseName || '').toLowerCase()}_${(p.title || '').toLowerCase()}`));
+          const toAdd = mapped.filter(p => !existingIds.has(String(p.id)) && !existingKeys.has(`${(p.horseName || '').toLowerCase()}_${(p.title || '').toLowerCase()}`));
+          return [...prev, ...toAdd];
+        });
       }
     }).catch(() => {});
 
@@ -943,11 +1000,44 @@ export default function TrainerPage() {
     ];
   });
 
+  // Tự động lưu sessions vào localStorage khi có thay đổi
+  useEffect(() => {
+    if (sessions && sessions.length > 0) {
+      try {
+        localStorage.setItem('matruong_training_telemetry', JSON.stringify(sessions));
+      } catch {}
+    }
+  }, [sessions]);
+
+  // Đồng bộ telemetry từ Backend không ghi đè dữ liệu người dùng
   useEffect(() => {
     let isMounted = true;
     getTelemetrySessionsApi().then(res => {
       if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
-        setSessions(res.data);
+        setSessions(prev => {
+          const existingIds = new Set(prev.map(s => String(s.id)));
+          const toAdd = res.data
+            .filter(s => s && !existingIds.has(String(s.id)))
+            .map((s, idx) => ({
+              id: s.id || `be-${Date.now()}-${idx}`,
+              time: s.time || s.sessionTime || new Date().toLocaleString('vi-VN'),
+              horseName: s.horseName || s.horse || 'Chiến mã',
+              programTitle: s.programTitle || s.status || 'Bài tập rèn luyện',
+              distanceRun: s.distanceRun !== undefined ? s.distanceRun : (s.distance || 1200),
+              avgSpeed: s.avgSpeed !== undefined ? s.avgSpeed : (s.speed || 55.0),
+              maxHeartRate: s.maxHeartRate !== undefined ? s.maxHeartRate : (s.heartRate || 180),
+              isOverLimit: s.isOverLimit !== undefined ? s.isOverLimit : Boolean(s.alert),
+              status: s.status === 'Chạy nước rút' ? 'COMPLETED' : (s.status || 'COMPLETED'),
+              score: s.score !== undefined ? s.score : 8.5,
+              feedback: s.feedback || 'Hoàn thành bài tập.'
+            }));
+          if (toAdd.length === 0) return prev;
+          const merged = [...prev, ...toAdd];
+          try {
+            localStorage.setItem('matruong_training_telemetry', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       }
     }).catch(() => {});
     return () => { isMounted = false; };
@@ -1217,38 +1307,16 @@ export default function TrainerPage() {
     const targetHorse = trainerHorses.find(h => (h.name || '').toLowerCase() === (horseName || '').toLowerCase())
       || trainerHorses[0];
     if (targetHorse) {
-      const computed = calculateHorseFitnessOnSession(targetHorse, sessionObj);
-      setTrainerHorses(prev => prev.map(h => {
-        if ((h.name || '').toLowerCase() === (targetHorse.name || '').toLowerCase() || h.id === targetHorse.id) {
-          return {
-            ...h,
-            condition: computed.condition,
-            trend: computed.trend,
-            trendPercent: computed.trendPercent,
-            shortTermLoad: computed.shortTermLoad,
-            longTermLoad: computed.longTermLoad,
-            loadRatio: computed.loadRatio,
-            recoveryPercent: computed.recoveryPercent,
-            performanceToday: computed.performanceToday,
-            maxSpeed: computed.maxSpeed,
-            status: computed.status === 'READY' ? 'READY' : (computed.condition < 80 ? 'OBSERVATION' : h.status)
-          };
-        }
-        return h;
-      }));
-    }
-  };
-
-  // Lắng nghe sự kiện cập nhật viễn trắc từ Modal hoặc các dịch vụ khác
-  useEffect(() => {
-    const handleFitnessUpdate = (e) => {
-      const { horse: updatedH, telemetry: computed } = e.detail || {};
-      if (updatedH && computed) {
-        setTrainerHorses(prev => prev.map(h => {
-          if ((h.name || '').toLowerCase() === (updatedH.name || '').toLowerCase() || h.id === updatedH.id || h.microchip === updatedH.microchip) {
+      const computed = calculateHorseFitnessOnSession(targetHorse, sessionObj, sessions);
+      setTrainerHorses(prev => {
+        const next = prev.map(h => {
+          if ((h.name || '').toLowerCase() === (targetHorse.name || '').toLowerCase() || h.id === targetHorse.id) {
+            const condStr = typeof computed.condition === 'number'
+              ? `${computed.condition}%`
+              : (String(computed.condition).includes('%') ? computed.condition : (computed.conditionVal ? `${computed.conditionVal}%` : computed.condition));
             return {
               ...h,
-              condition: computed.condition,
+              condition: condStr,
               trend: computed.trend,
               trendPercent: computed.trendPercent,
               shortTermLoad: computed.shortTermLoad,
@@ -1257,11 +1325,51 @@ export default function TrainerPage() {
               recoveryPercent: computed.recoveryPercent,
               performanceToday: computed.performanceToday,
               maxSpeed: computed.maxSpeed,
-              status: computed.status === 'READY' ? 'READY' : (computed.condition < 80 ? 'OBSERVATION' : h.status)
+              status: computed.status === 'READY' ? 'READY' : (parseFloat(computed.condition) < 80 ? 'OBSERVATION' : h.status)
             };
           }
           return h;
-        }));
+        });
+        try {
+          localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    }
+  };
+
+  // Lắng nghe sự kiện cập nhật viễn trắc từ Modal hoặc các dịch vụ khác
+  useEffect(() => {
+    const handleFitnessUpdate = (e) => {
+      const { horse: updatedH, telemetry: computed } = e.detail || {};
+      if (updatedH && computed) {
+        setTrainerHorses(prev => {
+          const next = prev.map(h => {
+            if ((h.name || '').toLowerCase() === (updatedH.name || '').toLowerCase() || h.id === updatedH.id || h.microchip === updatedH.microchip) {
+              const condStr = typeof computed.condition === 'number'
+                ? `${computed.condition}%`
+                : (String(computed.condition).includes('%') ? computed.condition : (computed.conditionVal ? `${computed.conditionVal}%` : computed.condition));
+              return {
+                ...h,
+                condition: condStr,
+                trend: computed.trend,
+                trendPercent: computed.trendPercent,
+                shortTermLoad: computed.shortTermLoad,
+                longTermLoad: computed.longTermLoad,
+                loadRatio: computed.loadRatio,
+                recoveryPercent: computed.recoveryPercent,
+                performanceToday: computed.performanceToday,
+                maxSpeed: computed.maxSpeed,
+                status: computed.status === 'READY' ? 'READY' : (parseFloat(computed.condition) < 80 ? 'OBSERVATION' : h.status)
+              };
+            }
+            return h;
+          });
+          try {
+            localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }
     };
     window.addEventListener('racehorse-fitness-updated', handleFitnessUpdate);
@@ -1353,12 +1461,18 @@ export default function TrainerPage() {
   const handleUpdateFeedback = (e) => {
     e.preventDefault();
     if (!selectedSession) return;
-    setSessions(prev => prev.map(s => s.id === selectedSession.id ? {
-      ...s,
-      status: selectedSession.status,
-      score: Number(selectedSession.score),
-      feedback: selectedSession.feedback
-    } : s));
+    setSessions(prev => {
+      const next = prev.map(s => s.id === selectedSession.id ? {
+        ...s,
+        status: selectedSession.status,
+        score: Number(selectedSession.score),
+        feedback: selectedSession.feedback
+      } : s);
+      try {
+        localStorage.setItem('matruong_training_telemetry', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
 
     // Kích hoạt thuật toán cập nhật thể lực ngay lập tức
     applyFitnessAlgorithm(selectedSession.horseName, selectedSession);

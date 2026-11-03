@@ -2104,7 +2104,22 @@ export async function getNotificationsApi(role = 'ALL', username = '') {
     });
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data) && data.length > 0) {
+        try {
+          const rawRead = localStorage.getItem('matruong_read_notification_ids');
+          const readIds = rawRead ? new Set(JSON.parse(rawRead).map(String)) : new Set();
+          return data.map(item => {
+            const isRead = item.isRead === true || readIds.has(String(item.id)) || (Array.isArray(item.readBy) && (item.readBy.includes(username) || item.readBy.includes('ALL')));
+            return {
+              ...item,
+              isRead,
+              readBy: isRead && (!item.readBy || item.readBy.length === 0) ? ['ALL'] : (item.readBy || [])
+            };
+          });
+        } catch {
+          return data;
+        }
+      }
     }
   } catch {}
   return getLocalData('matruong_system_notifications', []);
