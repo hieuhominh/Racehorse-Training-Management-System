@@ -54,93 +54,24 @@ export const REPORT_STATUSES = [
   { id: 'DISMISSED', label: 'Bác bỏ (Không đủ cơ sở)', color: '#6B7280', badgeBg: 'rgba(107, 114, 128, 0.15)' }
 ];
 
-const INITIAL_REPORTS = [
-  {
-    id: 1730001001,
-    ownerName: 'Hồ Minh Hiếu',
-    ownerKey: 'owner_hieu',
-    ownerPhone: '0909.888.777',
-    targetRole: 'TRAINER',
-    targetPersonnelId: 'trainer_nghia',
-    targetName: 'Lê Trọng Nghĩa',
-    targetTitle: 'HLV Chuyên Cự Ly Dài & Sân Cỏ',
-    horseId: 1,
-    horseName: 'Vui Vẻ',
-    stall: 'Ô C2 (Block C - 14 m²)',
-    category: 'Vi phạm giờ giấc, trễ hẹn hoặc tự ý hủy buổi tập',
-    severity: 'MEDIUM',
-    title: 'HLV trễ giờ tập 45 phút không thông báo trước cho Chủ sở hữu',
-    content: 'Sáng hôm qua tôi đến sân tập từ 06:15 để đón xem chiến mã Vui Vẻ tập luyện chung, nhưng HLV Lê Trọng Nghĩa đến trễ tới 45 phút và không hề chủ động nhắn tin giải thích lý do, làm lỡ bài đo viễn trắc sải chân buổi sáng.',
-    evidenceNote: 'Đã lưu trích xuất camera cổng bãi tập lúc 06:30 - 07:15 sáng.',
-    status: 'PENDING',
-    createdAt: '02/11/2026 15:45',
-    adminNotes: '',
-    adminAction: '',
-    adminFeedback: '',
-    resolvedBy: null,
-    resolvedAt: null
-  },
-  {
-    id: 1730001002,
-    ownerName: 'Phạm Tiến Thành',
-    ownerKey: 'owner_thanh',
-    ownerPhone: '0918.223.344',
-    targetRole: 'CARETAKER',
-    targetPersonnelId: 'care_bay',
-    targetName: 'Nguyễn Văn Bảy',
-    targetTitle: 'Trưởng nhóm Chăm sóc Block A (Vệ sinh & Tắm ngựa)',
-    horseId: 2,
-    horseName: 'Xích Thố',
-    stall: 'Ô A1 (Block A - 18 m²)',
-    category: 'Vệ sinh ô chuồng ẩm mốc, khẩu phần dinh dưỡng kém',
-    severity: 'HIGH',
-    title: 'Ô chuồng ẩm ướt, đệm rơm chưa được thay mới đúng tiêu chuẩn',
-    content: 'Tôi tới thăm ngựa lúc 16h thì thấy đệm lót rơm ở ô chuồng A1 ẩm mốc nồng nặc và có mùi amoniac nặng, chưa được thu dọn phân sạch sẽ. Điều này rất dễ gây viêm móng và bệnh hô hấp cho chiến mã Xích Thố trước thềm thi đấu.',
-    evidenceNote: 'Hình ảnh ô chuồng ẩm và rơm mốc đã gửi qua tin nhắn cho Ban Quản lý.',
-    status: 'INVESTIGATING',
-    createdAt: '01/11/2026 10:20',
-    adminNotes: 'Giám sát viên đã xuống lập biên bản hiện trường Block A lúc 11:00.',
-    adminAction: 'Yêu cầu kiểm điểm nhân viên Nguyễn Văn Bảy, tổng vệ sinh khử trùng và thay rơm mới 100% toàn bộ dãy chuồng A.',
-    adminFeedback: 'Ban Quản trị đã trực tiếp xử lý: Đã thay mới đệm rơm thơm khô 100%, khử trùng tiêu độc ô chuồng A1 và phạt trừ thi đua đối với nhân viên chăm sóc phụ trách.',
-    resolvedBy: 'admin',
-    resolvedAt: '01/11/2026 16:30'
-  },
-  {
-    id: 1730001003,
-    ownerName: 'Nguyễn Thanh Tùng',
-    ownerKey: 'owner_tung',
-    ownerPhone: '0977.112.233',
-    targetRole: 'VET',
-    targetPersonnelId: 'vet_long',
-    targetName: 'BS. Vũ Hoàng Long',
-    targetTitle: 'Chuyên gia Cơ - Xương - Khớp & Chấn thương',
-    horseId: 3,
-    horseName: 'Phi Yến',
-    stall: 'Ô B3 (Block B - 16 m²)',
-    category: 'Thiếu trách nhiệm khám chữa, chậm trễ y tế',
-    severity: 'MEDIUM',
-    title: 'Bác sĩ chậm phản hồi kết quả chụp X-quang khớp gối sau buổi tập',
-    content: 'Chiến mã Phi Yến có dấu hiệu tễ chân sau đợt bứt tốc, tôi đã đề nghị BS Long tiến hành chụp X-quang và siêu âm cơ lúc 09h sáng nhưng đến tận 17h chiều vẫn chưa nhận được kết luận y bạ và đơn thuốc hồi phục.',
-    evidenceNote: 'Biên lai tiếp nhận phiếu xét nghiệm số YB-2026-904.',
-    status: 'RESOLVED',
-    createdAt: '31/10/2026 18:00',
-    adminNotes: 'Đã trao đổi với Trưởng khoa Thú y BS. Mai để rà soát quy trình trả kết quả.',
-    adminAction: 'Nhắc nhở BS Long, bổ sung nhân viên kỹ thuật trực hỗ trợ trả ảnh X-quang trong vòng 2 giờ.',
-    adminFeedback: 'Bác sĩ Long đã giải trình do có ca mổ khẩn cấp cho chiến mã khác vào trưa cùng ngày. Đã gửi hồ sơ chẩn đoán hoàn chỉnh đến Chủ sở hữu kèm phác đồ chườm lạnh hồi phục.',
-    resolvedBy: 'admin',
-    resolvedAt: '01/11/2026 09:00'
-  }
-];
+const INITIAL_REPORTS = [];
 
 export function getPersonnelReports() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        // Lọc sạch các khiếu nại mẫu ban đầu (nếu còn sót trong localStorage)
+        const cleaned = parsed.filter(r => r && r.id !== 1730001001 && r.id !== 1730001002 && r.id !== 1730001003);
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+        }
+        return cleaned;
+      }
     }
   } catch {}
-  return INITIAL_REPORTS;
+  return [];
 }
 
 export function savePersonnelReports(list) {

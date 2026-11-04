@@ -1412,6 +1412,8 @@ export default function TrainerPage() {
       localStorage.setItem('matruong_trainer_programs', JSON.stringify(updatedPrograms));
     } catch {}
     saveTrainingProgramApi(newProg).catch(() => {});
+    window.dispatchEvent(new CustomEvent('trainer-programs-updated', { detail: { horseName: newProgramData.horseName, program: newProg } }));
+    window.dispatchEvent(new Event('storage'));
 
     showToast(`Đã tạo giáo án mới cho ${newProgramData.horseName}`);
     setShowAddProgramModal(false);
@@ -1441,6 +1443,8 @@ export default function TrainerPage() {
       localStorage.setItem('matruong_trainer_programs', JSON.stringify(updated));
     } catch {}
     deleteTrainingProgramApi(progId).catch(() => {});
+    window.dispatchEvent(new CustomEvent('trainer-programs-updated', { detail: { horseName: progHorse, deletedId: progId } }));
+    window.dispatchEvent(new Event('storage'));
 
     showToast(`Đã xóa bài tập "${progTitle}" của chiến mã ${progHorse}!`, 'ĐÃ XÓA BÀI TẬP', 'info');
     setDeleteTargetProgram(null);
@@ -5529,6 +5533,7 @@ setTrainerHorses(prev => {
       {/* Modal Đánh Giá Thể Lực & Telemetry Chuyên Sâu EvoLab */}
       {fitnessDetailModalHorse && (
         <RacehorseFitnessDetailModal
+          isTrainer={true}
           horse={fitnessDetailModalHorse}
           sessions={sessions}
           onClose={() => setFitnessDetailModalHorse(null)}

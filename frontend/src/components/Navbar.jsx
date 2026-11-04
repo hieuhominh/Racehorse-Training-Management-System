@@ -214,6 +214,7 @@ export default function Navbar({ onOpenAuth }) {
               <a
                 className="btn btn-ghost nav-signup-btn"
                 href="#register"
+                style={{ padding: '9px 26px', minWidth: '112px', textAlign: 'center', whiteSpace: 'nowrap' }}
                 onClick={(e) => {
                   if (onOpenAuth) {
                     e.preventDefault();

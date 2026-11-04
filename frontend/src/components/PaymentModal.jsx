@@ -1,43 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
 
-// Danh sách đầy đủ tất cả các ngân hàng đang hoạt động tại Việt Nam (chuẩn Napas/NHNN & logo chính thức)
-const VN_BANKS = [
-  { code: 'VCB', shortName: 'Vietcombank', name: 'Ngân hàng Ngoại thương Việt Nam', bin: '970436', logoCode: 'VCB' },
-  { code: 'MB', shortName: 'MBBank', name: 'Ngân hàng TMCP Quân đội', bin: '970422', logoCode: 'MB' },
-  { code: 'TCB', shortName: 'Techcombank', name: 'Ngân hàng Kỹ thương Việt Nam', bin: '970407', logoCode: 'TCB' },
-  { code: 'CTG', shortName: 'VietinBank', name: 'Ngân hàng Công thương Việt Nam', bin: '970415', logoCode: 'ICB' },
-  { code: 'BIDV', shortName: 'BIDV', name: 'Ngân hàng Đầu tư và Phát triển VN', bin: '970418', logoCode: 'BIDV' },
-  { code: 'ACB', shortName: 'ACB', name: 'Ngân hàng Á Châu', bin: '970416', logoCode: 'ACB' },
-  { code: 'VPB', shortName: 'VPBank', name: 'Ngân hàng Việt Nam Thịnh Vượng', bin: '970432', logoCode: 'VPB' },
-  { code: 'TPB', shortName: 'TPBank', name: 'Ngân hàng Tiên Phong', bin: '970423', logoCode: 'TPB' },
-  { code: 'VIB', shortName: 'VIB', name: 'Ngân hàng Quốc tế Việt Nam', bin: '970441', logoCode: 'VIB' },
-  { code: 'STB', shortName: 'Sacombank', name: 'Ngân hàng Sài Gòn Thương Tín', bin: '970403', logoCode: 'STB' },
-  { code: 'HDB', shortName: 'HDBank', name: 'Ngân hàng Phát triển TP.HCM', bin: '970437', logoCode: 'HDB' },
-  { code: 'SHB', shortName: 'SHB', name: 'Ngân hàng Sài Gòn - Hà Nội', bin: '970443', logoCode: 'SHB' },
-  { code: 'MSB', shortName: 'MSB', name: 'Ngân hàng Hàng Hải Việt Nam', bin: '970426', logoCode: 'MSB' },
-  { code: 'OCB', shortName: 'OCB', name: 'Ngân hàng Phương Đông', bin: '970448', logoCode: 'OCB' },
-  { code: 'LPB', shortName: 'LPBank', name: 'Ngân hàng Lộc Phát Việt Nam', bin: '970449', logoCode: 'LPB' },
-  { code: 'SEAB', shortName: 'SeABank', name: 'Ngân hàng Đông Nam Á', bin: '970440', logoCode: 'SEAB' },
-  { code: 'AGR', shortName: 'Agribank', name: 'Ngân hàng Nông nghiệp & PTNT Việt Nam', bin: '970405', logoCode: 'VBA' },
-  { code: 'EIB', shortName: 'Eximbank', name: 'Ngân hàng Xuất Nhập Khẩu', bin: '970431', logoCode: 'EIB' },
-  { code: 'NAB', shortName: 'Nam A Bank', name: 'Ngân hàng Nam Á', bin: '970428', logoCode: 'NAB' },
-  { code: 'VAB', shortName: 'VietABank', name: 'Ngân hàng Việt Á', bin: '970427', logoCode: 'VAB' },
-  { code: 'BAB', shortName: 'Bac A Bank', name: 'Ngân hàng Bắc Á', bin: '970409', logoCode: 'BAB' },
-  { code: 'BVB', shortName: 'BaoViet Bank', name: 'Ngân hàng Bảo Việt', bin: '970438', logoCode: 'BVB' },
-  { code: 'KLB', shortName: 'KienlongBank', name: 'Ngân hàng Kiên Long', bin: '970452', logoCode: 'KLB' },
-  { code: 'SGB', shortName: 'Saigonbank', name: 'Ngân hàng Sài Gòn Công Thương', bin: '970400', logoCode: 'SGICB' },
-  { code: 'PVC', shortName: 'PVcomBank', name: 'Ngân hàng Đại Chúng Việt Nam', bin: '970412', logoCode: 'PVCB' },
-  { code: 'PGB', shortName: 'PGBank', name: 'Ngân hàng Thịnh vượng và Phát triển', bin: '970430', logoCode: 'PGB' },
-  { code: 'ABB', shortName: 'ABBANK', name: 'Ngân hàng An Bình', bin: '970425', logoCode: 'ABB' },
-  { code: 'NCB', shortName: 'NCB', name: 'Ngân hàng Quốc Dân', bin: '970419', logoCode: 'NCB' },
-  { code: 'SCB', shortName: 'SCB', name: 'Ngân hàng TMCP Sài Gòn', bin: '970429', logoCode: 'SCB' },
-  { code: 'SHINHAN', shortName: 'Shinhan Bank', name: 'Ngân hàng Shinhan Việt Nam', bin: '970424', logoCode: 'SHBVN' },
-  { code: 'HSBC', shortName: 'HSBC', name: 'Ngân hàng TNHH MTV HSBC Việt Nam', bin: '445094', logoCode: 'HSBC' },
-  { code: 'WOORI', shortName: 'Woori Bank', name: 'Ngân hàng Woori Việt Nam', bin: '970457', logoCode: 'WVN' },
-  { code: 'SC', shortName: 'Standard Chartered', name: 'Ngân hàng Standard Chartered VN', bin: '970410', logoCode: 'SCVN' },
-  { code: 'PBVN', shortName: 'Public Bank', name: 'Ngân hàng Public Bank Việt Nam', bin: '970439', logoCode: 'PBVN' }
-];
+// Ngân hàng nhận thanh toán cố định của Trường đua (chuẩn VietQR / Napas 24/7)
+const RECEIVING_BANK = {
+  code: 'VCB',
+  shortName: 'Vietcombank',
+  name: 'Ngân hàng TMCP Ngoại thương Việt Nam',
+  bin: '970436',
+  logoCode: 'VCB'
+};
 
 export default function PaymentModal({
   isOpen,
@@ -49,11 +20,17 @@ export default function PaymentModal({
   const { showToast } = useToast();
 
   const [paymentMethod, setPaymentMethod] = useState('VIETQR'); // 'VIETQR' | 'CARD' | 'PAYPAL'
-  const [selectedBank, setSelectedBank] = useState(VN_BANKS[0]); // Mặc định Vietcombank
-  const [bankSearch, setBankSearch] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [transactionReceipt, setTransactionReceipt] = useState(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsProcessing(false);
+      setIsSuccess(false);
+      setTransactionReceipt(null);
+    }
+  }, [isOpen]);
 
   // Dữ liệu thẻ Visa / Mastercard
   const [cardData, setCardData] = useState({
@@ -65,17 +42,6 @@ export default function PaymentModal({
 
   // Dữ liệu PayPal
   const [paypalEmail, setPaypalEmail] = useState('');
-
-  // Lọc ngân hàng theo ô tìm kiếm
-  const filteredBanks = useMemo(() => {
-    if (!bankSearch.trim()) return VN_BANKS;
-    const q = bankSearch.toLowerCase().trim();
-    return VN_BANKS.filter(
-      b => b.code.toLowerCase().includes(q) ||
-           b.shortName.toLowerCase().includes(q) ||
-           b.name.toLowerCase().includes(q)
-    );
-  }, [bankSearch]);
 
   if (!isOpen) return null;
 
@@ -151,7 +117,7 @@ export default function PaymentModal({
         amount: currentAmount,
         amountFormatted: formattedVND,
         method: paymentMethod === 'VIETQR' 
-          ? `Ngân hàng ${selectedBank.shortName} (VietQR)` 
+          ? `Quét mã VietQR (${RECEIVING_BANK.shortName})` 
           : paymentMethod === 'CARD' 
           ? `Thẻ quốc tế (Visa/Mastercard ending ${cardData.number.slice(-4) || '****'})` 
           : `PayPal (${paypalEmail})`,
@@ -174,15 +140,15 @@ export default function PaymentModal({
   return (
     <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999999 }}>
       <div
-        className="modal-box"
+        className="modal-box custom-scrollbar"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--bg-card)',
           maxWidth: '720px',
           width: '94%',
-          maxHeight: '92vh',
+          maxHeight: '90vh',
           overflowY: 'auto',
-          padding: '24px',
+          padding: '24px 20px 24px 24px',
           border: '1.5px solid var(--brass)',
           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.45)',
           borderRadius: '12px'
@@ -316,10 +282,18 @@ export default function PaymentModal({
               </div>
 
               <div style={{ textAlign: 'right' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', marginBottom: '2px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--paper-dim)', textDecoration: 'line-through' }}>
+                    {packageData.cycle === 'year' ? '89.000.000 đ' : '9.900.000 đ'}
+                  </span>
+                  <span style={{ fontSize: '10.5px', color: '#10B981', background: 'rgba(16, 185, 129, 0.15)', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
+                    {packageData.cycle === 'year' ? 'Ưu đãi -60%' : 'Ưu đãi -65%'}
+                  </span>
+                </div>
                 <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
                   SỐ TIỀN CẦN THANH TOÁN
                 </div>
-                <b style={{ fontSize: '20px', color: 'var(--paper)', fontFamily: 'var(--display)' }}>
+                <b style={{ fontSize: '22px', color: '#10B981', fontFamily: 'var(--display)' }}>
                   {formattedVND}
                 </b>
                 <div style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 600 }}>
@@ -353,8 +327,8 @@ export default function PaymentModal({
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <span style={{ fontSize: '18px' }}>🏦</span>
-                  <span>Ngân hàng VN (VietQR)</span>
+                  <span style={{ fontSize: '18px' }}>📱</span>
+                  <span>Quét mã VietQR</span>
                 </button>
 
                 <button
@@ -405,7 +379,7 @@ export default function PaymentModal({
               </div>
             </div>
 
-            {/* NỘI DUNG 1: CHUYỂN KHOẢN TẤT CẢ NGÂN HÀNG VIỆT NAM (VIETQR / 247) */}
+            {/* NỘI DUNG 1: CHUYỂN KHOẢN QUA MÃ QR (VIETQR / NAPAS 24/7) */}
             {paymentMethod === 'VIETQR' && (
               <div style={{
                 background: 'var(--bg-secondary)',
@@ -414,136 +388,34 @@ export default function PaymentModal({
                 padding: '16px',
                 marginBottom: '18px'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <b style={{ fontSize: '13px', color: 'var(--paper)' }}>
-                    Chọn ngân hàng chuyển khoản ({VN_BANKS.length} ngân hàng Việt Nam):
-                  </b>
-                  <span style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 600 }}>
-                    ⚡ Napas 24/7 tức thì
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>📱</span>
+                    <b style={{ fontSize: '13.5px', color: 'var(--paper)' }}>
+                      Thanh toán chuyển khoản qua mã QR (VietQR / Napas 24/7)
+                    </b>
+                  </div>
+                  <span style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 600, background: 'rgba(212, 175, 55, 0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                    ⚡ Quét bằng app ngân hàng bất kỳ
                   </span>
-                </div>
-
-                {/* Ô tìm kiếm nhanh ngân hàng */}
-                <div style={{ marginBottom: '10px' }}>
-                  <input
-                    type="text"
-                    value={bankSearch}
-                    onChange={(e) => setBankSearch(e.target.value)}
-                    placeholder="🔍 Tìm nhanh ngân hàng: Vietcombank, MB, Techcombank, BIDV, VPBank..."
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--line)',
-                      borderRadius: '6px',
-                      color: 'var(--paper)',
-                      fontSize: '12.5px'
-                    }}
-                  />
-                </div>
-
-                {/* Danh sách cuộn chọn ngân hàng */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(138px, 1fr))',
-                  gap: '7px',
-                  maxHeight: '145px',
-                  overflowY: 'auto',
-                  paddingRight: '4px',
-                  marginBottom: '14px',
-                  border: '1px solid var(--line)',
-                  borderRadius: '6px',
-                  padding: '8px',
-                  background: 'var(--bg-card)'
-                }}>
-                  {filteredBanks.map(b => {
-                    const isSelected = selectedBank.code === b.code;
-                    return (
-                      <button
-                        key={b.code}
-                        type="button"
-                        onClick={() => setSelectedBank(b)}
-                        style={{
-                          padding: '6px 8px',
-                          borderRadius: '6px',
-                          background: isSelected ? 'rgba(212, 175, 55, 0.2)' : 'var(--bg-secondary)',
-                          border: `1.5px solid ${isSelected ? 'var(--brass)' : 'var(--line)'}`,
-                          color: isSelected ? 'var(--brass)' : 'var(--paper)',
-                          fontSize: '11.5px',
-                          fontWeight: isSelected ? 700 : 500,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '7px',
-                          textAlign: 'left',
-                          transition: 'all 0.15s ease',
-                          overflow: 'hidden'
-                        }}
-                        title={`${b.shortName} - ${b.name}`}
-                      >
-                        <div style={{
-                          width: '30px',
-                          height: '20px',
-                          borderRadius: '3px',
-                          background: '#FFFFFF',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: '1px 2px',
-                          flexShrink: 0,
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                          overflow: 'hidden'
-                        }}>
-                          <img
-                            src={`https://cdn.vietqr.io/img/${b.logoCode}.png`}
-                            alt={b.shortName}
-                            loading="lazy"
-                            style={{
-                              maxWidth: '100%',
-                              maxHeight: '100%',
-                              objectFit: 'contain',
-                              display: 'block'
-                            }}
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              if (e.currentTarget.parentNode) {
-                                e.currentTarget.parentNode.innerText = b.shortName.slice(0, 3).toUpperCase();
-                                e.currentTarget.parentNode.style.fontSize = '8px';
-                                e.currentTarget.parentNode.style.fontWeight = 'bold';
-                                e.currentTarget.parentNode.style.color = '#334155';
-                              }
-                            }}
-                          />
-                        </div>
-                        <span style={{
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          flex: 1
-                        }}>
-                          {b.shortName}
-                        </span>
-                      </button>
-                    );
-                  })}
                 </div>
 
                 {/* Chi tiết mã QR và thông tin chuyển khoản */}
                 <div style={{
                   display: 'flex',
-                  gap: '16px',
+                  gap: '18px',
                   alignItems: 'center',
                   background: 'var(--bg-card)',
-                  padding: '14px',
+                  padding: '16px',
                   borderRadius: '8px',
                   border: '1px solid var(--line)',
                   flexWrap: 'wrap'
                 }}>
-                  {/* Mã QR giả lập chuẩn VietQR */}
-                  <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                  {/* Mã QR chuẩn VietQR */}
+                  <div style={{ textAlign: 'center', flexShrink: 0, margin: '0 auto' }}>
                     <div style={{
-                      width: '130px',
-                      height: '130px',
+                      width: '150px',
+                      height: '150px',
                       background: '#FFFFFF',
                       borderRadius: '8px',
                       padding: '8px',
@@ -555,16 +427,15 @@ export default function PaymentModal({
                       border: '1px solid #E2E8F0'
                     }}>
                       <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=114x114&data=247|${selectedBank.bin}|${bankAccountNo}|${currentAmount}|${encodeURIComponent(transferMemo)}`}
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=134x134&data=247|${RECEIVING_BANK.bin}|${bankAccountNo}|${currentAmount}|${encodeURIComponent(transferMemo)}`}
                         alt="VietQR Chuyển khoản"
-                        style={{ width: '114px', height: '114px', display: 'block' }}
+                        style={{ width: '134px', height: '134px', display: 'block' }}
                         onError={(e) => {
-                          // Fallback nếu không có internet: hiển thị QR CSS mockup
                           e.target.style.display = 'none';
                         }}
                       />
                     </div>
-                    <div style={{ fontSize: '10.5px', color: 'var(--brass)', fontWeight: 700, marginTop: '4px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 700, marginTop: '6px' }}>
                       Quét mã VietQR 24/7
                     </div>
                   </div>
@@ -588,14 +459,14 @@ export default function PaymentModal({
                           flexShrink: 0
                         }}>
                           <img
-                            src={`https://cdn.vietqr.io/img/${selectedBank.logoCode}.png`}
-                            alt={selectedBank.shortName}
+                            src={`https://cdn.vietqr.io/img/${RECEIVING_BANK.logoCode}.png`}
+                            alt={RECEIVING_BANK.shortName}
                             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                             onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           />
                         </div>
                         <b style={{ color: 'var(--paper)', fontSize: '12.5px' }}>
-                          {selectedBank.shortName} ({selectedBank.code})
+                          {RECEIVING_BANK.shortName} ({RECEIVING_BANK.code})
                         </b>
                       </div>
                     </div>
@@ -648,6 +519,8 @@ export default function PaymentModal({
                     </div>
                   </div>
                 </div>
+
+
               </div>
             )}
 

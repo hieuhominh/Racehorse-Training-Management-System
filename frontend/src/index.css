@@ -1,4 +1,4 @@
-﻿:root,
+:root,
 [data-theme="dark"] {
   --theme-name: "dark";
   --bg-body: #1A2E25;
@@ -545,7 +545,22 @@ header.nav {
   align-items: center;
 }
 
-/* ---------- Theme Toggle Button ---------- */
+/* ---------- Theme Toggle Button & Slide Animation ---------- */
+@keyframes slideRightToLeft {
+  0% {
+    transform: translateX(22px);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(-3px);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 .theme-toggle-btn {
   display: inline-flex;
   align-items: center;
@@ -563,6 +578,35 @@ header.nav {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: var(--shadow-sm);
   user-select: none;
+  overflow: hidden;
+  position: relative;
+}
+
+.theme-toggle-slider-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  animation: slideRightToLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.theme-toggle-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-icon-sun {
+  color: #F59E0B !important;
+  stroke: #F59E0B !important;
+  filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.45));
+  transition: transform 0.3s ease;
+}
+
+.theme-icon-moon {
+  color: #38BDF8 !important;
+  stroke: #38BDF8 !important;
+  filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.4));
+  transition: transform 0.3s ease;
 }
 
 .theme-toggle-btn:hover {
@@ -572,6 +616,14 @@ header.nav {
   box-shadow: 0 4px 14px var(--brass-glow);
 }
 
+.theme-toggle-btn:hover .theme-icon-sun {
+  transform: rotate(45deg) scale(1.15);
+}
+
+.theme-toggle-btn:hover .theme-icon-moon {
+  transform: rotate(-20deg) scale(1.15);
+}
+
 .theme-toggle-icon {
   font-size: 15px;
   line-height: 1;
@@ -579,10 +631,6 @@ header.nav {
   align-items: center;
   justify-content: center;
   transition: transform 0.3s ease;
-}
-
-.theme-toggle-btn:hover .theme-toggle-icon {
-  transform: rotate(25deg) scale(1.15);
 }
 
 .theme-toggle-label {
@@ -7651,6 +7699,19 @@ header.nav {
   color: rgba(232,237,232,0.80) !important;
 }
 
+[data-theme="light"] .theme-toggle-btn,
+.theme-toggle-btn.is-light {
+  background: #FFFFFF !important;
+  border-color: rgba(15, 23, 42, 0.18) !important;
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .theme-toggle-btn .theme-toggle-label,
+.theme-toggle-btn.is-light .theme-toggle-label {
+  color: #0F172A !important;
+  font-weight: 700 !important;
+}
+
 .theme-toggle-btn:hover {
   background: rgba(232,237,232,0.15) !important;
   border-color: #E86B2C !important;
@@ -7673,14 +7734,34 @@ header.nav {
 }
 
 .nav-signup-btn {
-  color: rgba(232,237,232,0.80) !important;
-  border-color: rgba(232,237,232,0.25) !important;
+  color: rgba(232,237,232,0.90) !important;
+  border-color: rgba(232,237,232,0.28) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+  padding: 9px 26px !important;
+  min-width: 112px !important;
+  text-align: center !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  letter-spacing: 0.02em !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+[data-theme="light"] .nav-signup-btn {
+  color: #0F172A !important;
+  border-color: rgba(15, 23, 42, 0.25) !important;
+  background: rgba(15, 23, 42, 0.04) !important;
 }
 
 .nav-signup-btn:hover {
   color: #E86B2C !important;
   border-color: #E86B2C !important;
-  background: rgba(232,107,44,0.08) !important;
+  background: rgba(232,107,44,0.10) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 14px rgba(232,107,44,0.25) !important;
 }
 
 /* ── Hero Redesign (Fit Viewport 3-col) ── */
@@ -8327,4 +8408,120 @@ header.nav {
 .portal-section,
 .portal-table-wrap {
   background: var(--bg-card) !important;
+}
+
+
+/* ==========================================================================
+   CUSTOM SLEEK DARK LUXURY SCROLLBAR (THANH CUỘN HIỆN ĐẠI THEO TÔNG MÀU DỰ ÁN)
+   ========================================================================== */
+
+/* Trình duyệt nền tảng Chromium / WebKit (Chrome, Edge, Brave, Opera) */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(18, 32, 25, 0.6);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(232, 107, 44, 0.55);
+  border-radius: 9999px;
+  border: 1.5px solid rgba(26, 46, 37, 0.8);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brass, #E86B2C);
+  box-shadow: 0 0 10px rgba(232, 107, 44, 0.6);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Ẩn hoàn toàn các nút mũi tên tam giác xám cổ điển của Windows */
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Trình duyệt Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(232, 107, 44, 0.55) rgba(18, 32, 25, 0.6);
+}
+
+/* Lớp thanh cuộn chuyên dụng cho Modal và các popup */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(232, 107, 44, 0.55) rgba(18, 32, 25, 0.6);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 7px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(18, 32, 25, 0.6);
+  border-radius: 10px;
+  margin: 6px 0;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(232, 107, 44, 0.55);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--brass, #E86B2C);
+}
+
+
+/* ==========================================================================
+   PRINT MEDIA STYLES (ĐỊNH DẠNG IN HÓA ĐƠN ĐIỆN TỬ SANG TRỌNG / XUẤT FILE PDF)
+   ========================================================================== */
+
+@media print {
+  /* Ẩn toàn bộ giao diện web phía sau khi in */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Chỉ hiển thị duy nhất khung hóa đơn */
+  .printable-invoice,
+  .printable-invoice * {
+    visibility: visible !important;
+  }
+
+  .printable-invoice {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 650px !important;
+    max-width: 95% !important;
+    background: #FFFFFF !important;
+    color: #111827 !important;
+    border: 2px solid #111827 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    padding: 30px !important;
+    font-family: Arial, sans-serif !important;
+  }
+
+  .printable-invoice b,
+  .printable-invoice span,
+  .printable-invoice h3,
+  .printable-invoice div {
+    color: #111827 !important;
+  }
+
+  /* Ẩn các nút bấm thao tác đóng/in khi đưa vào giấy in */
+  .no-print {
+    display: none !important;
+  }
 }

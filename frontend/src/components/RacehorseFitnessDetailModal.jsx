@@ -8,10 +8,160 @@ import {
 } from '../services/fitnessAlgorithm';
 import EquineRecoveryIcon from './EquineRecoveryIcon';
 
-export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHorse, sessions = [] }) {
+export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHorse, sessions = [], isTrainer: isTrainerProp }) {
   if (!horse) return null;
 
   const [telemetry, setTelemetry] = useState(() => getHorseFitnessTelemetry(horse, sessions));
+  const isTrainer = isTrainerProp !== undefined
+    ? isTrainerProp
+    : (typeof window !== 'undefined' && (window.location.pathname.includes('trainer') || window.location.pathname.includes('huan-luyen')));
+
+  const [trainerPrograms, setTrainerPrograms] = useState(() => {
+    try {
+      const raw = localStorage.getItem('matruong_trainer_programs');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [showAddWorkoutModal, setShowAddWorkoutModal] = useState(false);
+  const [newWorkoutData, setNewWorkoutData] = useState({
+    title: 'Phi nước đại tăng tốc (Gallop Sprint)',
+    phase: 'Nước rút (Sprint)',
+    dayLabel: 'Hôm nay',
+    targetDistance: 1600,
+    volume: '1.600m',
+    load: '220 TL',
+    note: ''
+  });
+  const [workoutToast, setWorkoutToast] = useState('');
+
+  // Lắng nghe đồng bộ bài tập từ HLV theo thời gian thực (Real-time sync)
+  useEffect(() => {
+    const handleProgramsUpdate = () => {
+      try {
+        const raw = localStorage.getItem('matruong_trainer_programs');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) setTrainerPrograms(parsed);
+        }
+      } catch {}
+    };
+    window.addEventListener('storage', handleProgramsUpdate);
+    window.addEventListener('trainer-programs-updated', handleProgramsUpdate);
+    return () => {
+      window.removeEventListener('storage', handleProgramsUpdate);
+      window.removeEventListener('trainer-programs-updated', handleProgramsUpdate);
+    };
+  }, []);
+
+  const horseName = (horse.name || horse.horseName || '').trim();
+  const horseUpcomingWorkouts = trainerPrograms.filter(p => 
+    (p.horseName || '').trim().toLowerCase() === horseName.toLowerCase()
+  );
+
+  const formatDayLabel = (item) => {
+    if (item.dayLabel) return item.dayLabel;
+    if (item.day) return item.day;
+    if (item.startDate) {
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let target;
+        if (item.startDate.includes('/')) {
+          const parts = item.startDate.split('/');
+          target = new Date(parts[2], parts[1] - 1, parts[0]);
+        } else {
+          const parts = item.startDate.split('-');
+          target = new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+        target.setHours(0, 0, 0, 0);
+        const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+        if (diff === 0) return 'Hôm nay';
+        if (diff === 1) return 'Ngày mai';
+        if (diff === 2) return 'Ngày kia';
+        const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'Sat'];
+        return days[target.getDay()] || item.startDate;
+      } catch {
+        return item.startDate;
+      }
+    }
+    return 'Kế tiếp';
+  };
+
+  const formatVolume = (item) => {
+    if (item.volume) return item.volume;
+    if (item.targetDistance) return `${Number(item.targetDistance).toLocaleString('vi-VN')}m`;
+    if (item.duration) return `${item.duration} min`;
+    return '1.600m';
+  };
+
+  const formatLoad = (item) => {
+    if (item.load) return String(item.load).includes('TL') ? item.load : `${item.load} TL`;
+    if (item.estimatedLoad) return `${item.estimatedLoad} TL`;
+    if (item.targetDistance) {
+      const d = Number(item.targetDistance);
+      const tl = Math.round((d / 100) * 1.25 + 20);
+      return `${tl} TL`;
+    }
+    return '120 TL';
+  };
+
+  const handleSaveWorkout = (e) => {
+    e.preventDefault();
+    const newProg = {
+      id: Date.now(),
+      title: newWorkoutData.title.trim() || 'Bài tập huấn luyện mới',
+      horseName: horseName,
+      phase: newWorkoutData.phase || 'Nước rút (Sprint)',
+      dayLabel: newWorkoutData.dayLabel || 'Hôm nay',
+      startDate: new Date().toISOString().split('T')[0],
+      targetDistance: Number(newWorkoutData.targetDistance) || 1600,
+      volume: newWorkoutData.volume || `${Number(newWorkoutData.targetDistance) || 1600}m`,
+      load: newWorkoutData.load.includes('TL') ? newWorkoutData.load : `${newWorkoutData.load} TL`,
+      estimatedLoad: parseInt(newWorkoutData.load) || 120,
+      note: newWorkoutData.note || '',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString()
+    };
+
+    const nextPrograms = [newProg, ...trainerPrograms];
+    setTrainerPrograms(nextPrograms);
+    try {
+      localStorage.setItem('matruong_trainer_programs', JSON.stringify(nextPrograms));
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('trainer-programs-updated', { detail: { horseName, program: newProg } }));
+    window.dispatchEvent(new Event('storage'));
+
+    setShowAddWorkoutModal(false);
+    setWorkoutToast(`Đã cập nhật bài tập kế tiếp cho Chủ ngựa của ${horseName}!`);
+    setTimeout(() => setWorkoutToast(''), 4000);
+  };
+
+  const handleDeleteWorkout = (progId) => {
+    const nextPrograms = trainerPrograms.filter(p => p.id !== progId);
+    setTrainerPrograms(nextPrograms);
+    try {
+      localStorage.setItem('matruong_trainer_programs', JSON.stringify(nextPrograms));
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('trainer-programs-updated', { detail: { horseName, deletedId: progId } }));
+    window.dispatchEvent(new Event('storage'));
+
+    setWorkoutToast(`Đã gỡ bài tập khỏi kế hoạch của ${horseName}!`);
+    setTimeout(() => setWorkoutToast(''), 3000);
+  };
+
+  const WORKOUT_PRESETS = [
+    { title: 'Phi nước đại tăng tốc (Gallop Sprint)', phase: 'Nước rút (Sprint)', volume: '1.600m', targetDistance: 1600, load: '220 TL', dayLabel: 'Hôm nay' },
+    { title: 'Đi bộ máy & Ngâm lạnh chân', phase: 'Phục hồi (Recovery)', volume: '30 min', targetDistance: 0, load: '20 TL', dayLabel: 'Hôm nay' },
+    { title: 'Tập xuất phát máy (Gate Drill)', phase: 'Kỹ thuật (Gate & Pace)', volume: '6 lượt', targetDistance: 600, load: '95 TL', dayLabel: 'Ngày mai' },
+    { title: 'Phi nước kiệu dẻo dai (Canter Tempo)', phase: 'Thể lực nền (Endurance)', volume: '3.200m', targetDistance: 3200, load: '140 TL', dayLabel: 'T4' },
+    { title: 'Nước rút bứt phá chặng cuối', phase: 'Nước rút (Sprint)', volume: '1.200m', targetDistance: 1200, load: '185 TL', dayLabel: 'Hôm nay' },
+    { title: 'Chạy việt dã rèn sức bền sân cỏ', phase: 'Thể lực nền (Endurance)', volume: '2.400m', targetDistance: 2400, load: '160 TL', dayLabel: 'Ngày mai' }
+  ];
   const [activeSubTab, setActiveSubTab] = useState('overview'); // 'overview' | 'evolab' | 'activities' | 'calendar'
   const [personalBestFilter, setPersonalBestFilter] = useState('season');
   const [weeklyMetric, setWeeklyMetric] = useState('distance');
@@ -86,7 +236,6 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
 
   const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
   const avatar = horse.avatar || horse.horse_avatar || defaultAvatar;
-  const horseName = horse.name || horse.horseName || 'Chiến mã';
   const ownerName = horse.ownerName || horse.owner || 'Phạm Tiến Thành';
   const stallCode = horse.stall || horse.stable || 'Ô A1';
   const microchip = horse.microchip || 'MC-VN-2026-001';
@@ -550,20 +699,26 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
                       <div style={{ fontSize: '22px', fontWeight: 800, color: '#FFFFFF' }}>
-                        Hôm nay: <span style={{ color: (telemetry.performanceToday || 102) >= 90 ? 'var(--brass)' : '#EF4444' }}>
-                          {telemetry.performanceToday ? `${telemetry.performanceToday}%` : '102%'}
+                        Hôm nay: <span style={{ color: Number(telemetry.performanceToday) > 0 ? (Number(telemetry.performanceToday) >= 90 ? 'var(--brass)' : '#EF4444') : '#94A3B8' }}>
+                          {Number(telemetry.performanceToday) > 0 ? `${telemetry.performanceToday}%` : '--'}
                         </span>
                       </div>
                       <span style={{
                         fontSize: '11.5px',
                         fontWeight: 700,
-                        color: (telemetry.performanceToday || 102) >= 100 ? '#10B981' : ((telemetry.performanceToday || 102) >= 90 ? 'var(--brass)' : '#EF4444'),
-                        background: (telemetry.performanceToday || 102) >= 100 ? 'rgba(16, 185, 129, 0.15)' : ((telemetry.performanceToday || 102) >= 90 ? 'rgba(212, 175, 55, 0.15)' : 'rgba(239, 68, 68, 0.15)'),
-                        border: (telemetry.performanceToday || 102) >= 100 ? '1px solid rgba(16, 185, 129, 0.3)' : ((telemetry.performanceToday || 102) >= 90 ? '1px solid rgba(212, 175, 55, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'),
+                        color: Number(telemetry.performanceToday) > 0
+                          ? (Number(telemetry.performanceToday) >= 100 ? '#10B981' : (Number(telemetry.performanceToday) >= 90 ? 'var(--brass)' : '#EF4444'))
+                          : '#94A3B8',
+                        background: Number(telemetry.performanceToday) > 0
+                          ? (Number(telemetry.performanceToday) >= 100 ? 'rgba(16, 185, 129, 0.15)' : (Number(telemetry.performanceToday) >= 90 ? 'rgba(212, 175, 55, 0.15)' : 'rgba(239, 68, 68, 0.15)'))
+                          : 'rgba(148, 163, 184, 0.1)',
+                        border: Number(telemetry.performanceToday) > 0
+                          ? (Number(telemetry.performanceToday) >= 100 ? '1px solid rgba(16, 185, 129, 0.3)' : (Number(telemetry.performanceToday) >= 90 ? '1px solid rgba(212, 175, 55, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'))
+                          : '1px solid rgba(148, 163, 184, 0.25)',
                         padding: '3px 10px',
                         borderRadius: '12px'
                       }}>
-                        {telemetry.performanceRating || (isFitnessIncreasing ? 'Xuất sắc' : 'Cần phục hồi')}
+                        {Number(telemetry.performanceToday) > 0 ? (telemetry.performanceRating || 'Tốt') : 'Chờ bài tập'}
                       </span>
                     </div>
                   </div>
@@ -575,7 +730,7 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                         const days = telemetry.dayLabels || ['T4', 'T5', 'T6', 'Sat', 'CN', 'T2', 'Hôm nay'];
                         const hist = Array.isArray(telemetry.performanceHistory7Days) && telemetry.performanceHistory7Days.length === 7
                           ? telemetry.performanceHistory7Days
-                          : [0, 0, 0, 0, 0, 0, telemetry.performanceToday || 102];
+                          : [0, 0, 0, 0, 0, 0, Number(telemetry.performanceToday) || 0];
 
                         return days.map((dayLabel, idx) => {
                           const val = hist[idx] || 0;
@@ -759,7 +914,7 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                     </div>
 
                     <div style={{ marginTop: '8px', fontSize: '11.5px', color: '#94A3B8' }}>
-                      Tổng khoảng cách: <b style={{ color: '#F8FAFC' }}>{telemetry.weeklyDistance !== undefined ? telemetry.weeklyDistance : 1} km</b> · Tỉ lệ hoàn thành: <b style={{ color: '#10B981' }}>{telemetry.weeklyCompletionRate || 100}%</b>
+                      Tổng khoảng cách: <b style={{ color: '#F8FAFC' }}>{telemetry.weeklyDistance !== undefined ? telemetry.weeklyDistance : 0} km</b> · Tỉ lệ hoàn thành: <b style={{ color: '#10B981' }}>{telemetry.weeklyCompletionRate !== undefined ? telemetry.weeklyCompletionRate : 0}%</b>
                     </div>
                   </div>
 
@@ -769,7 +924,7 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                       {(() => {
                         const distObj = telemetry.weeklyDistribution || {
                           T2: 0,
-                          T3: 1,
+                          T3: 0,
                           T4: 0,
                           T5: 0,
                           T6: 0,
@@ -777,12 +932,14 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                           CN: 0
                         };
                         const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'Sat', 'CN'];
+                        const dayKeysMap = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'Sat'];
+                        const todayKeyNow = dayKeysMap[new Date().getDay()];
                         const maxKm = Math.max(3, ...Object.values(distObj).map(Number));
 
                         return days.map(dayKey => {
                           const kmVal = Number(distObj[dayKey]) || 0;
                           const heightPx = kmVal > 0 ? Math.min(65, Math.max(22, Math.round((kmVal / maxKm) * 65))) : 0;
-                          const isToday = dayKey === 'T3';
+                          const isToday = dayKey === todayKeyNow;
 
                           return (
                             <div key={dayKey} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: 1 }}>
@@ -918,37 +1075,372 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
                   borderRadius: '10px',
                   padding: '16px 18px',
                   display: 'flex',
-                  flexDirection: 'column'
+                  flexDirection: 'column',
+                  position: 'relative'
                 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#F1F5F9', marginBottom: '10px' }}>
-                    Giáo án bài tập sắp tới
+                  {workoutToast && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      background: 'rgba(16, 185, 129, 0.95)',
+                      color: '#FFFFFF',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      zIndex: 10,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                      animation: 'fadeIn 0.3s ease'
+                    }}>
+                      ✓ {workoutToast}
+                    </div>
+                  )}
+
+                  <div style={{ marginBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#F1F5F9', whiteSpace: 'nowrap' }}>
+                        Giáo án bài tập sắp tới
+                      </div>
+                      {isTrainer ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowAddWorkoutModal(true)}
+                          style={{
+                            background: 'rgba(212, 175, 55, 0.15)',
+                            color: 'var(--brass)',
+                            border: '1px solid rgba(212, 175, 55, 0.4)',
+                            borderRadius: '6px',
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.2s'
+                          }}
+                          title="Cập nhật bài tập kế tiếp cho Chủ ngựa theo dõi"
+                        >
+                          <span>➕</span> Cập nhật bài tập
+                        </button>
+                      ) : (
+                        <span style={{
+                          fontSize: '10.5px',
+                          color: 'var(--brass)',
+                          background: 'rgba(212, 175, 55, 0.12)',
+                          border: '1px solid rgba(212, 175, 55, 0.25)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          ⚡ Đồng bộ từ HLV
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>HLV phụ trách:</span>
+                      <span style={{ color: '#E2E8F0', fontWeight: 600 }}>{horse.trainer || 'Lê Trọng Nghĩa'}</span>
+                      {isTrainer && <span style={{ color: 'var(--brass)', fontSize: '10px' }}>(Bạn đang quản lý)</span>}
+                    </div>
                   </div>
 
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ color: '#64748B', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        <th style={{ padding: '6px 4px' }}>Ngày</th>
-                        <th style={{ padding: '6px 4px' }}>Bài tập huấn luyện</th>
-                        <th style={{ padding: '6px 4px' }}>Khối lượng</th>
-                        <th style={{ padding: '6px 4px', textAlign: 'right' }}>Tải dự kiến</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { day: 'Hôm nay', title: 'Phi nước đại tăng tốc (Gallop Sprint)', volume: '1.600m', load: '220 TL' },
-                        { day: 'Hôm nay', title: 'Đi bộ máy & Ngâm lạnh chân', volume: '30 min', load: '20 TL' },
-                        { day: 'Ngày mai', title: 'Tập xuất phát máy (Gate Drill)', volume: '6 lượt', load: '95 TL' },
-                        { day: 'T4', title: 'Phi nước kiệu dẻo dai (Canter Tempo)', volume: '3.200m', load: '140 TL' }
-                      ].map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                          <td style={{ padding: '6px 4px', color: '#94A3B8' }}>{item.day}</td>
-                          <td style={{ padding: '6px 4px', color: '#F1F5F9', fontWeight: 600 }}>{item.title}</td>
-                          <td style={{ padding: '6px 4px', color: '#94A3B8' }}>{item.volume}</td>
-                          <td style={{ padding: '6px 4px', color: 'var(--brass)', fontWeight: 700, textAlign: 'right' }}>{item.load}</td>
+                  {horseUpcomingWorkouts.length === 0 ? (
+                    <div style={{
+                      padding: '26px 16px',
+                      textAlign: 'center',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      borderRadius: '8px',
+                      border: '1px dashed rgba(255, 255, 255, 0.08)',
+                      margin: '4px 0'
+                    }}>
+                      <div style={{ fontSize: '24px', marginBottom: '6px' }}>📋</div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#E2E8F0', marginBottom: '4px' }}>
+                        Chưa có bài tập kế tiếp
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748B', maxWidth: '340px', margin: '0 auto', lineHeight: '1.5' }}>
+                        {isTrainer 
+                          ? `Huấn luyện viên chưa thiết lập bài tập cho ${horseName}. Hãy bấm "+ Cập nhật bài tập" để giao bài tập cho Chủ ngựa theo dõi.`
+                          : `Huấn Luyện Viên (${horse.trainer || 'HLV phụ trách'}) đang thiết lập giáo án tiếp theo cho chiến mã này. Bài tập mới sẽ tự động hiển thị tại đây.`
+                        }
+                      </div>
+                      {isTrainer && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAddWorkoutModal(true)}
+                          style={{
+                            marginTop: '12px',
+                            background: 'var(--brass)',
+                            color: '#0F172A',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '6px 14px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ➕ Cập nhật bài tập kế tiếp ngay
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ color: '#64748B', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                          <th style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>Ngày</th>
+                          <th style={{ padding: '6px 4px' }}>Bài tập huấn luyện</th>
+                          <th style={{ padding: '6px 4px', whiteSpace: 'nowrap' }}>Khối lượng</th>
+                          <th style={{ padding: '6px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>Tải dự kiến</th>
+                          {isTrainer && <th style={{ padding: '6px 4px', textAlign: 'center', width: '28px' }}></th>}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {horseUpcomingWorkouts.map((item, idx) => {
+                          const dayLabel = formatDayLabel(item);
+                          const isToday = dayLabel === 'Hôm nay';
+                          return (
+                            <tr key={item.id || idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                              <td style={{ padding: '6px 4px', color: isToday ? 'var(--brass)' : '#94A3B8', fontWeight: isToday ? 700 : 400 }}>
+                                {dayLabel}
+                              </td>
+                              <td style={{ padding: '6px 4px', color: '#F1F5F9', fontWeight: 600 }}>
+                                <div>{item.title}</div>
+                                {item.phase && (
+                                  <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 400 }}>
+                                    {item.phase}
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ padding: '6px 4px', color: '#94A3B8' }}>{formatVolume(item)}</td>
+                              <td style={{ padding: '6px 4px', color: 'var(--brass)', fontWeight: 700, textAlign: 'right' }}>
+                                {formatLoad(item)}
+                              </td>
+                              {isTrainer && (
+                                <td style={{ padding: '6px 4px', textAlign: 'center' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteWorkout(item.id)}
+                                    title="Hủy bài tập này"
+                                    style={{
+                                      background: 'transparent',
+                                      border: 'none',
+                                      color: '#EF4444',
+                                      cursor: 'pointer',
+                                      fontSize: '12px',
+                                      padding: '2px 4px',
+                                      opacity: 0.65
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0.65'}
+                                  >
+                                    🗑️
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {/* MODAL CẬP NHẬT BÀI TẬP DÀNH CHO HUẤN LUYỆN VIÊN */}
+                  {showAddWorkoutModal && (
+                    <div style={{
+                      position: 'fixed',
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      background: 'rgba(0, 0, 0, 0.78)',
+                      backdropFilter: 'blur(5px)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 1000000,
+                      padding: '16px'
+                    }}>
+                      <div style={{
+                        background: '#131826',
+                        border: '1px solid var(--brass)',
+                        borderRadius: '12px',
+                        width: '100%',
+                        maxWidth: '520px',
+                        padding: '22px',
+                        color: '#F1F5F9',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(212, 175, 55, 0.2)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                          <div>
+                            <h3 style={{ margin: 0, fontSize: '16px', color: '#FFFFFF', fontWeight: 800 }}>
+                              🏇 Cập Nhật Bài Tập Kế Tiếp Cho Chủ Ngựa
+                            </h3>
+                            <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '2px' }}>
+                              Chiến mã: <b style={{ color: 'var(--brass)' }}>{horseName}</b> • Hiển thị tức thì bên Chủ sở hữu
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddWorkoutModal(false)}
+                            style={{ background: 'transparent', border: 'none', color: '#94A3B8', fontSize: '18px', cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {/* Gợi ý chọn nhanh preset */}
+                        <div style={{ marginBottom: '14px' }}>
+                          <label style={{ fontSize: '11px', color: '#94A3B8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+                            ⚡ Gợi ý bài tập mẫu (1-chạm):
+                          </label>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {WORKOUT_PRESETS.map((p, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => setNewWorkoutData({
+                                  title: p.title,
+                                  phase: p.phase,
+                                  dayLabel: p.dayLabel,
+                                  targetDistance: p.targetDistance,
+                                  volume: p.volume,
+                                  load: p.load,
+                                  note: ''
+                                })}
+                                style={{
+                                  background: newWorkoutData.title === p.title ? 'rgba(212, 175, 55, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                                  color: newWorkoutData.title === p.title ? 'var(--brass)' : '#CBD5E1',
+                                  border: newWorkoutData.title === p.title ? '1px solid var(--brass)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                  borderRadius: '6px',
+                                  padding: '4px 8px',
+                                  fontSize: '10.5px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s'
+                                }}
+                              >
+                                {p.title.split('(')[0]} ({p.volume})
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <form onSubmit={handleSaveWorkout} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div>
+                            <label style={{ fontSize: '11.5px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
+                              Tên bài tập huấn luyện *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={newWorkoutData.title}
+                              onChange={(e) => setNewWorkoutData({ ...newWorkoutData, title: e.target.value })}
+                              placeholder="Ví dụ: Phi nước đại tăng tốc (Gallop Sprint)"
+                              style={{ width: '100%', padding: '8px 10px', background: '#0B0F19', border: '1px solid rgba(255,255,255,0.15)', color: '#FFFFFF', borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <div>
+                              <label style={{ fontSize: '11.5px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
+                                Ngày áp dụng
+                              </label>
+                              <select
+                                value={newWorkoutData.dayLabel}
+                                onChange={(e) => setNewWorkoutData({ ...newWorkoutData, dayLabel: e.target.value })}
+                                style={{ width: '100%', padding: '8px 10px', background: '#0B0F19', border: '1px solid rgba(255,255,255,0.15)', color: '#FFFFFF', borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box' }}
+                              >
+                                <option value="Hôm nay">Hôm nay</option>
+                                <option value="Ngày mai">Ngày mai</option>
+                                <option value="T2">Thứ 2 (T2)</option>
+                                <option value="T3">Thứ 3 (T3)</option>
+                                <option value="T4">Thứ 4 (T4)</option>
+                                <option value="T5">Thứ 5 (T5)</option>
+                                <option value="T6">Thứ 6 (T6)</option>
+                                <option value="Sat">Thứ 7 (Sat)</option>
+                                <option value="CN">Chủ nhật (CN)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '11.5px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
+                                Giai đoạn huấn luyện
+                              </label>
+                              <select
+                                value={newWorkoutData.phase}
+                                onChange={(e) => setNewWorkoutData({ ...newWorkoutData, phase: e.target.value })}
+                                style={{ width: '100%', padding: '8px 10px', background: '#0B0F19', border: '1px solid rgba(255,255,255,0.15)', color: '#FFFFFF', borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box' }}
+                              >
+                                <option value="Nước rút (Sprint)">Nước rút (Sprint)</option>
+                                <option value="Thể lực nền (Endurance)">Thể lực nền (Endurance)</option>
+                                <option value="Kỹ thuật (Gate & Pace)">Kỹ thuật (Gate & Pace)</option>
+                                <option value="Phục hồi (Recovery)">Phục hồi (Recovery)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <div>
+                              <label style={{ fontSize: '11.5px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
+                                Khối lượng bài tập *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={newWorkoutData.volume}
+                                onChange={(e) => setNewWorkoutData({ ...newWorkoutData, volume: e.target.value })}
+                                placeholder="Ví dụ: 1.600m, 30 min, 6 lượt"
+                                style={{ width: '100%', padding: '8px 10px', background: '#0B0F19', border: '1px solid rgba(255,255,255,0.15)', color: '#FFFFFF', borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '11.5px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
+                                Tải dự kiến (Training Load) *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={newWorkoutData.load}
+                                onChange={(e) => setNewWorkoutData({ ...newWorkoutData, load: e.target.value })}
+                                placeholder="Ví dụ: 220 TL, 140 TL"
+                                style={{ width: '100%', padding: '8px 10px', background: '#0B0F19', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--brass)', fontWeight: 700, borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '11.5px', color: '#94A3B8', display: 'block', marginBottom: '4px' }}>
+                              Chỉ đạo / Nhận xét của HLV gửi Chủ ngựa (Tùy chọn)
+                            </label>
+                            <input
+                              type="text"
+                              value={newWorkoutData.note}
+                              onChange={(e) => setNewWorkoutData({ ...newWorkoutData, note: e.target.value })}
+                              placeholder="Ví dụ: Tăng nhịp guồng chân chặng cuối, ngâm lạnh chân sau khi tập"
+                              style={{ width: '100%', padding: '8px 10px', background: '#0B0F19', border: '1px solid rgba(255,255,255,0.15)', color: '#FFFFFF', borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box' }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddWorkoutModal(false)}
+                              style={{ flex: 1, padding: '9px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#E2E8F0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+                            >
+                              Hủy
+                            </button>
+                            <button
+                              type="submit"
+                              style={{ flex: 1, padding: '9px', background: 'var(--brass)', border: 'none', color: '#0F172A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+                            >
+                              ✅ Lưu & Gửi Cho Chủ Ngựa
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
               </div>

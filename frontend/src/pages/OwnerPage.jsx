@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import PaymentModal from '../components/PaymentModal';
+import RacehorseFitnessDetailModal from '../components/RacehorseFitnessDetailModal';
+import { getHorseFitnessTelemetry, isHorseCalibrating } from '../services/fitnessAlgorithm';
 import {
   registerOwnerHorseApi,
   updateOwnerHorseApi,
@@ -573,10 +575,110 @@ export default function OwnerPage() {
     }
   });
 
+  // Quản lý Modal Xem Chi Tiết Thể Lực & Viễn Trắc EvoLab (Đồng bộ với Huấn Luyện Viên)
+  const [fitnessDetailModalHorse, setFitnessDetailModalHorse] = useState(null);
+
+  // Quản lý Điều lệ mua hàng & Ký tên điện tử
+  const [termsAndSignatureModal, setTermsAndSignatureModal] = useState(null);
+  const [buyerSignature, setBuyerSignature] = useState(null);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [signatureMode, setSignatureMode] = useState('draw'); // 'draw' | 'type'
+  const [typedSignName, setTypedSignName] = useState('');
+  const signatureCanvasRef = useRef(null);
+  const [isDrawingSignature, setIsDrawingSignature] = useState(false);
+  const [hasDrawnSignature, setHasDrawnSignature] = useState(false);
+
+  // Xử lý vẽ chữ ký tay trên Canvas
+  const startDrawing = (e) => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawingSignature(true);
+  };
+
+  const draw = (e) => {
+    if (!isDrawingSignature) return;
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#0F172A';
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    setHasDrawnSignature(true);
+  };
+
+  const stopDrawing = () => {
+    setIsDrawingSignature(false);
+  };
+
+  const clearSignatureCanvas = () => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasDrawnSignature(false);
+  };
+
+  const handleConfirmSignatureAndShowInvoice = () => {
+    if (!agreeTerms) {
+      showToast('Vui lòng tích xác nhận đồng ý với Điều lệ mua hàng & Thỏa thuận dịch vụ VIP', 'CHƯA ĐỒNG Ý ĐIỀU LỆ', 'warning');
+      return;
+    }
+    let sigData = '';
+    if (signatureMode === 'draw') {
+      if (!hasDrawnSignature) {
+        showToast('Vui lòng vẽ chữ ký của bạn vào khung chữ ký trước khi xác nhận', 'CHƯA KÝ TÊN', 'warning');
+        return;
+      }
+      const canvas = signatureCanvasRef.current;
+      sigData = canvas ? canvas.toDataURL('image/png') : '';
+    } else {
+      if (!typedSignName.trim()) {
+        showToast('Vui lòng nhập họ và tên để tạo chữ ký điện tử', 'CHƯA NHẬP TÊN', 'warning');
+        return;
+      }
+      sigData = typedSignName.trim();
+    }
+
+    const updatedReceipt = {
+      ...termsAndSignatureModal,
+      signatureType: signatureMode,
+      signatureData: sigData,
+      signedAt: new Date().toLocaleString('vi-VN'),
+      termsAgreed: true
+    };
+
+    setBuyerSignature(sigData);
+    setTermsAndSignatureModal(null);
+    setSelectedPaymentReceiptModal(updatedReceipt);
+    showToast('Ký tên điều lệ thành công! Hóa đơn điện tử chi tiết đã được khởi tạo.', 'KÝ TÊN THÀNH CÔNG', 'info');
+  };
+
   const handlePaymentSuccess = (receipt) => {
     setMembershipTier('PREMIUM');
     setHasVipSubscription(true);
     setPaymentHistory(prev => [receipt, ...prev]);
+    setShowPaymentModal(false);
+    setShowMembershipModal(false);
+    // Chuyển sang màn hình Điều Lệ Mua Hàng & Ký Tên trước khi xem hóa đơn
+    setTermsAndSignatureModal(receipt);
+    setAgreeTerms(false);
+    setHasDrawnSignature(false);
+    setTypedSignName(currentUser?.full_name || receipt.ownerName || 'Hồ Minh Hiếu');
     try {
       localStorage.setItem(`matruong_owner_tier_${ownerKey}`, 'PREMIUM');
       localStorage.setItem(`matruong_owner_has_vip_${ownerKey}`, 'true');
@@ -616,7 +718,11 @@ export default function OwnerPage() {
       } catch {}
     };
     window.addEventListener('storage', handleSyncPrograms);
-    return () => window.removeEventListener('storage', handleSyncPrograms);
+    window.addEventListener('trainer-programs-updated', handleSyncPrograms);
+    return () => {
+      window.removeEventListener('storage', handleSyncPrograms);
+      window.removeEventListener('trainer-programs-updated', handleSyncPrograms);
+    };
   }, []);
 
 
@@ -2261,42 +2367,42 @@ export default function OwnerPage() {
               </div>
             </div>
 
-            {/* NÚT ĐỔI GÓI CHUYỂN RA BÊN NGOÀI USER BADGE */}
-            <button
-              type="button"
-              onClick={() => {
-                if (membershipTier === 'FREE' && hasVipSubscription) {
-                  handleSelectTier('PREMIUM');
-                } else {
-                  setShowMembershipModal(true);
-                }
-              }}
-              title={membershipTier === 'FREE' && hasVipSubscription ? "Nhấn để khôi phục đặc quyền VIP đã mua miễn phí" : "Quản lý & thay đổi gói quyền lợi thành viên"}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                background: membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.1)' : 'var(--brass)',
-                color: membershipTier === 'PREMIUM' ? 'var(--brass)' : '#0A0D14',
-                border: membershipTier === 'PREMIUM' ? '1px solid var(--brass)' : 'none',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.2s ease',
-                boxShadow: membershipTier === 'PREMIUM' ? 'none' : '0 2px 8px rgba(212, 175, 55, 0.25)'
-              }}
-            >
-              <span>
-                {membershipTier === 'PREMIUM'
-                  ? '👑 Gói VIP'
-                  : hasVipSubscription
-                  ? '👑 Khôi phục VIP'
-                  : '👑 Nâng cấp VIP'}
-              </span>
-            </button>
+            {/* NÚT ĐỔI GÓI CHUYỂN RA BÊN NGOÀI USER BADGE - Tự động ẩn đi khi đã đăng ký / kích hoạt gói VIP */}
+            {membershipTier !== 'PREMIUM' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (membershipTier === 'FREE' && hasVipSubscription) {
+                    handleSelectTier('PREMIUM');
+                  } else {
+                    setShowMembershipModal(true);
+                  }
+                }}
+                title={membershipTier === 'FREE' && hasVipSubscription ? "Nhấn để khôi phục đặc quyền VIP đã mua miễn phí" : "Quản lý & nâng cấp gói quyền lợi thành viên"}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: 'var(--brass)',
+                  color: '#0A0D14',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)'
+                }}
+              >
+                <span>
+                  {hasVipSubscription
+                    ? '👑 Khôi phục VIP'
+                    : '👑 Nâng cấp VIP'}
+                </span>
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className="portal-btn-logout"
@@ -2783,6 +2889,30 @@ export default function OwnerPage() {
                           gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
                           gap: '8px'
                         }}>
+                          <button
+                            type="button"
+                            onClick={() => setFitnessDetailModalHorse(h)}
+                            style={{
+                              padding: '7px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(212, 175, 55, 0.12)',
+                              color: 'var(--brass)',
+                              border: '1px solid rgba(212, 175, 55, 0.4)',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              textAlign: 'center',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px'
+                            }}
+                            title="Xem chi tiết thể lực, nhịp tim và tải luyện tập EvoLab như bên Huấn Luyện Viên"
+                          >
+                            <span>📊</span>
+                            <span>Thể lực</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleOpenPedigreeModal(h)}
@@ -3941,152 +4071,260 @@ export default function OwnerPage() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {trainingTelemetry.map((t) => (
-                    <div key={t.id} className="facility-card" style={{ padding: '20px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <div>
-                          <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{t.horseName}</b>
-                          <span style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginLeft: '10px' }}>{t.stable} · Buổi tập: {t.sessionDate}</span>
-                        </div>
-                        <span style={{
-                          padding: '3px 10px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          background: 'rgba(212, 175, 55, 0.15)',
-                          color: 'var(--brass)',
-                          border: '1px solid var(--brass)'
-                        }}>
-                          CỰ LY: {t.distanceMeters}
-                        </span>
-                      </div>
+                  {trainingTelemetry.map((t) => {
+                    const matchedHorse = myHorses.find(h =>
+                      (h.name && h.name.toLowerCase() === t.horseName?.toLowerCase()) ||
+                      String(h.id) === String(t.id) ||
+                      String(h.id) === String(t.horseId)
+                    ) || {
+                      id: t.id || t.horseName,
+                      name: t.horseName,
+                      horseName: t.horseName,
+                      stall: t.stable,
+                      stable: t.stable,
+                      avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80',
+                      breed: 'Thoroughbred (Thuần chủng)',
+                      microchip: 'MC-VN-2026-001',
+                      maxSpeed: parseFloat(t.maxSpeed) || 52.0,
+                      avgHeartRate: parseInt(t.peakHeartRate) || 190,
+                      condition: t.readinessScore ? `${parseFloat(t.readinessScore) * 10}%` : '85%'
+                    };
+                    const telem = getHorseFitnessTelemetry(matchedHorse, jointSessions);
+                    const isCalibrating = isHorseCalibrating(matchedHorse, jointSessions);
 
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '14px' }}>
-                        {/* Box 1: Tốc độ bứt phá */}
-                        <div
-                          style={{
-                            background: 'var(--bg-secondary)',
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
-                          }}
-                          onClick={() => {
-                            if (membershipTier !== 'PREMIUM') {
-                              setUpgradePromptModal({
-                                title: 'Mở Khóa Tốc Độ Bứt Phá Real-Time',
-                                badge: 'ĐẶC QUYỀN VIP',
-                                message: 'Cảm biến gia tốc IoT thời gian thực ghi nhận vận tốc tối đa tại từng khúc cua và cự ly bứt phá nước rút của chiến mã.',
-                                benefit: '✨ Đặc quyền VIP: Xem đồ thị tốc độ chi tiết từng giây chạy và phân tích góc nghiêng chân tiếp đất.',
-                                actionText: 'Nâng Cấp Gói VIP Ngay'
-                              });
-                            }
-                          }}
-                        >
-                          <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>TỐC ĐỘ BỨT PHÁ MAX</div>
-                          {membershipTier === 'PREMIUM' ? (
-                            <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.maxSpeed}</b>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                              <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
-                              <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Box 2: Tốc độ trung bình */}
-                        <div
-                          style={{
-                            background: 'var(--bg-secondary)',
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
-                          }}
-                          onClick={() => {
-                            if (membershipTier !== 'PREMIUM') {
-                              setUpgradePromptModal({
-                                title: 'Mở Khóa Vận Tốc Trung Bình Real-Time',
-                                badge: 'ĐẶC QUYỀN VIP',
-                                message: 'Tốc độ trung bình theo từng phân đoạn 400m được tính toán tự động qua chip định vị vệ tinh GPS đa băng tần.',
-                                benefit: '✨ Đặc quyền VIP: Báo cáo phân tích chuyên sâu hiệu suất phân phối thể lực trong suốt hành trình đua.',
-                                actionText: 'Nâng Cấp Gói VIP Ngay'
-                              });
-                            }
-                          }}
-                        >
-                          <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>TỐC ĐỘ TRUNG BÌNH</div>
-                          {membershipTier === 'PREMIUM' ? (
-                            <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.avgSpeed}</b>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                              <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
-                              <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Box 3: Nhịp tim */}
-                        <div
-                          style={{
-                            background: 'var(--bg-secondary)',
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
-                          }}
-                          onClick={() => {
-                            if (membershipTier !== 'PREMIUM') {
-                              setUpgradePromptModal({
-                                title: 'Mở Khóa Điện Tâm Đồ & Nhịp Tim Real-Time',
-                                badge: 'ĐẶC QUYỀN VIP',
-                                message: 'Vòng đeo đai ngực thông minh đo nhịp tim liên tục (bpm) khi vận động cực đại và thời gian phục hồi tim về mức nghỉ ngơi.',
-                                benefit: '✨ Đặc quyền VIP: Cảnh báo sớm hội chứng quá tải cơ tim và phòng ngừa đột quỵ khi thi đấu cường độ cao.',
-                                actionText: 'Nâng Cấp Gói VIP Ngay'
-                              });
-                            }
-                          }}
-                        >
-                          <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>NHỊP TIM ĐỈNH / HỒI PHỤC</div>
-                          {membershipTier === 'PREMIUM' ? (
-                            <b style={{ fontSize: '15px', color: 'var(--paper)' }}>{t.peakHeartRate}</b>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                              <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
-                              <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Box 4: Điểm sẵn sàng thi đấu */}
-                        <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>ĐIỂM SẴN SÀNG THI ĐẤU</div>
-                          <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{t.readinessScore}</b>
-                        </div>
-                      </div>
-
-                      <div style={{ fontSize: '12.5px', color: 'var(--paper)', lineHeight: 1.45, background: 'rgba(212, 175, 55, 0.05)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-                        <b>Nhận xét của HLV Trưởng:</b>{' '}
-                        {membershipTier === 'PREMIUM' ? (
-                          t.trainerFeedback
-                        ) : (
-                          <span>
-                            Báo cáo tóm tắt cuối tuần: Chiến mã duy trì thể lực tốt, hoàn thành trọn vẹn cự ly bài tập.{' '}
+                    return (
+                      <div key={t.id} className="facility-card" style={{ padding: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                          <div>
+                            <b style={{ fontSize: '16.5px', color: 'var(--brass)' }}>{t.horseName}</b>
+                            <span style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginLeft: '10px' }}>{t.stable} · Buổi tập: {t.sessionDate}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{
+                              padding: '4px 10px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: 'rgba(212, 175, 55, 0.15)',
+                              color: 'var(--brass)',
+                              border: '1px solid var(--brass)'
+                            }}>
+                              CỰ LY: {t.distanceMeters}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => setUpgradePromptModal({
-                                title: 'Giáo Án Huấn Luyện 1-Kèm-1 Với HLV Trưởng',
-                                badge: 'ĐẶC QUYỀN VIP',
-                                message: 'Chủ sở hữu gói VIP được trực tiếp trao đổi chiến thuật và nhận giáo án huấn luyện cá nhân hóa 1-kèm-1 trực tiếp từ HLV Trưởng Trần Văn Hùng.',
-                                benefit: '✨ Thiết lập bài tập chuyên biệt theo từng cự ly và trường đua để tối ưu cơ hội giật cúp vô địch.',
-                                actionText: 'Nâng Cấp Gói VIP Ngay'
-                              })}
-                              style={{ background: 'none', border: 'none', color: 'var(--brass)', fontWeight: 700, padding: 0, textDecoration: 'underline', cursor: 'pointer', fontSize: '12.5px' }}
+                              onClick={() => setFitnessDetailModalHorse(matchedHorse)}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: '6px',
+                                background: 'var(--brass)',
+                                color: '#0A0D14',
+                                fontWeight: 800,
+                                border: 'none',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title="Xem chi tiết các biểu đồ thể lực, nhịp tim và tải luyện tập như bên Huấn Luyện Viên"
                             >
-                              (Nâng cấp VIP để nhận giáo án 1-kèm-1)
+                              <span>📊</span>
+                              <span>Xem Thể Lực (EvoLab)</span>
                             </button>
-                          </span>
-                        )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+                          {/* Box 1: Tốc độ bứt phá */}
+                          <div
+                            style={{
+                              background: 'var(--bg-secondary)',
+                              padding: '10px 12px',
+                              borderRadius: '6px',
+                              cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
+                            }}
+                            onClick={() => {
+                              if (membershipTier !== 'PREMIUM') {
+                                setUpgradePromptModal({
+                                  title: 'Mở Khóa Tốc Độ Bứt Phá Real-Time',
+                                  badge: 'ĐẶC QUYỀN VIP',
+                                  message: 'Cảm biến gia tốc IoT thời gian thực ghi nhận vận tốc tối đa tại từng khúc cua và cự ly bứt phá nước rút của chiến mã.',
+                                  benefit: '✨ Đặc quyền VIP: Xem đồ thị tốc độ chi tiết từng giây chạy và phân tích góc nghiêng chân tiếp đất.',
+                                  actionText: 'Nâng Cấp Gói VIP Ngay'
+                                });
+                              }
+                            }}
+                          >
+                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>TỐC ĐỘ BỨT PHÁ MAX</div>
+                            {membershipTier === 'PREMIUM' ? (
+                              <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.maxSpeed}</b>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
+                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Box 2: Tốc độ trung bình */}
+                          <div
+                            style={{
+                              background: 'var(--bg-secondary)',
+                              padding: '10px 12px',
+                              borderRadius: '6px',
+                              cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
+                            }}
+                            onClick={() => {
+                              if (membershipTier !== 'PREMIUM') {
+                                setUpgradePromptModal({
+                                  title: 'Mở Khóa Vận Tốc Trung Bình Real-Time',
+                                  badge: 'ĐẶC QUYỀN VIP',
+                                  message: 'Tốc độ trung bình theo từng phân đoạn 400m được tính toán tự động qua chip định vị vệ tinh GPS đa băng tần.',
+                                  benefit: '✨ Đặc quyền VIP: Báo cáo phân tích chuyên sâu hiệu suất phân phối thể lực trong suốt hành trình đua.',
+                                  actionText: 'Nâng Cấp Gói VIP Ngay'
+                                });
+                              }
+                            }}
+                          >
+                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>TỐC ĐỘ TRUNG BÌNH</div>
+                            {membershipTier === 'PREMIUM' ? (
+                              <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.avgSpeed}</b>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
+                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Box 3: Nhịp tim */}
+                          <div
+                            style={{
+                              background: 'var(--bg-secondary)',
+                              padding: '10px 12px',
+                              borderRadius: '6px',
+                              cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
+                            }}
+                            onClick={() => {
+                              if (membershipTier !== 'PREMIUM') {
+                                setUpgradePromptModal({
+                                  title: 'Mở Khóa Điện Tâm Đồ & Nhịp Tim Real-Time',
+                                  badge: 'ĐẶC QUYỀN VIP',
+                                  message: 'Vòng đeo đai ngực thông minh đo nhịp tim liên tục (bpm) khi vận động cực đại và thời gian phục hồi tim về mức nghỉ ngơi.',
+                                  benefit: '✨ Đặc quyền VIP: Cảnh báo sớm hội chứng quá tải cơ tim và phòng ngừa đột quỵ khi thi đấu cường độ cao.',
+                                  actionText: 'Nâng Cấp Gói VIP Ngay'
+                                });
+                              }
+                            }}
+                          >
+                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>NHỊP TIM ĐỈNH / HỒI PHỤC</div>
+                            {membershipTier === 'PREMIUM' ? (
+                              <b style={{ fontSize: '15px', color: 'var(--paper)' }}>{t.peakHeartRate}</b>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
+                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Box 4: Điểm sẵn sàng thi đấu */}
+                          <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>ĐIỂM SẴN SÀNG THI ĐẤU</div>
+                            <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{t.readinessScore}</b>
+                          </div>
+                        </div>
+
+                        {/* KHỐI ĐỒNG BỘ THỂ LỰC & TẢI TẬP EVOLAB Y CHANG BÊN HLV */}
+                        <div style={{
+                          background: isCalibrating ? 'rgba(245, 158, 11, 0.04)' : 'var(--bg-secondary)',
+                          border: isCalibrating ? '1px dashed rgba(245, 158, 11, 0.35)' : '1px solid var(--line)',
+                          borderRadius: '8px',
+                          padding: '12px 14px',
+                          marginBottom: '14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>📈</span> CHỈ SỐ THỂ LỰC & TẢI TẬP LUYỆN EVOLAB (ĐỒNG BỘ TỪ HLV TRƯỞNG)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setFitnessDetailModalHorse(matchedHorse)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--brass)',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                textDecoration: 'underline',
+                                padding: 0
+                              }}
+                            >
+                              Mở toàn bộ biểu đồ & nhật ký viễn trắc →
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', textAlign: 'center' }}>
+                            <div style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase' }}>Tải Ngắn Hạn (ATL)</div>
+                              <div style={{ fontSize: '14px', fontWeight: 800, color: isCalibrating ? '#64748B' : 'var(--paper)', marginTop: '2px' }}>
+                                {isCalibrating ? '-- TL' : `${telem.shortTermLoad || 46} TL`}
+                              </div>
+                            </div>
+                            <div style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase' }}>Tải Dài Hạn (CTL)</div>
+                              <div style={{ fontSize: '14px', fontWeight: 800, color: isCalibrating ? '#64748B' : 'var(--paper)', marginTop: '2px' }}>
+                                {isCalibrating ? '-- TL' : `${telem.longTermLoad || 54} TL`}
+                              </div>
+                            </div>
+                            <div style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase' }}>Tỉ Lệ Tải (Load Ratio)</div>
+                              <div style={{ fontSize: '14px', fontWeight: 800, color: isCalibrating ? '#64748B' : '#10B981', marginTop: '2px' }}>
+                                {isCalibrating ? '-- %' : `${telem.loadRatio || 85}%`}
+                              </div>
+                            </div>
+                            <div style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase' }}>Hồi Phục Thể Lực</div>
+                              <div style={{ fontSize: '14px', fontWeight: 800, color: '#10B981', marginTop: '2px' }}>
+                                {isCalibrating ? 'Đang hiệu chuẩn' : `${telem.recoveryPercent || 85}% (Sung mãn)`}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '12.5px', color: 'var(--paper)', lineHeight: 1.45, background: 'rgba(212, 175, 55, 0.05)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                          <b>Nhận xét của HLV Trưởng:</b>{' '}
+                          {membershipTier === 'PREMIUM' ? (
+                            t.trainerFeedback
+                          ) : (
+                            <span>
+                              Báo cáo tóm tắt cuối tuần: Chiến mã duy trì thể lực tốt, hoàn thành trọn vẹn cự ly bài tập.{' '}
+                              <button
+                                type="button"
+                                onClick={() => setUpgradePromptModal({
+                                  title: 'Giáo Án Huấn Luyện 1-Kèm-1 Với HLV Trưởng',
+                                  badge: 'ĐẶC QUYỀN VIP',
+                                  message: 'Chủ sở hữu gói VIP được trực tiếp trao đổi chiến thuật và nhận giáo án huấn luyện cá nhân hóa 1-kèm-1 trực tiếp từ HLV Trưởng Trần Văn Hùng.',
+                                  benefit: '✨ Thiết lập bài tập chuyên biệt theo từng cự ly và trường đua để tối ưu cơ hội giật cúp vô địch.',
+                                  actionText: 'Nâng Cấp Gói VIP Ngay'
+                                })}
+                                style={{ background: 'none', border: 'none', color: 'var(--brass)', fontWeight: 700, padding: 0, textDecoration: 'underline', cursor: 'pointer', fontSize: '12.5px' }}
+                              >
+                                (Nâng cấp VIP để nhận giáo án 1-kèm-1)
+                              </button>
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -4486,27 +4724,29 @@ export default function OwnerPage() {
                   <h2 className="pane-title">Giao Dịch, Thanh Toán & Đối Soát Tài Chính</h2>
                   <p className="pane-desc">Theo dõi nhật ký thanh toán các gói hội viên VIP, phí dịch vụ và bảng kê quyết toán định kỳ.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowPaymentModal(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    background: 'var(--brass)',
-                    color: '#0A0D14',
-                    fontWeight: 700,
-                    border: 'none',
-                    fontSize: '12.5px',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)'
-                  }}
-                >
-                  <IconReceipt size={16} color="#0A0D14" />
-                  <span>+ Thanh Toán Gói VIP Ngay</span>
-                </button>
+                {(!hasVipSubscription && membershipTier !== 'PREMIUM') && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentModal(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      fontWeight: 700,
+                      border: 'none',
+                      fontSize: '12.5px',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)'
+                    }}
+                  >
+                    <IconReceipt size={16} color="#0A0D14" />
+                    <span>+ Thanh Toán Gói VIP Ngay</span>
+                  </button>
+                )}
               </div>
 
               {/* KHỐI TỔNG QUAN TÀI CHÍNH */}
@@ -5096,8 +5336,14 @@ export default function OwnerPage() {
                     <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 14px' }}>
                       Giải pháp cao cấp nhất cho chủ sở hữu độc quyền & trại ngựa chuyên nghiệp.
                     </p>
-                    <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--brass)', margin: '0 0 16px', fontFamily: 'var(--display)' }}>
-                      9.900.000 VNĐ <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--paper-dim)' }}>/ THÁNG</span>
+                    <div style={{ margin: '0 0 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '14px', color: 'var(--paper-dim)', textDecoration: 'line-through' }}>89.000.000 VNĐ</span>
+                        <span style={{ fontSize: '11px', color: '#10B981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>Ưu đãi đặc quyền -60%</span>
+                      </div>
+                      <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--brass)', fontFamily: 'var(--display)' }}>
+                        35.000.000 VNĐ <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--paper-dim)' }}>/ NĂM</span>
+                      </div>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12.5px', color: 'var(--paper)', borderTop: '1px solid var(--line)', paddingTop: '14px' }}>
@@ -8148,9 +8394,19 @@ export default function OwnerPage() {
                   <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '12px' }}>
                     Đặc quyền cao cấp & tối ưu thưởng
                   </div>
-                  <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--brass)', marginBottom: '14px', fontFamily: 'var(--display)' }}>
-                    {billingCycle === 'year' ? '89.000.000 VNĐ' : '9.900.000 VNĐ'}
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper-dim)' }}>{billingCycle === 'year' ? ' / NĂM' : ' / THÁNG'}</span>
+                  <div style={{ marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                      <span style={{ fontSize: '13px', color: 'var(--paper-dim)', textDecoration: 'line-through' }}>
+                        {billingCycle === 'year' ? '89.000.000 VNĐ' : '9.900.000 VNĐ'}
+                      </span>
+                      <span style={{ fontSize: '10.5px', color: '#10B981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        {billingCycle === 'year' ? 'Ưu đãi đặc quyền -60%' : 'Ưu đãi -65%'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--brass)', fontFamily: 'var(--display)' }}>
+                      {billingCycle === 'year' ? '35.000.000 VNĐ' : '3.500.000 VNĐ'}
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper-dim)' }}>{billingCycle === 'year' ? ' / NĂM' : ' / THÁNG'}</span>
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', color: 'var(--paper)', borderTop: '1px solid var(--line)', paddingTop: '12px' }}>
@@ -8241,99 +8497,604 @@ export default function OwnerPage() {
       />
 
       {/* ========================================================================= */}
-      {/* MODAL 7: CHI TIẾT BIÊN LAI THANH TOÁN ĐIỆN TỬ (PAYMENT RECEIPT MODAL) */}
+      {/* MODAL 6.5: ĐIỀU LỆ MUA HÀNG & THỎA THUẬN KÝ TÊN ĐIỆN TỬ */}
+      {/* ========================================================================= */}
+      {termsAndSignatureModal && (
+        <div className="modal-overlay" style={{ zIndex: 9999999 }}>
+          <div
+            className="modal-box custom-scrollbar"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              maxWidth: '680px',
+              width: '94%',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              padding: '24px',
+              border: '1.5px solid var(--brass)',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.55)',
+              borderRadius: '12px'
+            }}
+          >
+            {/* Header */}
+            <div style={{ textAlign: 'center', borderBottom: '1px dashed var(--line-strong)', paddingBottom: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(232, 107, 44, 0.12)', border: '1px solid var(--brass)', color: 'var(--brass)', padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em', marginBottom: '8px' }}>
+                📜 BƯỚC XÁC THỰC PHÁP LÝ & KÝ SỐ
+              </div>
+              <h3 style={{ margin: '0 0 6px', fontSize: '19px', fontWeight: 800, color: 'var(--paper)' }}>
+                ĐIỀU LỆ MUA HÀNG & THỎA THUẬN DỊCH VỤ VIP
+              </h3>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                Gói dịch vụ: <b style={{ color: 'var(--brass)' }}>{termsAndSignatureModal.packageName}</b> · Khách hàng: <b>{termsAndSignatureModal.ownerName}</b>
+              </div>
+            </div>
+
+            {/* Khung nội dung 5 Điều lệ có thanh cuộn mượt */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--line)',
+              borderRadius: '8px',
+              padding: '14px 16px',
+              fontSize: '12.5px',
+              lineHeight: 1.6,
+              color: 'var(--paper)',
+              maxHeight: '190px',
+              overflowY: 'auto',
+              marginBottom: '16px'
+            }} className="custom-scrollbar">
+              <div style={{ marginBottom: '12px' }}>
+                <b style={{ color: 'var(--brass)' }}>ĐIỀU 1: QUYỀN HẠN & ĐẶC QUYỀN HỘI VIÊN VIP</b>
+                <p style={{ margin: '4px 0 0', color: 'var(--paper-dim)' }}>
+                  1.1. Chủ sở hữu kích hoạt Gói HORSE PREMIUM VIP có quyền sở hữu, đăng ký và nhập chuồng không giới hạn số lượng chiến mã.<br/>
+                  1.2. Được phân bổ ưu tiên chuồng VIP Block A/B (16–18 m²) với đệm rơm sấy khử khuẩn, hệ thống thông gió tuần hoàn và camera giám sát trực tiếp 24/7.<br/>
+                  1.3. Quyền truy cập độc quyền luồng viễn trắc IoT Telemetry từng mét bứt tốc, đồ thị nhịp tim thời gian thực và chỉ định HLV Trưởng & Thú y trưởng trực tiếp.
+                </p>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <b style={{ color: 'var(--brass)' }}>ĐIỀU 2: TIÊU CHUẨN AN TOÀN, ĐẠO ĐỨC & Y TẾ THÚ Y</b>
+                <p style={{ margin: '4px 0 0', color: 'var(--paper-dim)' }}>
+                  2.1. Chủ sở hữu cam kết tuân thủ tuyệt đối chỉ định của Bác sĩ Thú y Trưởng khi có yêu cầu khóa huấn luyện khẩn cấp, giảm tải bài tập hoặc cách ly phòng dịch.<br/>
+                  2.2. Nghiêm cấm tuyệt đối mọi hành vi sử dụng chất kích thích, Doping hoặc can thiệp phi thể thao trái với quy chuẩn Liên đoàn Đua ngựa Quốc tế (IFHA).
+                </p>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <b style={{ color: 'var(--brass)' }}>ĐIỀU 3: CƠ CẤU PHÂN CHIA TIỀN THƯỞNG GIẢI ĐUA</b>
+                <p style={{ margin: '4px 0 0', color: 'var(--paper-dim)' }}>
+                  3.1. Chủ sở hữu nhận 95% tổng giá trị giải thưởng tiền mặt chính thức từ các giải đấu trong hệ thống Trường đua Phú Thọ.<br/>
+                  3.2. 5% còn lại được trích nộp vào Quỹ phúc lợi chăm sóc nài ngựa (Jockey), đội ngũ Groom và bảo trì mặt đường chạy cỏ/cát.
+                </p>
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <b style={{ color: 'var(--brass)' }}>ĐIỀU 4: BẢO MẬT THÔNG TIN & QUYỀN THƯƠNG MẠI HÌNH ẢNH</b>
+                <p style={{ margin: '4px 0 0', color: 'var(--paper-dim)' }}>
+                  4.1. Trường đua Phú Thọ cam kết bảo mật 100% dữ liệu telemetry, chiến thuật chạy và hồ sơ phả hệ của chiến mã.<br/>
+                  4.2. Chủ sở hữu nắm giữ trọn vẹn bản quyền thương mại, quyền chuyển nhượng và quảng bá hình ảnh liên quan đến chiến mã.
+                </p>
+              </div>
+
+              <div>
+                <b style={{ color: 'var(--brass)' }}>ĐIỀU 5: CAM KẾT THANH TOÁN & HIỆU LỰC HỢP ĐỒNG</b>
+                <p style={{ margin: '4px 0 0', color: 'var(--paper-dim)' }}>
+                  5.1. Thỏa thuận này có hiệu lực 01 Năm (365 ngày) kể từ ngày xác thực ký số điện tử thành công.<br/>
+                  5.2. Trong trường hợp bất khả kháng hoặc chiến mã phải phẫu thuật điều trị dài hạn, thời hạn gói VIP sẽ được tự động bảo lưu tương ứng.
+                </p>
+              </div>
+            </div>
+
+            {/* Checkbox cam kết */}
+            <label style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              cursor: 'pointer',
+              background: agreeTerms ? 'rgba(16, 185, 129, 0.1)' : 'rgba(212, 175, 55, 0.08)',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: `1px solid ${agreeTerms ? '#10B981' : 'var(--line-strong)'}`,
+              marginBottom: '16px',
+              transition: 'all 0.2s ease'
+            }}>
+              <input
+                type="checkbox"
+                checked={agreeTerms}
+                onChange={(e) => setAgreeTerms(e.target.checked)}
+                style={{ marginTop: '3px', transform: 'scale(1.2)', cursor: 'pointer', accentColor: 'var(--brass)' }}
+              />
+              <span style={{ fontSize: '12px', color: 'var(--paper)', lineHeight: 1.5 }}>
+                Tôi là Chủ sở hữu <b>{termsAndSignatureModal.ownerName}</b>, cam kết đã đọc kỹ, thấu hiểu và đồng ý hoàn toàn với các Điều lệ mua hàng & Thỏa thuận dịch vụ VIP của Trường đua Quốc tế Phú Thọ.
+              </span>
+            </label>
+
+            {/* Khung Ký Tên Điện Tử */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--line)',
+              borderRadius: '8px',
+              padding: '14px',
+              marginBottom: '18px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <b style={{ fontSize: '13px', color: 'var(--paper)' }}>
+                  ✍️ Chữ ký điện tử của Bên Mua / Chủ sở hữu:
+                </b>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSignatureMode('draw')}
+                    style={{
+                      padding: '3px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      borderRadius: '4px',
+                      background: signatureMode === 'draw' ? 'var(--brass)' : 'transparent',
+                      color: signatureMode === 'draw' ? '#0A0D14' : 'var(--paper-dim)',
+                      border: '1px solid var(--line)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Vẽ chữ ký
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSignatureMode('type')}
+                    style={{
+                      padding: '3px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      borderRadius: '4px',
+                      background: signatureMode === 'type' ? 'var(--brass)' : 'transparent',
+                      color: signatureMode === 'type' ? '#0A0D14' : 'var(--paper-dim)',
+                      border: '1px solid var(--line)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Ký theo tên
+                  </button>
+                </div>
+              </div>
+
+              {signatureMode === 'draw' ? (
+                <div>
+                  <div style={{
+                    background: '#FFFFFF',
+                    borderRadius: '8px',
+                    border: '1.5px dashed #94A3B8',
+                    overflow: 'hidden',
+                    position: 'relative'
+                  }}>
+                    <canvas
+                      ref={signatureCanvasRef}
+                      width={620}
+                      height={110}
+                      onMouseDown={startDrawing}
+                      onMouseMove={draw}
+                      onMouseUp={stopDrawing}
+                      onMouseLeave={stopDrawing}
+                      onTouchStart={startDrawing}
+                      onTouchMove={draw}
+                      onTouchEnd={stopDrawing}
+                      style={{
+                        width: '100%',
+                        height: '110px',
+                        display: 'block',
+                        cursor: 'crosshair',
+                        touchAction: 'none'
+                      }}
+                    />
+                    {!hasDrawnSignature && (
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#94A3B8',
+                        fontSize: '12px',
+                        pointerEvents: 'none',
+                        fontStyle: 'italic'
+                      }}>
+                        Dùng chuột hoặc chạm ngón tay để vẽ chữ ký của bạn vào khung này...
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                      Chữ ký số sẽ được tự động đóng dấu vào hóa đơn VAT chính thức.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearSignatureCanvas}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--brass)',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: '2px 6px'
+                      }}
+                    >
+                      🔄 Xóa ký lại
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="text"
+                    value={typedSignName}
+                    onChange={(e) => setTypedSignName(e.target.value)}
+                    placeholder="Nhập họ và tên đầy đủ của bạn..."
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      fontSize: '13px',
+                      marginBottom: '8px'
+                    }}
+                  />
+                  <div style={{
+                    background: '#FFFFFF',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    textAlign: 'center',
+                    border: '1px solid #CBD5E1',
+                    fontFamily: '"Brush Script MT", "Segoe Script", "Dancing Script", cursive',
+                    fontSize: '26px',
+                    color: '#0F172A',
+                    minHeight: '60px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {typedSignName || 'Chữ ký điện tử nghệ thuật'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setTermsAndSignatureModal(null)}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  border: '1px solid var(--line)',
+                  color: 'var(--paper-dim)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSignatureAndShowInvoice}
+                disabled={!agreeTerms}
+                style={{
+                  padding: '9px 24px',
+                  borderRadius: '6px',
+                  background: agreeTerms ? 'var(--brass)' : 'rgba(255, 255, 255, 0.1)',
+                  color: agreeTerms ? '#0A0D14' : 'var(--paper-dim)',
+                  fontWeight: 800,
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: agreeTerms ? 'pointer' : 'not-allowed',
+                  boxShadow: agreeTerms ? '0 2px 10px rgba(232, 107, 44, 0.35)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                ✍️ Xác Nhận Ký Tên & Xuất Hóa Đơn Chi Tiết →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 7: CHI TIẾT HÓA ĐƠN ĐIỆN TỬ CHUẨN DOANH NGHIỆP (PAYMENT RECEIPT INVOICE) */}
       {/* ========================================================================= */}
       {selectedPaymentReceiptModal && (
         <div className="modal-overlay" onClick={() => setSelectedPaymentReceiptModal(null)} style={{ zIndex: 9999999 }}>
           <div
-            className="modal-box"
+            className="modal-box custom-scrollbar printable-invoice"
             onClick={(e) => e.stopPropagation()}
             style={{
               background: 'var(--bg-card)',
-              maxWidth: '520px',
-              width: '92%',
-              padding: '26px',
+              maxWidth: '720px',
+              width: '95%',
+              maxHeight: '94vh',
+              overflowY: 'auto',
+              padding: '28px',
               border: '1.5px solid var(--brass)',
-              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
               borderRadius: '12px'
             }}
           >
-            {/* Header Biên lai */}
-            <div style={{ textAlign: 'center', borderBottom: '1px dashed var(--line-strong)', paddingBottom: '16px', marginBottom: '16px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800, marginBottom: '4px' }}>
-                TRƯỜNG ĐUA QUỐC TẾ PHÚ THỌ · HỆ THỐNG MÃ TRƯỜNG OS
-              </div>
-              <h3 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: 800, color: 'var(--paper)' }}>
-                BIÊN LAI THANH TOÁN ĐIỆN TỬ
-              </h3>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                Mã hóa đơn: <b style={{ color: 'var(--brass)', fontFamily: 'monospace' }}>{selectedPaymentReceiptModal.transactionId}</b>
-              </div>
-            </div>
-
-            {/* Chi tiết nội dung thanh toán */}
-            <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '8px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--paper-dim)' }}>Khách hàng / Chủ ngựa:</span>
-                <b style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.ownerName}</b>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--paper-dim)' }}>Nội dung thanh toán:</span>
-                <b style={{ color: 'var(--brass)' }}>{selectedPaymentReceiptModal.packageName}</b>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--paper-dim)' }}>Thời hạn / Chu kỳ:</span>
-                <span style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.billingCycle}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--paper-dim)' }}>Phương thức thanh toán:</span>
-                <span style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.method}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--paper-dim)' }}>Thời gian thực hiện:</span>
-                <span style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.paidAt}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--paper-dim)' }}>Trạng thái giao dịch:</span>
-                <span style={{ color: '#10B981', fontWeight: 800 }}>✓ {selectedPaymentReceiptModal.status || 'THÀNH CÔNG'}</span>
-              </div>
-              <div style={{ borderTop: '1px solid var(--line)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '15px' }}>
-                <b>Tổng tiền thực thu:</b>
-                <b style={{ color: '#10B981', fontSize: '18px' }}>{selectedPaymentReceiptModal.amountFormatted}</b>
-              </div>
-            </div>
-
-            {/* Chữ ký số / Chứng nhận điện tử */}
+            {/* Header Doanh Nghiệp & Mẫu Số Hóa Đơn */}
             <div style={{
-              background: 'rgba(212, 175, 55, 0.08)',
-              border: '1px solid rgba(212, 175, 55, 0.3)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              borderBottom: '2px solid var(--line-strong)',
+              paddingBottom: '14px',
+              marginBottom: '16px',
+              gap: '16px',
+              flexWrap: 'wrap'
+            }}>
+              {/* Bên Bán */}
+              <div style={{ flex: 1, minWidth: '280px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--brass)', letterSpacing: '0.02em', marginBottom: '3px' }}>
+                  CÔNG TY CỔ PHẦN TRƯỜNG ĐUA QUỐC TẾ PHÚ THỌ
+                </div>
+                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', lineHeight: 1.5 }}>
+                  Mã số thuế: <b style={{ color: 'var(--paper)' }}>0312345678</b><br/>
+                  Địa chỉ: Số 2 Lê Đại Hành, Phường 15, Quận 11, TP. Hồ Chí Minh<br/>
+                  Hotline: 1900 6868 · Email: billing@matruong.vn · Website: matruong.vn
+                </div>
+              </div>
+
+              {/* Thông tin hóa đơn điện tử */}
+              <div style={{ textAlign: 'right', minWidth: '180px', fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                <div>Mẫu số: <b style={{ color: 'var(--paper)' }}>01GTKT0/001</b></div>
+                <div>Ký hiệu: <b style={{ color: 'var(--paper)' }}>PT/26E</b></div>
+                <div>Số hóa đơn: <b style={{ color: 'var(--brass)', fontFamily: 'monospace', fontSize: '13px' }}>{selectedPaymentReceiptModal.transactionId.replace('TXN-VIP-', 'HD-2026-')}</b></div>
+                <div>Ngày lập: <span style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.paidAt}</span></div>
+              </div>
+            </div>
+
+            {/* Tiêu đề Hóa Đơn & Con dấu trạng thái */}
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10B981', color: '#10B981', padding: '3px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em', marginBottom: '6px' }}>
+                ✓ ĐÃ THANH TOÁN THÀNH CÔNG (PAID)
+              </div>
+              <h2 style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 900, color: 'var(--paper)', letterSpacing: '0.04em' }}>
+                HÓA ĐƠN GIÁ TRỊ GIA TĂNG (ĐIỆN TỬ)
+              </h2>
+              <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', fontStyle: 'italic' }}>
+                (Bản thể hiện chính thức của Hóa đơn điện tử theo chuẩn Nghị định 123/2020/NĐ-CP)
+              </div>
+            </div>
+
+            {/* Thông tin Bên Mua Hàng */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--line)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '12.5px',
+              marginBottom: '16px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '6px 16px'
+            }}>
+              <div>Họ tên người mua hàng: <b style={{ color: 'var(--paper)' }}>{selectedPaymentReceiptModal.ownerName}</b></div>
+              <div>Đơn vị: <span style={{ color: 'var(--paper)' }}>Chủ sở hữu chiến mã VIP - Trường đua Phú Thọ</span></div>
+              <div>Hình thức thanh toán: <b style={{ color: 'var(--brass)' }}>{selectedPaymentReceiptModal.method}</b></div>
+              <div>Đồng tiền thanh toán: <b style={{ color: 'var(--paper)' }}>Việt Nam Đồng (VNĐ)</b></div>
+            </div>
+
+            {/* BẢNG KÊ CHI TIẾT DỊCH VỤ (ITEMIZED TABLE) */}
+            <div style={{ overflowX: 'auto', marginBottom: '14px' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: '12px',
+                textAlign: 'left'
+              }}>
+                <thead>
+                  <tr style={{ background: 'rgba(212, 175, 55, 0.15)', borderBottom: '1.5px solid var(--brass)' }}>
+                    <th style={{ padding: '8px 6px', textAlign: 'center', width: '38px', color: 'var(--brass)' }}>STT</th>
+                    <th style={{ padding: '8px 10px', color: 'var(--brass)' }}>Tên Dịch Vụ / Hàng Hóa</th>
+                    <th style={{ padding: '8px 8px', textAlign: 'center', width: '60px', color: 'var(--brass)' }}>ĐVT</th>
+                    <th style={{ padding: '8px 6px', textAlign: 'center', width: '45px', color: 'var(--brass)' }}>SL</th>
+                    <th style={{ padding: '8px 8px', textAlign: 'right', width: '100px', color: 'var(--brass)' }}>Đơn Giá Gốc</th>
+                    <th style={{ padding: '8px 8px', textAlign: 'right', width: '100px', color: 'var(--brass)' }}>Ưu Đãi VIP</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right', width: '110px', color: 'var(--brass)' }}>Thành Tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                    <td style={{ padding: '10px 6px', textAlign: 'center', color: 'var(--paper-dim)' }}>01</td>
+                    <td style={{ padding: '10px 10px' }}>
+                      <b style={{ color: 'var(--paper)', fontSize: '13px' }}>{selectedPaymentReceiptModal.packageName}</b>
+                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px', lineHeight: 1.4 }}>
+                        • Không giới hạn số lượng chiến mã<br/>
+                        • Chuồng VIP Block A/B đệm rơm sấy khử khuẩn<br/>
+                        • Viễn trắc IoT telemetry real-time từng mét chạy<br/>
+                        • Chỉ định HLV Trưởng & Bác sĩ Thú y trưởng trực tiếp<br/>
+                        • Thẻ VIP Lounge & Vào khu cách ly Paddock
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--paper-dim)' }}>Gói (Năm)</td>
+                    <td style={{ padding: '10px 6px', textAlign: 'center', color: 'var(--paper)' }}>01</td>
+                    <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--paper-dim)', textDecoration: 'line-through' }}>89.000.000 đ</td>
+                    <td style={{ padding: '10px 8px', textAlign: 'right', color: '#10B981', fontWeight: 600 }}>-54.000.000 đ</td>
+                    <td style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 800, color: 'var(--paper)', fontSize: '13px' }}>35.000.000 đ</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* BẢNG TỔNG CỘNG TIỀN & THUẾ VAT */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--line)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '12.5px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ color: 'var(--paper-dim)' }}>Cộng tiền dịch vụ (chưa thuế GTGT):</span>
+                <span>31.818.182 đ</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ color: 'var(--paper-dim)' }}>Thuế suất GTGT (VAT 10%):</span>
+                <span>3.181.818 đ</span>
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                borderTop: '1px solid var(--line-strong)',
+                paddingTop: '8px',
+                fontSize: '15px'
+              }}>
+                <b style={{ color: 'var(--paper)' }}>TỔNG CỘNG TIỀN THANH TOÁN:</b>
+                <b style={{ color: '#10B981', fontSize: '19px' }}>{selectedPaymentReceiptModal.amountFormatted}</b>
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', fontStyle: 'italic', marginTop: '4px' }}>
+                Số tiền viết bằng chữ: <b>Ba mươi lăm triệu đồng chẵn.</b>
+              </div>
+            </div>
+
+            {/* KHU VỰC CHỮ KÝ HAI BÊN & CON DẤU MỘC ĐỎ */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '20px',
+              borderTop: '1px dashed var(--line)',
+              paddingTop: '16px',
+              marginBottom: '16px',
+              alignItems: 'start'
+            }}>
+              {/* Bên Trái: Người Mua Hàng */}
+              <div style={{ textAlign: 'center' }}>
+                <b style={{ fontSize: '12px', color: 'var(--paper)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  NGƯỜI MUA HÀNG / CHỦ SỞ HỮU
+                </b>
+                <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', fontStyle: 'italic', marginBottom: '8px' }}>
+                  (Ký, ghi rõ họ tên & chứng thực số)
+                </div>
+
+                {/* Chữ ký của khách hàng */}
+                <div style={{ minHeight: '65px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  {selectedPaymentReceiptModal.signatureData && selectedPaymentReceiptModal.signatureType === 'draw' ? (
+                    <img
+                      src={selectedPaymentReceiptModal.signatureData}
+                      alt="Chữ ký người mua"
+                      style={{ maxHeight: '55px', maxWidth: '160px', filter: 'brightness(1.2)' }}
+                    />
+                  ) : (
+                    <div style={{
+                      fontFamily: '"Brush Script MT", "Segoe Script", "Dancing Script", cursive',
+                      fontSize: '26px',
+                      color: '#10B981'
+                    }}>
+                      {selectedPaymentReceiptModal.signatureData || selectedPaymentReceiptModal.ownerName}
+                    </div>
+                  )}
+                  <span style={{ fontSize: '10px', color: '#10B981', fontWeight: 600, marginTop: '2px' }}>
+                    ✓ Ký điện tử: {selectedPaymentReceiptModal.signedAt || selectedPaymentReceiptModal.paidAt}
+                  </span>
+                </div>
+
+                <b style={{ fontSize: '13px', color: 'var(--paper)', display: 'block', marginTop: '4px' }}>
+                  {selectedPaymentReceiptModal.ownerName}
+                </b>
+              </div>
+
+              {/* Bên Phải: Đại Diện Trường Đua Phú Thọ & Con Dấu Đỏ */}
+              <div style={{ textAlign: 'center', position: 'relative' }}>
+                <b style={{ fontSize: '12px', color: 'var(--paper)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  ĐẠI DIỆN TRƯỜNG ĐUA QUỐC TẾ PHÚ THỌ
+                </b>
+                <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', fontStyle: 'italic', marginBottom: '8px' }}>
+                  (Thủ trưởng đơn vị ký số & đóng dấu)
+                </div>
+
+                {/* Chữ ký giám đốc và con dấu đỏ */}
+                <div style={{ minHeight: '65px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{
+                    fontFamily: '"Brush Script MT", "Segoe Script", cursive',
+                    fontSize: '24px',
+                    color: '#DC2626',
+                    zIndex: 2,
+                    position: 'relative'
+                  }}>
+                    Trần Văn Hùng
+                  </div>
+
+                  {/* Con Dấu Mộc Đỏ Vector SVG */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '-15px',
+                    right: '25%',
+                    transform: 'rotate(-8deg)',
+                    pointerEvents: 'none',
+                    opacity: 0.88,
+                    zIndex: 1
+                  }}>
+                    <svg width="88" height="88" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="46" fill="none" stroke="#DC2626" strokeWidth="2.5" strokeDasharray="3 1.5" />
+                      <circle cx="50" cy="50" r="43" fill="none" stroke="#DC2626" strokeWidth="1.5" />
+                      <path id="stamp-text-circle" d="M 18,50 A 32,32 0 1,1 82,50" fill="none" />
+                      <text fill="#DC2626" fontSize="6.8" fontWeight="900" letterSpacing="0.05em">
+                        <textPath href="#stamp-text-circle" startOffset="50%" textAnchor="middle">
+                          TRƯỜNG ĐUA PHÚ THỌ
+                        </textPath>
+                      </text>
+                      <polygon points="50,38 52.5,45 60,45 54,49 56,56 50,52 44,56 46,49 40,45 47.5,45" fill="#DC2626" />
+                      <text x="50" y="66" fill="#DC2626" fontSize="7" fontWeight="bold" textAnchor="middle">
+                        ĐÃ THU TIỀN
+                      </text>
+                      <text x="50" y="76" fill="#DC2626" fontSize="5.5" fontWeight="600" textAnchor="middle">
+                        MST: 0312345678
+                      </text>
+                    </svg>
+                  </div>
+                </div>
+
+                <b style={{ fontSize: '13px', color: 'var(--paper)', display: 'block', marginTop: '4px' }}>
+                  Trần Văn Hùng (Giám đốc Điều hành)
+                </b>
+              </div>
+            </div>
+
+            {/* Mã tra cứu & Chứng thực hóa đơn */}
+            <div style={{
+              background: 'rgba(212, 175, 55, 0.06)',
+              border: '1px solid rgba(212, 175, 55, 0.25)',
               borderRadius: '6px',
-              padding: '10px 12px',
-              marginBottom: '18px',
-              fontSize: '11.5px',
+              padding: '8px 12px',
+              fontSize: '11px',
               color: 'var(--paper-dim)',
               display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              gap: '8px'
+              marginBottom: '16px',
+              flexWrap: 'wrap',
+              gap: '6px'
             }}>
-              <span style={{ fontSize: '16px' }}>🛡️</span>
-              <div>
-                Chứng thực hóa đơn điện tử hợp lệ theo chuẩn Napas / Ngân hàng Nhà nước. Đơn vị thụ hưởng: <b>CTY CP TRƯỜNG ĐUA QUỐC TẾ PHÚ THỌ</b>.
-              </div>
+              <div>🛡️ Tra cứu hóa đơn điện tử tại: <b style={{ color: 'var(--brass)' }}>https://tracuu.matruong.vn</b></div>
+              <div>Mã bảo mật tra cứu: <b style={{ color: 'var(--paper)', fontFamily: 'monospace' }}>{selectedPaymentReceiptModal.transactionId}</b></div>
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <div className="no-print" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 onClick={() => setSelectedPaymentReceiptModal(null)}
                 style={{
-                  padding: '8px 16px',
+                  padding: '9px 18px',
                   borderRadius: '6px',
                   background: 'var(--bg-secondary)',
                   color: 'var(--paper)',
                   border: '1px solid var(--line)',
                   fontSize: '13px',
+                  fontWeight: 600,
                   cursor: 'pointer'
                 }}
               >
@@ -8342,21 +9103,24 @@ export default function OwnerPage() {
               <button
                 type="button"
                 onClick={() => {
-                  showToast('Đã tải hóa đơn điện tử PDF về máy!', 'XUẤT HÓA ĐƠN', 'info');
-                  setSelectedPaymentReceiptModal(null);
+                  window.print();
                 }}
                 style={{
-                  padding: '8px 18px',
+                  padding: '9px 24px',
                   borderRadius: '6px',
                   background: 'var(--brass)',
                   color: '#0A0D14',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   border: 'none',
                   fontSize: '13px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 10px rgba(232, 107, 44, 0.35)'
                 }}
               >
-                🖨️ In / Tải Hóa Đơn PDF
+                🖨️ In Hóa Đơn / Xuất PDF (Có Chữ Ký & Mộc Đỏ)
               </button>
             </div>
           </div>
@@ -9289,6 +10053,20 @@ export default function OwnerPage() {
             </form>
           </div>
         </div>
+      )}
+      {/* ========================================================================= */}
+      {/* MODAL: ĐÁNH GIÁ THỂ LỰC & TELEMETRY CHUYÊN SÂU EVOLAB (ĐỒNG BỘ VỚI HLV) */}
+      {/* ========================================================================= */}
+      {fitnessDetailModalHorse && (
+        <RacehorseFitnessDetailModal
+          isTrainer={false}
+          horse={fitnessDetailModalHorse}
+          sessions={jointSessions}
+          onClose={() => setFitnessDetailModalHorse(null)}
+          onUpdateHorse={(updatedH) => {
+            setMyHorses(prev => prev.map(h => (h.microchip === updatedH.microchip || h.id === updatedH.id || (h.name || '').toLowerCase() === (updatedH.name || '').toLowerCase()) ? { ...h, ...updatedH } : h));
+          }}
+        />
       )}
     </div>
   );

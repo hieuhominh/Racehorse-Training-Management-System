@@ -2565,27 +2565,38 @@ export default function AdminPage() {
 
                 if (filteredReports.length === 0) {
                   return (
-                    <div style={{ textAlign: 'center', padding: '50px 20px', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px' }}>
-                      <div style={{ fontSize: '36px', marginBottom: '10px' }}>🛡️</div>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--paper)' }}>Không có khiếu nại nhân sự nào phù hợp</div>
-                      <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginTop: '4px' }}>Mọi phản ánh từ Chủ sở hữu đối với HLV, Bác sĩ và Nhân viên chăm sóc sẽ hiển thị đầy đủ tại đây.</div>
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '50px 20px',
+                      background: 'var(--bg-card)',
+                      border: '1px dashed var(--line)',
+                      borderRadius: '12px',
+                      margin: '10px 0'
+                    }}>
+                      <div style={{ fontSize: '42px', marginBottom: '12px' }}>🛡️</div>
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)' }}>
+                        Hiện chưa có khiếu nại nhân sự nào
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: '6px', maxWidth: '480px', margin: '6px auto 0', lineHeight: 1.5 }}>
+                        Toàn bộ hoạt động huấn luyện, y tế và chăm sóc ngựa đang diễn ra thuận lợi. Khi Chủ sở hữu gửi phản ánh hoặc khiếu nại mới, thông tin sẽ lập tức hiển thị tại đây để Admin thẩm tra và xử lý.
+                      </div>
                     </div>
                   );
                 }
 
                 return (
-                  <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                  <div className="table-responsive custom-scrollbar" style={{ overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
+                    <table style={{ width: '100%', minWidth: '1200px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                       <thead>
                         <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                          <th style={{ padding: '12px 16px' }}>Mã & Ngày gửi</th>
-                          <th style={{ padding: '12px 16px' }}>Chủ sở hữu khiếu nại</th>
-                          <th style={{ padding: '12px 16px' }}>Đối tượng bị báo cáo</th>
-                          <th style={{ padding: '12px 16px' }}>Chiến mã liên quan</th>
-                          <th style={{ padding: '12px 16px' }}>Danh mục & Mức độ</th>
-                          <th style={{ padding: '12px 16px' }}>Tiêu đề & Nội dung</th>
-                          <th style={{ padding: '12px 16px' }}>Trạng thái</th>
-                          <th style={{ padding: '12px 16px', textAlign: 'right' }}>Thao tác</th>
+                          <th style={{ padding: '14px 16px', width: '135px', whiteSpace: 'nowrap' }}>Mã & Ngày gửi</th>
+                          <th style={{ padding: '14px 16px', width: '160px', whiteSpace: 'nowrap' }}>Chủ sở hữu khiếu nại</th>
+                          <th style={{ padding: '14px 16px', minWidth: '190px' }}>Đối tượng bị báo cáo</th>
+                          <th style={{ padding: '14px 16px', width: '150px', whiteSpace: 'nowrap' }}>Chiến mã liên quan</th>
+                          <th style={{ padding: '14px 16px', minWidth: '220px' }}>Danh mục & Mức độ</th>
+                          <th style={{ padding: '14px 16px', minWidth: '280px' }}>Tiêu đề & Nội dung</th>
+                          <th style={{ padding: '14px 16px', width: '170px', whiteSpace: 'nowrap' }}>Trạng thái</th>
+                          <th style={{ padding: '14px 16px', width: '170px', textAlign: 'right', whiteSpace: 'nowrap' }}>Thao tác</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2597,78 +2608,92 @@ export default function AdminPage() {
                           return (
                             <tr key={report.id} style={{ borderBottom: '1px solid var(--line)', transition: 'background 0.15s ease' }}>
                               {/* Mã & Ngày gửi */}
-                              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                                <div style={{ fontWeight: 700, color: 'var(--brass)', fontFamily: 'monospace', fontSize: '12px' }}>
+                              <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--brass)', fontFamily: 'monospace', fontSize: '12.5px' }}>
                                   #{report.id}
                                 </div>
-                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '3px' }}>
                                   {report.createdAt}
                                 </div>
                               </td>
 
                               {/* Chủ sở hữu */}
-                              <td style={{ padding: '12px 16px' }}>
-                                <div style={{ fontWeight: 700, color: 'var(--paper)' }}>
+                              <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13.5px' }}>
                                   {report.ownerName}
                                 </div>
-                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '3px' }}>
                                   SĐT: {report.ownerPhone}
                                 </div>
                               </td>
 
                               {/* Đối tượng bị báo cáo */}
-                              <td style={{ padding: '12px 16px' }}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10.5px', fontWeight: 800, color: roleMeta.color, background: 'rgba(255, 255, 255, 0.04)', padding: '2px 6px', borderRadius: '4px', border: `1px solid ${roleMeta.color}40`, marginBottom: '4px' }}>
+                              <td style={{ padding: '14px 16px', minWidth: '190px' }}>
+                                <div style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  color: roleMeta.color,
+                                  background: 'rgba(255, 255, 255, 0.05)',
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  border: `1px solid ${roleMeta.color}40`,
+                                  marginBottom: '5px',
+                                  whiteSpace: 'nowrap'
+                                }}>
                                   <span>{roleMeta.icon}</span>
                                   <span>{roleMeta.label}</span>
                                 </div>
-                                <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13px' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13.5px', lineHeight: 1.3 }}>
                                   {report.targetName}
                                 </div>
-                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', lineHeight: 1.3, marginTop: '2px' }}>
                                   {report.targetTitle}
                                 </div>
                               </td>
 
                               {/* Chiến mã */}
-                              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                                <div style={{ fontWeight: 700, color: 'var(--paper)' }}>
+                              <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13.5px' }}>
                                   🏇 {report.horseName}
                                 </div>
-                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '3px' }}>
                                   {report.stall}
                                 </div>
                               </td>
 
                               {/* Danh mục & Mức độ */}
-                              <td style={{ padding: '12px 16px', minWidth: '160px' }}>
+                              <td style={{ padding: '14px 16px', minWidth: '220px' }}>
                                 <div style={{
                                   display: 'inline-block',
-                                  fontSize: '10.5px',
+                                  fontSize: '11px',
                                   fontWeight: 800,
                                   color: sevMeta.color,
                                   background: sevMeta.badgeBg,
                                   border: `1px solid ${sevMeta.color}50`,
-                                  padding: '2px 7px',
+                                  padding: '3px 8px',
                                   borderRadius: '4px',
-                                  marginBottom: '4px'
+                                  marginBottom: '5px',
+                                  whiteSpace: 'nowrap'
                                 }}>
                                   {sevMeta.label.split(' (')[0]}
                                 </div>
-                                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', lineHeight: 1.3 }}>
+                                <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.4 }}>
                                   {report.category}
                                 </div>
                               </td>
 
                               {/* Tiêu đề & Nội dung tóm tắt */}
-                              <td style={{ padding: '12px 16px', maxWidth: '280px' }}>
-                                <div style={{ fontWeight: 700, color: 'var(--paper)', marginBottom: '3px' }}>
+                              <td style={{ padding: '14px 16px', minWidth: '280px' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--paper)', marginBottom: '4px', lineHeight: 1.4, fontSize: '13.5px' }}>
                                   {report.title}
                                 </div>
                                 <div style={{
-                                  fontSize: '11.5px',
+                                  fontSize: '12px',
                                   color: 'var(--paper-dim)',
-                                  lineHeight: 1.4,
+                                  lineHeight: 1.45,
                                   display: '-webkit-box',
                                   WebkitLineClamp: 2,
                                   WebkitBoxOrient: 'vertical',
@@ -2677,43 +2702,45 @@ export default function AdminPage() {
                                   {report.content}
                                 </div>
                                 {report.adminFeedback && (
-                                  <div style={{ marginTop: '5px', fontSize: '11px', color: '#10B981', background: 'rgba(16, 185, 129, 0.08)', padding: '3px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                  <div style={{ marginTop: '6px', fontSize: '11.5px', color: '#10B981', background: 'rgba(16, 185, 129, 0.08)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.25)', lineHeight: 1.4 }}>
                                     ✓ Đã phản hồi: {report.adminFeedback}
                                   </div>
                                 )}
                               </td>
 
                               {/* Trạng thái */}
-                              <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                              <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                                 <span style={{
                                   display: 'inline-block',
-                                  padding: '3px 8px',
+                                  padding: '4px 10px',
                                   borderRadius: '6px',
-                                  fontSize: '11px',
+                                  fontSize: '11.5px',
                                   fontWeight: 800,
                                   color: statMeta.color,
                                   background: statMeta.badgeBg,
-                                  border: `1px solid ${statMeta.color}50`
+                                  border: `1px solid ${statMeta.color}50`,
+                                  whiteSpace: 'nowrap'
                                 }}>
                                   {statMeta.label}
                                 </span>
                               </td>
 
                               {/* Thao tác */}
-                              <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <td style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                 <div style={{ display: 'inline-flex', gap: '6px' }}>
                                   <button
                                     type="button"
                                     onClick={() => handleOpenReviewModal(report)}
                                     style={{
-                                      padding: '5px 12px',
+                                      padding: '6px 14px',
                                       background: 'rgba(212, 175, 55, 0.15)',
                                       border: '1px solid var(--brass)',
                                       color: 'var(--brass)',
-                                      borderRadius: '4px',
+                                      borderRadius: '6px',
                                       fontSize: '12px',
                                       fontWeight: 700,
-                                      cursor: 'pointer'
+                                      cursor: 'pointer',
+                                      whiteSpace: 'nowrap'
                                     }}
                                   >
                                     ⚖️ Thẩm Tra & Xử Lý
@@ -2722,11 +2749,11 @@ export default function AdminPage() {
                                     type="button"
                                     onClick={() => handleDeleteReport(report.id)}
                                     style={{
-                                      padding: '5px 8px',
+                                      padding: '6px 10px',
                                       background: 'rgba(239, 68, 68, 0.1)',
                                       border: '1px solid rgba(239, 68, 68, 0.3)',
                                       color: '#EF4444',
-                                      borderRadius: '4px',
+                                      borderRadius: '6px',
                                       fontSize: '12px',
                                       cursor: 'pointer'
                                     }}

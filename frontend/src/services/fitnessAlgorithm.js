@@ -195,14 +195,14 @@ export function calculate7DaySprintPerformance(current7Days = [], session = {}, 
   }
 
   // Đẩy lịch sử 7 ngày trượt: [T3, T4, T5, T6, Sat, CN, Hôm nay]
-  const defaultHistory = [0, 0, 0, 0, 0, 98, 102];
+  const defaultHistory = [0, 0, 0, 0, 0, 0, 0];
   const prevList = Array.isArray(current7Days) && current7Days.length === 7 
     ? current7Days.slice(1, 6) 
-    : defaultHistory.slice(1, 6);
-
+    : [0, 0, 0, 0, 0];
+  const yesterdayVal = (Array.isArray(current7Days) && current7Days.length === 7) ? (current7Days[5] || 0) : 0;
   const updated7Days = [
     ...prevList,
-    isCompleted ? 98 : 68,
+    yesterdayVal,
     todayPerf
   ];
 
@@ -447,11 +447,6 @@ export function calculateWeeklyDistributionAndTotals(horseName, sessionsList = [
     dist[todayKey] = +km.toFixed(2);
     totalSessThisWeek++;
     if (todaySession.status === 'COMPLETED') completedCount++;
-  } else if (dist[todayKey] === 0 && totalSessThisWeek === 0) {
-    // Hôm nay là thứ 3 và vừa mới tập xong 1 bài tập trong hôm nay
-    dist[todayKey] = 1.0;
-    totalSessThisWeek = 1;
-    completedCount = 1;
   }
 
   // Các ngày trong tương lai của tuần này BẮT BUỘC bằng 0 (ví dụ hôm nay là Thứ 3 thì T4, T5, T6, Sat, CN phải là 0)
@@ -462,7 +457,7 @@ export function calculateWeeklyDistributionAndTotals(horseName, sessionsList = [
   const weeklyDistance = +(Object.values(dist).reduce((a, b) => a + b, 0)).toFixed(1);
   const weeklyCompletionRate = totalSessThisWeek > 0 
     ? Math.round((completedCount / totalSessThisWeek) * 100) 
-    : 100;
+    : 0;
 
   return { weeklyDistribution: dist, weeklyDistance, weeklyCompletionRate };
 }
@@ -480,11 +475,23 @@ export function getHorse7DaySprintHistory(horseName, sessionsList = [], todaySes
   }
   labels.push('Hôm nay');
 
-  let todayPerf = 102;
-  if (todaySession) {
-    const avgSpeed = Number(todaySession.avgSpeed) || 58.6;
-    const score = Number(todaySession.score) || 9.0;
-    const isCompleted = todaySession.status === 'COMPLETED';
+  const name = (horseName || '').toLowerCase();
+
+  // Tìm session hôm nay từ todaySession hoặc từ sessionsList
+  let activeTodaySession = todaySession;
+  if (!activeTodaySession) {
+    activeTodaySession = (sessionsList || []).find(s => {
+      if ((s.horseName || '').toLowerCase() !== name) return false;
+      const sDate = parseSessionDate(s);
+      return sDate.toDateString() === now.toDateString();
+    });
+  }
+
+  let todayPerf = 0;
+  if (activeTodaySession) {
+    const avgSpeed = Number(activeTodaySession.avgSpeed) || 58.6;
+    const score = Number(activeTodaySession.score) || 9.0;
+    const isCompleted = activeTodaySession.status === 'COMPLETED';
     if (isCompleted) {
       todayPerf = Math.min(125, Math.max(90, Math.round(100 + (avgSpeed - 60) * 1.5 + (score - 8) * 4)));
       if (todayPerf < 98) todayPerf = 102;
@@ -494,10 +501,9 @@ export function getHorse7DaySprintHistory(horseName, sessionsList = [], todaySes
   }
   history[6] = todayPerf;
 
-  const name = (horseName || '').toLowerCase();
   for (const s of (sessionsList || [])) {
     if ((s.horseName || '').toLowerCase() !== name) continue;
-    if (todaySession && s.id === todaySession.id) continue;
+    if (activeTodaySession && s.id === activeTodaySession.id) continue;
     const sDate = parseSessionDate(s);
     const diffDays = Math.round((now - sDate) / (1000 * 60 * 60 * 24));
     if (diffDays >= 1 && diffDays <= 6) {
@@ -509,7 +515,9 @@ export function getHorse7DaySprintHistory(horseName, sessionsList = [], todaySes
     }
   }
 
-  const rating = todayPerf >= 100 ? 'Xuất sắc' : (todayPerf >= 90 ? 'Tốt' : 'Cần phục hồi');
+  const rating = todayPerf > 0 
+    ? (todayPerf >= 100 ? 'Xuất sắc' : (todayPerf >= 90 ? 'Tốt' : 'Cần phục hồi'))
+    : 'Chờ bài tập';
 
   return { dayLabels: labels, history, performanceToday: todayPerf, performanceRating: rating };
 }
@@ -553,18 +561,7 @@ export function getInitialHorseTelemetry(horse, sessionsList = []) {
       };
     });
   } else {
-    initActivities = [
-      {
-        id: 1,
-        icon: '🏇',
-        day: 'Hôm nay',
-        name: 'Nước rút kiểm tra 1.000m',
-        dist: '1.00km',
-        pace: '58.6 km/h',
-        load: '120 TL',
-        status: 'COMPLETED'
-      }
-    ];
+    initActivities = [];
   }
 
   if (calibrating) {
