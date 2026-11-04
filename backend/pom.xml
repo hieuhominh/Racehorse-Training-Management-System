@@ -26,7 +26,14 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Microsoft SQL Server JDBC Driver (Bản vá bảo mật mới nhất cho JDK 17 & SQL Server 2019) -->
+        <!-- PostgreSQL JDBC Driver -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.4</version>
+        </dependency>
+
+        <!-- Microsoft SQL Server JDBC Driver (Tương thích dự phòng) -->
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>mssql-jdbc</artifactId>

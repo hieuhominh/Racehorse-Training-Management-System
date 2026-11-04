@@ -75,11 +75,10 @@ SWP/
 │       └── webapp/WEB-INF/
 │           └── web.xml         # Cấu hình Web Application
 │
-├── database/                   # [DATABASE] Cơ sở dữ liệu Microsoft SQL Server 2019
-│   └── init.sql                # Script tạo DB RacehorseDB + Dữ liệu mẫu đồng bộ với UI
+├── database/                   # [DATABASE] Cơ sở dữ liệu PostgreSQL (hoặc SQL Server)
+│   └── RacehorseDB.sql         # Script tạo DB RacehorseDB + Dữ liệu mẫu chuẩn PostgreSQL
 │
-├── docker-compose.yml          # Cấu hình Docker chạy SQL Server 2019 với 1 lệnh
-└── README.md                   # Hướng dẫn chi tiết dự án
+├── README.md                   # Hướng dẫn chi tiết dự án
 ```
 
 ---
@@ -118,12 +117,9 @@ File này sẽ tự động kiểm tra Node.js, tự động chạy `npm install
 
 ## ☕ 3. Chạy Back-end (NetBeans 13 + Tomcat 9.0.113 + JDK 17)
 
-1. **Khởi động SQL Server 2019 (Docker):**
-   ```powershell
-   cd c:\Users\ASUS\Desktop\SWP
-   docker compose up -d
-   ```
-   *Tài khoản:* `sa` / *Mật khẩu:* `Password123@#` / *Database:* `RacehorseDB`. Chạy script trong `database/init.sql` để tạo bảng và nạp dữ liệu mẫu.
+1. **Khởi động Cơ sở dữ liệu PostgreSQL:**
+   - Mở pgAdmin 4, tạo database `RacehorseDB`.
+   - Mở Query Tool và chạy script trong `database/RacehorseDB.sql` để tạo toàn bộ 10 bảng và nạp dữ liệu mẫu.
 
 2. **Mở dự án Back-end trong NetBeans 13:**
    - Trong NetBeans: Chọn **File** > **Open Project...**
