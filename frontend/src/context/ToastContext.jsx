@@ -37,7 +37,7 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={{ showToast, addToast: showToast }}>
       {children}
 
-      {/* Top-Right Stacking Toast Container */}
+      {/* Top-Left Stacking Toast Container */}
       <div className="premium-toast-container" aria-live="polite">
         {toasts.map((toast) => (
           <div

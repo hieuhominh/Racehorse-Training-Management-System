@@ -7449,7 +7449,8 @@ h2.portal-page-title {
 .premium-toast-container {
   position: fixed;
   top: 24px;
-  right: 24px;
+  left: 24px;
+  right: auto;
   z-index: 999999;
   display: flex;
   flex-direction: column;
@@ -7486,7 +7487,7 @@ h2.portal-page-title {
 @keyframes toastSlideIn {
   from {
     opacity: 0;
-    transform: translateX(70px) scale(0.95);
+    transform: translateX(-70px) scale(0.95);
   }
   to {
     opacity: 1;
@@ -7501,7 +7502,7 @@ h2.portal-page-title {
   }
   to {
     opacity: 0;
-    transform: translateX(50px) scale(0.92);
+    transform: translateX(-50px) scale(0.92);
   }
 }
 

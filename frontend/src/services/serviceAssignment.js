@@ -6,6 +6,50 @@ import { notifyTrainingRequested, notifyServiceConfirmed } from './notificationS
 const STORAGE_KEY = 'matruong_service_assignments';
 const EVENT_NAME = 'matruong_service_assignment_updated';
 
+// Đồng bộ trạng thái xác nhận vai trò vào danh sách ngựa của chủ sở hữu trong localStorage
+export function syncHorseConfirmationToLocalStorage(horseNameOrMicrochip, roleType, status) {
+  try {
+    const key = String(horseNameOrMicrochip || '').trim().toLowerCase();
+    if (!key) return;
+    for (let i = 0; i < localStorage.length; i++) {
+      const storageKey = localStorage.key(i);
+      if (storageKey && storageKey.startsWith('matruong_owner_horses_')) {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            let changed = false;
+            const updatedList = list.map(h => {
+              const match = (h.microchip && h.microchip.trim().toLowerCase() === key) ||
+                            (h.name && h.name.trim().toLowerCase() === key) ||
+                            (h.id && String(h.id) === key);
+              if (!match) return h;
+              changed = true;
+              const next = { ...h };
+              if (roleType === 'TRAINER') {
+                next.trainerStatus = status;
+                next.trainerConfirmed = (status === 'CONFIRMED');
+              } else if (roleType === 'VET') {
+                next.vetStatus = status;
+                next.vetConfirmed = (status === 'CONFIRMED');
+              } else if (roleType === 'GROOM') {
+                next.groomStatus = status;
+                next.groomConfirmed = (status === 'CONFIRMED');
+              }
+              return next;
+            });
+            if (changed) {
+              localStorage.setItem(storageKey, JSON.stringify(updatedList));
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error syncing horse confirmation to owner storage:', err);
+  }
+}
+
 // 3 HLV chính
 export const FIXED_TRAINERS_LIST = [
   { username: 'trainer_truong', name: 'Trần Văn Hùng', title: 'HLV Trưởng - Cự ly Dài & Tổng thể' },
@@ -214,15 +258,15 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
 export function confirmServiceAssignment(horseIdentifier, roleType, staffUsername) {
   confirmApi(horseIdentifier, roleType, staffUsername).catch(() => {});
   const list = getServiceAssignments();
-  const key = String(horseIdentifier).toLowerCase();
+  const key = String(horseIdentifier || '').trim().toLowerCase();
   const nowStr = new Date().toLocaleDateString('vi-VN');
 
   let updated = false;
   let confirmedItem = null;
   const nextList = list.map(item => {
-    const match = (item.microchip && item.microchip.toLowerCase() === key) ||
-                  (item.horseName && item.horseName.toLowerCase() === key) ||
-                  String(item.id) === key;
+    const match = (item.microchip && item.microchip.trim().toLowerCase() === key) ||
+                  (item.horseName && item.horseName.trim().toLowerCase() === key) ||
+                  (item.id && String(item.id) === key);
     if (!match) return item;
 
     if (roleType === 'TRAINER') {
@@ -245,6 +289,7 @@ export function confirmServiceAssignment(horseIdentifier, roleType, staffUsernam
 
   if (updated) {
     saveServiceAssignments(nextList);
+    syncHorseConfirmationToLocalStorage(horseIdentifier, roleType, 'CONFIRMED');
     if (confirmedItem) {
       try {
         notifyServiceConfirmed(confirmedItem, { username: staffUsername }, roleType);
@@ -252,6 +297,54 @@ export function confirmServiceAssignment(horseIdentifier, roleType, staffUsernam
         console.error('Error notifying service confirmed:', err);
       }
     }
+  }
+  return nextList;
+}
+
+// Chuyển đổi trạng thái phân công (CONFIRMED hoặc PENDING)
+export function setServiceAssignmentStatus(horseIdentifier, roleType, newStatus = 'CONFIRMED', staffUsername = '') {
+  const list = getServiceAssignments();
+  const key = String(horseIdentifier || '').trim().toLowerCase();
+  const nowStr = new Date().toLocaleDateString('vi-VN');
+
+  let updated = false;
+  const nextList = list.map(item => {
+    const match = (item.microchip && item.microchip.trim().toLowerCase() === key) ||
+                  (item.horseName && item.horseName.trim().toLowerCase() === key) ||
+                  (item.id && String(item.id) === key);
+    if (!match) return item;
+
+    updated = true;
+    if (roleType === 'TRAINER') {
+      return {
+        ...item,
+        trainerStatus: newStatus,
+        trainerConfirmedAt: newStatus === 'CONFIRMED' ? nowStr : null,
+        trainerConfirmedBy: newStatus === 'CONFIRMED' ? (staffUsername || item.trainerUsername) : null
+      };
+    }
+    if (roleType === 'VET') {
+      return {
+        ...item,
+        vetStatus: newStatus,
+        vetConfirmedAt: newStatus === 'CONFIRMED' ? nowStr : null,
+        vetConfirmedBy: newStatus === 'CONFIRMED' ? (staffUsername || item.vetUsername) : null
+      };
+    }
+    if (roleType === 'GROOM') {
+      return {
+        ...item,
+        groomStatus: newStatus,
+        groomConfirmedAt: newStatus === 'CONFIRMED' ? nowStr : null,
+        groomConfirmedBy: newStatus === 'CONFIRMED' ? (staffUsername || item.groomUsername) : null
+      };
+    }
+    return item;
+  });
+
+  if (updated) {
+    saveServiceAssignments(nextList);
+    syncHorseConfirmationToLocalStorage(horseIdentifier, roleType, newStatus);
   }
   return nextList;
 }
@@ -273,6 +366,42 @@ export function removeServiceAssignmentByHorse(horseIdentifier) {
   return nextList;
 }
 
+// Cập nhật thông tin gia phả chiến mã từ Chủ sở hữu vào danh sách phân công dịch vụ
+export function updateServiceAssignmentPedigree(horseIdentifier, pedigreeData) {
+  if (!horseIdentifier || !pedigreeData) return;
+  const list = getServiceAssignments();
+  const key = String(horseIdentifier).trim().toLowerCase();
+
+  let updated = false;
+  const nextList = list.map(item => {
+    const match = (item.microchip && item.microchip.trim().toLowerCase() === key) ||
+                  (item.horseName && item.horseName.trim().toLowerCase() === key) ||
+                  (item.id && String(item.id) === key);
+    if (!match) return item;
+
+    updated = true;
+    return {
+      ...item,
+      pedigree: {
+        ...(item.pedigree || {}),
+        ...pedigreeData
+      }
+    };
+  });
+
+  if (updated) {
+    saveServiceAssignments(nextList);
+  }
+
+  try {
+    window.dispatchEvent(new CustomEvent('matruong_pedigree_updated', {
+      detail: { horseIdentifier, pedigree: pedigreeData }
+    }));
+  } catch {}
+
+  return nextList;
+}
+
 // Tìm kiếm hồ sơ đầy đủ của chiến mã và chủ sở hữu trên toàn bộ hệ thống
 export function lookupFullHorseInfo(horseIdentifier) {
   if (!horseIdentifier) return null;
@@ -289,9 +418,9 @@ export function lookupFullHorseInfo(horseIdentifier) {
           const list = JSON.parse(raw);
           if (Array.isArray(list)) {
             const match = list.find(h =>
-              (h.id && String(h.id).toLowerCase() === key) ||
-              (h.microchip && h.microchip.toLowerCase() === key) ||
-              (h.name && h.name.toLowerCase() === key)
+              (h.id && String(h.id).trim().toLowerCase() === key) ||
+              (h.microchip && h.microchip.trim().toLowerCase() === key) ||
+              (h.name && h.name.trim().toLowerCase() === key)
             );
             if (match) {
               foundOwnerHorse = match;
@@ -306,9 +435,9 @@ export function lookupFullHorseInfo(horseIdentifier) {
   // 2. Quét tìm trong danh sách phân công chuyên môn
   const assignments = getServiceAssignments();
   const matchAsgn = assignments.find(item =>
-    (item.microchip && item.microchip.toLowerCase() === key) ||
-    (item.horseName && item.horseName.toLowerCase() === key) ||
-    String(item.id) === key
+    (item.microchip && item.microchip.trim().toLowerCase() === key) ||
+    (item.horseName && item.horseName.trim().toLowerCase() === key) ||
+    (item.id && String(item.id).trim() === key)
   );
 
 const DEFAULT_HORSE_PEDIGREES = {
@@ -424,7 +553,10 @@ const DEFAULT_HORSE_PEDIGREES = {
     studBookNo: `VTB-SB-${microchip ? microchip.replace(/\D/g, '').slice(-4) : '2026'}`
   };
 
-  const rawPed = foundOwnerHorse?.pedigree || matchAsgn?.pedigree || {};
+  const rawPed = {
+    ...(matchAsgn?.pedigree || {}),
+    ...(foundOwnerHorse?.pedigree || {})
+  };
   const pedigree = {
     ...fallbackPed,
     ...rawPed,
@@ -434,8 +566,8 @@ const DEFAULT_HORSE_PEDIGREES = {
     damOfSire: rawPed.damOfSire || fallbackPed.damOfSire,
     sireOfDam: rawPed.sireOfDam || fallbackPed.sireOfDam,
     damOfDam: rawPed.damOfDam || fallbackPed.damOfDam,
-    sireAchievements: rawPed.sireAchievements || fallbackPed.sireAchievements,
-    damAchievements: rawPed.damAchievements || fallbackPed.damAchievements,
+    sireAchievements: rawPed.sireAchievements !== undefined ? rawPed.sireAchievements : fallbackPed.sireAchievements,
+    damAchievements: rawPed.damAchievements !== undefined ? rawPed.damAchievements : fallbackPed.damAchievements,
     studBookNo: rawPed.studBookNo || fallbackPed.studBookNo,
     foaled: rawPed.foaled || fallbackPed.foaled,
     origin: rawPed.origin || fallbackPed.origin,

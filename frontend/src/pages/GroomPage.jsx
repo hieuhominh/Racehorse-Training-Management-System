@@ -460,8 +460,8 @@ export default function GroomPage() {
   }, []);
 
   const handleConfirmGroomService = (asgn) => {
-    const groomUser = currentUser?.username || 'groom_nam';
-    const updated = confirmServiceAssignment(asgn.horseName, 'GROOM', groomUser);
+    const groomUser = asgn.groomUsername || currentUser?.username || 'groom_nam';
+    const updated = confirmServiceAssignment(asgn.horseName || asgn.microchip, 'GROOM', groomUser);
     setServiceAssignments(updated);
 
     const fullHorse = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
@@ -783,7 +783,8 @@ export default function GroomPage() {
                 const currentUsername = currentUser?.username || 'groom_nam';
                 const assignedToMe = serviceAssignments.filter(a =>
                   a.groomUsername === currentUsername ||
-                  (!a.groomUsername && currentUsername === 'groom_nam')
+                  (!a.groomUsername && currentUsername === 'groom_nam') ||
+                  a.groomStatus === 'PENDING'
                 );
                 if (assignedToMe.length === 0) return null;
 
@@ -819,7 +820,7 @@ export default function GroomPage() {
                       )}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 520px), 1fr))', gap: '14px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))', gap: '14px' }}>
                       {assignedToMe.map(asgn => {
                         const isPending = asgn.groomStatus === 'PENDING';
                         // Rút gọn mã ô chuồng để không bị tràn chữ (vd: 'Ô A1 (Block A - 18 m²)' -> 'Ô A1')
@@ -834,36 +835,62 @@ export default function GroomPage() {
                               background: 'var(--bg-secondary)',
                               border: isPending ? '1px solid rgba(212, 175, 55, 0.4)' : '1px solid var(--line)',
                               borderRadius: '10px',
-                              padding: '16px 20px',
+                              padding: '14px 18px',
                               display: 'flex',
                               flexDirection: 'column',
-                              gap: '12px',
+                              justifyContent: 'space-between',
+                              height: '100%',
+                              gap: '10px',
                               boxShadow: isPending ? '0 4px 16px rgba(0,0,0,0.25)' : 'none'
                             }}
                           >
-                            {/* Dòng 1: Tên chiến mã, ô chuồng & Nút thao tác */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                                <b style={{ color: 'var(--paper)', fontSize: '16px' }}>{asgn.horseName}</b>
+                            {/* Dòng 1: Tên chiến mã, ô chuồng & Nút thao tác (Cố định 1 hàng cân bằng) */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', minHeight: '34px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '6px' }}>
+                                <b
+                                  style={{
+                                    color: 'var(--paper)',
+                                    fontSize: '15px',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    maxWidth: '220px'
+                                  }}
+                                  title={asgn.horseName}
+                                >
+                                  {asgn.horseName}
+                                </b>
                                 <span style={{
                                   fontSize: '11px',
                                   fontWeight: 700,
                                   color: 'var(--brass)',
                                   background: 'rgba(212, 175, 55, 0.12)',
-                                  padding: '2px 8px',
+                                  padding: '2px 7px',
                                   borderRadius: '4px',
-                                  border: '1px solid rgba(212, 175, 55, 0.25)'
+                                  border: '1px solid rgba(212, 175, 55, 0.25)',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0
                                 }}>
                                   {stallCode}
                                 </span>
                                 {isPending && (
-                                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                                  <span style={{
+                                    fontSize: '10.5px',
+                                    fontWeight: 700,
+                                    color: '#F59E0B',
+                                    background: 'rgba(245, 158, 11, 0.12)',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    padding: '2px 7px',
+                                    borderRadius: '4px',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0
+                                  }}>
                                     Chờ xác nhận
                                   </span>
                                 )}
                               </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -874,9 +901,9 @@ export default function GroomPage() {
                                     background: 'transparent',
                                     color: 'var(--brass)',
                                     border: '1px solid var(--brass)',
-                                    padding: '7px 14px',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
+                                    padding: '5px 10px',
+                                    borderRadius: '5px',
+                                    fontSize: '11.5px',
                                     fontWeight: 700,
                                     cursor: 'pointer',
                                     whiteSpace: 'nowrap',
@@ -895,9 +922,9 @@ export default function GroomPage() {
                                       background: 'var(--brass)',
                                       color: '#0A0D14',
                                       border: 'none',
-                                      padding: '8px 16px',
-                                      borderRadius: '6px',
-                                      fontSize: '12px',
+                                      padding: '5px 12px',
+                                      borderRadius: '5px',
+                                      fontSize: '11.5px',
                                       fontWeight: 800,
                                       cursor: 'pointer',
                                       boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)',
@@ -908,12 +935,13 @@ export default function GroomPage() {
                                   </button>
                                 ) : (
                                   <span style={{
-                                    fontSize: '12px',
+                                    fontSize: '11.5px',
                                     fontWeight: 700,
                                     color: '#10B981',
                                     background: 'rgba(16, 185, 129, 0.12)',
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    padding: '4px 10px',
+                                    borderRadius: '5px',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: '4px',
@@ -925,43 +953,41 @@ export default function GroomPage() {
                               </div>
                             </div>
 
-                            {/* Dòng 2: Thông tin chi tiết ngăn cách bởi viền mờ */}
+                            {/* Dòng 2 & 3: Thông tin chi tiết */}
                             <div style={{
                               display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: '14px',
-                              flexWrap: 'wrap',
-                              paddingTop: '10px',
+                              flexDirection: 'column',
+                              gap: '6px',
+                              paddingTop: '8px',
                               borderTop: '1px solid var(--line)',
-                              fontSize: '12.5px'
+                              fontSize: '12px'
                             }}>
                               <div style={{ color: 'var(--paper-dim)' }}>
                                 Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip}</span>
                               </div>
 
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>Đội ngũ cùng phục vụ:</span>
+                                <span style={{ color: 'var(--paper-dim)', fontSize: '11.5px' }}>Đội ngũ cùng phục vụ:</span>
                                 <span style={{
                                   background: 'var(--bg-card)',
-                                  padding: '3px 10px',
+                                  padding: '2px 8px',
                                   borderRadius: '4px',
                                   border: '1px solid var(--line)',
                                   color: 'var(--paper)',
                                   fontWeight: 600,
-                                  fontSize: '12px',
+                                  fontSize: '11.5px',
                                   whiteSpace: 'nowrap'
                                 }}>
                                   🏇 HLV {trClean}
                                 </span>
                                 <span style={{
                                   background: 'var(--bg-card)',
-                                  padding: '3px 10px',
+                                  padding: '2px 8px',
                                   borderRadius: '4px',
                                   border: '1px solid var(--line)',
                                   color: 'var(--paper)',
                                   fontWeight: 600,
-                                  fontSize: '12px',
+                                  fontSize: '11.5px',
                                   whiteSpace: 'nowrap'
                                 }}>
                                   🩺 BS. {vetClean}

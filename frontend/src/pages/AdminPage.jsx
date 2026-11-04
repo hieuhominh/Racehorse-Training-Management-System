@@ -2687,7 +2687,15 @@ export default function AdminPage() {
 
                               {/* Tiêu đề & Nội dung tóm tắt */}
                               <td style={{ padding: '14px 16px', minWidth: '280px' }}>
-                                <div style={{ fontWeight: 700, color: 'var(--paper)', marginBottom: '4px', lineHeight: 1.4, fontSize: '13.5px' }}>
+                                <div style={{
+                                  fontWeight: 700,
+                                  color: 'var(--paper)',
+                                  marginBottom: '4px',
+                                  lineHeight: 1.4,
+                                  fontSize: '13.5px',
+                                  wordBreak: 'break-word',
+                                  overflowWrap: 'anywhere'
+                                }}>
                                   {report.title}
                                 </div>
                                 <div style={{
@@ -2697,7 +2705,9 @@ export default function AdminPage() {
                                   display: '-webkit-box',
                                   WebkitLineClamp: 2,
                                   WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden'
+                                  overflow: 'hidden',
+                                  wordBreak: 'break-word',
+                                  overflowWrap: 'anywhere'
                                 }}>
                                   {report.content}
                                 </div>
@@ -4321,28 +4331,28 @@ export default function AdminPage() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.78)',
+            background: 'rgba(5, 8, 15, 0.85)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 999999,
-            padding: '20px'
+            padding: '16px'
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: 'var(--bg-card)',
-              border: '1.5px solid var(--line-strong)',
-              borderRadius: '12px',
+              background: '#0F1523',
+              border: '1px solid rgba(212, 175, 55, 0.35)',
+              borderRadius: '16px',
               width: '100%',
-              maxWidth: '680px',
-              maxHeight: '90vh',
+              maxWidth: '660px',
+              maxHeight: '92vh',
               overflowY: 'auto',
-              color: 'var(--paper)',
-              boxShadow: '0 20px 45px rgba(0, 0, 0, 0.5)',
+              color: '#F1F5F9',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(212, 175, 55, 0.12)',
               display: 'flex',
               flexDirection: 'column'
             }}
@@ -4352,28 +4362,58 @@ export default function AdminPage() {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              padding: '18px 22px',
-              borderBottom: '1px solid var(--line)',
-              background: 'var(--bg-secondary)'
+              padding: '16px 22px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'linear-gradient(180deg, rgba(212, 175, 55, 0.08) 0%, rgba(15, 21, 35, 0) 100%)'
             }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: 800, color: 'var(--brass)' }}>
-                  ⚖️ Thẩm Tra & Xử Lý Khiếu Nại Nhân Sự
-                </h3>
-                <span style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                  Mã khiếu nại: #{selectedReportForReview.id} · Gửi lúc {selectedReportForReview.createdAt}
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: 'rgba(212, 175, 55, 0.14)',
+                  border: '1px solid rgba(212, 175, 55, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px',
+                  color: 'var(--brass)'
+                }}>
+                  ⚖️
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#FFFFFF' }}>
+                    Thẩm Tra & Xử Lý Khiếu Nại Nhân Sự
+                  </h3>
+                  <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '2px' }}>
+                    Hồ sơ <b style={{ color: 'var(--brass)' }}>#{selectedReportForReview.id}</b> · Gửi lúc {selectedReportForReview.createdAt}
+                  </div>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedReportForReview(null)}
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--paper-dim)',
-                  fontSize: '20px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#94A3B8',
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   cursor: 'pointer',
-                  padding: '4px 8px'
+                  fontSize: '15px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#FFFFFF';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#94A3B8';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
                 }}
               >
                 ✕
@@ -4381,162 +4421,282 @@ export default function AdminPage() {
             </div>
 
             {/* Modal Body */}
-            <form onSubmit={handleSaveAdminReview} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Box tóm tắt thông tin vụ việc */}
-              <div style={{ background: 'var(--bg-secondary)', padding: '14px 16px', borderRadius: '8px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', fontSize: '13px' }}>
-                  <span>Chủ sở hữu khiếu nại: <b style={{ color: 'var(--paper)' }}>{selectedReportForReview.ownerName}</b> ({selectedReportForReview.ownerPhone})</span>
-                  <span>Chiến mã: <b style={{ color: 'var(--brass)' }}>{selectedReportForReview.horseName}</b> ({selectedReportForReview.stall})</span>
-                </div>
-                <div style={{ fontSize: '13px', paddingTop: '4px', borderTop: '1px dashed var(--line)' }}>
-                  Đối tượng bị báo cáo: <b style={{ color: '#EF4444' }}>{REPORT_TARGET_ROLES[selectedReportForReview.targetRole]?.label || selectedReportForReview.targetRole} — {selectedReportForReview.targetName}</b> ({selectedReportForReview.targetTitle})
-                </div>
-                <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)' }}>
-                  Danh mục: <span style={{ color: 'var(--paper)' }}>{selectedReportForReview.category}</span>
-                </div>
-              </div>
-
-              {/* Chi tiết nội dung phản ánh của chủ sở hữu */}
-              <div>
-                <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '4px' }}>
-                  Nội dung phản ánh từ Chủ sở hữu:
-                </label>
-                <div style={{
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  border: '1px solid var(--line)',
-                  borderRadius: '6px',
-                  padding: '12px 14px',
-                  fontSize: '13px',
-                  lineHeight: 1.5,
-                  color: 'var(--paper)'
-                }}>
-                  <div style={{ fontWeight: 700, color: 'var(--brass)', marginBottom: '4px' }}>
-                    {selectedReportForReview.title}
+            <form onSubmit={handleSaveAdminReview} style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Card tóm tắt vụ việc & nội dung phản ánh (Gọn gàng, liền mạch) */}
+              <div style={{
+                background: '#141A29',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                {/* Header tóm tắt */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: '#EF4444',
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      padding: '2px 8px',
+                      borderRadius: '4px'
+                    }}>
+                      Bị phản ánh: {REPORT_TARGET_ROLES[selectedReportForReview.targetRole]?.label || selectedReportForReview.targetRole}
+                    </span>
+                    <b style={{ color: '#F1F5F9', fontSize: '13.5px' }}>{selectedReportForReview.targetName}</b>
+                    <span style={{ fontSize: '11.5px', color: '#94A3B8' }}>({selectedReportForReview.targetTitle})</span>
                   </div>
-                  <div>{selectedReportForReview.content}</div>
-                  {selectedReportForReview.evidenceNote && (
-                    <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--paper-dim)', fontStyle: 'italic', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px' }}>
-                      📎 Bằng chứng đính kèm / Ghi chú: {selectedReportForReview.evidenceNote}
+                  <div style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    Chủ sở hữu: <b style={{ color: '#F1F5F9' }}>{selectedReportForReview.ownerName}</b> · 🏇 <b style={{ color: 'var(--brass)' }}>{selectedReportForReview.horseName}</b>
+                  </div>
+                </div>
+
+                {/* Nội dung phản ánh có scroll nhẹ nếu quá dài */}
+                <div>
+                  <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Nội dung phản ánh từ Chủ sở hữu:
+                  </div>
+                  <div style={{
+                    background: 'rgba(0, 0, 0, 0.35)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    maxHeight: '105px',
+                    overflowY: 'auto'
+                  }}>
+                    <div style={{
+                      fontWeight: 700,
+                      color: 'var(--brass)',
+                      fontSize: '13px',
+                      marginBottom: '4px',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'anywhere'
+                    }}>
+                      {selectedReportForReview.title}
                     </div>
-                  )}
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#CBD5E1',
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'anywhere'
+                    }}>
+                      {selectedReportForReview.content}
+                    </div>
+                    {selectedReportForReview.evidenceNote && (
+                      <div style={{
+                        marginTop: '6px',
+                        fontSize: '11px',
+                        color: '#94A3B8',
+                        fontStyle: 'italic',
+                        borderTop: '1px dashed rgba(255,255,255,0.08)',
+                        paddingTop: '4px',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere'
+                      }}>
+                        📎 Bằng chứng / Ghi chú: {selectedReportForReview.evidenceNote}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Quyết định xử lý của Admin */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '6px' }}>
-                    1. Cập nhật trạng thái xử lý:
+              {/* Cập nhật trạng thái & Gợi ý nhanh */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '12.5px', color: '#E2E8F0', fontWeight: 700 }}>
+                    Trạng thái thẩm tra & xử lý <span style={{ color: '#EF4444' }}>*</span>
                   </label>
-                  <select
-                    className="portal-input"
-                    value={adminReviewStatus}
-                    onChange={(e) => setAdminReviewStatus(e.target.value)}
-                    style={{ width: '100%', boxSizing: 'border-box', fontWeight: 700 }}
-                  >
-                    <option value="INVESTIGATING">🔍 Đang thẩm tra & Yêu cầu giải trình</option>
-                    <option value="RESOLVED">✓ Đã giải quyết & Xử lý kỷ luật / chấn chỉnh</option>
-                    <option value="DISMISSED">✕ Bác bỏ khiếu nại (Không đủ căn cứ vi phạm)</option>
-                    <option value="PENDING">⏳ Tiếp tục chờ xác minh thêm</option>
-                  </select>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>
+                    Bấm chọn nhanh phương án để tự động điền
+                  </span>
                 </div>
 
-                {/* Gợi ý biện pháp nhanh */}
-                <div>
-                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginBottom: '5px' }}>
-                    Chọn nhanh phương án xử lý:
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {[
-                      'Yêu cầu giải trình văn bản trong vòng 24h & tạm đình chỉ buổi tập',
-                      'Nhắc nhở nội bộ & chấn chỉnh quy trình phục vụ',
-                      'Phạt trừ thi đua tháng và bố trí nhân sự khác phụ trách',
-                      'Đã tổ chức hòa giải, nhân sự đã nhận khuyết điểm và xin lỗi Chủ sở hữu',
-                      'Bác bỏ khiếu nại do sự việc bất khả kháng có camera đối soát'
-                    ].map((preset, idx) => (
+                <select
+                  value={adminReviewStatus}
+                  onChange={(e) => setAdminReviewStatus(e.target.value)}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '9px 34px 9px 12px',
+                    background: '#141A29 url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' fill=\'%2394A3B8\' viewBox=\'0 0 16 16\'%3E%3Cpath d=\'M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z\'/%3E%3C/svg%3E") no-repeat calc(100% - 12px) center',
+                    appearance: 'none',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    borderRadius: '8px',
+                    color: adminReviewStatus === 'RESOLVED' ? '#10B981' : (adminReviewStatus === 'INVESTIGATING' ? '#38BDF8' : (adminReviewStatus === 'DISMISSED' ? '#EF4444' : '#F59E0B')),
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    outline: 'none'
+                  }}
+                >
+                  <option value="INVESTIGATING" style={{ background: '#141A29', color: '#38BDF8' }}>🔍 Đang thẩm tra & Yêu cầu giải trình</option>
+                  <option value="RESOLVED" style={{ background: '#141A29', color: '#10B981' }}>✅ Đã giải quyết & Xử lý kỷ luật</option>
+                  <option value="DISMISSED" style={{ background: '#141A29', color: '#EF4444' }}>✕ Bác bỏ khiếu nại (Không đủ căn cứ)</option>
+                  <option value="PENDING" style={{ background: '#141A29', color: '#F59E0B' }}>⏳ Chờ tiếp nhận hồ sơ</option>
+                </select>
+
+                {/* Gợi ý phương án nhanh dạng chip gọn gàng */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {[
+                    {
+                      tag: '📋 Yêu cầu giải trình 24h',
+                      status: 'INVESTIGATING',
+                      action: 'Yêu cầu nhân sự giải trình bằng văn bản trong 24h & tạm đình chỉ buổi tập',
+                      feedback: 'Ban Quản Trị đã tiếp nhận phản ánh và yêu cầu nhân sự giải trình chi tiết trong 24h. Chúng tôi sẽ thông báo kết quả kỷ luật sớm nhất tới bạn.'
+                    },
+                    {
+                      tag: '⚠️ Nhắc nhở & Chấn chỉnh',
+                      status: 'RESOLVED',
+                      action: 'Phê bình nghiêm khắc, nhắc nhở quy trình phục vụ và lập biên bản nội bộ',
+                      feedback: 'Ban Quản Trị đã làm việc trực tiếp, tiến hành nhắc nhở và chấn chỉnh nghiêm túc nhân sự. Cảm ơn Chủ sở hữu đã phản ánh để nâng cao chất lượng phục vụ.'
+                    },
+                    {
+                      tag: '⚖️ Kỷ luật & Trừ thi đua',
+                      status: 'RESOLVED',
+                      action: 'Phạt trừ điểm thi đua tháng và bố trí nhân sự khác có chuyên môn cao hơn phụ trách',
+                      feedback: 'Ban Quản Trị đã thi hành kỷ luật trừ thi đua đối với nhân sự và điều phối nhân sự mới thay thế theo đúng yêu cầu của Chủ sở hữu.'
+                    },
+                    {
+                      tag: '🤝 Hòa giải & Xin lỗi',
+                      status: 'RESOLVED',
+                      action: 'Tổ chức đối thoại trực tiếp, nhân sự đã nhận khuyết điểm và xin lỗi Chủ sở hữu',
+                      feedback: 'Nhân sự đã nhận trách nhiệm, nhận khuyết điểm và gửi lời xin lỗi chân thành tới Chủ sở hữu. Ban Quản Trị cam kết không để tái diễn sự việc.'
+                    },
+                    {
+                      tag: '❌ Bác bỏ (Bất khả kháng)',
+                      status: 'DISMISSED',
+                      action: 'Bác bỏ khiếu nại sau khi trích xuất camera chuồng và nhật ký viễn trắc (sự việc bất khả kháng)',
+                      feedback: 'Qua trích xuất camera và dữ liệu viễn trắc khách quan, Ban Quản Trị xác minh nhân sự đã xử lý đúng quy trình ứng phó tình huống bất khả kháng.'
+                    }
+                  ].map((preset, idx) => {
+                    const isActive = adminReviewAction === preset.action;
+                    return (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => {
-                          setAdminReviewAction(preset);
-                          if (!adminReviewFeedback) {
-                            setAdminReviewFeedback(`Ban Quản Trị đã tiến hành xác minh: ${preset}. Cảm ơn Chủ sở hữu đã phản ánh để nâng cao chất lượng mã trường.`);
-                          }
+                          setAdminReviewStatus(preset.status);
+                          setAdminReviewAction(preset.action);
+                          setAdminReviewFeedback(preset.feedback);
                         }}
                         style={{
                           fontSize: '11px',
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid var(--line)',
-                          color: 'var(--paper-dim)',
-                          cursor: 'pointer'
+                          fontWeight: 600,
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          background: isActive ? 'rgba(212, 175, 55, 0.22)' : 'rgba(255, 255, 255, 0.05)',
+                          border: isActive ? '1px solid var(--brass)' : '1px solid rgba(255, 255, 255, 0.08)',
+                          color: isActive ? 'var(--brass)' : '#CBD5E1',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
                         }}
                       >
-                        + {preset.slice(0, 32)}...
+                        {preset.tag}
                       </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '6px' }}>
-                    2. Biện pháp xử lý / Kỷ luật nội bộ:
-                  </label>
-                  <input
-                    type="text"
-                    className="portal-input"
-                    value={adminReviewAction}
-                    onChange={(e) => setAdminReviewAction(e.target.value)}
-                    placeholder="Ví dụ: Phạt trừ điểm thi đua nhân viên, thay đổi HLV phụ trách theo yêu cầu của chủ..."
-                    style={{ width: '100%', boxSizing: 'border-box' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '6px' }}>
-                    3. Lời kết luận & Phản hồi chính thức gửi Chủ sở hữu:
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="portal-input"
-                    value={adminReviewFeedback}
-                    onChange={(e) => setAdminReviewFeedback(e.target.value)}
-                    placeholder="Nhập nội dung phản hồi chính thức từ Ban Quản Trị gửi đến Chủ sở hữu chiến mã..."
-                    style={{ width: '100%', boxSizing: 'border-box', fontSize: '13px' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '4px' }}>
-                    Ghi chú thẩm tra nội bộ (Chỉ Admin thấy):
-                  </label>
-                  <textarea
-                    rows={2}
-                    className="portal-input"
-                    value={adminReviewNotes}
-                    onChange={(e) => setAdminReviewNotes(e.target.value)}
-                    placeholder="Ghi chú hồ sơ nhân viên, trích xuất camera hoặc biên bản đối chất..."
-                    style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px' }}
-                  />
+                    );
+                  })}
                 </div>
               </div>
 
+              {/* Biện pháp xử lý */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#E2E8F0', fontWeight: 700, marginBottom: '5px' }}>
+                  Biện pháp xử lý / Kỷ luật nội bộ <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={adminReviewAction}
+                  onChange={(e) => setAdminReviewAction(e.target.value)}
+                  placeholder="Ví dụ: Phạt trừ điểm thi đua nhân viên, thay đổi HLV phụ trách..."
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '9px 12px',
+                    background: '#141A29',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '8px',
+                    color: '#FFFFFF',
+                    fontSize: '12.5px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              {/* Lời kết luận & Phản hồi chính thức */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#E2E8F0', fontWeight: 700, marginBottom: '5px' }}>
+                  Lời kết luận & Phản hồi chính thức gửi Chủ sở hữu <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  value={adminReviewFeedback}
+                  onChange={(e) => setAdminReviewFeedback(e.target.value)}
+                  placeholder="Nhập nội dung phản hồi chính thức từ Ban Quản Trị gửi đến Chủ sở hữu chiến mã..."
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '9px 12px',
+                    background: '#141A29',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '8px',
+                    color: '#FFFFFF',
+                    fontSize: '12.5px',
+                    lineHeight: '1.45',
+                    outline: 'none',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* Ghi chú nội bộ Admin */}
+              <div>
+                <label style={{ display: 'block', fontSize: '11.5px', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
+                  Ghi chú thẩm tra nội bộ (Chỉ Admin thấy)
+                </label>
+                <input
+                  type="text"
+                  value={adminReviewNotes}
+                  onChange={(e) => setAdminReviewNotes(e.target.value)}
+                  placeholder="Ghi chú hồ sơ nhân viên, trích xuất camera hoặc biên bản đối chất..."
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '8px 12px',
+                    background: '#141A29',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '8px',
+                    color: '#94A3B8',
+                    fontSize: '12px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
               {/* Footer buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
                 <button
                   type="button"
                   onClick={() => setSelectedReportForReview(null)}
                   style={{
                     padding: '9px 18px',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--line)',
-                    color: 'var(--paper)',
-                    borderRadius: '6px',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: '#CBD5E1',
+                    borderRadius: '8px',
                     cursor: 'pointer',
                     fontWeight: 600,
-                    fontSize: '13px'
+                    fontSize: '13px',
+                    transition: 'all 0.15s'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'}
                 >
                   Đóng
                 </button>
@@ -4544,17 +4704,21 @@ export default function AdminPage() {
                   type="submit"
                   style={{
                     padding: '9px 22px',
-                    background: 'var(--brass)',
+                    background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
                     border: 'none',
-                    color: '#0A0D14',
-                    borderRadius: '6px',
+                    color: '#0F172A',
+                    borderRadius: '8px',
                     cursor: 'pointer',
                     fontWeight: 800,
                     fontSize: '13px',
-                    boxShadow: '0 2px 10px rgba(212, 175, 55, 0.3)'
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s'
                   }}
                 >
-                  ✓ Lưu Kết Luận & Gửi Phản Hồi
+                  <span>✓ Lưu Kết Luận & Gửi Phản Hồi</span>
                 </button>
               </div>
             </form>

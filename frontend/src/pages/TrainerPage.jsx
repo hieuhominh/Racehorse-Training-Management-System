@@ -385,8 +385,8 @@ export default function TrainerPage() {
   }, []);
 
   const handleConfirmTrainerService = (asgn) => {
-    const trainerUser = currentUser?.username || 'trainer_truong';
-    const updated = confirmServiceAssignment(asgn.horseName, 'TRAINER', trainerUser);
+    const trainerUser = asgn.trainerUsername || currentUser?.username || 'trainer_truong';
+    const updated = confirmServiceAssignment(asgn.horseName || asgn.microchip, 'TRAINER', trainerUser);
     setServiceAssignments(updated);
 
     const fullHorse = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
@@ -1966,14 +1966,15 @@ setTrainerHorses(prev => {
               {/* Khối Xác Nhận Phục Vụ & Nhật Ký Hoạt Động Tiếp Nhận */}
               {(() => {
                 const currentUsername = currentUser?.username || 'trainer_truong';
-                const assignedToMe = serviceAssignments.filter(a =>
-                  a.trainerUsername === currentUsername ||
-                  (!a.trainerUsername && currentUsername === 'trainer_truong')
+                const pendingAssignments = serviceAssignments.filter(a => a.trainerStatus === 'PENDING');
+                const confirmedAssignments = serviceAssignments.filter(a =>
+                  a.trainerStatus === 'CONFIRMED' && (
+                    a.trainerUsername === currentUsername ||
+                    currentUsername === 'trainer_truong' ||
+                    !a.trainerUsername
+                  )
                 );
-                if (assignedToMe.length === 0) return null;
-
-                const pendingAssignments = assignedToMe.filter(a => a.trainerStatus === 'PENDING');
-                const confirmedAssignments = assignedToMe.filter(a => a.trainerStatus === 'CONFIRMED');
+                if (pendingAssignments.length === 0 && confirmedAssignments.length === 0) return null;
 
                 return (
                   <>
@@ -2004,7 +2005,7 @@ setTrainerHorses(prev => {
                           </span>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 520px), 1fr))', gap: '14px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))', gap: '14px' }}>
                           {pendingAssignments.map(asgn => {
                             const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
                             const vetClean = asgn.vetName ? asgn.vetName.replace(/^(BS|Bác sĩ)\.?\s*/i, '').trim() : 'Nguyễn An';
@@ -2017,34 +2018,60 @@ setTrainerHorses(prev => {
                                   background: 'var(--bg-secondary)',
                                   border: '1px solid rgba(212, 175, 55, 0.4)',
                                   borderRadius: '10px',
-                                  padding: '16px 20px',
+                                  padding: '14px 18px',
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  gap: '12px',
+                                  justifyContent: 'space-between',
+                                  height: '100%',
+                                  gap: '10px',
                                   boxShadow: '0 4px 16px rgba(0,0,0,0.25)'
                                 }}
                               >
-                                {/* Dòng 1: Tên chiến mã, ô chuồng & Nút thao tác */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                                    <b style={{ color: 'var(--paper)', fontSize: '16px' }}>{asgn.horseName}</b>
+                                {/* Dòng 1: Tên chiến mã, ô chuồng & Nút thao tác (Cố định 1 hàng cân bằng) */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', minHeight: '34px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '6px' }}>
+                                    <b
+                                      style={{
+                                        color: 'var(--paper)',
+                                        fontSize: '15px',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        maxWidth: '220px'
+                                      }}
+                                      title={asgn.horseName}
+                                    >
+                                      {asgn.horseName}
+                                    </b>
                                     <span style={{
                                       fontSize: '11px',
                                       fontWeight: 700,
                                       color: 'var(--brass)',
                                       background: 'rgba(212, 175, 55, 0.12)',
-                                      padding: '2px 8px',
+                                      padding: '2px 7px',
                                       borderRadius: '4px',
-                                      border: '1px solid rgba(212, 175, 55, 0.25)'
+                                      border: '1px solid rgba(212, 175, 55, 0.25)',
+                                      whiteSpace: 'nowrap',
+                                      flexShrink: 0
                                     }}>
                                       {stallCode}
                                     </span>
-                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+                                    <span style={{
+                                      fontSize: '10.5px',
+                                      fontWeight: 700,
+                                      color: '#F59E0B',
+                                      background: 'rgba(245, 158, 11, 0.12)',
+                                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                                      padding: '2px 7px',
+                                      borderRadius: '4px',
+                                      whiteSpace: 'nowrap',
+                                      flexShrink: 0
+                                    }}>
                                       Chờ xác nhận
                                     </span>
                                   </div>
 
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -2064,9 +2091,9 @@ setTrainerHorses(prev => {
                                         background: 'transparent',
                                         color: 'var(--brass)',
                                         border: '1px solid var(--brass)',
-                                        padding: '7px 14px',
-                                        borderRadius: '6px',
-                                        fontSize: '12px',
+                                        padding: '5px 10px',
+                                        borderRadius: '5px',
+                                        fontSize: '11.5px',
                                         fontWeight: 700,
                                         cursor: 'pointer',
                                         whiteSpace: 'nowrap',
@@ -2084,9 +2111,9 @@ setTrainerHorses(prev => {
                                         background: 'var(--brass)',
                                         color: '#0A0D14',
                                         border: 'none',
-                                        padding: '8px 16px',
-                                        borderRadius: '6px',
-                                        fontSize: '12px',
+                                        padding: '5px 12px',
+                                        borderRadius: '5px',
+                                        fontSize: '11.5px',
                                         fontWeight: 800,
                                         cursor: 'pointer',
                                         boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)',
@@ -2098,43 +2125,41 @@ setTrainerHorses(prev => {
                                   </div>
                                 </div>
 
-                                {/* Dòng 2: Thông tin chi tiết */}
+                                {/* Dòng 2 & 3: Thông tin chi tiết phân cách đều */}
                                 <div style={{
                                   display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  gap: '14px',
-                                  flexWrap: 'wrap',
-                                  paddingTop: '10px',
+                                  flexDirection: 'column',
+                                  gap: '6px',
+                                  paddingTop: '8px',
                                   borderTop: '1px solid var(--line)',
-                                  fontSize: '12.5px'
+                                  fontSize: '12px'
                                 }}>
                                   <div style={{ color: 'var(--paper-dim)' }}>
                                     Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip}</span>
                                   </div>
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                    <span style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>Đội ngũ cùng phục vụ:</span>
+                                    <span style={{ color: 'var(--paper-dim)', fontSize: '11.5px' }}>Đội ngũ cùng phục vụ:</span>
                                     <span style={{
                                       background: 'var(--bg-card)',
-                                      padding: '3px 10px',
+                                      padding: '2px 8px',
                                       borderRadius: '4px',
                                       border: '1px solid var(--line)',
                                       color: 'var(--paper)',
                                       fontWeight: 600,
-                                      fontSize: '12px',
+                                      fontSize: '11.5px',
                                       whiteSpace: 'nowrap'
                                     }}>
                                       🩺 BS. {vetClean}
                                     </span>
                                     <span style={{
                                       background: 'var(--bg-card)',
-                                      padding: '3px 10px',
+                                      padding: '2px 8px',
                                       borderRadius: '4px',
                                       border: '1px solid var(--line)',
                                       color: 'var(--paper)',
                                       fontWeight: 600,
-                                      fontSize: '12px',
+                                      fontSize: '11.5px',
                                       whiteSpace: 'nowrap'
                                     }}>
                                       🌾 Groom {groomClean}

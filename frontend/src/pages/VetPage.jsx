@@ -17,9 +17,16 @@ import {
 import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
 import NotificationBell from '../components/NotificationBell';
 import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
+import HorsePedigreeViewModal from '../components/HorsePedigreeViewModal';
 import { getSystemNotifications, addSystemNotification } from '../services/notificationService';
 
 // Minimalist High-End SVG Icons for Veterinary Medical Portal
+const IconHorse = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 19l2-7 4-1 3-5h4l-2 5 4 3-1 4-3 1-2 5-3-1-1-4z" />
+  </svg>
+);
+
 const IconStethoscope = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" />
@@ -261,12 +268,36 @@ export default function VetPage() {
 
   const [activeTab, setActiveTab] = useState(() => {
     try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramTab = urlParams.get('tab');
+      if (paramTab && ['horses', 'triage', 'anatomy', 'lockout', 'vaccines', 'prescriptions', 'clearance'].includes(paramTab)) {
+        return paramTab;
+      }
+      const hash = window.location.hash.replace('#', '');
+      if (hash && ['horses', 'triage', 'anatomy', 'lockout', 'vaccines', 'prescriptions', 'clearance'].includes(hash)) {
+        return hash;
+      }
       const saved = localStorage.getItem('matruong_tab_vet');
-      return ['triage', 'anatomy', 'lockout', 'vaccines', 'prescriptions', 'clearance'].includes(saved) ? saved : 'triage';
+      return ['horses', 'triage', 'anatomy', 'lockout', 'vaccines', 'prescriptions', 'clearance'].includes(saved) ? saved : 'horses';
     } catch {
-      return 'triage';
+      return 'horses';
     }
-  }); // 'triage' | 'anatomy' | 'lockout' | 'vaccines' | 'prescriptions' | 'clearance'
+  }); // 'horses' | 'triage' | 'anatomy' | 'lockout' | 'vaccines' | 'prescriptions' | 'clearance'
+
+  // Lưu activeTab vào localStorage và URL để khi F5 / refresh vẫn giữ nguyên đúng trang hiện tại
+  useEffect(() => {
+    try {
+      if (activeTab) {
+        localStorage.setItem('matruong_tab_vet', activeTab);
+        const url = new URL(window.location);
+        if (url.searchParams.get('tab') !== activeTab) {
+          url.searchParams.set('tab', activeTab);
+          window.history.replaceState({}, '', url);
+        }
+      }
+    } catch {}
+  }, [activeTab]);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedAnatomy, setSelectedAnatomy] = useState(() => {
     try {
@@ -277,6 +308,15 @@ export default function VetPage() {
       return ANATOMY_PARTS[1];
     }
   }); // Mặc định là Fetlock (Gân gót)
+
+  // Lưu selectedAnatomy vào localStorage để khi F5 giữ đúng vị trí giải phẫu đang chọn
+  useEffect(() => {
+    try {
+      if (selectedAnatomy?.id) {
+        localStorage.setItem('matruong_vet_anatomy_id', String(selectedAnatomy.id));
+      }
+    } catch {}
+  }, [selectedAnatomy]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Xác định xem đây có phải là tài khoản Bác sĩ Thú y MỚI ĐƯỢC DUYỆT hay không
@@ -498,6 +538,69 @@ export default function VetPage() {
   }, []);
 
   const [confirmedHorseModal, setConfirmedHorseModal] = useState(null);
+  const [selectedPedigreeHorse, setSelectedPedigreeHorse] = useState(null);
+
+  // Lắng nghe khi Chủ sở hữu cập nhật phả hệ chiến mã để đồng bộ thời gian thực
+  useEffect(() => {
+    const handlePedigreeUpdate = () => {
+      setServiceAssignments(getServiceAssignments());
+      setConfirmedHorseModal(prev => {
+        if (!prev) return null;
+        return lookupFullHorseInfo(prev.name || prev.microchip) || prev;
+      });
+      setSelectedPedigreeHorse(prev => {
+        if (!prev) return null;
+        return lookupFullHorseInfo(prev.name || prev.microchip) || prev;
+      });
+    };
+    window.addEventListener('matruong_pedigree_updated', handlePedigreeUpdate);
+    window.addEventListener('storage', handlePedigreeUpdate);
+    return () => {
+      window.removeEventListener('matruong_pedigree_updated', handlePedigreeUpdate);
+      window.removeEventListener('storage', handlePedigreeUpdate);
+    };
+  }, []);
+
+  // Bộ lọc & Tìm kiếm danh bạ Hồ sơ chiến mã (tab 'horses')
+  const [horseSearchTerm, setHorseSearchTerm] = useState('');
+  const [horseFilterStatus, setHorseFilterStatus] = useState('ALL'); // 'ALL' | 'ELIGIBLE' | 'LOCKED'
+  const [horseFilterBreed, setHorseFilterBreed] = useState('ALL');
+
+  const pendingVetAssignments = useMemo(() => {
+    return serviceAssignments.filter(a => a.vetStatus === 'PENDING');
+  }, [serviceAssignments]);
+
+  const breedOptions = useMemo(() => {
+    const set = new Set();
+    horses.forEach(h => {
+      const full = lookupFullHorseInfo(h.name || h.microchip) || h;
+      if (full.breed) set.add(full.breed);
+      else if (h.breed) set.add(h.breed);
+    });
+    return Array.from(set);
+  }, [horses]);
+
+  const filteredHorseProfiles = useMemo(() => {
+    return horses.filter(h => {
+      const full = lookupFullHorseInfo(h.name || h.microchip) || h;
+      const term = horseSearchTerm.trim().toLowerCase();
+      if (term) {
+        const matchName = (h.name && h.name.toLowerCase().includes(term));
+        const matchChip = (h.microchip && h.microchip.toLowerCase().includes(term));
+        const matchOwner = ((h.ownerName || h.owner || full.ownerName || '').toLowerCase().includes(term));
+        const matchStall = ((h.stable || full.stable || '').toLowerCase().includes(term));
+        const matchBreed = ((h.breed || full.breed || '').toLowerCase().includes(term));
+        if (!matchName && !matchChip && !matchOwner && !matchStall && !matchBreed) return false;
+      }
+      if (horseFilterStatus === 'ELIGIBLE' && (h.locked || h.status === 'INJURED')) return false;
+      if (horseFilterStatus === 'LOCKED' && !h.locked && h.status !== 'INJURED') return false;
+      if (horseFilterBreed !== 'ALL') {
+        const breed = (h.breed || full.breed || '').toLowerCase();
+        if (!breed.includes(horseFilterBreed.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [horses, horseSearchTerm, horseFilterStatus, horseFilterBreed]);
 
   // Lắng nghe thông báo khi chiến mã bị xóa từ phía Chủ sở hữu
   useEffect(() => {
@@ -522,8 +625,8 @@ export default function VetPage() {
   }, []);
 
   const handleConfirmVetService = (asgn) => {
-    const vetUser = currentUser?.username || 'vet_an';
-    const updated = confirmServiceAssignment(asgn.horseName, 'VET', vetUser);
+    const vetUser = asgn.vetUsername || currentUser?.username || 'vet_an';
+    const updated = confirmServiceAssignment(asgn.horseName || asgn.microchip, 'VET', vetUser);
     setServiceAssignments(updated);
 
     const fullHorse = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
@@ -895,6 +998,17 @@ export default function VetPage() {
         <nav className="portal-nav">
           <button
             type="button"
+            className={`portal-nav-item ${activeTab === 'horses' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('horses'); setSidebarOpen(false); }}
+            title="Danh Bạ & Hồ Sơ Y Bạ Toàn Bộ Đàn Chiến Mã"
+          >
+            <span className="portal-nav-icon"><IconHorse size={18} /></span>
+            <span className="portal-nav-label">Hồ sơ chiến mã</span>
+            <span className="portal-nav-badge">{horses.length}</span>
+          </button>
+
+          <button
+            type="button"
             className={`portal-nav-item ${activeTab === 'triage' ? 'active' : ''}`}
             onClick={() => { setActiveTab('triage'); setSidebarOpen(false); }}
             title="Tiếp nhận & Xử lý Sự cố Lâm sàng"
@@ -1026,6 +1140,560 @@ export default function VetPage() {
         {/* MAIN WORKSPACE CONTENT */}
         <main className="portal-main">
           {/* ========================================================================= */}
+          {/* TAB 0: DANH BẠ & HỒ SƠ CHIẾN MÃ Y TẾ (HORSE PROFILES & MEDICAL RECORDS) */}
+          {/* ========================================================================= */}
+          {activeTab === 'horses' && (
+            <div className="tab-pane">
+              <div className="pane-header" style={{ marginBottom: '20px' }}>
+                <div>
+                  <h2 className="pane-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span>Hồ Sơ & Danh Bạ Chiến Mã Y Tế</span>
+                    <span style={{
+                      fontSize: '11px',
+                      background: 'rgba(212, 175, 55, 0.15)',
+                      color: 'var(--brass)',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(212, 175, 55, 0.3)',
+                      fontWeight: 700
+                    }}>
+                      {horses.length} Chiến mã
+                    </span>
+                  </h2>
+                  <p className="pane-desc">
+                    Quản lý toàn bộ hồ sơ chiến mã do Chủ sở hữu ủy thác: phả hệ 3 đời, chủ sở hữu, thẻ định danh RFID và hồ sơ bệnh án theo dõi thể lực.
+                  </p>
+                </div>
+              </div>
+
+              {/* Bốn thẻ thống kê KPI nhanh - Phong cách tối giản chuyên nghiệp */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '12px',
+                marginBottom: '18px'
+              }}>
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '12px 16px'
+                }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                    Tổng Ngựa Phụ Trách
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--brass)', marginTop: '4px' }}>
+                    {horses.length} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--paper-dim)' }}>chiến mã</span>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '12px 16px'
+                }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                    Đủ Điều Kiện (FIT)
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#10B981', marginTop: '4px' }}>
+                    {horses.filter(h => !h.locked && h.status !== 'INJURED').length} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--paper-dim)' }}>sẵn sàng</span>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '12px 16px'
+                }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                    Đang Khóa Y Tế (VETO)
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#EF4444', marginTop: '4px' }}>
+                    {horses.filter(h => h.locked || h.status === 'INJURED').length} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--paper-dim)' }}>cấm tập</span>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '8px',
+                  padding: '12px 16px'
+                }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                    Yêu Cầu Chờ Tiếp Nhận
+                  </div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#F59E0B', marginTop: '4px' }}>
+                    {pendingVetAssignments.length} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--paper-dim)' }}>yêu cầu</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Khối Yêu Cầu Chờ Bác Sĩ Xác Nhận nếu có */}
+              {pendingVetAssignments.length > 0 && (
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.05)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  borderRadius: '8px',
+                  padding: '14px 18px',
+                  marginBottom: '18px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#10B981' }}>
+                      Yêu Cầu Chỉ Định Bác Sĩ Thú Y Chờ Xác Nhận ({pendingVetAssignments.length})
+                    </div>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0A0D14', background: '#10B981', padding: '2px 8px', borderRadius: '4px' }}>
+                      Cần tiếp nhận
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 460px), 1fr))', gap: '10px' }}>
+                    {pendingVetAssignments.map(asgn => (
+                      <div
+                        key={asgn.id || asgn.microchip}
+                        style={{
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                          borderRadius: '6px',
+                          padding: '10px 14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                            <b style={{ color: 'var(--paper)', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {asgn.horseName}
+                            </b>
+                            <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--brass)', background: 'rgba(212, 175, 55, 0.1)', padding: '1px 5px', borderRadius: '3px', border: '1px solid rgba(212, 175, 55, 0.25)' }}>
+                              {asgn.stable || 'Ô A2'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+                                setConfirmedHorseModal(full || asgn);
+                              }}
+                              style={{
+                                background: 'transparent',
+                                color: 'var(--brass)',
+                                border: '1px solid rgba(212, 175, 55, 0.4)',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              Xem hồ sơ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmVetService(asgn)}
+                              style={{
+                                background: '#10B981',
+                                color: '#0A0D14',
+                                border: 'none',
+                                padding: '4px 10px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              Xác nhận
+                            </button>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                          Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Phạm Tiến Thành'}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip || '--'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Thanh Tìm Kiếm & Bộ Lọc Nâng Cao */}
+              <div style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--line)',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '16px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '10px',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '240px' }}>
+                  <input
+                    type="text"
+                    value={horseSearchTerm}
+                    onChange={(e) => setHorseSearchTerm(e.target.value)}
+                    placeholder="Tìm theo tên ngựa, mã chip, chủ sở hữu, chuồng..."
+                    style={{
+                      width: '100%',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--paper)',
+                      fontSize: '12.5px',
+                      outline: 'none'
+                    }}
+                  />
+                  {horseSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setHorseSearchTerm('')}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--paper-dim)', cursor: 'pointer', fontSize: '12px' }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Lọc theo trạng thái */}
+                  <div style={{ display: 'flex', background: 'var(--bg-primary)', borderRadius: '6px', padding: '2px', border: '1px solid var(--line)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setHorseFilterStatus('ALL')}
+                      style={{
+                        padding: '4px 9px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        background: horseFilterStatus === 'ALL' ? 'var(--brass)' : 'transparent',
+                        color: horseFilterStatus === 'ALL' ? '#0A0D14' : 'var(--paper-dim)',
+                        fontWeight: 700,
+                        fontSize: '11px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Tất cả ({horses.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHorseFilterStatus('ELIGIBLE')}
+                      style={{
+                        padding: '4px 9px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        background: horseFilterStatus === 'ELIGIBLE' ? '#10B981' : 'transparent',
+                        color: horseFilterStatus === 'ELIGIBLE' ? '#0A0D14' : 'var(--paper-dim)',
+                        fontWeight: 700,
+                        fontSize: '11px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Đủ điều kiện ({horses.filter(h => !h.locked && h.status !== 'INJURED').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHorseFilterStatus('LOCKED')}
+                      style={{
+                        padding: '4px 9px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        background: horseFilterStatus === 'LOCKED' ? '#EF4444' : 'transparent',
+                        color: horseFilterStatus === 'LOCKED' ? '#FFFFFF' : 'var(--paper-dim)',
+                        fontWeight: 700,
+                        fontSize: '11px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Khóa y tế ({horses.filter(h => h.locked || h.status === 'INJURED').length})
+                    </button>
+                  </div>
+
+                  {/* Lọc theo giống */}
+                  {breedOptions.length > 0 && (
+                    <select
+                      value={horseFilterBreed}
+                      onChange={(e) => setHorseFilterBreed(e.target.value)}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--line)',
+                        background: 'var(--bg-primary)',
+                        color: 'var(--paper)',
+                        fontSize: '11.5px',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="ALL">Tất cả giống loài</option>
+                      {breedOptions.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              {/* Lưới danh thiếp Hồ Sơ Chiến Mã */}
+              {filteredHorseProfiles.length === 0 ? (
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px dashed var(--line)',
+                  borderRadius: '8px',
+                  padding: '36px 20px',
+                  textAlign: 'center',
+                  color: 'var(--paper-dim)'
+                }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>
+                    Không tìm thấy chiến mã nào phù hợp
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                    Thử thay đổi từ khóa tìm kiếm hoặc đặt lại bộ lọc.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setHorseSearchTerm(''); setHorseFilterStatus('ALL'); setHorseFilterBreed('ALL'); }}
+                    style={{
+                      marginTop: '12px',
+                      padding: '5px 12px',
+                      borderRadius: '4px',
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: '11.5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Đặt lại bộ lọc
+                  </button>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                  gap: '14px'
+                }}>
+                  {filteredHorseProfiles.map(h => {
+                    const full = lookupFullHorseInfo(h.name || h.microchip) || h;
+                    const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+                    const avatarSrc = h.avatar || full.avatar || defaultAvatar;
+                    const isLocked = Boolean(h.locked || h.status === 'INJURED');
+
+                    return (
+                      <div
+                        key={h.id || h.microchip}
+                        style={{
+                          background: 'var(--bg-secondary)',
+                          border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.35)' : 'var(--line)'}`,
+                          borderRadius: '10px',
+                          padding: '14px 16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          boxShadow: '0 2px 12px rgba(0,0,0,0.18)'
+                        }}
+                      >
+                        {/* Header của thẻ: Avatar + Tên + Chuồng + Trạng thái */}
+                        <div>
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
+                            <img
+                              src={avatarSrc}
+                              alt={h.name}
+                              style={{
+                                width: '56px',
+                                height: '56px',
+                                borderRadius: '8px',
+                                objectFit: 'cover',
+                                border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.5)' : 'var(--line-strong, #334155)'}`,
+                                flexShrink: 0
+                              }}
+                              onError={(e) => { e.target.src = defaultAvatar; }}
+                            />
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginBottom: '3px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                  <h3
+                                    style={{
+                                      margin: 0,
+                                      fontSize: '15px',
+                                      fontWeight: 700,
+                                      color: 'var(--brass)',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis'
+                                    }}
+                                    title={h.name}
+                                  >
+                                    {h.name}
+                                  </h3>
+                                  <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    color: 'var(--brass)',
+                                    background: 'rgba(212, 175, 55, 0.1)',
+                                    border: '1px solid rgba(212, 175, 55, 0.25)',
+                                    padding: '1px 5px',
+                                    borderRadius: '3px',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0
+                                  }}>
+                                    {h.stable || full.stable || 'Ô A1'}
+                                  </span>
+                                </div>
+
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  padding: '2px 6px',
+                                  borderRadius: '3px',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0,
+                                  background: isLocked ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                  color: isLocked ? '#EF4444' : '#10B981',
+                                  border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`
+                                }}>
+                                  {isLocked ? 'KHÓA Y TẾ' : 'ĐỦ ĐIỀU KIỆN'}
+                                </span>
+                              </div>
+
+                              <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {h.breed || full.breed || 'Thoroughbred'} · {full.gender || 'Ngựa đực'} · {full.age || '3 tuổi'}
+                              </div>
+
+                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                Mã Chip: <span style={{ fontFamily: 'monospace', color: 'var(--paper)', fontWeight: 600 }}>{h.microchip || full.microchip || '--'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Thông tin Chủ sở hữu & Tỷ lệ */}
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: '11.5px',
+                            marginBottom: '8px',
+                            color: 'var(--paper-dim)'
+                          }}>
+                            <span>Chủ sở hữu: <b style={{ color: 'var(--paper)', fontWeight: 600 }}>{h.ownerName || h.owner || full.ownerName || 'Chủ sở hữu'}</b></span>
+                            <span style={{ color: 'var(--brass)', fontWeight: 600 }}>
+                              {full.ownershipShare ? `${full.ownershipShare}%` : '100%'} sở hữu
+                            </span>
+                          </div>
+
+                          {/* Dòng máu & Phả hệ tóm tắt */}
+                          <div style={{
+                            background: 'rgba(0, 0, 0, 0.2)',
+                            border: '1px solid var(--line)',
+                            borderRadius: '6px',
+                            padding: '8px 10px',
+                            fontSize: '11.5px',
+                            marginBottom: '10px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '3px'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: 'var(--paper-dim)' }}>Dòng bố (Sire):</span>
+                              <span style={{ color: 'var(--paper)', fontWeight: 600 }}>{full.pedigree?.sire || 'Đang cập nhật'}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: 'var(--paper-dim)' }}>Dòng mẹ (Dam):</span>
+                              <span style={{ color: 'var(--paper)', fontWeight: 600 }}>{full.pedigree?.dam || 'Đang cập nhật'}</span>
+                            </div>
+                          </div>
+
+                          {/* Chỉ số sinh hiệu */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '8px',
+                            fontSize: '11.5px',
+                            marginBottom: '12px',
+                            paddingTop: '6px',
+                            borderTop: '1px solid var(--line)'
+                          }}>
+                            <div style={{ color: 'var(--paper-dim)' }}>
+                              Nhịp tim: <b style={{ color: 'var(--paper)', fontWeight: 600 }}>{h.restingHeartRate || '38 bpm'}</b>
+                            </div>
+                            <div style={{ color: 'var(--paper-dim)', textAlign: 'right' }}>
+                              Thân nhiệt: <b style={{ color: 'var(--paper)', fontWeight: 600 }}>{h.tempCelsius ? `${h.tempCelsius}°C` : '38.0°C'}</b>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Hàng 3 nút thao tác chuẩn */}
+                        <div style={{ display: 'flex', gap: '8px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmedHorseModal(full)}
+                            style={{
+                              flex: 1,
+                              padding: '7px 8px',
+                              borderRadius: '5px',
+                              background: 'transparent',
+                              border: '1px solid var(--line-strong, #334155)',
+                              color: 'var(--paper)',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            Xem hồ sơ
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPedigreeHorse(full)}
+                            style={{
+                              flex: 1,
+                              padding: '7px 8px',
+                              borderRadius: '5px',
+                              background: 'rgba(212, 175, 55, 0.08)',
+                              border: '1px solid rgba(212, 175, 55, 0.35)',
+                              color: 'var(--brass)',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            Gia phả hệ
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleLock(h)}
+                            style={{
+                              padding: '7px 12px',
+                              borderRadius: '5px',
+                              background: isLocked ? 'var(--brass)' : 'transparent',
+                              border: isLocked ? '1px solid var(--brass)' : '1px solid rgba(239, 68, 68, 0.4)',
+                              color: isLocked ? '#0A0D14' : '#EF4444',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {isLocked ? 'Mở khóa' : 'Khóa y tế'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
           {/* TAB 1: TRIAGE & TIẾP NHẬN SỰ CỐ KHẨN CẤP */}
           {/* ========================================================================= */}
           {activeTab === 'triage' && (
@@ -1103,6 +1771,163 @@ export default function VetPage() {
                   </button>
                 </div>
               )}
+
+              {/* Khối Yêu Cầu Phục Vụ Thú Y Chờ Bác Sĩ Xác Nhận */}
+              {(() => {
+                const pendingVetAssignments = serviceAssignments.filter(a => a.vetStatus === 'PENDING');
+                if (pendingVetAssignments.length === 0) return null;
+
+                return (
+                  <div style={{
+                    background: 'rgba(16, 185, 129, 0.05)',
+                    border: '1px solid rgba(16, 185, 129, 0.45)',
+                    borderRadius: '10px',
+                    padding: '18px 22px',
+                    marginBottom: '20px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '20px' }}>🩺</span>
+                        <div>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#10B981' }}>
+                            Yêu Cầu Bác Sĩ Thú Y Phụ Trách Chờ Xác Nhận ({pendingVetAssignments.length})
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                            Chủ sở hữu đã chỉ định Bác sĩ thú y phụ trách y tế & dinh dưỡng. Vui lòng bấm xác nhận để tiếp nhận vào danh sách theo dõi lâm sàng.
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#0A0D14', background: '#10B981', padding: '4px 12px', borderRadius: '12px' }}>
+                        {pendingVetAssignments.length} Yêu cầu mới
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))', gap: '14px' }}>
+                      {pendingVetAssignments.map(asgn => (
+                        <div
+                          key={asgn.id || asgn.microchip}
+                          style={{
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                            borderRadius: '10px',
+                            padding: '14px 18px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            height: '100%',
+                            gap: '10px',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.25)'
+                          }}
+                        >
+                          {/* Dòng 1: Tên & Nút xác nhận */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', minHeight: '34px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '6px' }}>
+                              <b
+                                style={{
+                                  color: 'var(--paper)',
+                                  fontSize: '15px',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  maxWidth: '220px'
+                                }}
+                                title={asgn.horseName}
+                              >
+                                {asgn.horseName}
+                              </b>
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                color: 'var(--brass)',
+                                background: 'rgba(212, 175, 55, 0.12)',
+                                padding: '2px 7px',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(212, 175, 55, 0.25)',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0
+                              }}>
+                                {asgn.stable || 'Ô A2'}
+                              </span>
+                              <span style={{
+                                fontSize: '10.5px',
+                                fontWeight: 700,
+                                color: '#10B981',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                padding: '2px 7px',
+                                borderRadius: '4px',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0
+                              }}>
+                                Chờ xác nhận
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+                                  setConfirmedHorseModal(full || asgn);
+                                }}
+                                style={{
+                                  background: 'transparent',
+                                  color: 'var(--brass)',
+                                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                                  padding: '5px 10px',
+                                  borderRadius: '5px',
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                Xem hồ sơ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleConfirmVetService(asgn)}
+                                style={{
+                                  background: '#10B981',
+                                  color: '#0A0D14',
+                                  border: 'none',
+                                  padding: '5px 12px',
+                                  borderRadius: '5px',
+                                  fontSize: '11.5px',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                ✓ Xác Nhận Phụ Trách Y Tế
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Dòng 2: Thông tin chi tiết */}
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            paddingTop: '8px',
+                            borderTop: '1px solid var(--line)',
+                            fontSize: '12px'
+                          }}>
+                            <div style={{ color: 'var(--paper-dim)' }}>
+                              Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Phạm Tiến Thành'}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip || '--'}</span>
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: '#10B981' }}>
+                              Bác sĩ được chỉ định: <b>{asgn.vetName || 'BS. Trần Minh Hoàng'}</b>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Chỉ số nhanh (3 thẻ ngang cân đối chuẩn SaaS Dashboard theo đúng 3 màu chủ đạo) */}
               <div style={{
@@ -1524,33 +2349,35 @@ export default function VetPage() {
               </div>
 
               {/* Bảng danh sách khóa y tế */}
-              <div className="facility-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <div className="facility-card" style={{ padding: 0, overflowX: 'auto', border: '1px solid var(--line)', borderRadius: '10px' }}>
+                <table style={{ width: '100%', minWidth: '1150px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                      <th style={{ padding: '14px 18px' }}>Chiến mã</th>
-                      <th style={{ padding: '14px 18px' }}>Chủ sở hữu</th>
-                      <th style={{ padding: '14px 18px' }}>Mã Chip RFID</th>
-                      <th style={{ padding: '14px 18px' }}>Ô Chuồng</th>
-                      <th style={{ padding: '14px 18px' }}>Sinh hiệu nghỉ</th>
-                      <th style={{ padding: '14px 18px' }}>Tình trạng Khóa Y Tế</th>
-                      <th style={{ padding: '14px 18px' }}>Lý do / Phác đồ</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'right' }}>Thao tác Bác sĩ</th>
+                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <th style={{ padding: '14px 16px', minWidth: '170px', whiteSpace: 'nowrap' }}>Chiến mã</th>
+                      <th style={{ padding: '14px 16px', minWidth: '140px', whiteSpace: 'nowrap' }}>Chủ sở hữu</th>
+                      <th style={{ padding: '14px 16px', minWidth: '145px', whiteSpace: 'nowrap' }}>Mã Chip RFID</th>
+                      <th style={{ padding: '14px 16px', minWidth: '95px', whiteSpace: 'nowrap' }}>Ô Chuồng</th>
+                      <th style={{ padding: '14px 16px', minWidth: '150px', whiteSpace: 'nowrap' }}>Sinh hiệu nghỉ</th>
+                      <th style={{ padding: '14px 16px', minWidth: '160px', whiteSpace: 'nowrap' }}>Tình trạng Khóa Y Tế</th>
+                      <th style={{ padding: '14px 16px', minWidth: '220px' }}>Lý do / Phác đồ</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'right', minWidth: '220px', whiteSpace: 'nowrap' }}>Thao tác Bác sĩ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredHorses.map((h) => {
                       const isLocked = h.locked;
+                      const rawStall = h.stable || h.stall || 'A1';
+                      const stallClean = rawStall.replace(/^(Ô|Chuồng)\s*/i, '').trim();
 
                       return (
                         <tr key={h.id} style={{ borderBottom: '1px solid var(--line)', background: isLocked ? 'rgba(212, 175, 55, 0.04)' : 'transparent' }}>
-                          <td style={{ padding: '14px 18px' }}>
+                          <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               {h.avatar && (
                                 <img
                                   src={h.avatar}
                                   alt={h.name}
-                                  style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: isLocked ? '2px solid var(--brass)' : '1px solid var(--line)' }}
+                                  style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: isLocked ? '2px solid var(--brass)' : '1px solid var(--line)' }}
                                   onError={(e) => {
                                     e.target.src = h.name === 'Bạch Long'
                                       ? 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
@@ -1559,42 +2386,50 @@ export default function VetPage() {
                                 />
                               )}
                               <div>
-                                <b style={{ fontSize: '14px', color: 'var(--brass)' }}>{h.name}</b>
-                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>{h.breed}</div>
+                                <b style={{ fontSize: '14px', color: 'var(--brass)', whiteSpace: 'nowrap' }}>{h.name}</b>
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', whiteSpace: 'nowrap' }}>{h.breed}</div>
                               </div>
                             </div>
                           </td>
-                          <td style={{ padding: '14px 18px' }}>
-                            <b style={{ color: 'var(--brass)', fontSize: '13px' }}>{h.owner || h.ownerName || 'Phạm Tiến Thành'}</b>
+                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            <b style={{ color: 'var(--brass)', fontSize: '13px', whiteSpace: 'nowrap' }}>{h.owner || h.ownerName || 'Phạm Tiến Thành'}</b>
                           </td>
-                          <td style={{ padding: '14px 18px', fontFamily: 'monospace', color: 'var(--paper)' }}>{h.microchip || h.chipId || 'N/A'}</td>
-                          <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>Ô {h.stable || h.stall || 'A1'}</td>
-                          <td style={{ padding: '14px 18px', fontSize: '12px' }}>
-                            <div>Nhịp tim: <b>{h.restingHeartRate}</b></div>
-                            <div>Thân nhiệt: <b>{h.tempCelsius}°C</b></div>
+                          <td style={{ padding: '14px 16px', fontFamily: 'monospace', color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle', fontSize: '12.5px' }}>
+                            {h.microchip || h.chipId || 'N/A'}
                           </td>
-                          <td style={{ padding: '14px 18px' }}>
+                          <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            Ô {stallClean}
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: '12px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            <div style={{ whiteSpace: 'nowrap' }}>Nhịp tim: <b style={{ color: 'var(--paper)' }}>{h.restingHeartRate || '38 bpm'}</b></div>
+                            <div style={{ whiteSpace: 'nowrap', marginTop: '2px' }}>Thân nhiệt: <b style={{ color: 'var(--paper)' }}>{h.tempCelsius || '38.0'}°C</b></div>
+                          </td>
+                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                             <span style={{
                               padding: '4px 10px',
                               borderRadius: '4px',
-                              fontSize: '11.5px',
+                              fontSize: '11px',
                               fontWeight: 700,
-                              background: isLocked ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                              color: isLocked ? 'var(--brass)' : 'var(--paper-dim)',
-                              border: `1px solid ${isLocked ? 'var(--brass)' : 'var(--line)'}`
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              whiteSpace: 'nowrap',
+                              background: isLocked ? 'rgba(212, 175, 55, 0.15)' : 'rgba(16, 185, 129, 0.12)',
+                              color: isLocked ? 'var(--brass)' : '#10B981',
+                              border: `1px solid ${isLocked ? 'var(--brass)' : 'rgba(16, 185, 129, 0.35)'}`
                             }}>
-                              {isLocked ? '🔒 KHÓA Y TẾ (VETO)' : 'ĐỦ ĐIỀU KIỆN (FIT)'}
+                              {isLocked ? '🔒 KHÓA Y TẾ (VETO)' : '✓ ĐỦ ĐIỀU KIỆN (FIT)'}
                             </span>
                           </td>
-                          <td style={{ padding: '14px 18px', fontSize: '12px', color: 'var(--paper)', maxWidth: '240px' }}>
+                          <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--paper)', maxWidth: '240px', minWidth: '180px', verticalAlign: 'middle', lineHeight: 1.45 }}>
                             {isLocked ? (
                               <span style={{ color: 'var(--brass)' }}>{h.lockReason || 'Khám nghiệm Thú y ghi nhận chấn thương.'}</span>
                             ) : (
                               <span style={{ color: 'var(--paper-dim)' }}>Sinh hiệu bình thường, không có lệnh cấm.</span>
                             )}
                           </td>
-                          <td style={{ padding: '14px 18px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <td style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1602,15 +2437,24 @@ export default function VetPage() {
                                   setConfirmedHorseModal(full);
                                 }}
                                 style={{
-                                  padding: '7px 11px',
-                                  borderRadius: '6px',
+                                  width: '92px',
+                                  height: '32px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '5px',
                                   fontWeight: 700,
                                   fontSize: '11.5px',
                                   cursor: 'pointer',
                                   background: 'transparent',
                                   color: 'var(--brass)',
-                                  border: '1px solid var(--brass)'
+                                  border: '1px solid var(--brass)',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0,
+                                  boxSizing: 'border-box',
+                                  transition: 'all 0.2s ease'
                                 }}
+                                title="Xem chi tiết hồ sơ lâm sàng chiến mã"
                               >
                                 Xem hồ sơ
                               </button>
@@ -1618,14 +2462,23 @@ export default function VetPage() {
                                 type="button"
                                 onClick={() => handleOpenLockModal(h)}
                                 style={{
-                                  padding: '8px 14px',
-                                  borderRadius: '6px',
+                                  width: '138px',
+                                  height: '32px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '5px',
                                   fontWeight: 700,
-                                  fontSize: '12px',
+                                  fontSize: '11.5px',
                                   cursor: 'pointer',
                                   background: isLocked ? 'var(--brass)' : 'var(--bg-secondary)',
                                   color: isLocked ? '#0A0D14' : 'var(--paper)',
-                                  border: isLocked ? 'none' : '1px solid var(--line)'
+                                  border: isLocked ? 'none' : '1px solid var(--line)',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0,
+                                  boxSizing: 'border-box',
+                                  boxShadow: isLocked ? '0 2px 8px rgba(212, 175, 55, 0.3)' : 'none',
+                                  transition: 'all 0.2s ease'
                                 }}
                               >
                                 {isLocked ? '🔓 MỞ KHÓA Y TẾ' : '🔒 KHÓA Y TẾ'}
@@ -1653,17 +2506,17 @@ export default function VetPage() {
                 </div>
               </div>
 
-              <div className="facility-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <div className="facility-card" style={{ padding: 0, overflowX: 'auto', border: '1px solid var(--line)', borderRadius: '10px' }}>
+                <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                      <th style={{ padding: '14px 18px' }}>Chiến mã</th>
-                      <th style={{ padding: '14px 18px' }}>Loại Vaccine / Dịch vụ</th>
-                      <th style={{ padding: '14px 18px' }}>Liều lượng chỉ định</th>
-                      <th style={{ padding: '14px 18px' }}>Hạn tiêm kế tiếp</th>
-                      <th style={{ padding: '14px 18px' }}>Tình trạng</th>
-                      <th style={{ padding: '14px 18px' }}>Bác sĩ phụ trách</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'right' }}>Xác nhận</th>
+                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <th style={{ padding: '14px 16px', minWidth: '150px', whiteSpace: 'nowrap' }}>Chiến mã</th>
+                      <th style={{ padding: '14px 16px', minWidth: '180px', whiteSpace: 'nowrap' }}>Loại Vaccine / Dịch vụ</th>
+                      <th style={{ padding: '14px 16px', minWidth: '140px', whiteSpace: 'nowrap' }}>Liều lượng chỉ định</th>
+                      <th style={{ padding: '14px 16px', minWidth: '130px', whiteSpace: 'nowrap' }}>Hạn tiêm kế tiếp</th>
+                      <th style={{ padding: '14px 16px', minWidth: '130px', whiteSpace: 'nowrap' }}>Tình trạng</th>
+                      <th style={{ padding: '14px 16px', minWidth: '140px', whiteSpace: 'nowrap' }}>Bác sĩ phụ trách</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'right', minWidth: '140px', whiteSpace: 'nowrap' }}>Xác nhận</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1675,16 +2528,18 @@ export default function VetPage() {
 
                       return (
                         <tr key={v.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--brass)' }}>{v.horseName}</td>
-                          <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{v.vaccineType}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{v.dose}</td>
-                          <td style={{ padding: '14px 18px', fontWeight: 700, color: needsAttention ? 'var(--brass)' : 'var(--paper)' }}>{v.dueDate}</td>
-                          <td style={{ padding: '14px 18px' }}>
+                          <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--brass)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.horseName}</td>
+                          <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.vaccineType}</td>
+                          <td style={{ padding: '14px 16px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.dose}</td>
+                          <td style={{ padding: '14px 16px', fontWeight: 700, color: needsAttention ? 'var(--brass)' : 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.dueDate}</td>
+                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                             <span style={{
                               padding: '3px 8px',
                               borderRadius: '4px',
                               fontSize: '11px',
                               fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                              display: 'inline-block',
                               background: needsAttention ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
                               color: needsAttention ? 'var(--brass)' : 'var(--paper-dim)',
                               border: `1px solid ${needsAttention ? 'var(--brass)' : 'var(--line)'}`
@@ -1692,27 +2547,28 @@ export default function VetPage() {
                               {statusText}
                             </span>
                           </td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{v.vetInCharge}</td>
-                          <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                          <td style={{ padding: '14px 16px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.vetInCharge}</td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                             {v.status !== 'UP_TO_DATE' ? (
                               <button
                                 type="button"
                                 onClick={() => handleMarkVaccineDone(v.id)}
                                 style={{
                                   padding: '6px 12px',
-                                  borderRadius: '6px',
+                                  borderRadius: '5px',
                                   background: 'var(--brass)',
                                   color: '#000',
                                   fontWeight: 700,
+                                  fontSize: '11.5px',
                                   border: 'none',
                                   cursor: 'pointer',
-                                  fontSize: '12px'
+                                  whiteSpace: 'nowrap'
                                 }}
                               >
-                                Xác nhận đã tiêm
+                                ✓ Xác nhận đã tiêm
                               </button>
                             ) : (
-                              <span style={{ color: 'var(--paper-dim)', fontSize: '12px', fontWeight: 600 }}>✓ Hợp lệ</span>
+                              <span style={{ color: '#10B981', fontWeight: 700, fontSize: '11.5px', whiteSpace: 'nowrap' }}>✓ Hợp lệ</span>
                             )}
                           </td>
                         </tr>
@@ -1803,17 +2659,17 @@ export default function VetPage() {
                 </div>
               </div>
 
-              <div className="facility-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <div className="facility-card" style={{ padding: 0, overflowX: 'auto', border: '1px solid var(--line)', borderRadius: '10px' }}>
+                <table style={{ width: '100%', minWidth: '1050px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                      <th style={{ padding: '14px 18px' }}>Chiến mã</th>
-                      <th style={{ padding: '14px 18px' }}>Giải Đua Đăng Ký</th>
-                      <th style={{ padding: '14px 18px' }}>Cự ly</th>
-                      <th style={{ padding: '14px 18px' }}>Ngày đua</th>
-                      <th style={{ padding: '14px 18px' }}>Trạng thái Phê duyệt</th>
-                      <th style={{ padding: '14px 18px' }}>Kết luận Bác sĩ Thú y</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'right' }}>Hành động</th>
+                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <th style={{ padding: '14px 16px', minWidth: '150px', whiteSpace: 'nowrap' }}>Chiến mã</th>
+                      <th style={{ padding: '14px 16px', minWidth: '220px', whiteSpace: 'nowrap' }}>Giải Đua Đăng Ký</th>
+                      <th style={{ padding: '14px 16px', minWidth: '90px', whiteSpace: 'nowrap' }}>Cự ly</th>
+                      <th style={{ padding: '14px 16px', minWidth: '110px', whiteSpace: 'nowrap' }}>Ngày đua</th>
+                      <th style={{ padding: '14px 16px', minWidth: '180px', whiteSpace: 'nowrap' }}>Trạng thái Phê duyệt</th>
+                      <th style={{ padding: '14px 16px', minWidth: '220px' }}>Kết luận Bác sĩ Thú y</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'right', minWidth: '170px', whiteSpace: 'nowrap' }}>Hành động</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1825,28 +2681,30 @@ export default function VetPage() {
 
                       return (
                         <tr key={rc.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--brass)' }}>{rc.horseName}</td>
-                          <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{rc.raceName}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{rc.distance}</td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{rc.date}</td>
-                          <td style={{ padding: '14px 18px' }}>
+                          <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--brass)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{rc.horseName}</td>
+                          <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{rc.raceName}</td>
+                          <td style={{ padding: '14px 16px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{rc.distance}</td>
+                          <td style={{ padding: '14px 16px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{rc.date}</td>
+                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                             <span style={{
                               padding: '4px 8px',
                               borderRadius: '4px',
                               fontSize: '11px',
                               fontWeight: 700,
-                              background: isPending ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                              color: isPending ? 'var(--brass)' : 'var(--paper-dim)',
-                              border: `1px solid ${isPending ? 'var(--brass)' : 'var(--line)'}`
+                              whiteSpace: 'nowrap',
+                              display: 'inline-block',
+                              background: isPending ? 'rgba(212, 175, 55, 0.15)' : isCleared ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                              color: isPending ? 'var(--brass)' : isCleared ? '#10B981' : '#EF4444',
+                              border: `1px solid ${isPending ? 'var(--brass)' : isCleared ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`
                             }}>
                               {statusLabel}
                             </span>
                           </td>
-                          <td style={{ padding: '14px 18px', fontSize: '12px', color: 'var(--paper)', maxWidth: '280px' }}>
+                          <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--paper)', maxWidth: '280px', verticalAlign: 'middle', lineHeight: 1.45 }}>
                             {rc.notes}
                           </td>
-                          <td style={{ padding: '14px 18px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                          <td style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', whiteSpace: 'nowrap' }}>
                               <button
                                 type="button"
                                 onClick={() => handleApproveClearance(rc)}
@@ -2184,6 +3042,32 @@ export default function VetPage() {
           horse={confirmedHorseModal}
           role="VET"
           onClose={() => setConfirmedHorseModal(null)}
+          onConfirmService={(h) => {
+            const targetAsgn = h.assignmentData || h;
+            handleConfirmVetService(targetAsgn);
+          }}
+          onAction={(h) => {
+            setConfirmedHorseModal(null);
+            setActiveTab('lockout');
+            window.scrollTo({ top: 380, behavior: 'smooth' });
+          }}
+          onOpenPedigree={(h) => {
+            const full = lookupFullHorseInfo(h.name || h.microchip);
+            setSelectedPedigreeHorse(full || h);
+          }}
+        />
+      )}
+
+      {/* Modal Cây Phả Hệ Gia Phả 3 Đời do Chủ sở hữu cung cấp & cập nhật */}
+      {selectedPedigreeHorse && (
+        <HorsePedigreeViewModal
+          horse={selectedPedigreeHorse}
+          isOpen={!!selectedPedigreeHorse}
+          onClose={() => setSelectedPedigreeHorse(null)}
+          onOpenProfile={(h) => {
+            const full = lookupFullHorseInfo(h.name || h.microchip);
+            setConfirmedHorseModal(full || h);
+          }}
         />
       )}
     </div>
