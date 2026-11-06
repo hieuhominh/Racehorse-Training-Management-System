@@ -137,6 +137,13 @@ public class ServiceAssignmentApiController extends HttpServlet {
                     return;
                 }
 
+
+                if (!"trainer".equals(role) && !"vet".equals(role) && !"groom".equals(role)) {
+                    SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
+                            "Vai trò phục vụ không hợp lệ.");
+                    return;
+                }
+
                 boolean found = false;
                 synchronized (memoryAssignments) {
                     for (Map<String, Object> item : memoryAssignments) {
@@ -161,6 +168,13 @@ public class ServiceAssignmentApiController extends HttpServlet {
                             break;
                         }
                     }
+                }
+
+
+                if (!found) {
+                    SecurityUtil.sendJsonError(response, HttpServletResponse.SC_NOT_FOUND,
+                            "Không tìm thấy phân công phục vụ cho chiến mã.");
+                    return;
                 }
 
                 JsonObject res = new JsonObject();

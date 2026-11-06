@@ -354,9 +354,27 @@ public class VetApiController extends HttpServlet {
             if ("/api/vet/lock".equals(path)) {
                 int horseId = SecurityUtil.getInt(body, "horseId", SecurityUtil.getInt(body, "id", -1));
                 boolean locked = SecurityUtil.getBoolean(body, "locked", true);
-                if (horseId > 0) {
-                    horseDAO.toggleLock(horseId, locked);
+                if (horseId <= 0) {
+                    SecurityUtil.sendJsonError(response,
+                            HttpServletResponse.SC_BAD_REQUEST,
+                            "ID chiến mã không hợp lệ.");
+                    return;
                 }
+
+                if (horseDAO.getHorseById(horseId) == null) {
+                    SecurityUtil.sendJsonError(response,
+                            HttpServletResponse.SC_NOT_FOUND,
+                            "Không tìm thấy chiến mã.");
+                    return;
+                }
+
+                if (!horseDAO.toggleLock(horseId, locked)) {
+                    SecurityUtil.sendJsonError(response,
+                            HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                            "Không thể cập nhật khóa y tế.");
+                    return;
+                }
+
                 Map<String, Object> lockData = new HashMap<>();
                 lockData.put("success", true);
                 lockData.put("horseId", horseId);

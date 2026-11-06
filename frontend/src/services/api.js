@@ -219,12 +219,16 @@ export async function updateHorseApi(horseData) {
       body: JSON.stringify(horseData)
     });
     if (res.ok) return true;
+    return false; // HTTP 400/401/403/404/500 là lỗi thật, không giả lập thành công
   } catch {
-    // Fallback
+    // Chỉ fallback khi kết nối mạng thực sự thất bại
   }
 
   const localHorses = getLocalData(STORAGE_KEYS.HORSES, initialHorsesData);
-  const updated = localHorses.map(h => String(h.id) === String(horseData.id) ? { ...h, ...horseData } : h);
+  const horseId = horseData.id ?? horseData.horseId;
+  const exists = localHorses.some(h => String(h.id) === String(horseId));
+  if (!exists) return false;
+  const updated = localHorses.map(h => String(h.id) === String(horseId) ? { ...h, ...horseData } : h);
   setLocalData(STORAGE_KEYS.HORSES, updated);
   return true;
 }
@@ -241,11 +245,13 @@ export async function toggleHorseLockApi(horseId, locked) {
       body: JSON.stringify({ toggleLock: locked })
     });
     if (res.ok) return true;
+    return false; // Không được chuyển sang dữ liệu giả khi backend từ chối
   } catch {
-    // Fallback
+    // Chỉ fallback khi không thể kết nối backend
   }
 
   const localHorses = getLocalData(STORAGE_KEYS.HORSES, initialHorsesData);
+  if (!localHorses.some(h => String(h.id) === String(horseId))) return false;
   const updated = localHorses.map(h => {
     if (String(h.id) === String(horseId)) {
       return {
@@ -2126,16 +2132,16 @@ export async function getNotificationsApi(role = 'ALL', username = '') {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         try {
-          const rawRead = localStorage.getItem('matruong_read_notification_ids');
+          const key = `matruong_read_notification_ids:${encodeURIComponent(username)}`;
+          const rawRead = username ? localStorage.getItem(key) : null;
           const readIds = rawRead ? new Set(JSON.parse(rawRead).map(String)) : new Set();
-          return data.map(item => {
-            const isRead = item.isRead === true || readIds.has(String(item.id)) || (Array.isArray(item.readBy) && (item.readBy.includes(username) || item.readBy.includes('ALL')));
-            return {
-              ...item,
-              isRead,
-              readBy: isRead && (!item.readBy || item.readBy.length === 0) ? ['ALL'] : (item.readBy || [])
-            };
-          });
+          return data.map(item => ({
+            ...item,
+            isRead: Boolean(username &&
+              (readIds.has(String(item.id)) ||
+               (Array.isArray(item.readBy) && item.readBy.includes(username)))),
+            readBy: Array.isArray(item.readBy) ? item.readBy : []
+          }));
         } catch {
           return data;
         }

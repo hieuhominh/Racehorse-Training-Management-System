@@ -494,12 +494,17 @@ export default function AdminPage() {
   }, []);
 
   // Thao tác khóa / mở y tế cho ngựa
-  const handleToggleHorseLock = (horseId) => {
+  const handleToggleHorseLock = async (horseId) => {
     const target = horses.find(item => item.id === horseId);
-    const nextLocked = target ? !target.locked : false;
+    if (!target) return;
+    const nextLocked = !target.locked;
 
-    // Gửi yêu cầu cập nhật qua API
-    toggleHorseLockApi(horseId, nextLocked).catch(() => {});
+    // Chờ backend xác nhận rồi mới thay đổi giao diện / ghi audit log
+    const saved = await toggleHorseLockApi(horseId, nextLocked);
+    if (!saved) {
+      showToast('Máy chủ từ chối cập nhật khóa y tế. Dữ liệu chưa thay đổi.', 'CẬP NHẬT THẤT BẠI', 'error');
+      return;
+    }
 
     setHorses(prev => prev.map(h => {
       if (h.id === horseId) {
@@ -534,6 +539,7 @@ export default function AdminPage() {
         },
         ...prev
       ]);
+      showToast(nextLocked ? `Đã khóa y tế cho ${target.name}` : `Đã mở khóa y tế cho ${target.name}`, 'CẬP NHẬT TRẠNG THÁI', 'success');
     }
   };
 
@@ -1654,10 +1660,7 @@ export default function AdminPage() {
                             </button>
                             <button
                               className={`facility-btn-action ${h.locked ? 'btn-danger' : ''}`}
-                              onClick={() => {
-                                handleToggleHorseLock(h.id);
-                                showToast(h.locked ? (lang === 'en' ? `Training unlocked for ${h.name}` : `Đã mở khóa huấn luyện cho chiến mã ${h.name}`) : (lang === 'en' ? `Emergency veterinary lock enabled for ${h.name}` : `Đã khóa y tế khẩn cấp cho chiến mã ${h.name}`), lang === 'en' ? 'STATUS UPDATE' : 'CẬP NHẬT TRẠNG THÁI');
-                              }}
+                              onClick={() => handleToggleHorseLock(h.id)}
                             >
                               {h.locked ? (lang === 'en' ? 'Unlock' : 'Mở khóa') : (lang === 'en' ? 'Lock (Vet)' : 'Khóa y tế')}
                             </button>

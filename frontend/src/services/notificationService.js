@@ -9,12 +9,23 @@ const STORAGE_KEY = 'matruong_system_notifications';
 const READ_IDS_KEY = 'matruong_read_notification_ids';
 const EVENT_NAME = 'matruong_notifications_updated';
 
+function currentUsername() {
+  try {
+    return JSON.parse(localStorage.getItem('matruong_auth_user') || 'null')?.username || '';
+  } catch { return ''; }
+}
+
+function readKey(username) {
+  return `${READ_IDS_KEY}:${encodeURIComponent(username)}`;
+}
+
 /**
  * Lấy danh sách ID các thông báo đã đọc từ LocalStorage
  */
-export function getReadNotificationIds() {
+export function getReadNotificationIds(username = currentUsername()) {
+  if (!username) return new Set();
   try {
-    const raw = localStorage.getItem(READ_IDS_KEY);
+    const raw = localStorage.getItem(readKey(username));
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return new Set(parsed.map(String));
@@ -26,26 +37,20 @@ export function getReadNotificationIds() {
 /**
  * Lưu danh sách ID các thông báo đã đọc
  */
-export function saveReadNotificationIds(idsSet) {
+export function saveReadNotificationIds(idsSet, username = currentUsername()) {
+  if (!username) return;
   try {
-    const arr = Array.from(idsSet);
-    localStorage.setItem(READ_IDS_KEY, JSON.stringify(arr));
+    localStorage.setItem(readKey(username), JSON.stringify(Array.from(idsSet)));
   } catch {}
 }
 
 /**
  * Kiểm tra xem một thông báo đã được xem / đã đọc hay chưa
  */
-export function isNotificationRead(notif, username = '') {
-  if (!notif) return true;
-  if (notif.isRead === true) return true;
-  const readIds = getReadNotificationIds();
-  if (readIds.has(String(notif.id))) return true;
-  if (Array.isArray(notif.readBy)) {
-    if (notif.readBy.includes('ALL')) return true;
-    if (username && notif.readBy.includes(username)) return true;
-  }
-  return false;
+export function isNotificationRead(notif, username = currentUsername()) {
+  if (!notif || !username) return false;
+  return getReadNotificationIds(username).has(String(notif.id)) ||
+    (Array.isArray(notif.readBy) && notif.readBy.includes(username));
 }
 
 const INITIAL_NOTIFICATIONS = [
@@ -71,7 +76,7 @@ const INITIAL_NOTIFICATIONS = [
  * Lấy danh sách thông báo từ LocalStorage (Đã đối soát bền vững với danh sách đã đọc)
  */
 export function getSystemNotifications() {
-  const readIds = getReadNotificationIds();
+  const username = currentUsername();
   let list = [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -88,15 +93,11 @@ export function getSystemNotifications() {
     list = INITIAL_NOTIFICATIONS;
   }
 
-  return list.map(item => {
-    const idStr = String(item.id);
-    const read = item.isRead === true || readIds.has(idStr) || (Array.isArray(item.readBy) && (item.readBy.includes('ALL') || item.readBy.length > 0));
-    return {
-      ...item,
-      isRead: read,
-      readBy: read && (!item.readBy || item.readBy.length === 0) ? ['ALL'] : (item.readBy || [])
-    };
-  });
+  return list.map(item => ({
+    ...item,
+    isRead: isNotificationRead(item, username),
+    readBy: Array.isArray(item.readBy) ? item.readBy : []
+  }));
 }
 
 /**
@@ -227,20 +228,17 @@ export function notifyServiceConfirmed(horseOrAsgn, staffUser, role = 'TRAINER')
 /**
  * Đánh dấu một thông báo là đã đọc (Lưu vĩnh viễn theo ID)
  */
-export function markNotificationAsRead(notifId, username) {
-  const readIds = getReadNotificationIds();
-  if (notifId) readIds.add(String(notifId));
-  saveReadNotificationIds(readIds);
+export function markNotificationAsRead(notifId, username = currentUsername()) {
+  if (!username) return getSystemNotifications();
+  const readIds = getReadNotificationIds(username);
+  if (notifId != null) readIds.add(String(notifId));
+  saveReadNotificationIds(readIds, username);
 
-  const current = getSystemNotifications();
-  const updated = current.map(n => {
-    if (String(n.id) === String(notifId)) {
-      const readBy = Array.isArray(n.readBy) ? [...n.readBy] : [];
-      if (username && !readBy.includes(username)) readBy.push(username);
-      if (!readBy.includes('ALL')) readBy.push('ALL');
-      return { ...n, isRead: true, readBy };
-    }
-    return n;
+  const updated = getSystemNotifications().map(n => {
+    if (String(n.id) !== String(notifId)) return n;
+    const readBy = Array.isArray(n.readBy) ? [...n.readBy] : [];
+    if (!readBy.includes(username)) readBy.push(username);
+    return { ...n, isRead: true, readBy };
   });
   saveSystemNotifications(updated);
   markNotificationReadApi(notifId, username, false).catch(() => {});
@@ -250,18 +248,18 @@ export function markNotificationAsRead(notifId, username) {
 /**
  * Đánh dấu tất cả thông báo là đã đọc cho người dùng hiện tại (Lưu vĩnh viễn)
  */
-export function markAllNotificationsAsRead(username) {
+export function markAllNotificationsAsRead(username = currentUsername()) {
+  if (!username) return getSystemNotifications();
   const current = getSystemNotifications();
-  const readIds = getReadNotificationIds();
+  const readIds = getReadNotificationIds(username);
   current.forEach(n => {
-    if (n.id) readIds.add(String(n.id));
+    if (n.id != null) readIds.add(String(n.id));
   });
-  saveReadNotificationIds(readIds);
+  saveReadNotificationIds(readIds, username);
 
   const updated = current.map(n => {
     const readBy = Array.isArray(n.readBy) ? [...n.readBy] : [];
-    if (username && !readBy.includes(username)) readBy.push(username);
-    if (!readBy.includes('ALL')) readBy.push('ALL');
+    if (!readBy.includes(username)) readBy.push(username);
     return { ...n, isRead: true, readBy };
   });
   saveSystemNotifications(updated);

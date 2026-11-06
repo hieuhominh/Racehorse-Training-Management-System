@@ -177,7 +177,12 @@ public class NotificationApiController extends HttpServlet {
                 return;
             }
 
-            String username = SecurityUtil.getString(body, "username", "ALL").trim();
+            String username = SecurityUtil.getString(body, "username", "").trim();
+            if (username.isEmpty() || "ALL".equalsIgnoreCase(username)) {
+                SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "Người đọc thông báo không hợp lệ.");
+                return;
+            }
             boolean markAll = SecurityUtil.getBoolean(body, "markAll", false);
             String notifIdStr = SecurityUtil.getString(body, "id", "").trim();
 
@@ -190,14 +195,11 @@ public class NotificationApiController extends HttpServlet {
                         item.put("readBy", readBy);
                     }
 
-                    if (markAll) {
+                    if (markAll || (!notifIdStr.isEmpty()
+                            && String.valueOf(item.get("id")).equals(notifIdStr))) {
                         if (!readBy.contains(username)) readBy.add(username);
-                        if (!readBy.contains("ALL")) readBy.add("ALL");
-                        item.put("isRead", true);
-                    } else if (!notifIdStr.isEmpty() && String.valueOf(item.get("id")).equals(notifIdStr)) {
-                        if (!readBy.contains(username)) readBy.add(username);
-                        if (!readBy.contains("ALL")) readBy.add("ALL");
-                        item.put("isRead", true);
+                        readBy.remove("ALL"); // Không dùng trạng thái đọc chung
+                        item.remove("isRead"); // Trạng thái đã đọc được tính theo username
                     }
                 }
             }

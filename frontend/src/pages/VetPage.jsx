@@ -689,12 +689,16 @@ export default function VetPage() {
   };
 
   // Xử lý Khóa / Mở khóa Y tế (Quyền phủ quyết Y tế - Medical Safety Veto)
-  const handleToggleLock = (horse, customReason = '') => {
+  const handleToggleLock = async (horse, customReason = '') => {
     const nextLocked = !horse.locked;
     const reason = customReason || (nextLocked ? 'Khám nghiệm Thú y phát hiện dấu hiệu bất thường, kích hoạt phong tỏa y tế!' : '');
 
-    // Đồng bộ với API Backend
-    toggleHorseLockApi(horse.id, nextLocked).catch(() => {});
+    // Chỉ thay đổi giao diện và dữ liệu sau khi API chấp nhận
+    const saved = await toggleHorseLockApi(horse.id, nextLocked);
+    if (!saved) {
+      showToast('Máy chủ từ chối thay đổi khóa y tế. Dữ liệu chưa được sửa.', 'KHÓA Y TẾ THẤT BẠI', 'error');
+      return;
+    }
 
     setHorses(prev => {
       const next = prev.map(h => {
