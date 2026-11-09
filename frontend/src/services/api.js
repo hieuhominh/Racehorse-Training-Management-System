@@ -15,8 +15,97 @@ const STORAGE_KEYS = {
   HORSES: 'racehorse_api_horses',
   STABLES: 'racehorse_api_stables',
   USERS: 'racehorse_api_users',
-  INCIDENTS: 'racehorse_api_incidents'
+  INCIDENTS: 'racehorse_api_incidents',
+  STALL_REQUESTS: 'matruong_stall_requests'
 };
+
+// Tự động dọn sạch tất cả dữ liệu ngựa mock và giải phóng các ô chuồng
+(function cleanAllMockData() {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const MOCK_HORSE_NAMES = ['xích thố', 'bạch long', 'hắc phong', 'phi vũ', 'phi yến', 'kim kê', 'kim mã', 'thần mã', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã'];
+
+    // 1. Dọn dẹp tất cả các key matruong_owner_horses_*
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('matruong_owner_horses_')) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const clean = list.filter(h => h && h.name && !MOCK_HORSE_NAMES.includes(h.name.trim().toLowerCase()));
+            localStorage.setItem(k, JSON.stringify(clean));
+          }
+        }
+      }
+    }
+
+    // 2. Dọn dẹp racehorse_api_horses
+    const horsesRaw = localStorage.getItem(STORAGE_KEYS.HORSES);
+    if (horsesRaw) {
+      const list = JSON.parse(horsesRaw);
+      if (Array.isArray(list)) {
+        const clean = list.filter(h => h && h.name && !MOCK_HORSE_NAMES.includes(h.name.trim().toLowerCase()));
+        localStorage.setItem(STORAGE_KEYS.HORSES, JSON.stringify(clean));
+      }
+    }
+
+    // 3. Dọn dẹp racehorse_api_stables
+    const stablesRaw = localStorage.getItem(STORAGE_KEYS.STABLES);
+    if (stablesRaw) {
+      const list = JSON.parse(stablesRaw);
+      if (Array.isArray(list)) {
+        const cleanStables = list.map(s => {
+          const horseName = (s.horse || '').trim().toLowerCase();
+          if (MOCK_HORSE_NAMES.includes(horseName)) {
+            return {
+              ...s,
+              status: 'AVAILABLE',
+              horse: '(Trống)',
+              breed: 'Vacant',
+              horse_avatar: null,
+              stall_image: '/images/stall_simulation_vacant.jpg'
+            };
+          }
+          return s;
+        });
+        localStorage.setItem(STORAGE_KEYS.STABLES, JSON.stringify(cleanStables));
+      }
+    }
+
+    // 4. Dọn dẹp service assignments
+    const srvRaw = localStorage.getItem('matruong_service_assignments');
+    if (srvRaw) {
+      const list = JSON.parse(srvRaw);
+      if (Array.isArray(list)) {
+        const clean = list.filter(a => a && a.horseName && !MOCK_HORSE_NAMES.includes(a.horseName.trim().toLowerCase()));
+        localStorage.setItem('matruong_service_assignments', JSON.stringify(clean));
+      }
+    }
+
+    // 5. Dọn dẹp groom stalls state
+    const grStallRaw = localStorage.getItem('matruong_groom_stalls_state');
+    if (grStallRaw) {
+      const list = JSON.parse(grStallRaw);
+      if (Array.isArray(list)) {
+        const clean = list.map(s => {
+          const horseName = (s.horseName || '').trim().toLowerCase();
+          if (MOCK_HORSE_NAMES.includes(horseName)) {
+            return {
+              ...s,
+              horseName: '(Trống)',
+              breed: 'Vacant',
+              microchip: 'N/A',
+              status: 'OK'
+            };
+          }
+          return s;
+        });
+        localStorage.setItem('matruong_groom_stalls_state', JSON.stringify(clean));
+      }
+    }
+  } catch {}
+})();
 
 function getLocalData(key, defaultVal) {
   try {
@@ -131,9 +220,60 @@ export async function getHorsesApi() {
       }
     }
   } catch {
-    // Backend offline -> Fallback
+    // Backend offline
   }
-  return { isFromBackend: false, data: getLocalData(STORAGE_KEYS.HORSES, initialHorsesData) };
+
+  // Backend offline -> Fallback: Lấy danh sách chiến mã thực tế đã được đăng ký
+  const ownerHorses = [];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('matruong_owner_horses_')) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              list.forEach(h => {
+                if (h && !ownerHorses.some(ex => ex.id === h.id || (ex.microchip && ex.microchip === h.microchip))) {
+                  ownerHorses.push({
+                    id: h.id,
+                    chipId: h.microchip || h.chipId,
+                    name: h.name,
+                    englishName: h.englishName || h.name,
+                    gender: h.gender || 'Đực',
+                    breed: h.breed || 'Thoroughbred',
+                    stall: h.stable || 'Chưa phân bổ',
+                    owner: h.ownerName || h.owner || 'Chủ sở hữu',
+                    status: (h.status || 'eligible').toLowerCase() === 'eligible' ? 'eligible' : 'watch',
+                    statusLabel: (h.status || 'eligible').toLowerCase() === 'eligible' ? 'Đủ điều kiện thi đấu' : 'Cần theo dõi',
+                    locked: !!(h.locked || h.isLockedByVet),
+                    avatar: h.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
+                  });
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  const rawSavedHorses = getLocalData(STORAGE_KEYS.HORSES, []);
+  const MOCK_NAMES = ['Xích Thố', 'Bạch Long', 'Hắc Phong', 'Kim Mã', 'Phi Yến', 'Thần Mã', 'Phi Vũ', 'Kim Kê', 'Thanh Vân', 'Lôi Chấn', 'Hồng Sa', 'Thiên Lý', 'Bảo Mã'];
+  const cleanSaved = Array.isArray(rawSavedHorses)
+    ? rawSavedHorses.filter(h => h && !MOCK_NAMES.includes(h.name))
+    : [];
+
+  const combined = [...ownerHorses];
+  cleanSaved.forEach(h => {
+    if (!combined.some(ex => ex.id === h.id || (ex.chipId && ex.chipId === h.chipId))) {
+      combined.push(h);
+    }
+  });
+
+  setLocalData(STORAGE_KEYS.HORSES, combined);
+  return { isFromBackend: false, data: combined };
 }
 
 /**
@@ -291,6 +431,61 @@ export async function deleteHorseApi(horseId) {
  * Lấy danh sách toàn bộ ô chuồng trại kèm hình ảnh mô phỏng 3D
  */
 export async function getStablesApi() {
+  const MOCK_HORSE_NAMES = ['xích thố', 'bạch long', 'hắc phong', 'phi vũ', 'phi yến', 'kim kê', 'kim mã', 'thần mã', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã'];
+
+  // Đồng bộ tức thì với các chiến mã thực tế đã được đăng ký và phân bổ chuồng từ các chủ sở hữu
+  const assignedHorsesMap = {};
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('matruong_owner_horses_')) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              // Dọn sạch ngựa mock
+              const clean = list.filter(h => h && h.name && !MOCK_HORSE_NAMES.includes(h.name.trim().toLowerCase()));
+              if (clean.length !== list.length) {
+                localStorage.setItem(k, JSON.stringify(clean));
+              }
+              clean.forEach(h => {
+                if (h && h.stable) {
+                  const m = String(h.stable).match(/[A-Z0-9]+/i);
+                  if (m) {
+                    assignedHorsesMap[m[0].toUpperCase()] = h;
+                  }
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  const defaultStables = [
+    { stall_code: 'A1', block: 'Block A', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A2', block: 'Block A', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A3', block: 'Block A', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A4', block: 'Block A', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A5', block: 'Block A', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A6', block: 'Block A', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B1', block: 'Block B', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B2', block: 'Block B', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B3', block: 'Block B', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B4', block: 'Block B', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B5', block: 'Block B', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B6', block: 'Block B', tier: 'VIP', is_vip: true, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    // Chuồng tiêu chuẩn thông thường (Block C)
+    { stall_code: 'C1', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'C2', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'C3', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'C4', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
+  ];
+
+  let rawList = defaultStables;
+
   try {
     const res = await fetch('/api/stables', {
       headers: getAuthHeaders(),
@@ -299,56 +494,73 @@ export async function getStablesApi() {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        return { isFromBackend: true, data };
+        rawList = data;
+      } else {
+        rawList = getLocalData(STORAGE_KEYS.STABLES, defaultStables);
       }
+    } else {
+      rawList = getLocalData(STORAGE_KEYS.STABLES, defaultStables);
     }
   } catch {
-    // Fallback
+    rawList = getLocalData(STORAGE_KEYS.STABLES, defaultStables);
   }
 
-  const defaultStables = [
-    { stall_code: 'A1', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Xích Thố', breed: 'Arabian', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A2', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Bạch Long', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A3', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Hắc Phong', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A4', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Phi Vũ', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A5', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Phi Yến', breed: 'Thoroughbred', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A6', block: 'Block A', tier: 'VIP', status: 'OCCUPIED', horse: 'Kim Kê', breed: 'Quarter Horse', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B1', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Thanh Vân', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B2', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Lôi Chấn', breed: 'Quarter Horse', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B3', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Hồng Sa', breed: 'Arabian', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B4', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Thiên Lý', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B5', block: 'Block B', tier: 'VIP', status: 'OCCUPIED', horse: 'Bảo Mã', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B6', block: 'Block B', tier: 'VIP', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
-    // Chuồng tiêu chuẩn thông thường (Block C)
-    { stall_code: 'C1', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
-    { stall_code: 'C2', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
-    { stall_code: 'C3', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
-    { stall_code: 'C4', block: 'Block C', tier: 'STANDARD', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
-  ];
+  // Đảm bảo dữ liệu được chuẩn hóa trường, đồng bộ chiến mã thực tế và dọn sạch 100% ngựa mock
+  let normalized = rawList.map(s => {
+    const code = (s.stall_code || s.stallCode || '').toUpperCase();
+    const block = s.block || s.blockName || (code.startsWith('B') ? 'Block B' : code.startsWith('C') ? 'Block C' : 'Block A');
+    const isVip = s.tier === 'VIP' || s.is_vip === true || block.includes('Block A') || block.includes('Block B') || code.startsWith('A') || code.startsWith('B');
+    const assigned = assignedHorsesMap[code];
+    const isAssignedValid = assigned && assigned.name && !MOCK_HORSE_NAMES.includes(assigned.name.trim().toLowerCase());
 
-  const rawStables = getLocalData(STORAGE_KEYS.STABLES, defaultStables);
-  // Đảm bảo dữ liệu cũ trong localStorage được bổ sung phân loại VIP / STANDARD và các ô chuồng thường
-  let normalized = rawStables.map(s => {
-    const isVip = s.tier === 'VIP' || s.is_vip === true || s.block === 'Block A' || s.block === 'Block B' || s.block === 'Block VIP' || (s.stall_code && (s.stall_code.startsWith('A') || s.stall_code.startsWith('B') || s.stall_code.startsWith('VIP')));
+    if (isAssignedValid) {
+      return {
+        stall_code: code,
+        stallCode: code,
+        block,
+        blockName: block,
+        tier: isVip ? 'VIP' : 'STANDARD',
+        is_vip: isVip,
+        status: 'OCCUPIED',
+        horse: assigned.name,
+        breed: assigned.breed || 'Thoroughbred',
+        horse_avatar: assigned.avatar || assigned.horse_avatar || null,
+        stall_image: s.stall_image || s.stallImage || '/images/stall_simulation_occupied.jpg',
+        area: s.area || (code.startsWith('A') ? '18 m²' : code.startsWith('B') ? '16 m²' : '14 m²'),
+        dim: s.dim || (code.startsWith('A') ? '4.2 x 4.2m' : code.startsWith('B') ? '4.0 x 4.0m' : '3.6 x 3.6m')
+      };
+    }
+
+    // Nếu không có ngựa thật hợp lệ hoặc là ngựa mock -> buộc chuồng phải TRỐNG
     return {
-      ...s,
-      tier: s.tier || (isVip ? 'VIP' : 'STANDARD'),
-      is_vip: isVip
+      stall_code: code,
+      stallCode: code,
+      block,
+      blockName: block,
+      tier: isVip ? 'VIP' : 'STANDARD',
+      is_vip: isVip,
+      status: 'AVAILABLE',
+      horse: '(Trống)',
+      breed: 'Vacant',
+      horse_avatar: null,
+      stall_image: s.stall_image && !s.stall_image.includes('occupied') ? s.stall_image : (s.stallImage && !s.stallImage.includes('occupied') ? s.stallImage : '/images/stall_simulation_vacant.jpg'),
+      area: s.area || (code.startsWith('A') ? '18 m²' : code.startsWith('B') ? '16 m²' : '14 m²'),
+      dim: s.dim || (code.startsWith('A') ? '4.2 x 4.2m' : code.startsWith('B') ? '4.0 x 4.0m' : '3.6 x 3.6m')
     };
   });
 
-  // Bổ sung các chuồng Block C nếu danh sách hiện tại chưa có
-  if (!normalized.some(s => s.block === 'Block C' || s.stall_code === 'C1')) {
+  // Đảm bảo đủ các chuồng Block C
+  if (!normalized.some(s => s.stall_code === 'C1')) {
     normalized = [
       ...normalized,
-      { stall_code: 'C1', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
-      { stall_code: 'C2', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
-      { stall_code: 'C3', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
-      { stall_code: 'C4', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
+      { stall_code: 'C1', stallCode: 'C1', block: 'Block C', blockName: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+      { stall_code: 'C2', stallCode: 'C2', block: 'Block C', blockName: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+      { stall_code: 'C3', stallCode: 'C3', block: 'Block C', blockName: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+      { stall_code: 'C4', stallCode: 'C4', block: 'Block C', blockName: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
     ];
-    setLocalData(STORAGE_KEYS.STABLES, normalized);
   }
 
+  setLocalData(STORAGE_KEYS.STABLES, normalized);
   return { isFromBackend: false, data: normalized };
 }
 
@@ -479,6 +691,305 @@ export async function deleteStallApi(stallCode) {
   return true;
 }
 
+/**
+ * =========================================================================
+ * 2.1 QUẢN LÝ YÊU CẦU CẤP & ĐỔI Ô CHUỒNG (STALL REQUESTS & APPROVALS)
+ * =========================================================================
+ */
+
+/**
+ * Lấy danh sách yêu cầu cấp / đổi ô chuồng
+ */
+export async function getStallRequestsApi() {
+  try {
+    const res = await fetch('/api/stables/requests', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) return { isFromBackend: true, data };
+    }
+  } catch {
+    // Fallback
+  }
+
+  const list = getLocalData(STORAGE_KEYS.STALL_REQUESTS, []);
+  return { isFromBackend: false, data: Array.isArray(list) ? list : [] };
+}
+
+/**
+ * Tạo yêu cầu cấp mới hoặc đổi ô chuồng (từ Chủ sở hữu)
+ */
+export async function createStallRequestApi(requestData) {
+  const newReq = {
+    id: requestData.id || `SRQ_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    horseId: requestData.horseId,
+    horseName: requestData.horseName,
+    horseAvatar: requestData.horseAvatar || null,
+    horseBreed: requestData.horseBreed || 'Thoroughbred',
+    ownerUsername: requestData.ownerUsername || '',
+    ownerName: requestData.ownerName || 'Chủ sở hữu',
+    type: requestData.type || 'ASSIGN', // 'ASSIGN' (cấp chuồng mới) | 'CHANGE' (đổi chuồng)
+    currentStall: requestData.currentStall || null, // Ô chuồng hiện tại nếu đổi
+    requestedStall: requestData.requestedStall, // Mã ô chuồng xin cấp (VD: 'A1')
+    requestedStallLabel: requestData.requestedStallLabel || `Ô ${requestData.requestedStall}`,
+    reason: requestData.reason || '',
+    status: 'PENDING', // 'PENDING' | 'APPROVED' | 'REJECTED'
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    const res = await fetch('/api/stables/requests', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(newReq)
+    });
+    if (res.ok) {
+      const created = await res.json();
+      return created;
+    }
+  } catch {
+    // Fallback
+  }
+
+  const existing = getLocalData(STORAGE_KEYS.STALL_REQUESTS, []);
+  // Loại bỏ các request pending cũ cùng ngựa và cùng ô nếu có
+  const filtered = existing.filter(r => !(r.horseId === newReq.horseId && r.status === 'PENDING'));
+  const updatedList = [newReq, ...filtered];
+  setLocalData(STORAGE_KEYS.STALL_REQUESTS, updatedList);
+
+  // Đánh dấu ô chuồng xin cấp là tạm giữ/đang chờ duyệt để người khác không chọn trùng
+  const { data: stables } = await getStablesApi();
+  const updatedStables = stables.map(s => {
+    if (s.stall_code === newReq.requestedStall) {
+      return {
+        ...s,
+        status: 'OCCUPIED',
+        horse: `${newReq.horseName} (Chờ duyệt)`,
+        breed: newReq.horseBreed,
+        horse_avatar: newReq.horseAvatar,
+        stall_image: '/images/stall_simulation_occupied.jpg'
+      };
+    }
+    return s;
+  });
+  setLocalData(STORAGE_KEYS.STABLES, updatedStables);
+
+  window.dispatchEvent(new Event('matruong_stables_updated'));
+  window.dispatchEvent(new Event('matruong_stall_requests_updated'));
+  window.dispatchEvent(new Event('storage'));
+
+  return newReq;
+}
+
+/**
+ * Phê duyệt yêu cầu cấp hoặc đổi ô chuồng (Admin)
+ */
+export async function approveStallRequestApi(requestId, adminName = 'Admin Quản Trị') {
+  try {
+    const res = await fetch(`/api/stables/requests/${requestId}/approve`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include'
+    });
+    if (res.ok) return true;
+  } catch {
+    // Fallback
+  }
+
+  const reqList = getLocalData(STORAGE_KEYS.STALL_REQUESTS, []);
+  const req = reqList.find(r => String(r.id) === String(requestId));
+  if (!req) return false;
+
+  const { data: stables } = await getStablesApi();
+
+  // 1. Nếu là yêu cầu ĐỔI CHUỒNG (type: 'CHANGE' hoặc có currentStall):
+  // NHẢ Ô CHUỒNG CŨ TRỞ LẠI TRẠNG THÁI TRỐNG (AVAILABLE)
+  let updatedStables = stables;
+  if (req.currentStall) {
+    const curCode = String(req.currentStall).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    updatedStables = updatedStables.map(s => {
+      if (s.stall_code.toUpperCase() === curCode) {
+        return {
+          ...s,
+          status: 'AVAILABLE',
+          horse: '(Trống)',
+          breed: 'Vacant',
+          horse_avatar: null,
+          stall_image: '/images/stall_simulation_vacant.jpg'
+        };
+      }
+      return s;
+    });
+  }
+
+  // 2. GÁN CHIẾN MÃ VÀO Ô CHUỒNG MỚI (OCCUPIED)
+  const targetCode = String(req.requestedStall).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  updatedStables = updatedStables.map(s => {
+    if (s.stall_code.toUpperCase() === targetCode) {
+      return {
+        ...s,
+        status: 'OCCUPIED',
+        horse: req.horseName,
+        breed: req.horseBreed || 'Thoroughbred',
+        horse_avatar: req.horseAvatar || s.horse_avatar,
+        stall_image: '/images/stall_simulation_occupied.jpg'
+      };
+    }
+    return s;
+  });
+  setLocalData(STORAGE_KEYS.STABLES, updatedStables);
+
+  // 3. CẬP NHẬT TRẠNG THÁI YÊU CẦU
+  const updatedReqList = reqList.map(r => {
+    if (String(r.id) === String(requestId)) {
+      return {
+        ...r,
+        status: 'APPROVED',
+        approvedBy: adminName,
+        approvedAt: new Date().toISOString()
+      };
+    }
+    return r;
+  });
+  setLocalData(STORAGE_KEYS.STALL_REQUESTS, updatedReqList);
+
+  // 4. ĐỒNG BỘ DỮ LIỆU NGỰA CỦA CHỦ SỞ HỮU TRÊN LOCALSTORAGE
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('matruong_owner_horses_')) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            let changed = false;
+            const updatedHorses = list.map(h => {
+              if (String(h.id) === String(req.horseId) || (h.name && h.name.toLowerCase() === req.horseName.toLowerCase())) {
+                changed = true;
+                return {
+                  ...h,
+                  stable: req.requestedStallLabel || `Ô ${req.requestedStall}`,
+                  stallStatus: 'APPROVED',
+                  stallApproved: true,
+                  pendingStall: null
+                };
+              }
+              return h;
+            });
+            if (changed) {
+              localStorage.setItem(key, JSON.stringify(updatedHorses));
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 5. PHÁT SỰ KIỆN CẬP NHẬT TOÀN HỆ THỐNG
+  window.dispatchEvent(new Event('matruong_stables_updated'));
+  window.dispatchEvent(new Event('matruong_horses_updated'));
+  window.dispatchEvent(new Event('matruong_stall_requests_updated'));
+  window.dispatchEvent(new Event('storage'));
+
+  return true;
+}
+
+/**
+ * Từ chối yêu cầu cấp hoặc đổi ô chuồng (Admin)
+ */
+export async function rejectStallRequestApi(requestId, reason = '', adminName = 'Admin Quản Trị') {
+  try {
+    const res = await fetch(`/api/stables/requests/${requestId}/reject`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ reason })
+    });
+    if (res.ok) return true;
+  } catch {
+    // Fallback
+  }
+
+  const reqList = getLocalData(STORAGE_KEYS.STALL_REQUESTS, []);
+  const req = reqList.find(r => String(r.id) === String(requestId));
+  if (!req) return false;
+
+  const { data: stables } = await getStablesApi();
+
+  // Nhả ô chuồng đã xin cấp trở lại trạng thái trống (AVAILABLE)
+  const targetCode = String(req.requestedStall).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const updatedStables = stables.map(s => {
+    if (s.stall_code.toUpperCase() === targetCode) {
+      return {
+        ...s,
+        status: 'AVAILABLE',
+        horse: '(Trống)',
+        breed: 'Vacant',
+        horse_avatar: null,
+        stall_image: '/images/stall_simulation_vacant.jpg'
+      };
+    }
+    return s;
+  });
+  setLocalData(STORAGE_KEYS.STABLES, updatedStables);
+
+  // Cập nhật trạng thái yêu cầu
+  const updatedReqList = reqList.map(r => {
+    if (String(r.id) === String(requestId)) {
+      return {
+        ...r,
+        status: 'REJECTED',
+        rejectReason: reason || 'Ban Quản Trị không phê duyệt vị trí này',
+        rejectedBy: adminName,
+        rejectedAt: new Date().toISOString()
+      };
+    }
+    return r;
+  });
+  setLocalData(STORAGE_KEYS.STALL_REQUESTS, updatedReqList);
+
+  // Cập nhật ngựa trong localStorage
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('matruong_owner_horses_')) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            let changed = false;
+            const updatedHorses = list.map(h => {
+              if (String(h.id) === String(req.horseId) || (h.name && h.name.toLowerCase() === req.horseName.toLowerCase())) {
+                changed = true;
+                return {
+                  ...h,
+                  stallStatus: 'REJECTED',
+                  pendingStall: null,
+                  stallRejectReason: reason || 'Ban Quản Trị từ chối'
+                };
+              }
+              return h;
+            });
+            if (changed) {
+              localStorage.setItem(key, JSON.stringify(updatedHorses));
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  window.dispatchEvent(new Event('matruong_stables_updated'));
+  window.dispatchEvent(new Event('matruong_horses_updated'));
+  window.dispatchEvent(new Event('matruong_stall_requests_updated'));
+  window.dispatchEvent(new Event('storage'));
+
+  return true;
+}
+
 
 // =========================================================================
 // 3. XÁC THỰC & NGƯỜI DÙNG (AUTH & USERS API)
@@ -535,10 +1046,6 @@ export async function loginApi(account, password) {
     {
       aliases: ['groom', 'groom_nam', 'chamsoc', 'groom@matruong.vn'],
       user: { user_id: 5, userId: 5, username: 'groom_nam', full_name: 'Lê Hoàng Nam', email: 'groom@matruong.vn', phone: '0903456789', roleCode: 'GROOM', role_code: 'GROOM', status: 'ACTIVE' }
-    },
-    {
-      aliases: ['owner', 'owner_thanh', 'chunga', 'owner@matruong.vn'],
-      user: { user_id: 6, userId: 6, username: 'owner_thanh', full_name: 'Phạm Tiến Thành', email: 'owner@matruong.vn', phone: '0904567890', roleCode: 'OWNER', role_code: 'OWNER', status: 'ACTIVE' }
     }
   ];
 
@@ -1330,11 +1837,7 @@ export async function registerOwnerHorseApi(ownerKey, horseData) {
   );
   const nextList = [newHorse, ...filtered];
   setLocalData(storageKey, nextList);
-  if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
-    setLocalData('matruong_owner_horses_owner_thanh', nextList);
-    setLocalData('matruong_owner_horses_6', nextList);
-    setLocalData('matruong_owner_horses_11', nextList);
-  }
+
   return newHorse;
 }
 
@@ -1370,11 +1873,7 @@ export async function updateOwnerHorseApi(ownerKey, horseData) {
     return true;
   });
   setLocalData(storageKey, deduped);
-  if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
-    setLocalData('matruong_owner_horses_owner_thanh', updated);
-    setLocalData('matruong_owner_horses_6', updated);
-    setLocalData('matruong_owner_horses_11', updated);
-  }
+
   return horseData;
 }
 
@@ -1395,11 +1894,7 @@ export async function deleteOwnerHorseApi(ownerKey, horseId) {
   const filtered = existing.filter(h => String(h.id) !== String(horseId));
   setLocalData(storageKey, filtered);
 
-  if (String(ownerKey) === 'owner_thanh' || String(ownerKey) === '6' || String(ownerKey) === '11') {
-    setLocalData('matruong_owner_horses_owner_thanh', filtered);
-    setLocalData('matruong_owner_horses_6', filtered);
-    setLocalData('matruong_owner_horses_11', filtered);
-  }
+
   return true;
 }
 
@@ -1518,44 +2013,7 @@ export async function getSystemTournamentNominationsApi() {
     // Fallback
   }
 
-  const defaultSeed = [
-    {
-      id: 'RN-2026-01',
-      raceName: 'Giải Vô Địch Cúp Derby Mùa Thu 2026',
-      track: 'Trường đua Quốc tế Phú Thọ',
-      horseName: 'Bạch Long',
-      ownerName: 'Phạm Tiến Thành (VIP)',
-      ownerKey: '6',
-      distance: '2.400m (Sân cỏ)',
-      date: '15/11/2026',
-      estimatedPurse: 800000000,
-      nominationStatus: 'APPROVED',
-      jockey: 'Kỵ mã Nguyễn Văn Tài',
-      notes: 'Chủ sở hữu đề xuất lượt chạy số 3. Thể lực sung mãn.',
-      registeredAt: '20/10/2026 14:00',
-      trainerFeedback: 'Đạt chuẩn thể lực cự ly 2.400m, nhịp tim ổn định 38 bpm. Phê duyệt đủ điều kiện xuất phát.',
-      reviewedBy: 'HLV Trưởng Trần Văn Hùng',
-      reviewedAt: '21/10/2026 09:30'
-    },
-    {
-      id: 'RN-2026-02',
-      raceName: 'Cúp Nước Rút Tốc Độ Sprint Cup 1.200m',
-      track: 'Trường đua Cát Thể Thao',
-      horseName: 'Lôi Chấn',
-      ownerName: 'Phạm Tiến Thành (VIP)',
-      ownerKey: '6',
-      distance: '1.200m (Sân cát)',
-      date: '28/11/2026',
-      estimatedPurse: 450000000,
-      nominationStatus: 'PENDING_TRAINER',
-      jockey: 'Kỵ mã Trần Quốc Bảo',
-      notes: 'Chủ ngựa đề cử tham gia tranh tài cúp nước rút cự ly ngắn.',
-      registeredAt: '26/10/2026 10:15',
-      trainerFeedback: '',
-      reviewedBy: null,
-      reviewedAt: null
-    }
-  ];
+  const defaultSeed = [];
 
   let rawData = getLocalData(SYSTEM_NOMINATIONS_KEY, defaultSeed);
   if (Array.isArray(rawData)) {
@@ -1563,7 +2021,7 @@ export async function getSystemTournamentNominationsApi() {
     rawData = rawData.map(item => {
       if ((item.id === 'RN-2026-01' || item.id === 'RN-2026-02') && (item.ownerKey === 'owner_tuan' || item.ownerKey === 'owner_vu')) {
         changed = true;
-        return { ...item, ownerKey: '6', ownerName: 'Phạm Tiến Thành (VIP)' };
+        return { ...item, ownerKey: '6', ownerName: 'Chủ sở hữu' };
       }
       return item;
     });
@@ -1847,11 +2305,7 @@ export async function getVetClearanceListApi() {
   } catch {}
 
   const key = 'matruong_vet_race_clearance';
-  return getLocalData(key, [
-    { id: 1, horseName: 'Xích Thố', raceName: 'Cúp Derby Mùa Thu 2026', distance: '2.400m', date: '25/10/2026', vetStatus: 'CLEARED', heartRateRest: '34 bpm', notes: 'Thể lực hoàn hảo, âm tim đều, gân cơ săn chắc.' },
-    { id: 2, horseName: 'Bạch Long', raceName: 'Giải Vô Địch Tốc Độ Sprint Cup', distance: '1.200m', date: '28/10/2026', vetStatus: 'CLEARED', heartRateRest: '36 bpm', notes: 'Đạt chuẩn viễn trắc, nhịp thở phục hồi dưới 15 phút.' },
-    { id: 3, horseName: 'Hắc Phong', raceName: 'Giải Đua Tốc Độ Sân Cát', distance: '1.600m', date: '30/10/2026', vetStatus: 'PENDING_EXAM', heartRateRest: '38 bpm', notes: 'Chờ theo dõi thêm 48h về tiêu hóa trước khi cấp chứng nhận.' }
-  ]);
+  return getLocalData(key, []);
 }
 
 export async function updateVetClearanceApi(clearanceId, newStatus, notes) {
@@ -1929,11 +2383,11 @@ export async function getGroomStallsApi() {
 
   const key = 'matruong_groom_stalls_state';
   return getLocalData(key, [
-    { code: 'A1', horseName: 'Xích Thố', breed: 'Arabian', microchip: 'MC-VN-2021-014', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: '07:30 Sáng nay', note: 'Chiến mã khỏe, ăn hết khẩu phần' },
-    { code: 'A2', horseName: 'Bạch Long', breed: 'Thoroughbred', microchip: 'MC-VN-2024-003', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: '07:15 Sáng nay', note: 'Sẵn sàng giờ tập nước rút' },
-    { code: 'A3', horseName: 'Hắc Phong', breed: 'Thoroughbred', microchip: 'MC-VN-2022-001', bedding: 'CẦN THAY THÊM', waterChecked: true, status: 'WATCH', lastMucked: '06:45 Sáng nay', note: 'Đang theo dõi tiêu hóa cùng Bác sĩ' },
-    { code: 'A4', horseName: 'Lôi Chấn', breed: 'Quarter Horse', microchip: 'MC-VN-2022-088', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: '07:00 Sáng nay', note: 'Móng tốt, thể lực ổn định' },
-    { code: 'A5', horseName: 'Phi Yến', breed: 'Thoroughbred', microchip: 'MC-VN-2023-009', bedding: 'ĐỆM Y TẾ KHỬ KHUẨN', waterChecked: true, status: 'LOCKED', lastMucked: '06:00 Sáng nay', note: 'Chườm đá chân trái theo lệnh Thú y' }
+    { code: 'A1', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' },
+    { code: 'A2', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' },
+    { code: 'A3', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' },
+    { code: 'A4', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' },
+    { code: 'A5', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' }
   ]);
 }
 
@@ -1969,68 +2423,7 @@ export async function getServiceAssignmentsApi() {
   } catch {}
 
   const key = 'matruong_service_assignments';
-  return getLocalData(key, [
-    {
-      id: 1,
-      horseName: 'Bạch Long',
-      microchip: 'MC-VN-2024-003',
-      stable: 'Ô A2',
-      ownerName: 'Phạm Tiến Thành',
-      ownerKey: 'owner_thanh',
-      trainerUsername: 'trainer_truong',
-      trainerName: 'Trần Văn Hùng',
-      trainerStatus: 'CONFIRMED',
-      trainerConfirmedAt: '10/10/2026',
-      vetUsername: 'vet_an',
-      vetName: 'BS. Nguyễn An',
-      vetStatus: 'CONFIRMED',
-      vetConfirmedAt: '10/10/2026',
-      groomUsername: 'groom_nam',
-      groomName: 'Lê Hoàng Nam',
-      groomStatus: 'CONFIRMED',
-      groomConfirmedAt: '10/10/2026'
-    },
-    {
-      id: 2,
-      horseName: 'Lôi Chấn',
-      microchip: 'MC-VN-2022-088',
-      stable: 'Ô A4',
-      ownerName: 'Phạm Tiến Thành',
-      ownerKey: 'owner_thanh',
-      trainerUsername: 'trainer_nghia',
-      trainerName: 'Lê Trọng Nghĩa',
-      trainerStatus: 'PENDING',
-      trainerConfirmedAt: null,
-      vetUsername: 'vet_hoang',
-      vetName: 'BS. Trần Minh Hoàng',
-      vetStatus: 'CONFIRMED',
-      vetConfirmedAt: '11/10/2026',
-      groomUsername: 'groom_dung',
-      groomName: 'Vũ Tiến Dũng',
-      groomStatus: 'PENDING',
-      groomConfirmedAt: null
-    },
-    {
-      id: 3,
-      horseName: 'Phi Yến',
-      microchip: 'MC-VN-2023-009',
-      stable: 'Ô A5',
-      ownerName: 'Phạm Tiến Thành',
-      ownerKey: 'owner_thanh',
-      trainerUsername: 'trainer_anh',
-      trainerName: 'Phạm Quốc Anh',
-      trainerStatus: 'PENDING',
-      trainerConfirmedAt: null,
-      vetUsername: 'vet_linh',
-      vetName: 'BS. Lê Mai Linh',
-      vetStatus: 'PENDING',
-      vetConfirmedAt: null,
-      groomUsername: 'groom_thao',
-      groomName: 'Nguyễn Thu Thảo',
-      groomStatus: 'CONFIRMED',
-      groomConfirmedAt: '12/10/2026'
-    }
-  ]);
+  return getLocalData(key, []);
 }
 
 export async function saveServiceAssignmentApi(assignment) {

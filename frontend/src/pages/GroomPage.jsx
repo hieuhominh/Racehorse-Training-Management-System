@@ -91,97 +91,97 @@ export default function GroomPage() {
       }
     } catch {}
     return [
-    {
-      code: 'A1',
-      zone: 'Block A',
-      horseName: 'Xích Thố',
-      breed: 'Thoroughbred',
-      microchip: 'MC-VN-2023-001',
-      status: 'NORMAL',
-      bedding: 'Mùn cưa sạch',
-      beddingStatus: 'GOOD',
-      waterLevel: '100%',
-      temp: '26.5°C',
-      humidity: '65%',
-      lastCleaned: '07:30 Sáng nay',
-      image: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      code: 'A2',
-      zone: 'Block A',
-      horseName: 'Bạch Long',
-      breed: 'Thoroughbred',
-      microchip: 'MC-VN-2024-003',
-      status: 'NORMAL',
-      bedding: 'Rơm khô mới thay',
-      beddingStatus: 'GOOD',
-      waterLevel: '85%',
-      temp: '26.8°C',
-      humidity: '63%',
-      lastCleaned: '08:00 Sáng nay',
-      image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      code: 'A3',
-      zone: 'Block A',
-      horseName: 'Hắc Phong',
-      breed: 'Arabian',
-      microchip: 'MC-VN-2022-001',
-      status: 'WATCH_HEALTH',
-      bedding: 'Mùn cưa cần thay',
-      beddingStatus: 'NEEDS_CLEAN',
-      waterLevel: '60%',
-      temp: '27.1°C',
-      humidity: '68%',
-      lastCleaned: 'Hôm qua',
-      image: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      code: 'A4',
-      zone: 'Block A',
-      horseName: 'Lôi Chấn',
-      breed: 'Quarter Horse',
-      microchip: 'MC-VN-2022-088',
-      status: 'NORMAL',
-      bedding: 'Rơm khô tiêu chuẩn',
-      beddingStatus: 'GOOD',
-      waterLevel: '95%',
-      temp: '26.6°C',
-      humidity: '64%',
-      lastCleaned: '07:45 Sáng nay',
-      image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      code: 'A5',
-      zone: 'Block A',
-      horseName: 'Phi Yến',
-      breed: 'Thoroughbred',
-      microchip: 'MC-VN-2023-009',
-      status: 'RESTRICTED_CARE',
-      bedding: 'Đệm cao su + Rơm mềm',
-      beddingStatus: 'GOOD',
-      waterLevel: '90%',
-      temp: '26.4°C',
-      humidity: '62%',
-      lastCleaned: '08:15 Sáng nay',
-      image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      code: 'A6',
-      zone: 'Block A',
-      horseName: '(Ô chuồng dự phòng)',
-      breed: 'Trống',
-      microchip: 'N/A',
-      status: 'AVAILABLE',
-      bedding: 'Đã sát trùng vôi bột',
-      beddingStatus: 'GOOD',
-      waterLevel: '100%',
-      temp: '26.2°C',
-      humidity: '60%',
-      lastCleaned: 'Sáng nay',
-      image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-    }
-  ];
+      {
+        code: 'A1',
+        zone: 'Block A',
+        horseName: null,
+        breed: 'Trống',
+        microchip: 'N/A',
+        status: 'AVAILABLE',
+        bedding: 'Mùn cưa sạch',
+        beddingStatus: 'GOOD',
+        waterLevel: '100%',
+        temp: '26.5°C',
+        humidity: '65%',
+        lastCleaned: 'Sáng nay',
+        image: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
+      },
+      {
+        code: 'A2',
+        zone: 'Block A',
+        horseName: null,
+        breed: 'Trống',
+        microchip: 'N/A',
+        status: 'AVAILABLE',
+        bedding: 'Rơm khô mới thay',
+        beddingStatus: 'GOOD',
+        waterLevel: '100%',
+        temp: '26.8°C',
+        humidity: '63%',
+        lastCleaned: 'Sáng nay',
+        image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
+      },
+      {
+        code: 'A3',
+        zone: 'Block A',
+        horseName: null,
+        breed: 'Trống',
+        microchip: 'N/A',
+        status: 'AVAILABLE',
+        bedding: 'Mùn cưa sạch',
+        beddingStatus: 'GOOD',
+        waterLevel: '100%',
+        temp: '27.1°C',
+        humidity: '68%',
+        lastCleaned: 'Sáng nay',
+        image: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=400&q=80'
+      },
+      {
+        code: 'A4',
+        zone: 'Block A',
+        horseName: null,
+        breed: 'Trống',
+        microchip: 'N/A',
+        status: 'AVAILABLE',
+        bedding: 'Rơm khô tiêu chuẩn',
+        beddingStatus: 'GOOD',
+        waterLevel: '100%',
+        temp: '26.6°C',
+        humidity: '64%',
+        lastCleaned: 'Sáng nay',
+        image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
+      },
+      {
+        code: 'A5',
+        zone: 'Block A',
+        horseName: null,
+        breed: 'Trống',
+        microchip: 'N/A',
+        status: 'AVAILABLE',
+        bedding: 'Đệm cao su + Rơm mềm',
+        beddingStatus: 'GOOD',
+        waterLevel: '100%',
+        temp: '26.4°C',
+        humidity: '62%',
+        lastCleaned: 'Sáng nay',
+        image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
+      },
+      {
+        code: 'A6',
+        zone: 'Block A',
+        horseName: null,
+        breed: 'Trống',
+        microchip: 'N/A',
+        status: 'AVAILABLE',
+        bedding: 'Đã sát trùng vôi bột',
+        beddingStatus: 'GOOD',
+        waterLevel: '100%',
+        temp: '26.2°C',
+        humidity: '60%',
+        lastCleaned: 'Sáng nay',
+        image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
+      }
+    ];
   });
 
   // 2. Checklist Chăm sóc Trực ca hàng ngày
@@ -254,50 +254,42 @@ export default function GroomPage() {
     return () => { isMounted = false; };
   }, []);
 
+  useEffect(() => {
+    setStalls(prev => prev.map(s => {
+      if (s.ownerName === 'Phạm Tiến Thành' || s.owner === 'Phạm Tiến Thành' || ['Hắc Phong', 'Xích Thố', 'Phi Yến', 'Lôi Chấn', 'Bạch Long'].includes(s.horseName)) {
+        return {
+          ...s,
+          horseName: null,
+          breed: 'Trống',
+          microchip: 'N/A',
+          status: 'AVAILABLE',
+          occupied: false,
+          ownerName: undefined,
+          owner: undefined
+        };
+      }
+      return s;
+    }));
+    try {
+      localStorage.removeItem('matruong_groom_stalls_state');
+    } catch {}
+  }, []);
+
   // 3. Danh sách ca sự cố Groom đã báo cáo
-  const [incidents, setIncidents] = useState([
-    {
-      id: 'INC-9012',
-      stallCode: 'A3',
-      horseName: 'Hắc Phong',
-      severity: 'HIGH',
-      symptoms: 'Ngựa bỏ ăn, thở nhanh, cào chân',
-      desc: 'Hắc Phong bỏ 2/3 khẩu phần cỏ Alfalfa buổi trưa, thở nhanh và dậm chân liên tục. Thân nhiệt 38.8°C.',
-      reportedAt: '11:45 - 08/10/2026',
-      status: 'pending_vet',
-      statusText: 'Đang chờ BS Thú Y khám'
-    },
-    {
-      id: 'INC-8819',
-      stallCode: 'B4',
-      horseName: 'Phi Vân',
-      severity: 'MEDIUM',
-      symptoms: 'Vết nứt nhẹ thành móng sau',
-      desc: 'Phát hiện vết rạn móng nhẹ sau buổi tập. Đã vệ sinh sạch cát và chườm đá lạnh.',
-      reportedAt: '09:15 - 08/10/2026',
-      status: 'in_review',
-      statusText: 'Thú Y đang theo dõi'
-    }
-  ]);
+  const [incidents, setIncidents] = useState([]);
 
   // Modal báo cáo sự cố mới
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportData, setReportData] = useState({
-    stallCode: 'A3',
-    horseName: 'Hắc Phong',
+    stallCode: '',
+    horseName: '',
     severity: 'HIGH',
     symptoms: 'Bỏ ăn / Mệt mỏi',
     desc: ''
   });
 
   // 4. Nhật ký Dinh dưỡng & Thức ăn
-  const [feedLogs] = useState([
-    { id: 1, horse: 'Xích Thố (A1)', hayKg: '8 kg', grainKg: '3.5 kg', waterL: '45 L', intakeRate: '100% (Ăn hết)', note: 'Thể lực rất tốt' },
-    { id: 2, horse: 'Bạch Long (A2)', hayKg: '7.5 kg', grainKg: '3.0 kg', waterL: '42 L', intakeRate: '100% (Ăn hết)', note: 'Bình thường' },
-    { id: 3, horse: 'Hắc Phong (A3)', hayKg: '5.0 kg', grainKg: '1.5 kg', waterL: '30 L', intakeRate: '35% (Bỏ ăn trưa)', note: 'Đã báo Thú Y theo dõi tiêu hóa' },
-    { id: 4, horse: 'Lôi Chấn (A4)', hayKg: '8 kg', grainKg: '3.5 kg', waterL: '44 L', intakeRate: '100% (Ăn hết)', note: 'Bình thường' },
-    { id: 5, horse: 'Phi Yến (A5)', hayKg: '6 kg', grainKg: '2.0 kg', waterL: '38 L', intakeRate: '90% (Ăn tốt)', note: 'Khẩu phần giảm theo phác đồ thú y' }
-  ]);
+  const [feedLogs] = useState([]);
 
   // 5. Tủ vật tư & Dụng cụ chuồng trại
   const [suppliesList] = useState([
@@ -403,7 +395,7 @@ export default function GroomPage() {
     setShowReportModal(false);
     setReportData({
       stallCode: 'A1',
-      horseName: 'Xích Thố',
+      horseName: '(Trống)',
       severity: 'HIGH',
       symptoms: 'Bỏ ăn / Mệt mỏi',
       desc: ''
@@ -480,10 +472,10 @@ export default function GroomPage() {
               occupied: true,
               breed: fullHorse.breed || 'Thoroughbred',
               avatar: fullHorse.avatar || s.avatar,
-              ownerName: fullHorse.ownerName || 'Phạm Tiến Thành',
-              owner: fullHorse.ownerName || 'Phạm Tiến Thành',
+              ownerName: fullHorse.ownerName || 'Chủ sở hữu',
+              owner: fullHorse.ownerName || 'Chủ sở hữu',
               microchip: fullHorse.microchip || s.microchip,
-              specialNotes: `Chiến mã của chủ sở hữu ${fullHorse.ownerName || 'Phạm Tiến Thành'}`
+              specialNotes: `Chiến mã của chủ sở hữu ${fullHorse.ownerName || 'Chủ sở hữu'}`
             };
           }
           return s;
@@ -496,8 +488,8 @@ export default function GroomPage() {
             breed: fullHorse.breed || 'Thoroughbred',
             microchip: fullHorse.microchip || 'MC-VN-NEW',
             avatar: fullHorse.avatar,
-            ownerName: fullHorse.ownerName || 'Phạm Tiến Thành',
-            owner: fullHorse.ownerName || 'Phạm Tiến Thành',
+            ownerName: fullHorse.ownerName || 'Chủ sở hữu',
+            owner: fullHorse.ownerName || 'Chủ sở hữu',
             occupied: true,
             bedding: 'Mùn cưa sạch tiêu chuẩn',
             beddingStatus: 'GOOD',
@@ -508,7 +500,7 @@ export default function GroomPage() {
             dietStatus: 'PENDING',
             lastCleaned: 'Vừa tiếp nhận',
             status: 'NORMAL',
-            specialNotes: `Chiến mã của chủ sở hữu ${fullHorse.ownerName || 'Phạm Tiến Thành'}`
+            specialNotes: `Chiến mã của chủ sở hữu ${fullHorse.ownerName || 'Chủ sở hữu'}`
           },
           ...prev
         ];
@@ -745,7 +737,7 @@ export default function GroomPage() {
                 {incidents.filter(i => i.status === 'pending_vet').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA CHỜ KHÁM</span>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                Hắc Phong (A3) · Đang chờ BS Thú Y
+                {incidents.find(i => i.status === 'pending_vet')?.horseName ? `${incidents.find(i => i.status === 'pending_vet')?.horseName} · Đang chờ BS Thú Y` : 'Hệ thống chuồng trại ổn định'}
               </div>
             </div>
           </div>
@@ -1044,7 +1036,7 @@ export default function GroomPage() {
                           </div>
                           <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>{s.breed} · {s.microchip || 'MC-VN-2026-662'}</div>
                           <div style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 600, marginTop: '2px' }}>
-                            Chủ sở hữu: <span>{s.ownerName || s.owner || 'Phạm Tiến Thành'}</span>
+                            Chủ sở hữu: <span>{s.ownerName || s.owner || 'Chủ sở hữu'}</span>
                           </div>
                         </div>
                       </div>

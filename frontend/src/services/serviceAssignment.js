@@ -71,75 +71,14 @@ export const FIXED_GROOMS_LIST = [
   { username: 'groom_thao', name: 'Nguyễn Thu Thảo', title: 'Chăm sóc phục hồi & Dinh dưỡng Block C' }
 ];
 
-const INITIAL_ASSIGNMENTS = [
-  {
-    id: 1,
-    horseName: 'Bạch Long',
-    microchip: 'MC-VN-2024-003',
-    stable: 'Ô A2',
-    ownerName: 'Phạm Tiến Thành',
-    ownerKey: 'owner_thanh',
-    trainerUsername: 'trainer_truong',
-    trainerName: 'Trần Văn Hùng',
-    trainerStatus: 'CONFIRMED',
-    trainerConfirmedAt: '10/10/2026',
-    vetUsername: 'vet_an',
-    vetName: 'BS. Nguyễn An',
-    vetStatus: 'CONFIRMED',
-    vetConfirmedAt: '10/10/2026',
-    groomUsername: 'groom_nam',
-    groomName: 'Lê Hoàng Nam',
-    groomStatus: 'CONFIRMED',
-    groomConfirmedAt: '10/10/2026'
-  },
-  {
-    id: 2,
-    horseName: 'Lôi Chấn',
-    microchip: 'MC-VN-2022-088',
-    stable: 'Ô A4',
-    ownerName: 'Phạm Tiến Thành',
-    ownerKey: 'owner_thanh',
-    trainerUsername: 'trainer_nghia',
-    trainerName: 'Lê Trọng Nghĩa',
-    trainerStatus: 'PENDING',
-    trainerConfirmedAt: null,
-    vetUsername: 'vet_hoang',
-    vetName: 'BS. Trần Minh Hoàng',
-    vetStatus: 'CONFIRMED',
-    vetConfirmedAt: '11/10/2026',
-    groomUsername: 'groom_dung',
-    groomName: 'Vũ Tiến Dũng',
-    groomStatus: 'PENDING',
-    groomConfirmedAt: null
-  },
-  {
-    id: 3,
-    horseName: 'Phi Yến',
-    microchip: 'MC-VN-2023-009',
-    stable: 'Ô A5',
-    ownerName: 'Phạm Tiến Thành',
-    ownerKey: 'owner_thanh',
-    trainerUsername: 'trainer_anh',
-    trainerName: 'Phạm Quốc Anh',
-    trainerStatus: 'PENDING',
-    trainerConfirmedAt: null,
-    vetUsername: 'vet_linh',
-    vetName: 'BS. Lê Mai Linh',
-    vetStatus: 'PENDING',
-    vetConfirmedAt: null,
-    groomUsername: 'groom_thao',
-    groomName: 'Nguyễn Thu Thảo',
-    groomStatus: 'CONFIRMED',
-    groomConfirmedAt: '12/10/2026'
-  }
-];
+const INITIAL_ASSIGNMENTS = [];
 
 export function getServiceAssignments() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed.filter(item => item.ownerKey !== 'owner_thanh' && item.ownerName !== 'Phạm Tiến Thành' && item.ownerName !== 'Trần Đình Thanh');
     }
   } catch {}
   localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ASSIGNMENTS));
@@ -191,8 +130,8 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
       pedigree: horse.pedigree || old.pedigree,
       ownershipShare: horse.ownershipShare || old.ownershipShare || 100,
       ownershipType: horse.ownershipType || old.ownershipType || 'Toàn phần',
-      ownerName: ownerUser?.full_name || old.ownerName || 'Phạm Tiến Thành',
-      ownerKey: ownerUser?.username || old.ownerKey || 'owner_thanh',
+      ownerName: ownerUser?.full_name || old.ownerName || 'Chủ sở hữu',
+      ownerKey: ownerUser?.username || old.ownerKey || 'owner',
       trainerUsername: trainerObj.username,
       trainerName: trainerObj.name,
       trainerStatus: trainerChanged ? 'PENDING' : old.trainerStatus,
@@ -220,8 +159,8 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
       pedigree: horse.pedigree,
       ownershipShare: horse.ownershipShare || 100,
       ownershipType: horse.ownershipType || 'Toàn phần',
-      ownerName: ownerUser?.full_name || 'Phạm Tiến Thành',
-      ownerKey: ownerUser?.username || 'owner_thanh',
+      ownerName: ownerUser?.full_name || 'Chủ sở hữu',
+      ownerKey: ownerUser?.username || 'owner',
       trainerUsername: trainerObj.username,
       trainerName: trainerObj.name,
       trainerStatus: 'PENDING',
@@ -530,7 +469,7 @@ const DEFAULT_HORSE_PEDIGREES = {
   const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
   const horseName = foundOwnerHorse?.name || matchAsgn?.horseName || horseIdentifier;
   const microchip = foundOwnerHorse?.microchip || matchAsgn?.microchip || 'MC-VN-2026-001';
-  const ownerName = foundOwnerHorse?.ownerName || foundOwnerHorse?.owner || matchAsgn?.ownerName || 'Phạm Tiến Thành';
+  const ownerName = foundOwnerHorse?.ownerName || foundOwnerHorse?.owner || matchAsgn?.ownerName || 'Chủ sở hữu';
   const stable = foundOwnerHorse?.stable || matchAsgn?.stable || 'Ô A1';
   const breed = foundOwnerHorse?.breed || matchAsgn?.breed || 'Thoroughbred';
   const gender = foundOwnerHorse?.gender || matchAsgn?.gender || 'Ngựa đực (Stallion)';

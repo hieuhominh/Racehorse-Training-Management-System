@@ -872,17 +872,13 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               </div>
               
               {/* Quản trị & Chủ sở hữu */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '6px',
-                marginBottom: '8px'
-              }}>
+              <div style={{ marginBottom: '8px' }}>
                 <button
                   type="button"
                   onClick={() => handleQuickRoleLogin('admin', '123')}
                   style={{
-                    padding: '6px 8px',
+                    width: '100%',
+                    padding: '6px 12px',
                     background: 'rgba(217, 119, 6, 0.12)',
                     border: '1px solid rgba(217, 119, 6, 0.35)',
                     borderRadius: '6px',
@@ -893,7 +889,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                     textAlign: 'left',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px'
+                    gap: '8px'
                   }}
                   title="Đăng nhập Quản trị viên (admin / 123) -> Chuyển thẳng Cổng Quản trị"
                 >
@@ -901,32 +897,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   <div>
                     <div>Quản Trị Viên (1)</div>
                     <div style={{ fontSize: '9.5px', color: 'var(--paper-dim)', fontWeight: 400 }}>admin / 123</div>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleLogin('owner_thanh', '123')}
-                  style={{
-                    padding: '6px 8px',
-                    background: 'rgba(236, 72, 153, 0.12)',
-                    border: '1px solid rgba(236, 72, 153, 0.35)',
-                    borderRadius: '6px',
-                    color: '#EC4899',
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  title="Đăng nhập Chủ sở hữu Ngựa (owner_thanh / 123)"
-                >
-                  <span>👑</span>
-                  <div>
-                    <div>Chủ Sở Hữu Ngựa</div>
-                    <div style={{ fontSize: '9.5px', color: 'var(--paper-dim)', fontWeight: 400 }}>owner_thanh / 123</div>
                   </div>
                 </button>
               </div>
@@ -1519,13 +1489,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   style={{ fontSize: '11px', padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '4px', cursor: 'pointer' }}
                 >
                   Trainer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickGoogleSelect({ email: 'chu.thanh@gmail.com', name: 'Chủ ngựa Phạm Tiến Thành', phone: '0904567890', role: 'OWNER' })}
-                  style={{ fontSize: '11px', padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '4px', cursor: 'pointer' }}
-                >
-                  Owner
                 </button>
                 <button
                   type="button"

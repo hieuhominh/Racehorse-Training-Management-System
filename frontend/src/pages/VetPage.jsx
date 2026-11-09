@@ -94,167 +94,12 @@ const ANATOMY_PARTS = [
   { id: 'GI_TRACT', nameVi: 'Hệ tiêu hóa & Bụng (Colic / Abdomen)', nameEn: 'GI Tract & Colic Screen', risk: 'CRITICAL', descVi: 'Dấu hiệu đau bụng Colic cấp tính, nghe âm nhu động ruột 4 góc bụng', descEn: 'Acute colic auscultation in four quadrants, check for gut hypomotility' }
 ];
 
-// Dữ liệu mẫu hệ thống dành riêng cho tài khoản Demo Trưởng khoa (vet_an)
-const DEFAULT_SEED_HORSES = [
-  {
-    id: 1,
-    microchip: 'MC-VN-2022-001',
-    name: 'Hắc Phong',
-    breed: 'Thoroughbred',
-    stable: 'A3',
-    owner: 'Phạm Tiến Thành',
-    status: 'WATCH',
-    statusText: 'Theo dõi nhịp tim',
-    locked: false,
-    lockReason: '',
-    lastExamDate: '10/10/2026',
-    restingHeartRate: '38 bpm',
-    tempCelsius: 38.1,
-    avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=400&q=80'
-  },
-  {
-    id: 2,
-    microchip: 'MC-VN-2021-014',
-    name: 'Xích Thố',
-    breed: 'Arabian',
-    stable: 'A1',
-    owner: 'Phạm Tiến Thành',
-    status: 'ELIGIBLE',
-    statusText: 'Đủ điều kiện thi đấu',
-    locked: false,
-    lockReason: '',
-    lastExamDate: '10/10/2026',
-    restingHeartRate: '36 bpm',
-    tempCelsius: 37.8,
-    avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
-  },
-  {
-    id: 3,
-    microchip: 'MC-VN-2023-009',
-    name: 'Phi Yến',
-    breed: 'Thoroughbred',
-    stable: 'A5',
-    owner: 'Phạm Tiến Thành',
-    status: 'INJURED',
-    statusText: 'Khóa y tế: Giãn gân',
-    locked: true,
-    lockReason: 'Giãn gân chân trước trái cấp độ 2 (Left Forelimb Superficial Digital Flexor Tendonitis)',
-    lastExamDate: '09/10/2026',
-    restingHeartRate: '44 bpm',
-    tempCelsius: 38.6,
-    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-  },
-  {
-    id: 4,
-    microchip: 'MC-VN-2022-088',
-    name: 'Lôi Chấn',
-    breed: 'Quarter Horse',
-    stable: 'B2',
-    owner: 'Phạm Tiến Thành',
-    status: 'QUARANTINE',
-    statusText: 'Cách ly theo dõi',
-    locked: true,
-    lockReason: 'Theo dõi kiểm dịch dịch tễ tại khu cách ly Block B',
-    lastExamDate: '08/10/2026',
-    restingHeartRate: '40 bpm',
-    tempCelsius: 38.2,
-    avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
-  },
-  {
-    id: 5,
-    microchip: 'MC-VN-2024-003',
-    name: 'Bạch Long',
-    breed: 'Thoroughbred',
-    stable: 'A2',
-    owner: 'Phạm Tiến Thành',
-    status: 'ELIGIBLE',
-    statusText: 'Khỏe mạnh',
-    locked: false,
-    lockReason: '',
-    lastExamDate: '10/10/2026',
-    restingHeartRate: '37 bpm',
-    tempCelsius: 37.9,
-    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-  }
-];
-
-const DEFAULT_SEED_INCIDENTS = [
-  {
-    id: 'INC-9012',
-    stallCode: 'A3',
-    horseName: 'Hắc Phong',
-    chipId: 'MC-VN-2022-001',
-    symptoms: ['Ngựa bỏ ăn', 'Có dấu hiệu đau bụng / Sốt'],
-    severity: 'HIGH',
-    description: 'Hắc Phong bỏ 2/3 khẩu phần cỏ Alfalfa buổi trưa, thở nhanh và dậm chân liên tục. Thân nhiệt 38.8°C, nghi ngờ đau bụng nhẹ (Colic).',
-    imageUrl: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=600&q=80',
-    reportedBy: 'Groom Nguyễn Văn Hùng',
-    timestamp: '11:45 - 08/10/2026',
-    status: 'pending_vet',
-    vetDiagnosis: '',
-    actionTaken: ''
-  },
-  {
-    id: 'INC-8819',
-    stallCode: 'B4',
-    horseName: 'Phi Vân',
-    chipId: '982-000-348-192-010',
-    symptoms: ['Móng bị xước / Rạn guốc'],
-    severity: 'MEDIUM',
-    description: 'Phát hiện vết rạn móng nhẹ ở guốc sau phải sau buổi tập trên sân cát. Đã làm sạch móng, ngâm đá & chờ Thú y kiểm tra.',
-    imageUrl: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80',
-    reportedBy: 'Groom Phạm Minh Tiến',
-    timestamp: '09:15 - 08/10/2026',
-    status: 'in_review',
-    vetDiagnosis: 'Rạn nứt thành ngoài móng sau phải, chưa chạm tầng sinh móng.',
-    actionTaken: 'Băng keo bảo vệ móng + Đặt lịch thợ gọt móng Farrier'
-  }
-];
-
-const DEFAULT_SEED_VACCINES = [
-  { id: 1, horseName: 'Hắc Phong', vaccineType: 'Cúm ngựa (Equine Influenza)', dueDate: '15/10/2026', status: 'DUE_SOON', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
-  { id: 2, horseName: 'Xích Thố', vaccineType: 'Uốn ván (Tetanus Toxoid)', dueDate: '20/11/2026', status: 'UP_TO_DATE', dose: '1.0 ml IM', vetInCharge: 'BS Nguyễn An' },
-  { id: 3, horseName: 'Phi Yến', vaccineType: 'Tẩy giun Ivermectin Paste', dueDate: '10/10/2026', status: 'OVERDUE', dose: 'Tuýp 6.42g đường uống', vetInCharge: 'BS Nguyễn An' },
-  { id: 4, horseName: 'Lôi Chấn', vaccineType: 'Viêm não thể EHV 1 & 4', dueDate: '12/10/2026', status: 'DUE_SOON', dose: '1.5 ml IM', vetInCharge: 'BS Nguyễn An' },
-  { id: 5, horseName: 'Bạch Long', vaccineType: 'Kiểm tra móng (Farrier Routine)', dueDate: '18/10/2026', status: 'UP_TO_DATE', dose: 'Gọt & đóng móng nhôm đua', vetInCharge: 'Farrier Trần Văn Vũ' }
-];
-
-const DEFAULT_SEED_PRESCRIPTIONS = [
-  {
-    id: 'RX-2026-001',
-    horseName: 'Phi Yến',
-    stall: 'Ô A5',
-    diagnosis: 'Giãn gân trước trái độ 2',
-    medications: [
-      { name: 'Phenylbutazone 20%', dosage: '10ml tiêm tĩnh mạch IV', frequency: '1 lần/ngày x 5 ngày' },
-      { name: 'Gel lạnh giảm đau DMSO + Băng ép Cryotherapy', dosage: 'Bôi ngoài da', frequency: '2 lần/ngày (sáng/tối)' },
-      { name: 'Bột bổ sung khớp Glucosamine + MSM', dosage: '30g trộn khẩu phần ăn', frequency: 'Hàng ngày' }
-    ],
-    restrictions: 'Khóa hoàn toàn bài tập chạy nước rút và tập nặng. Chỉ cho phép đi bộ thả lỏng dắt tay 15 phút/ngày trên mặt đất mềm.',
-    date: '09/10/2026',
-    status: 'ACTIVE'
-  },
-  {
-    id: 'RX-2026-002',
-    horseName: 'Hắc Phong',
-    stall: 'Ô A3',
-    diagnosis: 'Nghi ngờ kích ứng dạ dày nhẹ (Mild Gastric Distress)',
-    medications: [
-      { name: 'Omeprazole Equine Paste (GastroGard)', dosage: '1 tuýp đường uống lúc đói', frequency: 'Mỗi sáng x 7 ngày' },
-      { name: 'Men vi sinh đường ruột Probiotic Paste', dosage: '15ml', frequency: 'Sau bữa ăn trưa' }
-    ],
-    restrictions: 'Chia nhỏ khẩu phần ăn làm 4 bữa. Tạm ngưng yến mạch đậm đặc, tăng cỏ khô Alfalfa chất lượng cao.',
-    date: '10/10/2026',
-    status: 'ACTIVE'
-  }
-];
-
-const DEFAULT_SEED_CLEARANCE = [
-  { id: 1, horseName: 'Xích Thố', raceName: 'Giải Vô địch Quốc gia Đại Nam 2026', distance: '2.400m', date: '25/10/2026', vetStatus: 'CLEARED', heartRateRest: '36 bpm', notes: 'Thể lực hoàn hảo, âm tim chuẩn, không có dấu hiệu phù nề gân.' },
-  { id: 2, horseName: 'Bạch Long', raceName: 'Cúp Đua Ngựa Mùa Thu Cự Ly Ngắn', distance: '1.200m', date: '28/10/2026', vetStatus: 'CLEARED', heartRateRest: '37 bpm', notes: 'Đạt chuẩn kiểm định thể lực thú y.' },
-  { id: 3, horseName: 'Hắc Phong', raceName: 'Giải Đua Tốc Độ Sân Cát', distance: '1.600m', date: '30/10/2026', vetStatus: 'PENDING_EXAM', heartRateRest: '38 bpm', notes: 'Chờ theo dõi thêm 48h về tiêu hóa trước khi cấp chứng nhận.' },
-  { id: 4, horseName: 'Phi Yến', raceName: 'Giải Vô địch Mở Rộng Cup C1', distance: '1.600m', date: '26/10/2026', vetStatus: 'REJECTED_INJURY', heartRateRest: '44 bpm', notes: 'TỪ CHỐI CẤP PHÉP: Đang chịu lệnh Khóa Y Tế do giãn gân chân trái!' }
-];
+// Dữ liệu mẫu y tế khởi tạo mặc định rỗng để người dùng đăng ký mới hoàn toàn
+const DEFAULT_SEED_HORSES = [];
+const DEFAULT_SEED_INCIDENTS = [];
+const DEFAULT_SEED_VACCINES = [];
+const DEFAULT_SEED_PRESCRIPTIONS = [];
+const DEFAULT_SEED_CLEARANCE = [];
 
 export default function VetPage() {
   const { currentUser, logout } = useAuth();
@@ -323,7 +168,7 @@ export default function VetPage() {
   // (Nếu là tài khoản mới, toàn bộ dữ liệu mẫu khởi tạo từ con số 0)
   const isNewAccount = useMemo(() => {
     if (!currentUser) return false;
-    const seedUsernames = ['vet_an', 'admin', 'admin_quan', 'trainer_truong', 'groom_nam', 'owner_thanh'];
+    const seedUsernames = ['vet_an', 'admin', 'admin_quan', 'trainer_truong', 'groom_nam'];
     const isSeed = seedUsernames.includes(currentUser.username?.toLowerCase()) || currentUser.email === 'vet@matruong.vn';
     return !isSeed && (currentUser.isNewAccount || currentUser.approvedAt || Number(currentUser.user_id) > 6);
   }, [currentUser]);
@@ -390,6 +235,20 @@ export default function VetPage() {
 
   // Đồng bộ lưu trữ localStorage theo từng tài khoản mới
   useEffect(() => {
+    setHorses(prev => prev.filter(h => h.owner !== 'Phạm Tiến Thành' && h.ownerName !== 'Phạm Tiến Thành'));
+    try {
+      const managed = localStorage.getItem('matruong_vet_horses_managed');
+      if (managed) {
+        const parsed = JSON.parse(managed);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(h => h.owner !== 'Phạm Tiến Thành' && h.ownerName !== 'Phạm Tiến Thành');
+          localStorage.setItem('matruong_vet_horses_managed', JSON.stringify(filtered));
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     if (isNewAccount && currentUser?.user_id) {
       localStorage.setItem(`matruong_vet_incidents_${currentUser.user_id}`, JSON.stringify(incidents));
     }
@@ -414,7 +273,7 @@ export default function VetPage() {
     const newInc = {
       id: `INC-${Date.now().toString().slice(-6)}`,
       stallCode: 'A1',
-      horseName: 'Bạch Long',
+      horseName: '',
       chipId: '982-000-348-192-001',
       symptoms: ['Thở dốc sau tập tốc độ', 'Nghi ngờ rạn nhẹ móng chân trước'],
       severity: 'HIGH',
@@ -442,7 +301,7 @@ export default function VetPage() {
   // Modal Kê đơn thuốc mới
   const [showAddRxModal, setShowAddRxModal] = useState(false);
   const [newRxData, setNewRxData] = useState({
-    horseName: 'Hắc Phong',
+    horseName: '',
     stall: 'Ô A3',
     diagnosis: '',
     medication: '',
@@ -662,8 +521,8 @@ export default function VetPage() {
             name: fullHorse.name,
             breed: fullHorse.breed || 'Thoroughbred',
             stable: stallCode,
-            owner: fullHorse.ownerName || 'Phạm Tiến Thành',
-            ownerName: fullHorse.ownerName || 'Phạm Tiến Thành',
+            owner: fullHorse.ownerName || 'Chủ sở hữu',
+            ownerName: fullHorse.ownerName || 'Chủ sở hữu',
             status: 'ELIGIBLE',
             statusText: 'Đủ điều kiện thể lực',
             locked: false,
@@ -907,7 +766,7 @@ export default function VetPage() {
     showToast(`Đã xuất đơn thuốc điều trị #${newRx.id} cho ${newRx.horseName}`, 'KÊ ĐƠN THÀNH CÔNG', 'info');
     setShowAddRxModal(false);
     setNewRxData({
-      horseName: 'Hắc Phong',
+      horseName: '',
       stall: 'Ô A3',
       diagnosis: '',
       medication: '',
@@ -1312,7 +1171,7 @@ export default function VetPage() {
                           </div>
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
-                          Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Phạm Tiến Thành'}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip || '--'}</span>
+                          Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Chủ sở hữu'}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip || '--'}</span>
                         </div>
                       </div>
                     ))}
@@ -1916,7 +1775,7 @@ export default function VetPage() {
                             fontSize: '12px'
                           }}>
                             <div style={{ color: 'var(--paper-dim)' }}>
-                              Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Phạm Tiến Thành'}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip || '--'}</span>
+                              Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Chủ sở hữu'}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip || '--'}</span>
                             </div>
                             <div style={{ fontSize: '11.5px', color: '#10B981' }}>
                               Bác sĩ được chỉ định: <b>{asgn.vetName || 'BS. Trần Minh Hoàng'}</b>
@@ -2392,7 +2251,7 @@ export default function VetPage() {
                             </div>
                           </td>
                           <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-                            <b style={{ color: 'var(--brass)', fontSize: '13px', whiteSpace: 'nowrap' }}>{h.owner || h.ownerName || 'Phạm Tiến Thành'}</b>
+                            <b style={{ color: 'var(--brass)', fontSize: '13px', whiteSpace: 'nowrap' }}>{h.owner || h.ownerName || 'Chủ sở hữu'}</b>
                           </td>
                           <td style={{ padding: '14px 16px', fontFamily: 'monospace', color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle', fontSize: '12.5px' }}>
                             {h.microchip || h.chipId || 'N/A'}

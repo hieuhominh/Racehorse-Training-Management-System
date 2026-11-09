@@ -26,7 +26,6 @@ public class UserDAO extends DBContext {
         seedMemoryUser(new User(3, "trainer_truong", "Trần Văn Hùng", "trainer@matruong.vn", "0901234567", 1, "TRAINER", "ACTIVE"), "123456");
         seedMemoryUser(new User(4, "vet_an", "Bác sĩ Nguyễn An", "vet@matruong.vn", "0902345678", 2, "VET", "ACTIVE"), "123456");
         seedMemoryUser(new User(5, "groom_nam", "Lê Hoàng Nam", "groom@matruong.vn", "0903456789", 3, "GROOM", "ACTIVE"), "123456");
-        seedMemoryUser(new User(6, "owner_thanh", "Phạm Tiến Thành", "owner@matruong.vn", "0904567890", 4, "OWNER", "ACTIVE"), "123456");
     }
 
     private static void seedMemoryUser(User user, String rawPassword) {

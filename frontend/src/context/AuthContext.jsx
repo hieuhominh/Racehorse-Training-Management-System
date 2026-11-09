@@ -118,23 +118,12 @@ export const FIXED_CORE_STAFF = [
   }
 ];
 
-export const DEFAULT_DEMO_OWNER = {
-  user_id: 6,
-  username: 'owner_thanh',
-  full_name: 'Phạm Tiến Thành',
-  email: 'owner@matruong.vn',
-  phone: '0904567890',
-  role: 'OWNER',
-  role_name: 'Chủ sở hữu Ngựa (VIP)',
-  status: 'ACTIVE'
-};
-
 export const FIXED_TRAINERS = FIXED_CORE_STAFF.filter(s => s.role === 'TRAINER');
 export const FIXED_VETS = FIXED_CORE_STAFF.filter(s => s.role === 'VET');
 export const FIXED_GROOMS = FIXED_CORE_STAFF.filter(s => s.role === 'GROOM');
 export const FIXED_ADMIN = FIXED_CORE_STAFF.find(s => s.role === 'MANAGER');
 
-export const SEED_USERS = [...FIXED_CORE_STAFF, DEFAULT_DEMO_OWNER];
+export const SEED_USERS = [...FIXED_CORE_STAFF];
 
 const AuthContext = createContext(null);
 
@@ -145,9 +134,9 @@ export function AuthProvider({ children }) {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Chỉ giữ lại các tài khoản OWNER đã đăng ký từ trước, và kết hợp với 10 nhân sự cốt cán cố định
+          // Chỉ giữ lại các tài khoản OWNER đã đăng ký từ trước, loại bỏ hoàn toàn owner_thanh
           const storedOwners = parsed.filter(u => u.role === 'OWNER' && u.username !== 'owner_thanh');
-          return [...FIXED_CORE_STAFF, DEFAULT_DEMO_OWNER, ...storedOwners];
+          return [...FIXED_CORE_STAFF, ...storedOwners];
         }
       }
       return SEED_USERS;
@@ -163,6 +152,10 @@ export function AuthProvider({ children }) {
       const stored = sessionStorage.getItem('matruong_auth_user');
       if (!stored) return null;
       const parsed = JSON.parse(stored);
+      if (parsed?.username === 'owner_thanh') {
+        sessionStorage.removeItem('matruong_auth_user');
+        return null;
+      }
       const match = SEED_USERS.find(u => u.username === parsed?.username || u.email === parsed?.email);
       if (match && (!parsed.user_id || Number(parsed.user_id) > 1000)) {
         return { ...parsed, user_id: match.user_id };
@@ -181,7 +174,7 @@ export function AuthProvider({ children }) {
         sessionStorage.removeItem('matruong_auth_user');
         localStorage.removeItem('matruong_auth_user');
       }
-    } catch {}
+    } catch { }
   }, [currentUser]);
 
   useEffect(() => {
@@ -211,17 +204,17 @@ export function AuthProvider({ children }) {
             role_name: roleMap[u.roleCode] || u.roleCode,
             status: u.status
           }));
-        
+
         setUsersList(prev => {
           const prevOwners = prev.filter(u => u.role === 'OWNER' && u.username !== 'owner_thanh');
           const combinedOwnersMap = new Map();
           [...prevOwners, ...backendOwners].forEach(o => combinedOwnersMap.set(o.username || o.email, o));
-          const merged = [...FIXED_CORE_STAFF, DEFAULT_DEMO_OWNER, ...Array.from(combinedOwnersMap.values())];
+          const merged = [...FIXED_CORE_STAFF, ...Array.from(combinedOwnersMap.values())];
           localStorage.setItem('matruong_users_list', JSON.stringify(merged));
           return merged;
         });
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Đăng nhập kết hợp Smart Aliases, Backend API & Fallback
@@ -236,7 +229,7 @@ export function AuthProvider({ children }) {
       return { success: false, error: 'Vui lòng nhập mật khẩu.' };
     }
 
-    // Danh sách tài khoản hệ thống chuẩn hóa (1 Admin, 3 HLV, 3 Bác sĩ, 3 Groom và Chủ sở hữu mẫu)
+    // Danh sách tài khoản hệ thống chuẩn hóa (1 Admin, 3 HLV, 3 Bác sĩ, 3 Groom)
     const SYSTEM_ROLE_PRESETS = [
       // 1. Quản trị viên
       {
@@ -281,11 +274,6 @@ export function AuthProvider({ children }) {
       {
         aliases: ['groom_thao', 'chamsoc_thao', 'groom_thao@matruong.vn'],
         data: FIXED_CORE_STAFF[9]
-      },
-      // 5. Chủ sở hữu mẫu
-      {
-        aliases: ['owner', 'owner_thanh', 'chunga', 'owner@matruong.vn'],
-        data: DEFAULT_DEMO_OWNER
       }
     ];
 
@@ -355,17 +343,17 @@ export function AuthProvider({ children }) {
     }
 
     if (found.status === 'PENDING') {
-      return { 
-        success: false, 
+      return {
+        success: false,
         isPending: true,
-        error: 'Tài khoản của bạn đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin hoặc thử lại sau khi được kích hoạt!' 
+        error: 'Tài khoản của bạn đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin hoặc thử lại sau khi được kích hoạt!'
       };
     }
 
     if (found.status === 'REJECTED') {
-      return { 
-        success: false, 
-        error: 'Yêu cầu đăng ký tài khoản của bạn đã bị từ chối bởi Quản trị viên.' 
+      return {
+        success: false,
+        error: 'Yêu cầu đăng ký tài khoản của bạn đã bị từ chối bởi Quản trị viên.'
       };
     }
 
@@ -374,7 +362,7 @@ export function AuthProvider({ children }) {
     }
 
     // Kiểm tra mật khẩu (hỗ trợ mật khẩu riêng đã tạo hoặc mật khẩu seed 123/123456)
-    const isPasswordCorrect = found.password 
+    const isPasswordCorrect = found.password
       ? (String(found.password) === cleanPass || cleanPass === '123' || cleanPass === '123456')
       : (cleanPass === '123' || cleanPass === '123456');
 
@@ -393,7 +381,7 @@ export function AuthProvider({ children }) {
     try {
       sessionStorage.removeItem('matruong_auth_user');
       localStorage.removeItem('matruong_auth_user');
-    } catch {}
+    } catch { }
   };
 
   // Đăng ký tài khoản mới kết hợp Backend API & Đồng bộ tức thì localStorage
@@ -409,7 +397,7 @@ export function AuthProvider({ children }) {
       fullName: userData.full_name || 'Chủ sở hữu mới',
       phone: userData.phone || '0900000000',
       role: 'OWNER'
-    }).catch(() => {});
+    }).catch(() => { });
 
     const roleMap = {
       'OWNER': 'Chủ sở hữu Ngựa'
@@ -459,7 +447,7 @@ export function AuthProvider({ children }) {
   // Phê duyệt tài khoản mới (dành cho Admin)
   const approveUser = (userId) => {
     const approvedTime = new Date().toISOString();
-    updateUserApi(userId, { status: 'ACTIVE', approvedAt: approvedTime }).catch(() => {});
+    updateUserApi(userId, { status: 'ACTIVE', approvedAt: approvedTime }).catch(() => { });
     setUsersList(prev => {
       const nextList = prev.map(u => {
         if (Number(u.user_id) === Number(userId)) {
@@ -469,14 +457,14 @@ export function AuthProvider({ children }) {
       });
       try {
         localStorage.setItem('matruong_users_list', JSON.stringify(nextList));
-      } catch {}
+      } catch { }
       return nextList;
     });
   };
 
   // Từ chối phê duyệt tài khoản (dành cho Admin)
   const rejectUser = (userId, reason = '') => {
-    updateUserApi(userId, { status: 'REJECTED', rejectReason: reason }).catch(() => {});
+    updateUserApi(userId, { status: 'REJECTED', rejectReason: reason }).catch(() => { });
     setUsersList(prev => {
       const nextList = prev.map(u => {
         if (Number(u.user_id) === Number(userId)) {
@@ -486,14 +474,14 @@ export function AuthProvider({ children }) {
       });
       try {
         localStorage.setItem('matruong_users_list', JSON.stringify(nextList));
-      } catch {}
+      } catch { }
       return nextList;
     });
   };
 
   // Cập nhật người dùng (dành cho Admin)
   const updateUser = (userId, updatedFields) => {
-    updateUserApi(userId, updatedFields).catch(() => {});
+    updateUserApi(userId, updatedFields).catch(() => { });
     setUsersList(prev => prev.map(u => Number(u.user_id) === Number(userId) ? { ...u, ...updatedFields } : u));
     if (currentUser && Number(currentUser.user_id) === Number(userId)) {
       setCurrentUser(prev => ({ ...prev, ...updatedFields }));
@@ -507,7 +495,7 @@ export function AuthProvider({ children }) {
       const nextList = prev.map(u => {
         if (Number(u.user_id) === Number(userId)) {
           const nextStatus = u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-          updateUserApi(userId, { status: nextStatus }).catch(() => {});
+          updateUserApi(userId, { status: nextStatus }).catch(() => { });
           return { ...u, status: nextStatus };
         }
         return u;
@@ -519,7 +507,7 @@ export function AuthProvider({ children }) {
   // Xóa vĩnh viễn người dùng khỏi danh sách (dành cho Admin)
   const deleteUser = (userId) => {
     if (Number(userId) === 1) return;
-    deleteUserApi(userId).catch(() => {});
+    deleteUserApi(userId).catch(() => { });
     setUsersList(prev => {
       const nextList = prev.filter(u => Number(u.user_id) !== Number(userId));
       try {

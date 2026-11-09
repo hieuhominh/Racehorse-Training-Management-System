@@ -48,24 +48,7 @@ export function isNotificationRead(notif, username = '') {
   return false;
 }
 
-const INITIAL_NOTIFICATIONS = [
-  {
-    id: 101,
-    time: '08:30 Hôm nay',
-    timestamp: Date.now() - 3600000,
-    type: 'TRAINING_REQUEST',
-    title: 'YÊU CẦU HUẤN LUYỆN CHIẾN MÃ',
-    message: 'Chủ sở hữu Phạm Tiến Thành đã gửi yêu cầu chỉ định bạn làm Huấn luyện viên trưởng cho chiến mã "Lôi Chấn" (Ô A4, Chip: MC-VN-2022-088). Vui lòng thẩm định hồ sơ và xác nhận phục vụ.',
-    horseName: 'Lôi Chấn',
-    horseId: 2,
-    microchip: 'MC-VN-2022-088',
-    stable: 'Ô A4',
-    ownerName: 'Phạm Tiến Thành',
-    ownerKey: 'owner_thanh',
-    recipientRoles: ['TRAINER', 'ADMIN', 'ALL'],
-    readBy: []
-  }
-];
+const INITIAL_NOTIFICATIONS = [];
 
 /**
  * Lấy danh sách thông báo từ LocalStorage (Đã đối soát bền vững với danh sách đã đọc)
@@ -77,9 +60,7 @@ export function getSystemNotifications() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        list = parsed;
-      }
+      if (Array.isArray(parsed)) { list = parsed.filter(item => item.ownerKey !== 'owner_thanh' && item.ownerName !== 'Phạm Tiến Thành'); }
     } else {
       list = INITIAL_NOTIFICATIONS;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_NOTIFICATIONS));
@@ -145,7 +126,7 @@ export function addSystemNotification(notifData) {
  * Gửi thông báo đến Huấn luyện viên, Bác sĩ, Người chăm sóc và Quản trị viên (Admin)
  */
 export function notifyHorseDeleted(horse, ownerUser) {
-  const ownerName = ownerUser?.full_name || 'Phạm Tiến Thành';
+  const ownerName = ownerUser?.full_name || 'Chủ sở hữu';
   const horseName = horse?.name || 'Chiến mã';
   const microchip = horse?.microchip || '';
   const stable = horse?.stable || '';
@@ -159,7 +140,7 @@ export function notifyHorseDeleted(horse, ownerUser) {
     microchip,
     stable,
     ownerName,
-    ownerKey: ownerUser?.username || 'owner_thanh',
+    ownerKey: ownerUser?.username || 'owner',
     recipientRoles: ['ADMIN', 'TRAINER', 'VET', 'GROOM']
   });
 }
@@ -169,7 +150,7 @@ export function notifyHorseDeleted(horse, ownerUser) {
  * Gửi thông báo đến Huấn luyện viên, Admin và toàn hệ thống
  */
 export function notifyTrainingRequested(horse, ownerUser, trainerSelection) {
-  const ownerName = ownerUser?.full_name || horse?.ownerName || horse?.owner || 'Phạm Tiến Thành';
+  const ownerName = ownerUser?.full_name || horse?.ownerName || horse?.owner || 'Chủ sở hữu';
   const horseName = horse?.name || horse?.horseName || 'Chiến mã';
   const microchip = horse?.microchip || '';
   const stable = horse?.stable || horse?.stall || 'Ô A4';
@@ -187,7 +168,7 @@ export function notifyTrainingRequested(horse, ownerUser, trainerSelection) {
     stable,
     ownerName,
     trainerName,
-    ownerKey: ownerUser?.username || 'owner_thanh',
+    ownerKey: ownerUser?.username || 'owner',
     recipientRoles: ['TRAINER', 'ADMIN', 'ALL']
   });
 }
@@ -200,7 +181,7 @@ export function notifyServiceConfirmed(horseOrAsgn, staffUser, role = 'TRAINER')
   const horseName = horseOrAsgn?.horseName || horseOrAsgn?.name || 'Chiến mã';
   const microchip = horseOrAsgn?.microchip || '';
   const stable = horseOrAsgn?.stable || horseOrAsgn?.stall || 'Ô A4';
-  const ownerName = horseOrAsgn?.ownerName || horseOrAsgn?.owner || 'Phạm Tiến Thành';
+  const ownerName = horseOrAsgn?.ownerName || horseOrAsgn?.owner || 'Chủ sở hữu';
   const roleName = role === 'TRAINER' ? 'Huấn Luyện Viên' : role === 'VET' ? 'Bác Sĩ Thú Y' : 'Chuyên Viên Chăm Sóc';
   const staffName = staffUser?.full_name || staffUser?.name ||
     (role === 'TRAINER' ? (horseOrAsgn?.trainerName || 'Lê Trọng Nghĩa') :

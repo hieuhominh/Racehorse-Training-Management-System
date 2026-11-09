@@ -40,58 +40,6 @@ public class ReportApiController extends HttpServlet {
     private final Gson gson = new Gson();
 
     static {
-        // Khởi tạo các báo cáo mẫu ban đầu đồng bộ với Client
-        Map<String, Object> r1 = new HashMap<>();
-        r1.put("id", 1730002001L);
-        r1.put("ownerName", "Phạm Tiến Thành");
-        r1.put("ownerKey", "owner_thanh");
-        r1.put("ownerPhone", "0908.112.233");
-        r1.put("targetRole", "TRAINER");
-        r1.put("targetPersonnelId", "trainer_truong");
-        r1.put("targetName", "Trần Văn Hùng");
-        r1.put("targetTitle", "HLV Trưởng - Cự ly Dài & Tổng thể");
-        r1.put("horseId", 1);
-        r1.put("horseName", "Xích Thố");
-        r1.put("stall", "Ô A1");
-        r1.put("category", "Kỹ thuật huấn luyện kém, ngựa có dấu hiệu quá tải");
-        r1.put("severity", "MEDIUM");
-        r1.put("title", "Đề nghị kiểm tra lại cường độ bài tập nước rút của Xích Thố");
-        r1.put("content", "Buổi tập chiều qua ngựa có biểu hiện thở dốc kéo dài và nhịp tim phục hồi chậm. Kính đề nghị HLV điều chỉnh lại giáo án siết cân.");
-        r1.put("evidenceNote", "Chỉ số viễn trắc ghi nhận nhịp tim đỉnh điểm 210 bpm lúc 16:30.");
-        r1.put("status", "INVESTIGATING");
-        r1.put("createdAt", "05/11/2026 15:45");
-        r1.put("adminNotes", "Đã chuyển yêu cầu đến HLV Trần Văn Hùng yêu cầu giải trình số liệu viễn trắc.");
-        r1.put("adminAction", "Yêu cầu HLV hạ 15% tải trọng bài tập trong 3 ngày tới.");
-        r1.put("adminFeedback", "Ban Quản Trị đã tiếp nhận và yêu cầu HLV điều chỉnh giáo án phù hợp với thể trạng hồi phục.");
-        r1.put("resolvedBy", "admin");
-        r1.put("resolvedAt", null);
-        memoryReports.add(r1);
-
-        Map<String, Object> r2 = new HashMap<>();
-        r2.put("id", 1730002002L);
-        r2.put("ownerName", "Phạm Tiến Thành");
-        r2.put("ownerKey", "owner_thanh");
-        r2.put("ownerPhone", "0908.112.233");
-        r2.put("targetRole", "CARETAKER");
-        r2.put("targetPersonnelId", "care_bay");
-        r2.put("targetName", "Nguyễn Văn Bảy");
-        r2.put("targetTitle", "Trưởng nhóm Chăm sóc Block A");
-        r2.put("horseId", 3);
-        r2.put("horseName", "Phi Yến");
-        r2.put("stall", "Ô A5");
-        r2.put("category", "Vệ sinh ô chuồng ẩm mốc, khẩu phần dinh dưỡng kém");
-        r2.put("severity", "LOW");
-        r2.put("title", "Máng nước uống ô chuồng A5 cần súc rửa kỹ hơn");
-        r2.put("content", "Sáng nay tôi kiểm tra máng nước chuồng A5 có cặn rong rêu. Đề nghị nhân viên cọ rửa khử trùng.");
-        r2.put("evidenceNote", "");
-        r2.put("status", "RESOLVED");
-        r2.put("createdAt", "06/11/2026 09:10");
-        r2.put("adminNotes", "Đã nhắc nhở ca trực sáng của nhân viên Nguyễn Văn Bảy.");
-        r2.put("adminAction", "Đã súc rửa khử trùng toàn bộ máng ăn uống Block A.");
-        r2.put("adminFeedback", "Đội ngũ chăm sóc đã khắc phục hoàn tất lúc 10:30 sáng cùng ngày.");
-        r2.put("resolvedBy", "admin");
-        r2.put("resolvedAt", "06/11/2026 11:00");
-        memoryReports.add(r2);
     }
 
     @Override

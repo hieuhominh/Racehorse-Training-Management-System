@@ -68,29 +68,7 @@ export function extractSlotPrefix(timeStr) {
 }
 
 // Danh sách buổi tập chung mẫu khởi điểm
-const INITIAL_JOINT_SESSIONS = [
-  {
-    id: 1730000001,
-    horseId: 2,
-    horseName: 'Xích Thố',
-    microchip: 'MC-VN-2021-014',
-    stall: 'Ô A1 (Block A - 18 m²)',
-    avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80',
-    ownerName: 'Phạm Tiến Thành',
-    ownerKey: 'owner_thanh',
-    trainerUsername: 'trainer_truong',
-    trainerName: 'Trần Văn Hùng',
-    trainerTitle: 'HLV Trưởng - Cự ly Dài & Tổng thể',
-    sessionDate: '2026-11-04',
-    sessionTime: '07:00 - 08:00 (Sáng sớm - Rèn sức bền)',
-    goal: 'Quan sát sải chân bứt tốc & Đánh giá phối hợp xuất phát máy',
-    ownerNotes: 'Tôi muốn trực tiếp ra sân xem sải chân của Xích Thố khi vào khúc cua số 3 cự ly 2.400m.',
-    status: 'CONFIRMED',
-    trainerFeedback: 'Đã chuẩn bị cảm biến IoT viễn trắc nhịp tim và bố trí sân cỏ tự nhiên. Hẹn gặp Chủ sở hữu lúc 06:45 tại khán đài A.',
-    confirmedAt: '03/11/2026 09:30',
-    createdAt: '02/11/2026 14:00'
-  }
-];
+const INITIAL_JOINT_SESSIONS = [];
 
 let isJointSyncing = false;
 
@@ -103,7 +81,7 @@ export function getJointTrainingSessions() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) list = parsed;
+      if (Array.isArray(parsed)) list = parsed.filter(item => item.ownerKey !== 'owner_thanh' && item.ownerName !== 'Phạm Tiến Thành');
     }
   } catch {}
 

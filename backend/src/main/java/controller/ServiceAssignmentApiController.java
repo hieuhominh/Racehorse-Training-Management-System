@@ -37,60 +37,6 @@ public class ServiceAssignmentApiController extends HttpServlet {
     private final Gson gson = new Gson();
 
     static {
-        // Khởi tạo các phân công mặc định đồng bộ với Client
-        Map<String, Object> a1 = new HashMap<>();
-        a1.put("id", 1);
-        a1.put("horseName", "Xích Thố");
-        a1.put("microchip", "MC-VN-2023-001");
-        a1.put("ownerName", "Trần Đình Thanh");
-        a1.put("ownerUsername", "owner_thanh");
-        a1.put("trainerUsername", "trainer_truong");
-        a1.put("trainerConfirmed", true);
-        a1.put("trainerConfirmedAt", "10/10/2026 08:30");
-        a1.put("vetUsername", "vet_an");
-        a1.put("vetConfirmed", true);
-        a1.put("vetConfirmedAt", "10/10/2026 09:00");
-        a1.put("groomUsername", "groom_nam");
-        a1.put("groomConfirmed", true);
-        a1.put("groomConfirmedAt", "10/10/2026 09:15");
-        a1.put("updatedAt", "10/10/2026 09:15");
-        memoryAssignments.add(a1);
-
-        Map<String, Object> a2 = new HashMap<>();
-        a2.put("id", 2);
-        a2.put("horseName", "Bạch Long");
-        a2.put("microchip", "MC-VN-2024-003");
-        a2.put("ownerName", "Trần Đình Thanh");
-        a2.put("ownerUsername", "owner_thanh");
-        a2.put("trainerUsername", "trainer_nghia");
-        a2.put("trainerConfirmed", true);
-        a2.put("trainerConfirmedAt", "11/10/2026 07:45");
-        a2.put("vetUsername", "vet_hoang");
-        a2.put("vetConfirmed", true);
-        a2.put("vetConfirmedAt", "11/10/2026 08:10");
-        a2.put("groomUsername", "groom_dung");
-        a2.put("groomConfirmed", true);
-        a2.put("groomConfirmedAt", "11/10/2026 08:20");
-        a2.put("updatedAt", "11/10/2026 08:20");
-        memoryAssignments.add(a2);
-
-        Map<String, Object> a3 = new HashMap<>();
-        a3.put("id", 3);
-        a3.put("horseName", "Hắc Phong");
-        a3.put("microchip", "MC-VN-2022-001");
-        a3.put("ownerName", "Trần Đình Thanh");
-        a3.put("ownerUsername", "owner_thanh");
-        a3.put("trainerUsername", "trainer_truong");
-        a3.put("trainerConfirmed", true);
-        a3.put("trainerConfirmedAt", "09/10/2026 10:00");
-        a3.put("vetUsername", "vet_an");
-        a3.put("vetConfirmed", true);
-        a3.put("vetConfirmedAt", "09/10/2026 10:30");
-        a3.put("groomUsername", "groom_nam");
-        a3.put("groomConfirmed", true);
-        a3.put("groomConfirmedAt", "09/10/2026 11:00");
-        a3.put("updatedAt", "09/10/2026 11:00");
-        memoryAssignments.add(a3);
     }
 
     @Override

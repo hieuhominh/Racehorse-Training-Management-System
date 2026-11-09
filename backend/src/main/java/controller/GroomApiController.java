@@ -126,44 +126,44 @@ public class GroomApiController extends HttpServlet {
         r5.put("completedAt", null);
         memoryRoutines.add(r5);
 
-        // Khởi tạo ô chuồng mẫu
+        // Khởi tạo ô chuồng mặc định trống
         Map<String, Object> s1 = new HashMap<>();
         s1.put("code", "A1");
         s1.put("zone", "Block A");
-        s1.put("horseName", "Xích Thố");
-        s1.put("breed", "Thoroughbred");
-        s1.put("microchip", "MC-VN-2023-001");
-        s1.put("status", "NORMAL");
+        s1.put("horseName", "(Trống)");
+        s1.put("breed", "Vacant");
+        s1.put("microchip", "");
+        s1.put("status", "AVAILABLE");
         s1.put("bedding", "Mùn cưa sạch");
         s1.put("beddingStatus", "GOOD");
         s1.put("waterLevel", "100%");
-        s1.put("lastCleaned", "07:30 Sáng nay");
+        s1.put("lastCleaned", "Sẵn sàng phân bổ");
         memoryStalls.add(s1);
 
         Map<String, Object> s2 = new HashMap<>();
         s2.put("code", "A2");
         s2.put("zone", "Block A");
-        s2.put("horseName", "Bạch Long");
-        s2.put("breed", "Thoroughbred");
-        s2.put("microchip", "MC-VN-2024-003");
-        s2.put("status", "NORMAL");
+        s2.put("horseName", "(Trống)");
+        s2.put("breed", "Vacant");
+        s2.put("microchip", "");
+        s2.put("status", "AVAILABLE");
         s2.put("bedding", "Rơm khô mới thay");
         s2.put("beddingStatus", "GOOD");
-        s2.put("waterLevel", "85%");
-        s2.put("lastCleaned", "08:00 Sáng nay");
+        s2.put("waterLevel", "100%");
+        s2.put("lastCleaned", "Sẵn sàng phân bổ");
         memoryStalls.add(s2);
 
         Map<String, Object> s3 = new HashMap<>();
         s3.put("code", "A3");
         s3.put("zone", "Block A");
-        s3.put("horseName", "Hắc Phong");
-        s3.put("breed", "Arabian");
-        s3.put("microchip", "MC-VN-2022-001");
-        s3.put("status", "WATCH_HEALTH");
-        s3.put("bedding", "Mùn cưa cần thay");
-        s3.put("beddingStatus", "NEEDS_CLEAN");
-        s3.put("waterLevel", "60%");
-        s3.put("lastCleaned", "Hôm qua");
+        s3.put("horseName", "(Trống)");
+        s3.put("breed", "Vacant");
+        s3.put("microchip", "");
+        s3.put("status", "AVAILABLE");
+        s3.put("bedding", "Mùn cưa sạch");
+        s3.put("beddingStatus", "GOOD");
+        s3.put("waterLevel", "100%");
+        s3.put("lastCleaned", "Sẵn sàng phân bổ");
         memoryStalls.add(s3);
     }
 

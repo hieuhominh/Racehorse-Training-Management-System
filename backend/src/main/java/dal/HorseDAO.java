@@ -19,11 +19,7 @@ public class HorseDAO extends DBContext {
     private static final AtomicInteger horseIdSeq = new AtomicInteger(10);
 
     static {
-        memoryHorses.add(new Horse(1, "MC-VN-2022-001", "Hắc Phong", "Thoroughbred", "STALLION", Date.valueOf("2022-03-15"), 485.5, "Đại Phong Sơn", "Bạch Ngọc", "WATCH", false));
-        memoryHorses.add(new Horse(2, "MC-VN-2021-014", "Xích Thố", "Arabian", "GELDING", Date.valueOf("2021-05-20"), 510.0, "Hỏa Long", "Hồng Đào", "ELIGIBLE", false));
-        memoryHorses.add(new Horse(3, "MC-VN-2023-009", "Phi Yến", "Thoroughbred", "MARE", Date.valueOf("2023-01-10"), 460.0, "Bão Táp", "Yến Nhi", "INJURED", true));
-        memoryHorses.add(new Horse(4, "MC-VN-2022-088", "Lôi Chấn", "Quarter Horse", "STALLION", Date.valueOf("2022-08-04"), 525.0, "Sấm Sét", "Ngân Hà", "ELIGIBLE", false));
-        memoryHorses.add(new Horse(5, "MC-VN-2024-003", "Bạch Long", "Thoroughbred", "STALLION", Date.valueOf("2023-02-12"), 495.0, "Galileo", "Danehill", "ELIGIBLE", false));
+        // Khởi tạo danh sách rỗng, không chứa ngựa mẫu để người dùng tự do đăng ký mới
     }
 
     private static String normalizeGender(String rawGender) {

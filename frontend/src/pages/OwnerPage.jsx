@@ -14,7 +14,10 @@ import {
   registerRaceTournamentApi,
   updateRaceNominationStatusApi,
   updateHorsePedigreeApi,
-  getStablesApi
+  getStablesApi,
+  reassignStallHorseApi,
+  getStallRequestsApi,
+  createStallRequestApi
 } from '../services/api';
 import {
   getServiceAssignments,
@@ -208,195 +211,11 @@ const OPEN_TOURNAMENTS = [
   }
 ];
 
-// Danh mục mẫu cho tài khoản Demo VIP (owner_thanh)
-const DEMO_HORSES_VIP = [
-  {
-    id: 1,
-    name: 'Bạch Long',
-    englishName: 'White Dragon',
-    breed: 'Thoroughbred',
-    microchip: 'MC-VN-2024-003',
-    stable: 'Ô A2',
-    gender: 'Ngựa đực (Stallion)',
-    ownershipShare: 100,
-    ownershipType: 'Độc quyền (100%)',
-    trainer: 'Trần Văn Hùng (HLV Trưởng)',
-    groom: 'Lê Hoàng Nam (Groom Block A)',
-    status: 'ELIGIBLE',
-    statusText: 'Đủ chuẩn thi đấu',
-    winCount: 4,
-    totalStarts: 6,
-    totalPrizeEarned: 580000000,
-    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
-    pedigree: {
-      sire: 'Deep Impact (JPN)',
-      sireOfSire: 'Sunday Silence (USA)',
-      damOfSire: 'Wind in Her Hair (IRE)',
-      sireAchievements: 'Huyền thoại 7 danh hiệu G1, Vô địch Japan Cup',
-      dam: 'Northern Dancer (USA)',
-      sireOfDam: 'Nearctic (CAN)',
-      damOfDam: 'Natalma (USA)',
-      damAchievements: 'Dòng máu cái vĩ đại nhất lịch sử đua ngựa thế giới',
-      foaled: '2022 (4 tuổi)',
-      bloodline: 'Sunday Silence × Northern Dancer (98.5% thuần chủng)',
-      origin: 'Nhật Bản (JRA) & Hoa Kỳ',
-      studBookNo: 'VTB-SB-2024-001'
-    }
-  },
-  {
-    id: 2,
-    name: 'Lôi Chấn',
-    englishName: 'Thunder Bolt',
-    breed: 'Quarter Horse',
-    microchip: 'MC-VN-2022-088',
-    stable: 'Ô A4',
-    gender: 'Ngựa đực thiến (Gelding)',
-    ownershipShare: 100,
-    ownershipType: 'Độc quyền (100%)',
-    trainer: 'Trần Văn Hùng (HLV Trưởng)',
-    groom: 'Lê Hoàng Nam (Groom Block A)',
-    status: 'ELIGIBLE',
-    statusText: 'Đủ chuẩn thi đấu',
-    winCount: 3,
-    totalStarts: 5,
-    totalPrizeEarned: 420000000,
-    avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80',
-    pedigree: {
-      sire: 'Corona Cartel (USA)',
-      sireOfSire: 'Holland Ease (USA)',
-      damOfSire: 'Corona Chick (USA)',
-      sireAchievements: 'Vua nước rút Quarter Horse, Hall of Fame AQHA',
-      dam: 'First Down Dash (USA)',
-      sireOfDam: 'Dash For Cash (USA)',
-      damOfDam: 'First Prize Rose (USA)',
-      damAchievements: 'Dòng dõi vô địch All American Futurity danh giá',
-      foaled: '2021 (5 tuổi)',
-      bloodline: 'Corona Cartel × Dash For Cash',
-      origin: 'Hoa Kỳ (AQHA Stud Book)',
-      studBookNo: 'VTB-SB-2022-088'
-    }
-  },
-  {
-    id: 3,
-    name: 'Phi Yến',
-    englishName: 'Flying Swallow',
-    breed: 'Thoroughbred',
-    microchip: 'MC-VN-2023-009',
-    stable: 'Ô A5',
-    gender: 'Ngựa cái (Mare)',
-    ownershipShare: 50,
-    ownershipType: 'Đồng sở hữu (Syndicate 50%)',
-    trainer: 'Trần Văn Hùng (HLV Trưởng)',
-    groom: 'Lê Hoàng Nam (Groom Block A)',
-    status: 'RESTRICTED_CARE',
-    statusText: 'Đang khóa y tế: Giãn gân',
-    winCount: 2,
-    totalStarts: 4,
-    totalPrizeEarned: 250000000,
-    avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
-    pedigree: {
-      sire: 'Frankel (GB)',
-      sireOfSire: 'Galileo (IRE)',
-      damOfSire: 'Kind (IRE)',
-      sireAchievements: 'Bất bại 14/14 chặng đua G1, Chiến mã số 1 hành tinh',
-      dam: 'Sea The Stars (IRE)',
-      sireOfDam: 'Cape Cross (IRE)',
-      damOfDam: 'Urban Sea (USA)',
-      damAchievements: 'Vô địch Prix de l\'Arc de Triomphe & 2000 Guineas',
-      foaled: '2023 (3 tuổi)',
-      bloodline: 'Frankel (GB) × Sea The Stars (IRE)',
-      origin: 'Anh Quốc (Weatherbys) & Ireland',
-      studBookNo: 'VTB-SB-2023-009'
-    }
-  }
-];
-
-const DEMO_RACES_VIP = [
-  {
-    id: 'RN-2026-01',
-    raceName: 'Giải Vô Địch Cúp Derby Mùa Thu 2026',
-    track: 'Trường đua Quốc tế Phú Thọ',
-    horseName: 'Bạch Long',
-    distance: '2.400m (Sân cỏ)',
-    date: '15/11/2026',
-    estimatedPurse: 800000000,
-    nominationStatus: 'APPROVED',
-    notes: 'Chủ sở hữu đăng ký trực tiếp. Kỵ mã: Nguyễn Văn Tài',
-    trainerFeedback: 'Đạt chuẩn thể lực cự ly 2.400m, nhịp tim ổn định 38 bpm. HLV Trưởng phê duyệt đủ điều kiện xuất phát.',
-    reviewedBy: 'HLV Trưởng Trần Văn Hùng',
-    reviewedAt: '21/10/2026 09:30'
-  },
-  {
-    id: 'RN-2026-02',
-    raceName: 'Cúp Nước Rút Tốc Độ Sprint Cup 1.200m',
-    track: 'Trường đua Cát Thể Thao',
-    horseName: 'Lôi Chấn',
-    distance: '1.200m (Sân cát)',
-    date: '28/11/2026',
-    estimatedPurse: 450000000,
-    nominationStatus: 'PENDING_TRAINER',
-    notes: 'Chủ sở hữu đăng ký tham gia cúp nước rút. Đang chờ HLV trưởng thẩm định thể lực.',
-    trainerFeedback: '',
-    reviewedBy: null,
-    reviewedAt: null
-  }
-];
-
-const DEMO_STATEMENTS_VIP = [
-  {
-    id: 'STMT-2026-10',
-    period: 'Tháng 10/2026',
-    date: '20/10/2026',
-    horseName: 'Bạch Long (100%)',
-    chipId: 'MC-VN-2024-003',
-    totalPrizeEarned: 350000000,
-    boardingCost: 28000000,
-    vetCost: 8000000,
-    trainerCommission: 35000000,
-    netPayable: 279000000,
-    status: 'PAID',
-    statusText: 'Đã quyết toán'
-  },
-  {
-    id: 'STMT-2026-09',
-    period: 'Tháng 09/2026',
-    date: '20/09/2026',
-    horseName: 'Lôi Chấn (100%)',
-    chipId: 'MC-VN-2022-088',
-    totalPrizeEarned: 220000000,
-    boardingCost: 28000000,
-    vetCost: 6500000,
-    trainerCommission: 22000000,
-    netPayable: 163500000,
-    status: 'PAID',
-    statusText: 'Đã quyết toán'
-  }
-];
-
-const DEMO_HEALTH_VIP = [
-  {
-    id: 1,
-    horseName: 'Bạch Long (Ô A2)',
-    issue: 'Kiểm tra sinh hiệu định kỳ & Gọt móng',
-    diagnosisBy: 'Bác sĩ Nguyễn An (Trưởng khoa)',
-    medications: 'Vaccine Cúm ngựa (Equine Influenza)',
-    status: 'CLEARED',
-    statusText: 'Khỏe mạnh xuất sắc',
-    date: '10/10/2026',
-    vetNote: 'Thể lực hoàn hảo, cơ bắp săn chắc, nhịp tim nghỉ 37 bpm. Đủ 100% điều kiện tranh giải.'
-  },
-  {
-    id: 2,
-    horseName: 'Phi Yến (Ô A5)',
-    issue: 'Giãn gân trước trái cấp độ 2',
-    diagnosisBy: 'Bác sĩ Nguyễn An',
-    medications: 'Phenylbutazone 20% tiêm IV + Băng ép Cryo',
-    status: 'UNDER_TREATMENT',
-    statusText: 'Đang điều trị tích cực',
-    date: '09/10/2026',
-    vetNote: 'Đã kích hoạt Lệnh Khóa Y Tế. Tình trạng tiến triển khả quan, dự kiến hồi phục 100% sau 3 tuần.'
-  }
-];
+// Danh mục mẫu khởi tạo mặc định rỗng để người dùng đăng ký mới hoàn toàn
+const DEMO_HORSES_VIP = [];
+const DEMO_RACES_VIP = [];
+const DEMO_STATEMENTS_VIP = [];
+const DEMO_HEALTH_VIP = [];
 
 // Hàm lọc trùng lặp danh sách chiến mã theo Microchip, ID và Tên
 export function deduplicateHorses(list) {
@@ -444,9 +263,18 @@ export default function OwnerPage() {
     } catch {}
   }, [activeTab]);
 
+  useEffect(() => {
+    try {
+      localStorage.removeItem('matruong_owner_horses_owner_thanh');
+      localStorage.removeItem('matruong_owner_horses_6');
+      localStorage.removeItem('matruong_owner_horses_11');
+      localStorage.removeItem('matruong_owner_races_owner_thanh');
+    } catch {}
+  }, []);
+
   // Kiểm tra tài khoản Demo hay tài khoản mới đăng ký
   const ownerKey = (currentUser?.username || currentUser?.email || String(currentUser?.user_id || 'new_owner')).toLowerCase();
-  const isDemoVip = currentUser?.username === 'owner_thanh' || currentUser?.email === 'owner@matruong.vn';
+  const isDemoVip = false;
 
   // Bản quyền Gói VIP (Được bảo lưu vĩnh viễn sau khi đã mua hoặc với tài khoản Demo)
   const [hasVipSubscription, setHasVipSubscription] = useState(() => {
@@ -733,46 +561,16 @@ export default function OwnerPage() {
   // State 1: Danh sách ngựa của Chủ sở hữu (Lưu riêng theo từng tài khoản, hỗ trợ đầy đủ xóa ngựa và F5)
   const [myHorses, setMyHorses] = useState(() => {
     try {
-      let stored = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
-      if (stored === null && isDemoVip) {
-        stored = localStorage.getItem('matruong_owner_horses_owner_thanh') ??
-                 localStorage.getItem('matruong_owner_horses_6') ??
-                 localStorage.getItem('matruong_owner_horses_11');
-      }
-
+      const stored = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
       if (stored !== null && stored !== undefined) {
-        // Tự động làm sạch URL ảnh cũ bị lỗi (404)
-        const sanitized = stored.replace(/photo-1598974357801-cbca10065444/g, 'photo-1534447677768-be436bb09401');
-        const parsed = JSON.parse(sanitized);
+        const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          const deduped = deduplicateHorses(parsed);
-          const fixed = deduped.map(item => {
-            if (item && item.name === 'Bạch Long' && (!item.avatar || item.avatar.includes('photo-1598974357801-cbca10065444'))) {
-              return { ...item, avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80' };
-            }
-            return item;
-          });
-          localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(fixed));
-          if (isDemoVip) {
-            localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(fixed));
-            localStorage.setItem('matruong_owner_horses_6', JSON.stringify(fixed));
-            localStorage.setItem('matruong_owner_horses_11', JSON.stringify(fixed));
-          }
-          return fixed;
+          return deduplicateHorses(parsed);
         }
       }
-
-      // Chỉ khởi tạo danh mục mẫu lần đầu tiên khi chưa từng lưu vào LocalStorage
-      const initial = isDemoVip ? DEMO_HORSES_VIP : [];
-      localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(initial));
-      if (isDemoVip) {
-        localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(initial));
-        localStorage.setItem('matruong_owner_horses_6', JSON.stringify(initial));
-        localStorage.setItem('matruong_owner_horses_11', JSON.stringify(initial));
-      }
-      return initial;
+      return [];
     } catch {
-      return isDemoVip ? DEMO_HORSES_VIP : [];
+      return [];
     }
   });
 
@@ -1146,12 +944,7 @@ export default function OwnerPage() {
   // Đảm bảo đồng bộ và chống nhân bản chiến mã khi chuyển đổi vai trò/tài khoản
   useEffect(() => {
     try {
-      let stored = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
-      if (stored === null && isDemoVip) {
-        stored = localStorage.getItem('matruong_owner_horses_owner_thanh') ??
-                 localStorage.getItem('matruong_owner_horses_6') ??
-                 localStorage.getItem('matruong_owner_horses_11');
-      }
+      const stored = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
@@ -1163,26 +956,17 @@ export default function OwnerPage() {
           return;
         }
       }
-      if (isDemoVip) {
-        setMyHorses(DEMO_HORSES_VIP);
-      } else {
-        setMyHorses([]);
-      }
+      setMyHorses([]);
     } catch {}
-  }, [ownerKey, isDemoVip]);
+  }, [ownerKey]);
 
   // Đồng bộ lưu localStorage khi state thay đổi
   useEffect(() => {
     try {
       const deduped = deduplicateHorses(myHorses);
       localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(deduped));
-      if (isDemoVip) {
-        localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(deduped));
-        localStorage.setItem('matruong_owner_horses_6', JSON.stringify(deduped));
-        localStorage.setItem('matruong_owner_horses_11', JSON.stringify(deduped));
-      }
     } catch {}
-  }, [myHorses, ownerKey, isDemoVip]);
+  }, [myHorses, ownerKey]);
 
   useEffect(() => {
     const listToSave = isDemoVip
@@ -1484,7 +1268,7 @@ export default function OwnerPage() {
     });
 
     if (autoConfirmAll) {
-      showToast(`Đã lưu đội ngũ và xác nhận phục vụ đủ cả 3 vai trò cho "${teamModalHorse.name}"! Trạng thái: ✓ Đã xác nhận.`, 'ĐÃ XÁC NHẬN ĐẦY ĐỦ', 'success');
+      showToast(`Đã lưu đội ngũ và xác nhận phục vụ đủ cả 3 vai trò cho "${teamModalHorse.name}"! Trạng thái: Đã xác nhận.`, 'ĐÃ XÁC NHẬN ĐẦY ĐỦ', 'success');
     } else {
       showToast(`Đã chỉ định đội ngũ phục vụ mới cho "${teamModalHorse.name}"! HLV, Bác sĩ và Groom đã nhận yêu cầu xác nhận.`, 'ĐÃ CẬP NHẬT ĐỘI NGŨ', 'success');
     }
@@ -1508,11 +1292,11 @@ export default function OwnerPage() {
     if (currentStatus === 'CONFIRMED') {
       const updated = setServiceAssignmentStatus(horse.name || horse.microchip, roleType, 'PENDING');
       setServiceAssignments(updated);
-      showToast(`Đã chuyển trạng thái ${roleLabel} (${staffName}) của "${horse.name}" về ⏳ Chờ xác nhận.`, 'CẬP NHẬT TRẠNG THÁI', 'info');
+      showToast(`Đã chuyển trạng thái ${roleLabel} (${staffName}) của "${horse.name}" về Chờ xác nhận.`, 'CẬP NHẬT TRẠNG THÁI', 'info');
     } else {
       const updated = confirmServiceAssignment(horse.name || horse.microchip, roleType, currentUser?.username || 'admin');
       setServiceAssignments(updated);
-      showToast(`Đã xác nhận vai trò ${roleLabel} (${staffName}) phụ trách "${horse.name}" thành công! Trạng thái: ✓ Đã xác nhận.`, 'XÁC NHẬN THÀNH CÔNG', 'success');
+      showToast(`Đã xác nhận vai trò ${roleLabel} (${staffName}) phụ trách "${horse.name}" thành công! Trạng thái: Đã xác nhận.`, 'XÁC NHẬN THÀNH CÔNG', 'success');
     }
   };
 
@@ -1564,13 +1348,20 @@ export default function OwnerPage() {
     return `Ô ${code} (${block}${area ? ` - ${area}` : ''})`;
   };
 
-  // Danh sách chuồng phân chia VIP / Chuồng Thường
+  const isStallAvailable = (stall) => {
+    if (!stall) return false;
+    if (stall.status === 'OCCUPIED') return false;
+    if (stall.horse && stall.horse !== '(Trống)' && stall.horse !== 'Vacant') return false;
+    return true;
+  };
+
+  // Danh sách chuồng phân chia VIP / Chuồng Thường (CHỈ HIỂN THỊ CÁC Ô CÒN TRỐNG - Ô ĐÃ ĐƯỢC GÁN SẼ TỰ ĐỘNG BIẾN MẤT)
   const availableVipStables = useMemo(() => {
-    return allStables.filter(s => isStallVip(s));
+    return allStables.filter(s => isStallVip(s) && isStallAvailable(s));
   }, [allStables]);
 
   const availableStandardStables = useMemo(() => {
-    return allStables.filter(s => !isStallVip(s));
+    return allStables.filter(s => !isStallVip(s) && isStallAvailable(s));
   }, [allStables]);
 
   // Form State: Đăng ký ngựa mới
@@ -1646,6 +1437,110 @@ export default function OwnerPage() {
       return;
     }
     setHorseForm(prev => ({ ...prev, stable: selected }));
+  };
+
+  // =========================================================================
+  // STATE & LOGIC: ĐỔI Ô CHUỒNG CHO CHIẾN MÃ (CHỈ CHỌN Ô TRỐNG - CHỜ ADMIN PHÊ DUYỆT)
+  // =========================================================================
+  const [showChangeStallModal, setShowChangeStallModal] = useState(false);
+  const [changeStallHorse, setChangeStallHorse] = useState(null);
+  const [changeStallTarget, setChangeStallTarget] = useState('');
+  const [changeStallReason, setChangeStallReason] = useState('');
+  const [isSubmittingStallChange, setIsSubmittingStallChange] = useState(false);
+
+  // Mở modal đổi ô chuồng cho một chiến mã cụ thể
+  const handleOpenChangeStallModal = (horse) => {
+    setChangeStallHorse(horse);
+    setChangeStallReason('');
+
+    // Xác định mã chuồng hiện tại
+    const currentMatch = String(horse.stable || '').match(/[A-Z0-9]+/i);
+    const curCode = currentMatch ? currentMatch[0].toUpperCase() : '';
+
+    // Lọc danh sách ô trống không trùng ô hiện tại
+    let defaultCandidate = '';
+    if (membershipTier === 'PREMIUM') {
+      const vipCandidates = availableVipStables.filter(s => s.stall_code.toUpperCase() !== curCode);
+      const stdCandidates = availableStandardStables.filter(s => s.stall_code.toUpperCase() !== curCode);
+      if (vipCandidates.length > 0) defaultCandidate = getStallDisplayName(vipCandidates[0]);
+      else if (stdCandidates.length > 0) defaultCandidate = getStallDisplayName(stdCandidates[0]);
+    } else {
+      const stdCandidates = availableStandardStables.filter(s => s.stall_code.toUpperCase() !== curCode);
+      if (stdCandidates.length > 0) defaultCandidate = getStallDisplayName(stdCandidates[0]);
+    }
+
+    setChangeStallTarget(defaultCandidate);
+    setShowChangeStallModal(true);
+  };
+
+  // Nộp yêu cầu đổi ô chuồng tới Admin
+  const handleSubmitChangeStall = async (e) => {
+    e.preventDefault();
+    if (!changeStallHorse) return;
+
+    if (!changeStallTarget) {
+      showToast('Hiện tại không còn ô chuồng nào còn trống để đổi! Vui lòng đợi các chủ sở hữu khác nhả chuồng.', 'KHÔNG CÒN Ô TRỐNG', 'warning');
+      return;
+    }
+
+    const currentMatch = String(changeStallHorse.stable || '').match(/[A-Z0-9]+/i);
+    const curCode = currentMatch ? currentMatch[0].toUpperCase() : null;
+
+    const targetMatch = String(changeStallTarget).match(/[A-Z0-9]+/i);
+    const targetCode = targetMatch ? targetMatch[0].toUpperCase() : '';
+
+    if (!targetCode) {
+      showToast('Vui lòng chọn ô chuồng hợp lệ!', 'THIẾU THÔNG TIN', 'warning');
+      return;
+    }
+
+    if (curCode && targetCode === curCode) {
+      showToast('Ô chuồng mới không được trùng với ô chuồng hiện tại của chiến mã!', 'CHỌN LẠI Ô CHUỒNG', 'warning');
+      return;
+    }
+
+    setIsSubmittingStallChange(true);
+    try {
+      await createStallRequestApi({
+        horseId: changeStallHorse.id,
+        horseName: changeStallHorse.name,
+        horseAvatar: changeStallHorse.avatar,
+        horseBreed: changeStallHorse.breed,
+        ownerUsername: currentUser?.username || '',
+        ownerName: currentUser?.name || currentUser?.username || 'Chủ sở hữu',
+        type: 'CHANGE',
+        currentStall: curCode,
+        requestedStall: targetCode,
+        requestedStallLabel: changeStallTarget,
+        reason: changeStallReason.trim() || 'Chủ sở hữu gửi yêu cầu đổi ô chuồng'
+      });
+
+      // Cập nhật ngay trạng thái chờ Admin duyệt cho ngựa
+      setMyHorses(prev => {
+        const next = prev.map(h => {
+          if (String(h.id) === String(changeStallHorse.id)) {
+            return {
+              ...h,
+              stallStatus: 'PENDING_APPROVAL',
+              pendingStall: targetCode
+            };
+          }
+          return h;
+        });
+        try {
+          localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      showToast(`Đã gửi yêu cầu đổi từ Ô ${curCode || '(Chưa có)'} sang Ô ${targetCode} tới Ban Quản Trị! Vui lòng chờ Admin phê duyệt.`, 'YÊU CẦU ĐÃ GỬI', 'success');
+      setShowChangeStallModal(false);
+      setChangeStallHorse(null);
+    } catch {
+      showToast('Có lỗi xảy ra khi gửi yêu cầu đổi chuồng!', 'LỖI', 'error');
+    } finally {
+      setIsSubmittingStallChange(false);
+    }
   };
 
   // Form State: Đăng ký giải đấu
@@ -1743,6 +1638,8 @@ export default function OwnerPage() {
       groom: horseForm.groom || 'Lê Hoàng Nam',
       status: 'ELIGIBLE',
       statusText: 'Đủ chuẩn thi đấu',
+      stallStatus: 'PENDING_APPROVAL',
+      stallApproved: false,
       winCount: 0,
       totalStarts: 0,
       totalPrizeEarned: 0,
@@ -1768,6 +1665,30 @@ export default function OwnerPage() {
     // Gọi API Đăng ký ngựa của Chủ sở hữu
     registerOwnerHorseApi(ownerKey, newHorse).catch(() => {});
 
+    // Tạo yêu cầu cấp ô chuồng gửi Admin phê duyệt và giữ chỗ ô chuồng
+    if (newHorse.stable && newHorse.stable !== '(Chưa phân bổ)') {
+      const stallMatch = String(newHorse.stable).match(/[A-Z0-9]+/i);
+      const rawCode = stallMatch ? stallMatch[0].toUpperCase() : '';
+      if (rawCode) {
+        createStallRequestApi({
+          horseId: newHorse.id,
+          horseName: newHorse.name,
+          horseAvatar: newHorse.avatar,
+          horseBreed: newHorse.breed,
+          ownerUsername: currentUser?.username || '',
+          ownerName: currentUser?.name || currentUser?.username || 'Chủ sở hữu',
+          type: 'ASSIGN',
+          currentStall: null,
+          requestedStall: rawCode,
+          requestedStallLabel: newHorse.stable,
+          reason: 'Đăng ký ngựa mới nhập chuồng'
+        }).then(() => {
+          window.dispatchEvent(new Event('matruong_stables_updated'));
+          window.dispatchEvent(new Event('matruong_horses_updated'));
+        }).catch(() => {});
+      }
+    }
+
     setMyHorses(prev => {
       const filtered = prev.filter(h =>
         String(h.id) !== String(newHorse.id) &&
@@ -1777,11 +1698,6 @@ export default function OwnerPage() {
       const next = deduplicateHorses([newHorse, ...filtered]);
       try {
         localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(next));
-        if (isDemoVip) {
-          localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(next));
-          localStorage.setItem('matruong_owner_horses_6', JSON.stringify(next));
-          localStorage.setItem('matruong_owner_horses_11', JSON.stringify(next));
-        }
       } catch {}
       return next;
     });
@@ -1982,11 +1898,6 @@ export default function OwnerPage() {
       const deduped = deduplicateHorses(next);
       try {
         localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(deduped));
-        if (isDemoVip) {
-          localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(next));
-          localStorage.setItem('matruong_owner_horses_6', JSON.stringify(next));
-          localStorage.setItem('matruong_owner_horses_11', JSON.stringify(next));
-        }
       } catch {}
       return next;
     });
@@ -2025,11 +1936,6 @@ export default function OwnerPage() {
       const deduped = deduplicateHorses(next);
       try {
         localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(deduped));
-        if (isDemoVip) {
-          localStorage.setItem('matruong_owner_horses_owner_thanh', JSON.stringify(next));
-          localStorage.setItem('matruong_owner_horses_6', JSON.stringify(next));
-          localStorage.setItem('matruong_owner_horses_11', JSON.stringify(next));
-        }
       } catch {}
       return next;
     });
@@ -2060,6 +1966,17 @@ export default function OwnerPage() {
       if (horseName) removeServiceAssignmentByHorse(horseName);
     } catch (e) {
       console.error('Lỗi gỡ phân công dịch vụ:', e);
+    }
+
+    // 6. Nhả ô chuồng về trạng thái trống (AVAILABLE) để các chủ sở hữu khác có thể chọn
+    if (deletingHorse.stable) {
+      const stallMatch = String(deletingHorse.stable).match(/[A-Z0-9]+/i);
+      const rawCode = stallMatch ? stallMatch[0].toUpperCase() : '';
+      if (rawCode) {
+        reassignStallHorseApi(rawCode, 'VACANT').then(() => {
+          window.dispatchEvent(new Event('matruong_stables_updated'));
+        }).catch(() => {});
+      }
     }
 
     setShowDeleteHorseModal(false);
@@ -2395,7 +2312,7 @@ export default function OwnerPage() {
                       letterSpacing: '0.03em',
                       lineHeight: 1.3
                     }}>
-                      <span style={{ fontSize: '9px' }}>👑</span> PREMIUM
+                      PREMIUM
                     </span>
                   ) : (
                     <span style={{
@@ -2449,8 +2366,8 @@ export default function OwnerPage() {
               >
                 <span>
                   {hasVipSubscription
-                    ? '👑 Khôi phục VIP'
-                    : '👑 Nâng cấp VIP'}
+                    ? 'Khôi phục VIP'
+                    : 'Nâng cấp VIP'}
                 </span>
               </button>
             )}
@@ -2795,15 +2712,91 @@ export default function OwnerPage() {
                         </div>
                       </div>
 
-                      {/* Tỷ lệ sở hữu & Ô chuồng */}
-                      <div style={{ background: 'var(--bg-secondary)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <span style={{ color: 'var(--paper-dim)' }}>Tỷ lệ sở hữu: </span>
-                          <b style={{ color: 'var(--paper)' }}>{h.ownershipShare}%</b>
+                      {/* Tỷ lệ sở hữu & Ô chuồng kèm nút Đổi chuồng */}
+                      <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <span style={{ color: 'var(--paper-dim)' }}>Tỷ lệ sở hữu: </span>
+                            <b style={{ color: 'var(--paper)' }}>{h.ownershipShare}%</b>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--paper-dim)' }}>Vị trí ô chuồng: </span>
+                            <b style={{ color: 'var(--brass)' }}>{h.stable || '(Chưa phân bổ)'}</b>
+                          </div>
                         </div>
-                        <div>
-                          <span style={{ color: 'var(--paper-dim)' }}>Vị trí: </span>
-                          <b style={{ color: 'var(--paper)' }}>{h.stable}</b>
+
+                        {/* Trạng thái duyệt ô chuồng & Nút Đổi ô chuồng */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px dashed var(--line)', gap: '8px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            {h.stallStatus === 'PENDING_APPROVAL' || h.pendingStall ? (
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                color: '#F59E0B',
+                                background: 'rgba(245, 158, 11, 0.12)',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.03em'
+                              }}>
+                                Chờ Duyệt {h.pendingStall ? `Đổi Sang Ô ${h.pendingStall}` : 'Cấp Chuồng'}
+                              </span>
+                            ) : h.stallStatus === 'REJECTED' ? (
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                color: '#EF4444',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.03em'
+                              }}>
+                                Từ Chối Cấp Chuồng
+                              </span>
+                            ) : (
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                color: '#10B981',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.03em'
+                              }}>
+                                Đã Phê Duyệt
+                              </span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenChangeStallModal(h)}
+                            style={{
+                              background: 'rgba(212, 175, 55, 0.12)',
+                              border: '1px solid var(--brass)',
+                              borderRadius: '4px',
+                              color: 'var(--brass)',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '4px 10px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.03em',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--brass)'; e.currentTarget.style.color = '#14100A'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(212, 175, 55, 0.12)'; e.currentTarget.style.color = 'var(--brass)'; }}
+                            title="Đổi sang một ô chuồng còn trống khác (cần Admin duyệt)"
+                          >
+                            Đổi Ô Chuồng
+                          </button>
                         </div>
                       </div>
 
@@ -2831,8 +2824,8 @@ export default function OwnerPage() {
                             border: '1px solid var(--line)'
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px dashed var(--line)', paddingBottom: '6px' }}>
-                              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <span>🛡️</span> Đội Ngũ Phục Vụ Riêng
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Đội Ngũ Phục Vụ Riêng
                               </span>
                               <button
                                 type="button"
@@ -2849,7 +2842,7 @@ export default function OwnerPage() {
                                 }}
                                 title="Chỉ định hoặc thay đổi HLV, Bác sĩ và Groom phục vụ chiến mã"
                               >
-                                🔄 Đổi Đội Ngũ
+                                Đổi Đội Ngũ
                               </button>
                             </div>
 
@@ -2857,7 +2850,7 @@ export default function OwnerPage() {
                               {/* HLV */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '6px' }}>
-                                  🏇 HLV: <b style={{ color: 'var(--paper)' }}>{trName}</b>
+                                  HLV: <b style={{ color: 'var(--paper)' }}>{trName}</b>
                                 </span>
                                 <button
                                   type="button"
@@ -2877,14 +2870,14 @@ export default function OwnerPage() {
                                   }}
                                   title={trOk ? 'HLV đã xác nhận phục vụ. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ HLV xác nhận. Bấm để duyệt xác nhận ngay.'}
                                 >
-                                  {trOk ? '✓ Đã xác nhận' : '⏳ Chờ HLV xác nhận'}
+                                  {trOk ? 'Đã xác nhận' : 'Chờ HLV xác nhận'}
                                 </button>
                               </div>
 
                               {/* Bác sĩ */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '6px' }}>
-                                  🩺 Bác sĩ: <b style={{ color: 'var(--paper)' }}>{vtName}</b>
+                                  Bác sĩ: <b style={{ color: 'var(--paper)' }}>{vtName}</b>
                                 </span>
                                 <button
                                   type="button"
@@ -2904,14 +2897,14 @@ export default function OwnerPage() {
                                   }}
                                   title={vtOk ? 'Bác sĩ thú y đã xác nhận phụ trách. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ BS xác nhận. Bấm để duyệt xác nhận ngay.'}
                                 >
-                                  {vtOk ? '✓ Đã xác nhận' : '⏳ Chờ BS xác nhận'}
+                                  {vtOk ? 'Đã xác nhận' : 'Chờ BS xác nhận'}
                                 </button>
                               </div>
 
                               {/* Groom */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '6px' }}>
-                                  🌾 Groom: <b style={{ color: 'var(--paper)' }}>{gmName}</b>
+                                  Groom: <b style={{ color: 'var(--paper)' }}>{gmName}</b>
                                 </span>
                                 <button
                                   type="button"
@@ -2931,7 +2924,7 @@ export default function OwnerPage() {
                                   }}
                                   title={gmOk ? 'Groom đã xác nhận chăm sóc. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ Groom xác nhận. Bấm để duyệt xác nhận ngay.'}
                                 >
-                                  {gmOk ? '✓ Đã xác nhận' : '⏳ Chờ Groom xác nhận'}
+                                  {gmOk ? 'Đã xác nhận' : 'Chờ Groom xác nhận'}
                                 </button>
                               </div>
                             </div>
@@ -2988,7 +2981,7 @@ export default function OwnerPage() {
                             }}
                             title="Xem chi tiết thể lực, nhịp tim và tải luyện tập EvoLab như bên Huấn Luyện Viên"
                           >
-                            <span>📊</span>
+                            
                             <span>Thể lực</span>
                           </button>
                           <button
@@ -3054,7 +3047,7 @@ export default function OwnerPage() {
             <div className="tab-pane">
               <div className="pane-header" style={{ marginBottom: '16px' }}>
                 <h2 className="pane-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>📅</span> Lịch Tập Luyện Thời Gian Thực & Đặt Lịch Cùng HLV
+                   Lịch Tập Luyện Thời Gian Thực & Đặt Lịch Cùng HLV
                 </h2>
                 <p className="pane-desc">
                   Một phía là lịch tập theo thời gian thực do Huấn luyện viên sắp xếp bài tập cho chiến mã. Bên góc phải nhỏ là nơi Chủ sở hữu đăng ký đặt lịch ra sân cùng HLV.
@@ -3187,7 +3180,7 @@ export default function OwnerPage() {
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '18px' }}>🏇</span>
+                        <span style={{ fontSize: '18px' }}></span>
                         <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--paper)', fontWeight: 700 }}>
                           Thông Tin Bài Tập Do Huấn Luyện Viên Sắp Xếp
                         </h3>
@@ -3246,7 +3239,7 @@ export default function OwnerPage() {
                                       </span>
                                     </div>
                                     <div style={{ fontSize: '12px', color: 'var(--brass)', marginTop: '2px', fontWeight: 600 }}>
-                                      🏇 HLV Phụ trách: {horse.trainer || 'Trần Văn Hùng (HLV Trưởng)'}
+                                      HLV Phụ trách: {horse.trainer || 'Trần Văn Hùng (HLV Trưởng)'}
                                     </div>
                                   </div>
                                 </div>
@@ -3262,7 +3255,7 @@ export default function OwnerPage() {
                                       color: '#EF4444',
                                       border: '1px solid rgba(239, 68, 68, 0.4)'
                                     }}>
-                                      🔒 Khóa Y Tế (Cấm Tập)
+                                      Khóa Y Tế (Cấm Tập)
                                     </span>
                                   ) : (
                                     <span style={{
@@ -3292,7 +3285,7 @@ export default function OwnerPage() {
                                 gap: '6px'
                               }}>
                                 <div style={{ fontWeight: 700, color: 'var(--paper)' }}>
-                                  📋 Bài tập: <span style={{ color: 'var(--brass)' }}>{workoutTitle}</span>
+                                  Bài tập: <span style={{ color: 'var(--brass)' }}>{workoutTitle}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', color: 'var(--paper-dim)', fontSize: '12px' }}>
                                   <span>Cự ly mục tiêu: <b style={{ color: 'var(--paper)' }}>{targetDistance}m</b></span>
@@ -3313,7 +3306,7 @@ export default function OwnerPage() {
                                   fontWeight: 600,
                                   lineHeight: 1.4
                                 }}>
-                                  ⛔ <b>Lệnh cấm tập từ Thú Y:</b> {lockStatus.reason || 'Bác sĩ Thú y kích hoạt Khóa Y Tế'}. Phải đợi Bác sĩ Thú y kiểm tra và mở khóa tại Cổng Thú Y thì mới được tập tiếp!
+                                  <b>Lệnh cấm tập từ Thú Y:</b> {lockStatus.reason || 'Bác sĩ Thú y kích hoạt Khóa Y Tế'}. Phải đợi Bác sĩ Thú y kiểm tra và mở khóa tại Cổng Thú Y thì mới được tập tiếp!
                                 </div>
                               )}
                             </div>
@@ -3333,7 +3326,7 @@ export default function OwnerPage() {
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '18px' }}>🤝</span>
+                          <span style={{ fontSize: '18px' }}></span>
                           <h3 style={{ margin: 0, fontSize: '14.5px', color: 'var(--paper)', fontWeight: 700 }}>
                             Lịch Tập Luyện Chung Trên Bãi Tập (06:00 — 18:00)
                           </h3>
@@ -3364,7 +3357,7 @@ export default function OwnerPage() {
                               }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                   <span style={{ fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span>🔒</span> KHUNG GIỜ ĐÃ KÍN (Đã có chủ sở hữu khác đặt trước)
+                                     KHUNG GIỜ ĐÃ KÍN (Đã có chủ sở hữu khác đặt trước)
                                   </span>
                                   <span style={{ fontSize: '11px', background: '#0b0f19', color: '#64748b', padding: '2px 8px', borderRadius: '4px', border: '1px solid #1e293b' }}>
                                     {session.sessionDate} · {extractSlotPrefix(session.sessionTime)}
@@ -3403,12 +3396,12 @@ export default function OwnerPage() {
                                     background: isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
                                     color: isConfirmed ? '#10B981' : '#F59E0B'
                                   }}>
-                                    {isConfirmed ? '✓ ĐÃ DUYỆT' : '⏳ CHỜ DUYỆT'}
+                                    {isConfirmed ? 'ĐÃ DUYỆT' : 'CHỜ DUYỆT'}
                                   </span>
                                 </div>
                               </div>
                               <div style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>
-                                🎯 Mục tiêu: {session.goal}
+                                Mục tiêu: {session.goal}
                               </div>
                               {session.trainerFeedback && (
                                 <div style={{ marginTop: '6px', padding: '6px 10px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.08)', borderLeft: '3px solid #10B981', color: 'var(--paper)', fontSize: '11.5px' }}>
@@ -3446,7 +3439,6 @@ export default function OwnerPage() {
                     {/* Header gọn gàng */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '8px', marginBottom: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '15px' }}>✍️</span>
                         <h4 style={{ margin: 0, fontSize: '13.5px', color: 'var(--brass)', fontWeight: 800, letterSpacing: '0.01em' }}>
                           Đặt Lịch Tập Cùng HLV
                         </h4>
@@ -3476,7 +3468,7 @@ export default function OwnerPage() {
                             const isLocked = lockStatus.isLocked || h.isLockedByVet;
                             return (
                               <option key={h.id} value={h.id}>
-                                {h.name} ({h.stable || 'Ô A1'}) {isLocked ? '⛔ [Khóa Y Tế]' : '✓ [Sẵn sàng]'}
+                                {h.name} ({h.stable || 'Ô A1'}) {isLocked ? '[Khóa Y Tế]' : '[Sẵn sàng]'}
                               </option>
                             );
                           })}
@@ -3499,7 +3491,7 @@ export default function OwnerPage() {
                               fontSize: '10.5px',
                               lineHeight: 1.35
                             }}>
-                              ⛔ <b>Khóa y tế:</b> {lockStatus.reason || 'Dấu hiệu chấn thương'}. Phải đợi BS Thú y mở khóa!
+                              <b>Khóa y tế:</b> {lockStatus.reason || 'Dấu hiệu chấn thương'}. Phải đợi BS Thú y mở khóa!
                             </div>
                           );
                         }
@@ -3520,7 +3512,7 @@ export default function OwnerPage() {
                           >
                             {FIXED_TRAINERS_LIST.map(t => (
                               <option key={t.username} value={t.username}>
-                                🏇 {t.name.split(' (')[0]}
+                                {t.name.split(' (')[0]}
                               </option>
                             ))}
                           </select>
@@ -3546,7 +3538,7 @@ export default function OwnerPage() {
                             Khung giờ (06:00 — 18:00)
                           </label>
                           <span style={{ fontSize: '9.5px', color: '#F59E0B' }}>
-                            🍽️ Nghỉ trưa 11:45 — 13:00 (Khóa)
+                            Nghỉ trưa 11:45 — 13:00 (Khóa)
                           </span>
                         </div>
                         <select
@@ -3571,10 +3563,10 @@ export default function OwnerPage() {
                                 }}
                               >
                                 {isLunch
-                                  ? '🍽️ 11:45 - 13:00 [NGHỈ TRƯA & BẢO DƯỠNG SÂN BÃI]'
+                                  ? '11:45 - 13:00 [NGHỈ TRƯA & BẢO DƯỠNG SÂN BÃI]'
                                   : isBooked
-                                  ? `🔒 ${slot.label} [ĐÃ CÓ NGƯỜI ĐẶT TRƯỚC - BÔI ĐEN]`
-                                  : `🟢 ${slot.label} (${slot.desc.split(' - ')[1] || slot.desc})`}
+                                  ? `${slot.label} [ĐÃ CÓ NGƯỜI ĐẶT TRƯỚC]`
+                                  : `${slot.label} (${slot.desc.split(' - ')[1] || slot.desc})`}
                               </option>
                             );
                           })}
@@ -3611,7 +3603,7 @@ export default function OwnerPage() {
                                 gap: '2px'
                               }}
                             >
-                              🔄 Reset 18h
+                              Reset 18h
                             </button>
                             <span style={{ fontSize: '9px', color: '#94a3b8' }}>
                               ⬛ Bôi đen = Đã đặt
@@ -3630,7 +3622,7 @@ export default function OwnerPage() {
                           borderRadius: '4px'
                         }}>
                           <span>⏰ Tập: 06:00 - 18:00</span>
-                          <span style={{ color: '#10B981' }}>✓ 18:00 tự động mở trống</span>
+                          <span style={{ color: '#10B981' }}>18:00 tự động mở trống</span>
                         </div>
                         <div style={{
                           display: 'grid',
@@ -3664,7 +3656,7 @@ export default function OwnerPage() {
                                     opacity: 0.65
                                   }}
                                 >
-                                  🍽️ 11:45-13:00 (Nghỉ trưa)
+                                  11:45-13:00 (Nghỉ trưa)
                                 </div>
                               );
                             }
@@ -3691,7 +3683,7 @@ export default function OwnerPage() {
                                     boxShadow: 'inset 0 0 8px rgba(0,0,0,0.95)'
                                   }}
                                 >
-                                  🔒 {slot.label.split(' - ')[0]}
+                                  {slot.label.split(' - ')[0]}
                                 </div>
                               );
                             }
@@ -3736,11 +3728,11 @@ export default function OwnerPage() {
                           onChange={(e) => setJointBookingForm({ ...jointBookingForm, goal: e.target.value })}
                           style={{ width: '100%', boxSizing: 'border-box', padding: '6px 6px', fontSize: '10.5px', borderRadius: '6px' }}
                         >
-                          <option value="Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV">🔍 Sải chân & thể lực</option>
-                          <option value="Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa">🏇 Phối hợp chủ - ngựa</option>
-                          <option value="Kiểm tra phản xạ xuất phát máy & chạy vòng cua">⚡ Phản xạ xuất phát & cua</option>
-                          <option value="Thử sức cự ly dài 2.400m sân cỏ tự nhiên">🌿 Cự ly dài 2.400m</option>
-                          <option value="Luyện bứt tốc nước rút 400m cuối sân cát">💨 Nước rút 400m cuối</option>
+                          <option value="Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV">Sải chân & thể lực</option>
+                          <option value="Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa">Phối hợp chủ - ngựa</option>
+                          <option value="Kiểm tra phản xạ xuất phát máy & chạy vòng cua">Phản xạ xuất phát & cua</option>
+                          <option value="Thử sức cự ly dài 2.400m sân cỏ tự nhiên">Cự ly dài 2.400m</option>
+                          <option value="Luyện bứt tốc nước rút 400m cuối sân cát">Nước rút 400m cuối</option>
                         </select>
                       </div>
 
@@ -3790,12 +3782,12 @@ export default function OwnerPage() {
                             }}
                           >
                             {isLocked
-                              ? '⛔ Đang Khóa Y Tế (Cấm Tập)'
+                              ? 'Đang Khóa Y Tế (Cấm Tập)'
                               : slotStatus.isLunch
-                              ? '🍽️ Giờ Nghỉ Trưa (Không Nhận Lịch)'
+                              ? 'Giờ Nghỉ Trưa (Không Nhận Lịch)'
                               : slotStatus.isBooked
-                              ? '🔒 Khung Giờ Đã Kín (Người Đặt Trước)'
-                              : '🤝 Gửi Yêu Cầu Đặt Lịch'}
+                              ? 'Khung Giờ Đã Kín (Người Đặt Trước)'
+                              : 'Gửi Yêu Cầu Đặt Lịch'}
                           </button>
                         );
                       })()}
@@ -3844,14 +3836,14 @@ export default function OwnerPage() {
                                   background: isPending ? 'rgba(245, 158, 11, 0.15)' : isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                                   color: isPending ? '#F59E0B' : isConfirmed ? '#10B981' : '#EF4444'
                                 }}>
-                                  {isPending ? '⏳ Chờ HLV duyệt' : isConfirmed ? '✓ Đã xác nhận' : 'HLV phản hồi'}
+                                  {isPending ? 'Chờ HLV duyệt' : isConfirmed ? 'Đã xác nhận' : 'HLV phản hồi'}
                                 </span>
                               </div>
                               <div style={{ color: 'var(--paper-dim)', fontSize: '11.5px' }}>
-                                📅 {session.sessionDate} ({session.sessionTime})
+                                {session.sessionDate} ({session.sessionTime})
                               </div>
                               <div style={{ color: 'var(--brass)', fontSize: '11px', marginTop: '2px' }}>
-                                🏇 HLV: {session.trainerName}
+                                HLV: {session.trainerName}
                               </div>
                               {session.trainerFeedback && (
                                 <div style={{ marginTop: '4px', padding: '4px 6px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '3px', color: 'var(--paper)', fontSize: '11px' }}>
@@ -3916,7 +3908,7 @@ export default function OwnerPage() {
                     gap: '6px'
                   }}
                 >
-                  <span>🤝</span> + Đặt Lịch Tập Luyện Chung Với HLV
+                   + Đặt Lịch Tập Luyện Chung Với HLV
                 </button>
               </div>
 
@@ -3930,7 +3922,7 @@ export default function OwnerPage() {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '20px' }}>📅</span>
+                    <span style={{ fontSize: '20px' }}></span>
                     <div>
                       <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--paper)', fontWeight: 700 }}>
                         Lịch Hẹn Tập Luyện Chung Cùng HLV & Chiến Mã
@@ -4006,7 +3998,7 @@ export default function OwnerPage() {
                                 color: isPending ? '#F59E0B' : isConfirmed ? '#10B981' : '#EF4444',
                                 border: `1px solid ${isPending ? 'rgba(245, 158, 11, 0.4)' : isConfirmed ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
                               }}>
-                                {isPending ? '⏳ Chờ HLV duyệt' : isConfirmed ? '✓ HLV Đã xác nhận' : 'HLV phản hồi'}
+                                {isPending ? 'Chờ HLV duyệt' : isConfirmed ? 'HLV Đã xác nhận' : 'HLV phản hồi'}
                               </span>
                             </div>
 
@@ -4025,14 +4017,14 @@ export default function OwnerPage() {
                                 alignItems: 'center',
                                 gap: '6px'
                               }}>
-                                <span>🔒</span>
+                                
                                 <span>Chiến mã đang bị Thú Y khóa! Phải chờ Thú y mở khóa mới được tập.</span>
                               </div>
                             )}
 
                             <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.5, margin: '8px 0' }}>
-                              <div>📅 <b>Thời gian:</b> <span style={{ color: 'var(--paper)' }}>{session.sessionDate}</span> ({session.sessionTime})</div>
-                              <div>🎯 <b>Mục tiêu:</b> <span style={{ color: 'var(--brass)' }}>{session.goal}</span></div>
+                              <div><b>Thời gian:</b> <span style={{ color: 'var(--paper)' }}>{session.sessionDate}</span> ({session.sessionTime})</div>
+                              <div><b>Mục tiêu:</b> <span style={{ color: 'var(--brass)' }}>{session.goal}</span></div>
                               {session.ownerNotes && (
                                 <div style={{ marginTop: '4px', fontStyle: 'italic' }}>
                                   Ghi chú của bạn: "{session.ownerNotes}"
@@ -4087,7 +4079,7 @@ export default function OwnerPage() {
                   gap: '12px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '20px' }}>📋</span>
+                    <span style={{ fontSize: '20px' }}></span>
                     <div>
                       <b style={{ fontSize: '13px', color: 'var(--brass)' }}>Chế Độ Báo Cáo Huấn Luyện Tóm Tắt (Gói 0 Đồng)</b>
                       <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
@@ -4116,7 +4108,7 @@ export default function OwnerPage() {
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    ⚡ Mở Khóa IoT Real-Time
+                     Mở Khóa IoT Real-Time
                   </button>
                 </div>
               )}
@@ -4209,7 +4201,7 @@ export default function OwnerPage() {
                               }}
                               title="Xem chi tiết các biểu đồ thể lực, nhịp tim và tải luyện tập như bên Huấn Luyện Viên"
                             >
-                              <span>📊</span>
+                              
                               <span>Xem Thể Lực (EvoLab)</span>
                             </button>
                           </div>
@@ -4241,7 +4233,7 @@ export default function OwnerPage() {
                               <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.maxSpeed}</b>
                             ) : (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
+                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}> VIP IoT</span>
                                 <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
                               </div>
                             )}
@@ -4272,7 +4264,7 @@ export default function OwnerPage() {
                               <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.avgSpeed}</b>
                             ) : (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
+                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}> VIP IoT</span>
                                 <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
                               </div>
                             )}
@@ -4303,7 +4295,7 @@ export default function OwnerPage() {
                               <b style={{ fontSize: '15px', color: 'var(--paper)' }}>{t.peakHeartRate}</b>
                             ) : (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}>🔒 VIP IoT</span>
+                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}> VIP IoT</span>
                                 <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
                               </div>
                             )}
@@ -4329,7 +4321,7 @@ export default function OwnerPage() {
                         }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                             <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>📈</span> CHỈ SỐ THỂ LỰC & TẢI TẬP LUYỆN EVOLAB (ĐỒNG BỘ TỪ HLV TRƯỞNG)
+                              <span>�</span> CHỈ SỐ THỂ LỰC & TẢI TẬP LUYỆN EVOLAB (ĐỒNG BỘ TỪ HLV TRƯỞNG)
                             </span>
                             <button
                               type="button"
@@ -4443,7 +4435,7 @@ export default function OwnerPage() {
               {/* Phần 1: Các giải đấu đang mở ghi danh */}
               <div style={{ marginBottom: '28px' }}>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--brass)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>🏆 CÁC GIẢI ĐẤU ĐANG MỞ ĐĂNG KÝ THI ĐẤU (OPEN OFFICIAL TOURNAMENTS)</span>
+                  <span>� CÁC GIẢI ĐẤU ĐANG MỞ ĐĂNG KÝ THI ĐẤU (OPEN OFFICIAL TOURNAMENTS)</span>
                 </div>
 
                 <div className="portal-cards-grid" style={{ display: 'grid', gap: '14px' }}>
@@ -4496,11 +4488,11 @@ export default function OwnerPage() {
                           <span style={{ color: 'var(--paper-dim)' }}>Quyền lợi khán đài:</span>
                           {membershipTier === 'PREMIUM' ? (
                             <span style={{ color: 'var(--brass)', fontWeight: 700 }}>
-                              👑 VIP Lounge & Paddock Pass
+                              VIP Lounge & Paddock Pass
                             </span>
                           ) : (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ color: 'var(--paper)', fontWeight: 600 }}>🎟️ Khán đài tiêu chuẩn</span>
+                              <span style={{ color: 'var(--paper)', fontWeight: 600 }}>� Khán đài tiêu chuẩn</span>
                               <button
                                 type="button"
                                 onClick={() => setUpgradePromptModal({
@@ -4558,7 +4550,7 @@ export default function OwnerPage() {
               {/* Phần 2: Danh sách các giải mà chủ sở hữu đã đăng ký / đề cử */}
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '12px' }}>
-                  📋 DANH SÁCH GIẢI ĐẤU CỦA BẠN ({raceNominations.length})
+                  DANH SÁCH GIẢI ĐẤU CỦA BẠN ({raceNominations.length})
                 </div>
 
                 {raceNominations.length === 0 ? (
@@ -4584,11 +4576,11 @@ export default function OwnerPage() {
                               <div style={{ fontSize: '12.5px', marginTop: '2px' }}>
                                 {isDelegatedPending ? (
                                   <span style={{ color: 'var(--brass)', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
-                                    <span>🎯</span> Chiến mã: <i>Đang nhờ HLV {r.targetTrainer || 'Trần Văn Hùng'} tuyển chọn</i>
+                                    <span></span> Chiến mã: <i>Đang nhờ HLV {r.targetTrainer || 'Trần Văn Hùng'} tuyển chọn</i>
                                   </span>
                                 ) : r.trainerAssigned ? (
                                   <span style={{ color: '#10B981', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
-                                    <span>🎯</span> Chiến mã (HLV chỉ định): <b style={{ color: 'var(--brass)', fontSize: '13.5px' }}>{r.horseName}</b>
+                                    <span></span> Chiến mã (HLV chỉ định): <b style={{ color: 'var(--brass)', fontSize: '13.5px' }}>{r.horseName}</b>
                                   </span>
                                 ) : (
                                   <span style={{ color: 'var(--brass)', fontWeight: 600 }}>Chiến mã: {r.horseName}</span>
@@ -4620,14 +4612,14 @@ export default function OwnerPage() {
                               border: `1px solid ${isApproved ? '#10B981' : isRejected ? '#EF4444' : isWithdrawn ? 'var(--line)' : 'var(--brass)'}`
                             }}>
                               {isApproved 
-                                ? (r.trainerAssigned ? '✓ HLV ĐÃ CHỈ ĐỊNH NGỰA & PHÊ DUYỆT' : '✓ HLV TRƯỞNG ĐÃ PHÊ DUYỆT')
+                                ? (r.trainerAssigned ? 'HLV ĐÃ CHỈ ĐỊNH NGỰA & PHÊ DUYỆT' : ' HLV TRƯỞNG ĐÃ PHÊ DUYỆT')
                                 : isRejected
                                 ? '✗ HLV YÊU CẦU RÈN THÊM'
                                 : isWithdrawn 
                                 ? 'ĐÃ RÚT LUI' 
                                 : isDelegatedPending
-                                ? '🎯 ĐANG CHỜ HLV CHỈ ĐỊNH NGỰA'
-                                : '⏳ CHỜ HLV TRƯỞNG PHÊ DUYỆT'}
+                                ? ' ĐANG CHỜ HLV CHỈ ĐỊNH NGỰA'
+                                : 'CHỜ HLV TRƯỞNG PHÊ DUYỆT'}
                             </span>
                           </div>
 
@@ -4643,7 +4635,7 @@ export default function OwnerPage() {
                               marginBottom: '12px',
                               lineHeight: 1.5
                             }}>
-                              <b style={{ color: 'var(--brass)' }}>🎯 Ủy thác chuyên môn:</b> Bạn đã chọn chế độ nhờ Huấn luyện viên trưởng ({r.targetTrainer || 'Trần Văn Hùng'}) đối soát phong độ thể lực và chỉ định chiến mã phù hợp nhất cho cự ly <b>{r.distance}</b> tại <b>{r.track}</b>. Ngay sau khi HLV xác nhận chỉ định, tên chiến mã và lời phê chiến thuật sẽ lập tức hiển thị tại đây.
+                              <b style={{ color: 'var(--brass)' }}> Ủy thác chuyên môn:</b> Bạn đã chọn chế độ nhờ Huấn luyện viên trưởng ({r.targetTrainer || 'Trần Văn Hùng'}) đối soát phong độ thể lực và chỉ định chiến mã phù hợp nhất cho cự ly <b>{r.distance}</b> tại <b>{r.track}</b>. Ngay sau khi HLV xác nhận chỉ định, tên chiến mã và lời phê chiến thuật sẽ lập tức hiển thị tại đây.
                             </div>
                           )}
 
@@ -4675,7 +4667,7 @@ export default function OwnerPage() {
                               lineHeight: 1.5
                             }}>
                               <b style={{ color: '#10B981' }}>
-                                {r.trainerAssigned ? '🎯 HLV Trưởng Đã Tuyển Chọn & Phê Duyệt' : `HLV Trưởng (${r.reviewedBy || 'Trần Văn Hùng'}):`}
+                                {r.trainerAssigned ? ' HLV Trưởng Đã Tuyển Chọn & Phê Duyệt' : `HLV Trưởng (${r.reviewedBy || 'Trần Văn Hùng'}):`}
                               </b>{' '}
                               {r.trainerFeedback || `Chiến mã "${r.horseName}" đạt 100% phong độ thể lực, chỉ số viễn trắc ổn định. Đã chỉ định cấp phép xuất phát chính thức.`}
                             </div>
@@ -4741,7 +4733,7 @@ export default function OwnerPage() {
                                   cursor: 'pointer'
                                 }}
                               >
-                                ⚡ Yêu cầu HLV thẩm định lại
+                                 Yêu cầu HLV thẩm định lại
                               </button>
                             )}
 
@@ -4933,7 +4925,7 @@ export default function OwnerPage() {
                         type="text"
                         value={paymentSearch}
                         onChange={(e) => setPaymentSearch(e.target.value)}
-                        placeholder="🔍 Tìm theo mã giao dịch, tên gói, phương thức..."
+                        placeholder=" Tìm theo mã giao dịch, tên gói, phương thức..."
                         style={{
                           width: '100%',
                           padding: '8px 12px',
@@ -4979,7 +4971,7 @@ export default function OwnerPage() {
                           cursor: 'pointer'
                         }}
                       >
-                        {hasVipSubscription ? '👑 Khôi Phục Đặc Quyền VIP (Miễn Phí)' : '⚡ Nâng Cấp Gói VIP Ngay'}
+                        {hasVipSubscription ? 'Khôi Phục Đặc Quyền VIP (Miễn Phí)' : ' Nâng Cấp Gói VIP Ngay'}
                       </button>
                     </div>
                   ) : (
@@ -5035,7 +5027,7 @@ export default function OwnerPage() {
                                   color: '#10B981',
                                   border: '1px solid rgba(16, 185, 129, 0.4)'
                                 }}>
-                                  ✓ {p.status || 'THÀNH CÔNG'}
+                                   {p.status || 'THÀNH CÔNG'}
                                 </span>
                               </td>
                               <td style={{ padding: '14px 18px', textAlign: 'right' }}>
@@ -5056,7 +5048,7 @@ export default function OwnerPage() {
                                     gap: '5px'
                                   }}
                                 >
-                                  <span>📄</span>
+                                  <span>�</span>
                                   <span>Xem biên lai</span>
                                 </button>
                               </td>
@@ -5257,7 +5249,7 @@ export default function OwnerPage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
                     <b style={{ fontSize: '22px', color: membershipTier === 'PREMIUM' ? 'var(--brass)' : 'var(--paper)' }}>
-                      {membershipTier === 'PREMIUM' ? '👑 HORSE PREMIUM (VIP ĐẶC QUYỀN)' : 'HORSE 0 ĐỒNG (TIÊU CHUẨN)'}
+                      {membershipTier === 'PREMIUM' ? 'HORSE PREMIUM (VIP ĐẶC QUYỀN)' : 'HORSE 0 ĐỒNG (TIÊU CHUẨN)'}
                     </b>
                     <span style={{
                       padding: '3px 10px',
@@ -5294,7 +5286,7 @@ export default function OwnerPage() {
                         cursor: 'pointer'
                       }}
                     >
-                      {hasVipSubscription ? '👑 Khôi Phục Đặc Quyền VIP' : '⚡ Kích Hoạt Premium VIP'}
+                      {hasVipSubscription ? 'Khôi Phục Đặc Quyền VIP' : 'Kích Hoạt Premium VIP'}
                     </button>
                   ) : (
                     <button
@@ -5426,35 +5418,35 @@ export default function OwnerPage() {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12.5px', color: 'var(--paper)', borderTop: '1px solid var(--line)', paddingTop: '14px' }}>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <span style={{ color: "var(--brass)", fontWeight: 700 }}>•</span>
                         <div>Giới hạn: <b style={{ color: 'var(--brass)' }}>Không giới hạn số lượng chiến mã</b></div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <span style={{ color: "var(--brass)", fontWeight: 700 }}>•</span>
                         <div>Chuồng trại: <b>Ô VIP Block A/B (16–18 m²) có đệm rơm khử khuẩn</b></div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <span style={{ color: "var(--brass)", fontWeight: 700 }}>•</span>
                         <div>Viễn trắc: <b>IoT Real-time đo nhịp tim & gia tốc từng mét chạy</b></div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <span style={{ color: "var(--brass)", fontWeight: 700 }}>•</span>
                         <div>Huấn luyện: <b>Chỉ định HLV Trưởng & thiết lập giáo án 1-kèm-1</b></div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <span style={{ color: "var(--brass)", fontWeight: 700 }}>•</span>
                         <div>Hoa hồng giải đua: <b style={{ color: 'var(--brass)' }}>Chỉ thu 5% – 8% (Chủ nhận 92% – 95%)</b></div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <span style={{ color: "var(--brass)", fontWeight: 700 }}>•</span>
                         <div>Chiết khấu: <b>Giảm 15% tổng hóa đơn lưu chuồng & chăm sóc</b></div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <span style={{ color: "var(--brass)", fontWeight: 700 }}>•</span>
                         <div>Y tế: <b>Bác sĩ Thú y trưởng trực tiếp hội chẩn & miễn phí công khám</b></div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ color: 'var(--brass)' }}>✓</span>
+                        <span style={{ color: "var(--brass)", fontWeight: 700 }}>•</span>
                         <div>Trường đua: <b>Thẻ VIP Lounge & Quyền vào khu cách ly Paddock</b></div>
                       </div>
                     </div>
@@ -5478,14 +5470,14 @@ export default function OwnerPage() {
                       }}
                     >
                       {membershipTier === 'PREMIUM'
-                        ? 'Đặc Quyền VIP Đang Hoạt Động ✓'
+                        ? 'Đặc Quyền VIP Đang Hoạt Động'
                         : hasVipSubscription
-                        ? '👑 Khôi Phục Đặc Quyền VIP (Đã Sở Hữu)'
-                        : '⚡ Kích Hoạt Gói Premium Ngay'}
+                        ? 'Khôi Phục Đặc Quyền VIP (Đã Sở Hữu)'
+                        : ' Kích Hoạt Gói Premium Ngay'}
                     </button>
                     {membershipTier === 'FREE' && hasVipSubscription && (
                       <div style={{ textAlign: 'center', fontSize: '11.5px', color: 'var(--brass)', marginTop: '6px', fontWeight: 600 }}>
-                        ✓ Bạn đã sở hữu gói VIP, bấm để kích hoạt lại mà không cần thanh toán
+                        Bạn đã sở hữu gói VIP, bấm để kích hoạt lại mà không cần thanh toán
                       </div>
                     )}
                   </div>
@@ -5496,7 +5488,7 @@ export default function OwnerPage() {
               <div style={{ marginTop: '28px', borderTop: '1px solid var(--line)', paddingTop: '22px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: 'var(--brass)', fontSize: '18px' }}>🧾</span>
+                    <span style={{ color: 'var(--brass)', fontSize: '18px' }}>�</span>
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--paper)' }}>
                       Lịch Sử Giao Dịch Gói Hội Viên & Hóa Đơn
                     </h3>
@@ -5545,7 +5537,7 @@ export default function OwnerPage() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <b style={{ fontSize: '13.5px', color: 'var(--paper)' }}>{p.packageName}</b>
                             <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 700, background: 'rgba(16, 185, 129, 0.12)', padding: '1px 6px', borderRadius: '4px' }}>
-                              ✓ ĐÃ THANH TOÁN
+                               ĐÃ THANH TOÁN
                             </span>
                           </div>
                           <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
@@ -5702,7 +5694,7 @@ export default function OwnerPage() {
                       border: '1px solid var(--line)'
                     }}
                   >
-                    🏇 Huấn Luyện Viên ({myReports.filter(r => r.targetRole === 'TRAINER').length})
+                     Huấn Luyện Viên ({myReports.filter(r => r.targetRole === 'TRAINER').length})
                   </button>
                   <button
                     type="button"
@@ -5718,7 +5710,7 @@ export default function OwnerPage() {
                       border: '1px solid var(--line)'
                     }}
                   >
-                    🩺 Bác Sĩ Thú Y ({myReports.filter(r => r.targetRole === 'VET').length})
+                     Bác Sĩ Thú Y ({myReports.filter(r => r.targetRole === 'VET').length})
                   </button>
                   <button
                     type="button"
@@ -5734,7 +5726,7 @@ export default function OwnerPage() {
                       border: '1px solid var(--line)'
                     }}
                   >
-                    🌾 Nhân Viên Chăm Sóc ({myReports.filter(r => r.targetRole === 'CARETAKER').length})
+                     Nhân Viên Chăm Sóc ({myReports.filter(r => r.targetRole === 'CARETAKER').length})
                   </button>
                 </div>
               </div>
@@ -5752,7 +5744,7 @@ export default function OwnerPage() {
                       border: '1px dashed var(--line)',
                       borderRadius: '10px'
                     }}>
-                      <div style={{ fontSize: '38px', marginBottom: '10px' }}>🛡️</div>
+                      <div style={{ fontSize: '38px', marginBottom: '10px' }}></div>
                       <h4 style={{ margin: 0, fontSize: '15px', color: 'var(--paper)', fontWeight: 700 }}>
                         Chưa có khiếu nại nào được ghi nhận
                       </h4>
@@ -5782,7 +5774,7 @@ export default function OwnerPage() {
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {filtered.map(report => {
-                      const roleMeta = REPORT_TARGET_ROLES[report.targetRole] || { label: report.targetRole, icon: '👤', color: 'var(--paper)' };
+                      const roleMeta = REPORT_TARGET_ROLES[report.targetRole] || { label: report.targetRole, icon: '�', color: 'var(--paper)' };
                       const sevMeta = REPORT_SEVERITIES.find(s => s.id === report.severity) || REPORT_SEVERITIES[1];
                       const statMeta = REPORT_STATUSES.find(s => s.id === report.status) || REPORT_STATUSES[0];
 
@@ -5856,7 +5848,7 @@ export default function OwnerPage() {
                           {/* Thông tin sự việc */}
                           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', fontSize: '12px', color: 'var(--paper-dim)' }}>
                             <span>Mã khiếu nại: <b style={{ color: 'var(--brass)', fontFamily: 'monospace' }}>#{report.id}</b> · Gửi lúc {report.createdAt}</span>
-                            <span>Chiến mã liên quan: <b style={{ color: 'var(--paper)' }}>🏇 {report.horseName}</b> ({report.stall})</span>
+                            <span>Chiến mã liên quan: <b style={{ color: 'var(--paper)' }}> {report.horseName}</b> ({report.stall})</span>
                             <span>Danh mục: <b style={{ color: 'var(--paper)' }}>{report.category}</b></span>
                           </div>
 
@@ -5902,7 +5894,7 @@ export default function OwnerPage() {
                                 wordBreak: 'break-word',
                                 overflowWrap: 'anywhere'
                               }}>
-                                📎 Bằng chứng / Ghi chú đính kèm: {report.evidenceNote}
+                                � Bằng chứng / Ghi chú đính kèm: {report.evidenceNote}
                               </div>
                             )}
                           </div>
@@ -5920,7 +5912,7 @@ export default function OwnerPage() {
                             }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                 <span style={{ fontSize: '12px', fontWeight: 800, color: '#10B981', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                  <span>✓</span>
+                                  <span></span>
                                   <span>KẾT LUẬN & BIỆN PHÁP XỬ LÝ TỪ BAN QUẢN TRỊ (ADMIN)</span>
                                 </span>
                                 {report.resolvedAt && (
@@ -5950,7 +5942,7 @@ export default function OwnerPage() {
                               alignItems: 'center',
                               gap: '8px'
                             }}>
-                              <span>🔍</span>
+                              <span></span>
                               <span>
                                 <b>Admin đang tiến hành thẩm tra:</b> Đã lập hồ sơ xác minh và yêu cầu nhân sự {report.targetName} báo cáo giải trình. Kết quả xử lý sẽ sớm được thông báo tới bạn.
                               </span>
@@ -5967,7 +5959,7 @@ export default function OwnerPage() {
                               alignItems: 'center',
                               gap: '8px'
                             }}>
-                              <span>⏳</span>
+                              <span></span>
                               <span>
                                 <b>Đang chờ Admin tiếp nhận:</b> Hồ sơ khiếu nại đã chuyển trực tiếp tới Ban Quản Trị mã trường để đối soát.
                               </span>
@@ -6014,9 +6006,7 @@ export default function OwnerPage() {
                 type="button"
                 onClick={() => setShowAddHorseModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
-              >
-                ✕
-              </button>
+              >&times;</button>
             </div>
 
             <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 16px', lineHeight: 1.4 }}>
@@ -6278,13 +6268,13 @@ export default function OwnerPage() {
                 gap: '10px'
               }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  🛡️ Chỉ Định Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
+                  Chỉ Định Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
                 </div>
 
                 <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'flex-start' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span>🏇</span> Huấn Luyện Viên
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Huấn Luyện Viên
                     </label>
                     <select
                       value={horseForm.trainer}
@@ -6311,8 +6301,8 @@ export default function OwnerPage() {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span>🩺</span> Bác Sĩ Thú Y
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Bác Sĩ Thú Y
                     </label>
                     <select
                       value={horseForm.vet}
@@ -6339,8 +6329,8 @@ export default function OwnerPage() {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span>🌾</span> Người Chăm Sóc
+                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Người Chăm Sóc
                     </label>
                     <select
                       value={horseForm.groom}
@@ -6391,37 +6381,37 @@ export default function OwnerPage() {
                   >
                     {membershipTier === 'PREMIUM' ? (
                       <>
-                        <optgroup label="── 👑 KHU CHUỒNG VIP ĐẶC QUYỀN (DÀNH CHO VIP) ──">
+                        <optgroup label="── KHU CHUỒNG VIP ĐẶC QUYỀN (DÀNH CHO VIP) ──">
                           {availableVipStables.length > 0 ? (
                             availableVipStables.map(s => {
                               const name = getStallDisplayName(s);
                               return (
                                 <option key={s.stall_code} value={name}>
-                                  👑 {name}
+                                  {name}
                                 </option>
                               );
                             })
                           ) : (
-                            <option value="Ô A1 (Block A - 18 m²)">👑 Ô A1 (Block A - 18 m²)</option>
+                            <option value="Ô A1 (Block A - 18 m²)">Ô A1 (Block A - 18 m²)</option>
                           )}
                         </optgroup>
-                        <optgroup label="── 🏷️ KHU CHUỒNG TIÊU CHUẨN ──">
+                        <optgroup label="── KHU CHUỒNG TIÊU CHUẨN ──">
                           {availableStandardStables.length > 0 ? (
                             availableStandardStables.map(s => {
                               const name = getStallDisplayName(s);
                               return (
                                 <option key={s.stall_code} value={name}>
-                                  🏷️ {name}
+                                  {name}
                                 </option>
                               );
                             })
                           ) : (
-                            <option value="Ô C1 (Block C - 14 m²)">🏷️ Ô C1 (Block C - 14 m²)</option>
+                            <option value="Ô C1 (Block C - 14 m²)">Ô C1 (Block C - 14 m²)</option>
                           )}
                         </optgroup>
                       </>
                     ) : (
-                      <optgroup label="── 🏷️ KHU CHUỒNG TIÊU CHUẨN (GÓI CƠ BẢN) ──">
+                      <optgroup label="── KHU CHUỒNG TIÊU CHUẨN (GÓI CƠ BẢN) ──">
                         {availableStandardStables.length > 0 ? (
                           availableStandardStables.map(s => {
                             const name = getStallDisplayName(s);
@@ -6443,11 +6433,11 @@ export default function OwnerPage() {
                   </select>
                   {membershipTier !== 'PREMIUM' ? (
                     <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px', lineHeight: 1.3 }}>
-                      ℹ️ Gói tiêu chuẩn: Bạn đang xem danh sách các ô chuồng thông thường. Để mở khóa chuồng VIP tiện nghi cao cấp, vui lòng nâng cấp gói VIP.
+                      Gói tiêu chuẩn: Bạn đang xem danh sách các ô chuồng thông thường. Để mở khóa chuồng VIP tiện nghi cao cấp, vui lòng nâng cấp gói VIP.
                     </div>
                   ) : (
                     <div style={{ fontSize: '11px', color: 'var(--brass)', marginTop: '4px', lineHeight: 1.3 }}>
-                      👑 Đặc quyền VIP: Bạn có quyền lựa chọn các ô chuồng VIP đặc quyền hoặc chuồng tiêu chuẩn tùy thích.
+                      Đặc quyền VIP: Bạn có quyền lựa chọn các ô chuồng VIP đặc quyền hoặc chuồng tiêu chuẩn tùy thích.
                     </div>
                   )}
                 </div>
@@ -6535,6 +6525,207 @@ export default function OwnerPage() {
       )}
 
       {/* ========================================================================= */}
+      {/* MODAL: YÊU CẦU ĐỔI Ô CHUỒNG CHO CHIẾN MÃ (CHANGE STALL MODAL) */}
+      {/* ========================================================================= */}
+      {showChangeStallModal && changeStallHorse && (
+        <div className="modal-overlay" onClick={() => setShowChangeStallModal(false)}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              maxWidth: '520px',
+              width: '92%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              borderRadius: '12px',
+              border: '1px solid var(--line-strong)',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}></span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--brass)' }}>
+                    Yêu Cầu Thay Đổi Ô Chuồng
+                  </h3>
+                  <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                    Chỉ cho phép chuyển sang các ô chuồng còn trống do Ban Quản Trị phê duyệt
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowChangeStallModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+              >&times;</button>
+            </div>
+
+            {/* Thông tin chiến mã hiện tại */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--line)',
+              borderRadius: '8px',
+              padding: '12px 14px',
+              marginBottom: '16px',
+              display: 'flex',
+              gap: '12px',
+              alignItems: 'center'
+            }}>
+              <img
+                src={changeStallHorse.avatar || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'}
+                alt={changeStallHorse.name}
+                style={{ width: '56px', height: '56px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--line)' }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <b style={{ color: 'var(--brass)', fontSize: '15px' }}>{changeStallHorse.name}</b>
+                  <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>{changeStallHorse.microchip}</span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                  {changeStallHorse.breed}
+                </div>
+                <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                  <span style={{ color: 'var(--paper-dim)' }}>Vị trí hiện tại: </span>
+                  <b style={{ color: 'var(--paper)' }}>{changeStallHorse.stable || '(Chưa phân bổ)'}</b>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmitChangeStall}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--paper)', marginBottom: '6px' }}>
+                  Chọn Ô Chuồng Trống Mới Cần Đổi Đến: <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <select
+                  value={changeStallTarget}
+                  onChange={(e) => setChangeStallTarget(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper)',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                  required
+                >
+                  {membershipTier === 'PREMIUM' ? (
+                    <>
+                      <optgroup label="── KHU CHUỒNG VIP (PREMIUM) ──">
+                        {availableVipStables
+                          .filter(s => {
+                            const curMatch = String(changeStallHorse.stable || '').match(/[A-Z0-9]+/i);
+                            const curCode = curMatch ? curMatch[0].toUpperCase() : '';
+                            return s.stall_code.toUpperCase() !== curCode;
+                          })
+                          .map(s => {
+                            const name = getStallDisplayName(s);
+                            return <option key={s.stall_code} value={name}> {name}</option>;
+                          })}
+                      </optgroup>
+                      <optgroup label="── KHU CHUỒNG TIÊU CHUẨN ──">
+                        {availableStandardStables
+                          .filter(s => {
+                            const curMatch = String(changeStallHorse.stable || '').match(/[A-Z0-9]+/i);
+                            const curCode = curMatch ? curMatch[0].toUpperCase() : '';
+                            return s.stall_code.toUpperCase() !== curCode;
+                          })
+                          .map(s => {
+                            const name = getStallDisplayName(s);
+                            return <option key={s.stall_code} value={name}> {name}</option>;
+                          })}
+                      </optgroup>
+                    </>
+                  ) : (
+                    <optgroup label="── KHU CHUỒNG TIÊU CHUẨN ──">
+                      {availableStandardStables
+                        .filter(s => {
+                          const curMatch = String(changeStallHorse.stable || '').match(/[A-Z0-9]+/i);
+                          const curCode = curMatch ? curMatch[0].toUpperCase() : '';
+                          return s.stall_code.toUpperCase() !== curCode;
+                        })
+                        .map(s => {
+                          const name = getStallDisplayName(s);
+                          return <option key={s.stall_code} value={name}>{name}</option>;
+                        })}
+                    </optgroup>
+                  )}
+                </select>
+                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '6px', lineHeight: 1.4 }}>
+                   <b>Nguyên tắc độc quyền:</b> Danh sách trên chỉ hiển thị các ô chuồng còn trống. Các ô chuồng do chủ sở hữu khác chiếm trước sẽ không được vào cho đến khi chủ sở hữu đó nhả chuồng.
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--paper)', marginBottom: '6px' }}>
+                  Lý Do Đổi Chuồng (Tùy chọn):
+                </label>
+                <textarea
+                  value={changeStallReason}
+                  onChange={(e) => setChangeStallReason(e.target.value)}
+                  placeholder="Ví dụ: Cần chuồng thông thoáng hơn, chuyển sang gần khu huấn luyện, nâng cấp không gian..."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper)',
+                    borderRadius: '6px',
+                    fontSize: '12.5px',
+                    boxSizing: 'border-box',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowChangeStallModal(false)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: 'transparent',
+                    color: 'var(--paper-dim)',
+                    border: '1px solid var(--line)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingStallChange || !changeStallTarget}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '6px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    fontWeight: 700,
+                    border: 'none',
+                    fontSize: '13px',
+                    cursor: isSubmittingStallChange || !changeStallTarget ? 'not-allowed' : 'pointer',
+                    opacity: isSubmittingStallChange || !changeStallTarget ? 0.6 : 1
+                  }}
+                >
+                  {isSubmittingStallChange ? 'Đang Gửi Yêu Cầu...' : 'Gửi Yêu Cầu Tới Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* MODAL: CHỈNH SỬA THÔNG TIN CHIẾN MÃ (EDIT HORSE MODAL) */}
       {/* ========================================================================= */}
       {showEditHorseModal && editingHorse && (
@@ -6564,9 +6755,7 @@ export default function OwnerPage() {
                 type="button"
                 onClick={() => setShowEditHorseModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
-              >
-                ✕
-              </button>
+              >&times;</button>
             </div>
 
             <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 16px', lineHeight: 1.4 }}>
@@ -6829,13 +7018,13 @@ export default function OwnerPage() {
                 gap: '10px'
               }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  🛡️ Thay Đổi Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
+                   Thay Đổi Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
                 </div>
 
                 <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'flex-start' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span>🏇</span> Huấn Luyện Viên
+                      <span></span> Huấn Luyện Viên
                     </label>
                     <select
                       value={editHorseForm.trainer}
@@ -6863,7 +7052,7 @@ export default function OwnerPage() {
 
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span>🩺</span> Bác Sĩ Thú Y
+                      <span></span> Bác Sĩ Thú Y
                     </label>
                     <select
                       value={editHorseForm.vet}
@@ -6891,7 +7080,7 @@ export default function OwnerPage() {
 
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span>🌾</span> Người Chăm Sóc
+                      <span></span> Người Chăm Sóc
                     </label>
                     <select
                       value={editHorseForm.groom}
@@ -6939,37 +7128,37 @@ export default function OwnerPage() {
                 >
                   {membershipTier === 'PREMIUM' ? (
                     <>
-                      <optgroup label="── 👑 KHU CHUỒNG VIP ĐẶC QUYỀN ──">
+                      <optgroup label="── KHU CHUỒNG VIP (PREMIUM) ──">
                         {availableVipStables.length > 0 ? (
                           availableVipStables.map(s => {
                             const val = `Ô ${s.stall_code}`;
                             return (
                               <option key={s.stall_code} value={val}>
-                                👑 Ô {s.stall_code} ({s.block}{s.area ? ` - ${s.area}` : ''})
+                                Ô {s.stall_code} ({s.block}{s.area ? ` - ${s.area}` : ''})
                               </option>
                             );
                           })
                         ) : (
-                          <option value="Ô A1">👑 Ô A1 (Block A - VIP)</option>
+                          <option value="Ô A1">Ô A1 (Block A - VIP)</option>
                         )}
                       </optgroup>
-                      <optgroup label="── 🏷️ KHU CHUỒNG TIÊU CHUẨN ──">
+                      <optgroup label="── KHU CHUỒNG TIÊU CHUẨN ──">
                         {availableStandardStables.length > 0 ? (
                           availableStandardStables.map(s => {
                             const val = `Ô ${s.stall_code}`;
                             return (
                               <option key={s.stall_code} value={val}>
-                                🏷️ Ô {s.stall_code} ({s.block}{s.area ? ` - ${s.area}` : ''})
+                                Ô {s.stall_code} ({s.block}{s.area ? ` - ${s.area}` : ''})
                               </option>
                             );
                           })
                         ) : (
-                          <option value="Ô C1">🏷️ Ô C1 (Block C)</option>
+                          <option value="Ô C1">Ô C1 (Block C)</option>
                         )}
                       </optgroup>
                     </>
                   ) : (
-                    <optgroup label="── 🏷️ KHU CHUỒNG TIÊU CHUẨN (GÓI CƠ BẢN) ──">
+                    <optgroup label="── KHU CHUỒNG TIÊU CHUẨN ──">
                       {availableStandardStables.length > 0 ? (
                         availableStandardStables.map(s => {
                           const val = `Ô ${s.stall_code}`;
@@ -7100,7 +7289,7 @@ export default function OwnerPage() {
                 fontSize: '18px',
                 flexShrink: 0
               }}>
-                ⚠️
+                ⚠
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: '#EF4444' }}>
@@ -7171,7 +7360,7 @@ export default function OwnerPage() {
               />
               <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '6px' }}>
                 {deleteVerificationInput.trim().toLowerCase() === deletingHorse.name.trim().toLowerCase()
-                  ? <span style={{ color: '#10B981', fontWeight: 600 }}>✓ Đã xác minh trùng khớp. Bạn có thể tiến hành xóa.</span>
+                  ? <span style={{ color: '#10B981', fontWeight: 600 }}>Đã xác minh trùng khớp. Bạn có thể tiến hành xóa.</span>
                   : <span>*(Nút xác nhận xóa sẽ được kích hoạt khi tên nhập hoàn toàn chính xác)*</span>
                 }
               </div>
@@ -7211,7 +7400,7 @@ export default function OwnerPage() {
                   transition: 'all 0.2s ease'
                 }}
               >
-                🗑️ Xác Nhận Xóa Vĩnh Viễn
+                 Xác Nhận Xóa Vĩnh Viễn
               </button>
             </div>
           </div>
@@ -7246,9 +7435,7 @@ export default function OwnerPage() {
                 type="button"
                 onClick={() => setShowRaceRegisterModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
-              >
-                ✕
-              </button>
+              >&times;</button>
             </div>
 
             {myHorses.length === 0 ? (
@@ -7330,7 +7517,7 @@ export default function OwnerPage() {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🏇</span> Chủ ngựa tự chọn
+                        <span></span> Chủ ngựa tự chọn
                       </div>
                       <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', marginTop: '2px', fontWeight: 400 }}>
                         Chỉ định 1 chiến mã cụ thể
@@ -7353,7 +7540,7 @@ export default function OwnerPage() {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🎯</span> Nhờ HLV chọn giúp
+                        <span></span> Nhờ HLV chọn giúp
                       </div>
                       <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', marginTop: '2px', fontWeight: 400 }}>
                         HLV chọn ngựa phong độ tốt nhất
@@ -7371,7 +7558,7 @@ export default function OwnerPage() {
                     marginBottom: '4px'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--brass)', fontWeight: 700, fontSize: '13px' }}>
-                      <span>🎯</span> Chế độ ủy thác chuyên môn cho HLV Trưởng
+                      <span></span> Chế độ ủy thác chuyên môn cho HLV Trưởng
                     </div>
                     <p style={{ fontSize: '12px', color: 'var(--paper-dim)', margin: '4px 0 8px', lineHeight: 1.45 }}>
                       HLV Trưởng sẽ dựa vào cự ly <b>{selectedTournamentToRegister?.distance || '2.400m'}</b>, mặt sân <b>{selectedTournamentToRegister?.track || 'Trường đua Phú Thọ'}</b> và viễn trắc nhịp tim/vận tốc tập luyện của tất cả <b>{myHorses.length} chiến mã</b> của bạn để chọn chiến mã tối ưu nhất.
@@ -7405,7 +7592,7 @@ export default function OwnerPage() {
                         const isLocked = lCheck.isLocked || h.isLockedByVet;
                         return (
                           <option key={h.id} value={h.id}>
-                            {h.name} ({h.breed}) {isLocked ? '⛔ [KHÓA Y TẾ - CẤM ĐUA]' : '✓ [Đủ điều kiện]'}
+                            {h.name} ({h.breed}) {isLocked ? '[KHÓA Y TẾ - CẤM ĐUA]' : '[Đủ điều kiện]'}
                           </option>
                         );
                       })}
@@ -7429,7 +7616,7 @@ export default function OwnerPage() {
                             lineHeight: 1.45
                           }}>
                             <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>⛔</span> CHIẾN MÃ ĐANG BỊ KHÓA Y TẾ THÚ Y (CẤM THI ĐẤU)!
+                              <span></span> CHIẾN MÃ ĐANG BỊ KHÓA Y TẾ THÚ Y (CẤM THI ĐẤU)!
                             </div>
                             <div><b>Lý do:</b> {lockCheck.reason || 'Dấu hiệu chấn thương hoặc kiểm dịch'}</div>
                             <div style={{ marginTop: '2px', color: 'var(--paper)' }}>
@@ -7540,7 +7727,7 @@ export default function OwnerPage() {
                           cursor: isLocked ? 'not-allowed' : 'pointer'
                         }}
                       >
-                        {isLocked ? '⛔ Đang Khóa Y Tế (Cấm Thi Đấu)' : 'Xác Nhận Ghi Danh Thi Đấu'}
+                        {isLocked ? ' Đang Khóa Y Tế (Cấm Thi Đấu)' : 'Xác Nhận Ghi Danh Thi Đấu'}
                       </button>
                     );
                   })()}
@@ -7576,9 +7763,7 @@ export default function OwnerPage() {
                 type="button"
                 onClick={() => setSelectedStatementModal(null)}
                 style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '18px', cursor: 'pointer', lineHeight: 1 }}
-              >
-                ✕
-              </button>
+              >&times;</button>
             </div>
 
             <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 14px' }}>
@@ -7636,7 +7821,7 @@ export default function OwnerPage() {
                   alignItems: 'center',
                   gap: '8px'
                 }}>
-                  <span>💡 Gói 0 Đồng trích 18% hoa hồng và 0% chiết khấu chuồng. Nâng cấp VIP để giữ 94% thưởng và giảm 15% phí nuôi!</span>
+                  <span>� Gói 0 Đồng trích 18% hoa hồng và 0% chiết khấu chuồng. Nâng cấp VIP để giữ 94% thưởng và giảm 15% phí nuôi!</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -7659,7 +7844,7 @@ export default function OwnerPage() {
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    {hasVipSubscription ? '👑 Khôi phục VIP' : 'Nâng cấp VIP'}
+                    {hasVipSubscription ? 'Khôi phục VIP' : 'Nâng cấp VIP'}
                   </button>
                 </div>
               )}
@@ -7714,7 +7899,7 @@ export default function OwnerPage() {
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', gap: '14px', flexWrap: 'wrap' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '22px' }}>🧬</span>
+                  <span style={{ fontSize: '22px' }}>�</span>
                   <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--brass)' }}>
                     Cây Phả Hệ Gia Phả 3 Đời: {selectedHorsePedigree.name}
                   </h3>
@@ -7745,7 +7930,7 @@ export default function OwnerPage() {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <span>🌳</span> Sơ đồ cây phả hệ
+                    <span>�</span> Sơ đồ cây phả hệ
                   </button>
                   <button
                     type="button"
@@ -7765,7 +7950,7 @@ export default function OwnerPage() {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <span>✏️</span> Tự cập nhật phả hệ
+                    <span>✏</span> Tự cập nhật phả hệ
                   </button>
                 </div>
 
@@ -7787,9 +7972,7 @@ export default function OwnerPage() {
                     lineHeight: 1
                   }}
                   title="Đóng modal"
-                >
-                  ✕
-                </button>
+                >&times;</button>
               </div>
             </div>
 
@@ -7799,7 +7982,7 @@ export default function OwnerPage() {
             {pedigreeMode === 'view' && (
               <div>
                 <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>↔️</span>
+                  <span>↔</span>
                   <span>Vuốt sang ngang để xem đầy đủ 3 thế hệ (Phụ hệ Sire, Mẫu hệ Dam & Ông Bà).</span>
                 </div>
                 <div style={{
@@ -7883,7 +8066,7 @@ export default function OwnerPage() {
                         </div>
                         {selectedHorsePedigree.pedigree?.sireAchievements && (
                           <div style={{ fontSize: '11px', color: '#93C5FD', marginTop: '4px', lineHeight: 1.3 }}>
-                            🏆 {selectedHorsePedigree.pedigree.sireAchievements}
+                            � {selectedHorsePedigree.pedigree.sireAchievements}
                           </div>
                         )}
                       </div>
@@ -7907,7 +8090,7 @@ export default function OwnerPage() {
                         </div>
                         {selectedHorsePedigree.pedigree?.damAchievements && (
                           <div style={{ fontSize: '11px', color: '#FDA4AF', marginTop: '4px', lineHeight: 1.3 }}>
-                            🌸 {selectedHorsePedigree.pedigree.damAchievements}
+                            � {selectedHorsePedigree.pedigree.damAchievements}
                           </div>
                         )}
                       </div>
@@ -8046,7 +8229,7 @@ export default function OwnerPage() {
                       boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)'
                     }}
                   >
-                    <span>✏️</span> Tự Cập Nhật Phả Hệ Cho Ngựa Này
+                    <span>✏</span> Tự Cập Nhật Phả Hệ Cho Ngựa Này
                   </button>
 
                   <button
@@ -8084,7 +8267,7 @@ export default function OwnerPage() {
                   color: 'var(--brass)',
                   lineHeight: 1.45
                 }}>
-                  💡 <b>Quyền chủ sở hữu:</b> Bạn có thể tự do nhập thông tin dòng dõi 3 thế hệ (Dòng Bố, Dòng Mẹ, Ông Bà Nội Ngoại, Sổ Phả Hệ và Thành tích). Sau khi lưu, hệ thống sẽ tự động cập nhật và vẽ lại cây phả hệ gia phả cho chiến mã.
+                  � <b>Quyền chủ sở hữu:</b> Bạn có thể tự do nhập thông tin dòng dõi 3 thế hệ (Dòng Bố, Dòng Mẹ, Ông Bà Nội Ngoại, Sổ Phả Hệ và Thành tích). Sau khi lưu, hệ thống sẽ tự động cập nhật và vẽ lại cây phả hệ gia phả cho chiến mã.
                 </div>
 
                 {/* KHỐI 1: THÔNG TIN KHAI SINH & SỔ PHẢ HỆ */}
@@ -8303,7 +8486,7 @@ export default function OwnerPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    ✕ Hủy / Xem Cây Phả Hệ
+                    Hủy / Xem Cây Phả Hệ
                   </button>
 
                   <button
@@ -8320,7 +8503,7 @@ export default function OwnerPage() {
                       boxShadow: '0 2px 10px rgba(212, 175, 55, 0.3)'
                     }}
                   >
-                    💾 Lưu Cập Nhật Phả Hệ
+                    � Lưu Cập Nhật Phả Hệ
                   </button>
                 </div>
               </form>
@@ -8358,9 +8541,7 @@ export default function OwnerPage() {
                 type="button"
                 onClick={() => setShowMembershipModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
-              >
-                ✕
-              </button>
+              >&times;</button>
             </div>
 
             <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 16px', lineHeight: 1.45 }}>
@@ -8503,7 +8684,7 @@ export default function OwnerPage() {
 
                 <div>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--brass)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>👑</span> Horse Premium
+                    <span>[VIP]</span> Horse Premium
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '12px' }}>
                     Đặc quyền cao cấp & tối ưu thưởng
@@ -8524,14 +8705,14 @@ export default function OwnerPage() {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', color: 'var(--paper)', borderTop: '1px solid var(--line)', paddingTop: '12px' }}>
-                    <div>✓ <b style={{ color: 'var(--brass)' }}>Không giới hạn số lượng chiến mã</b></div>
-                    <div>✓ Chuồng VIP Block A/B đệm rơm khử khuẩn</div>
-                    <div>✓ <b>Viễn trắc IoT Real-time từng mét bứt tốc</b></div>
-                    <div>✓ Chỉ định HLV Trưởng & giáo án 1-kèm-1</div>
-                    <div>✓ <b style={{ color: 'var(--brass)' }}>Hoa hồng thưởng chỉ 5% (Chủ nhận 95%)</b></div>
-                    <div>✓ <b>Giảm 15% tổng chi phí lưu chuồng</b></div>
-                    <div>✓ Bác sĩ thú y trưởng trực tiếp hội chẩn</div>
-                    <div>✓ Thẻ VIP Lounge & Vào khu cách ly Paddock</div>
+                    <div><b style={{ color: 'var(--brass)' }}>Không giới hạn số lượng chiến mã</b></div>
+                    <div>Chuồng VIP Block A/B đệm rơm khử khuẩn</div>
+                    <div><b>Viễn trắc IoT Real-time từng mét bứt tốc</b></div>
+                    <div>Chỉ định HLV Trưởng & giáo án 1-kèm-1</div>
+                    <div><b style={{ color: 'var(--brass)' }}>Hoa hồng thưởng chỉ 5% (Chủ nhận 95%)</b></div>
+                    <div><b>Giảm 15% tổng chi phí lưu chuồng</b></div>
+                    <div>Bác sĩ thú y trưởng trực tiếp hội chẩn</div>
+                    <div>Thẻ VIP Lounge & Vào khu cách ly Paddock</div>
                   </div>
                 </div>
 
@@ -8553,10 +8734,10 @@ export default function OwnerPage() {
                     }}
                   >
                     {membershipTier === 'PREMIUM'
-                      ? 'Đặc Quyền VIP Đang Kích Hoạt ✓'
+                      ? 'Đặc Quyền VIP Đang Kích Hoạt'
                       : hasVipSubscription
-                        ? '👑 Khôi Phục Đặc Quyền VIP (Đã Sở Hữu)'
-                        : '⚡ Kích Hoạt Gói Premium Ngay'}
+                        ? 'Khôi Phục Đặc Quyền VIP (Đã Sở Hữu)'
+                        : ' Kích Hoạt Gói Premium Ngay'}
                   </button>
                   {hasVipSubscription && membershipTier === 'FREE' && (
                     <div style={{ fontSize: '11px', color: 'var(--brass)', textAlign: 'center', marginTop: '6px' }}>
@@ -8633,7 +8814,7 @@ export default function OwnerPage() {
             {/* Header */}
             <div style={{ textAlign: 'center', borderBottom: '1px dashed var(--line-strong)', paddingBottom: '16px', marginBottom: '16px' }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(232, 107, 44, 0.12)', border: '1px solid var(--brass)', color: 'var(--brass)', padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em', marginBottom: '8px' }}>
-                📜 BƯỚC XÁC THỰC PHÁP LÝ & KÝ SỐ
+                � BƯỚC XÁC THỰC PHÁP LÝ & KÝ SỐ
               </div>
               <h3 style={{ margin: '0 0 6px', fontSize: '19px', fontWeight: 800, color: 'var(--paper)' }}>
                 ĐIỀU LỆ MUA HÀNG & THỎA THUẬN DỊCH VỤ VIP
@@ -8732,7 +8913,7 @@ export default function OwnerPage() {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <b style={{ fontSize: '13px', color: 'var(--paper)' }}>
-                  ✍️ Chữ ký điện tử của Bên Mua / Chủ sở hữu:
+                  ✍ Chữ ký điện tử của Bên Mua / Chủ sở hữu:
                 </b>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <button
@@ -8831,7 +9012,7 @@ export default function OwnerPage() {
                         padding: '2px 6px'
                       }}
                     >
-                      🔄 Xóa ký lại
+                      Xóa ký lại
                     </button>
                   </div>
                 </div>
@@ -8910,7 +9091,7 @@ export default function OwnerPage() {
                   gap: '6px'
                 }}
               >
-                ✍️ Xác Nhận Ký Tên & Xuất Hóa Đơn Chi Tiết →
+                ✍ Xác Nhận Ký Tên & Xuất Hóa Đơn Chi Tiết →
               </button>
             </div>
           </div>
@@ -8972,7 +9153,7 @@ export default function OwnerPage() {
             {/* Tiêu đề Hóa Đơn & Con dấu trạng thái */}
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10B981', color: '#10B981', padding: '3px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em', marginBottom: '6px' }}>
-                ✓ ĐÃ THANH TOÁN THÀNH CÔNG (PAID)
+                ĐÃ THANH TOÁN THÀNH CÔNG (PAID)
               </div>
               <h2 style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 900, color: 'var(--paper)', letterSpacing: '0.04em' }}>
                 HÓA ĐƠN GIÁ TRỊ GIA TĂNG (ĐIỆN TỬ)
@@ -9111,7 +9292,7 @@ export default function OwnerPage() {
                     </div>
                   )}
                   <span style={{ fontSize: '10px', color: '#10B981', fontWeight: 600, marginTop: '2px' }}>
-                    ✓ Ký điện tử: {selectedPaymentReceiptModal.signedAt || selectedPaymentReceiptModal.paidAt}
+                    Ký điện tử: {selectedPaymentReceiptModal.signedAt || selectedPaymentReceiptModal.paidAt}
                   </span>
                 </div>
 
@@ -9192,7 +9373,7 @@ export default function OwnerPage() {
               flexWrap: 'wrap',
               gap: '6px'
             }}>
-              <div>🛡️ Tra cứu hóa đơn điện tử tại: <b style={{ color: 'var(--brass)' }}>https://tracuu.matruong.vn</b></div>
+              <div>Tra cứu hóa đơn điện tử tại: <b style={{ color: 'var(--brass)' }}>https://tracuu.matruong.vn</b></div>
               <div>Mã bảo mật tra cứu: <b style={{ color: 'var(--paper)', fontFamily: 'monospace' }}>{selectedPaymentReceiptModal.transactionId}</b></div>
             </div>
 
@@ -9234,7 +9415,7 @@ export default function OwnerPage() {
                   boxShadow: '0 2px 10px rgba(232, 107, 44, 0.35)'
                 }}
               >
-                🖨️ In Hóa Đơn / Xuất PDF (Có Chữ Ký & Mộc Đỏ)
+                � In Hóa Đơn / Xuất PDF (Có Chữ Ký & Mộc Đỏ)
               </button>
             </div>
           </div>
@@ -9272,7 +9453,7 @@ export default function OwnerPage() {
               margin: '0 auto 14px',
               fontSize: '26px'
             }}>
-              👑
+              
             </div>
 
             <span style={{
@@ -9327,7 +9508,7 @@ export default function OwnerPage() {
                   cursor: 'pointer'
                 }}
               >
-                ✕ Để sau
+                Để sau
               </button>
 
               <button
@@ -9355,8 +9536,8 @@ export default function OwnerPage() {
                 }}
               >
                 {hasVipSubscription
-                  ? '👑 Khôi Phục Đặc Quyền VIP (Miễn Phí)'
-                  : (upgradePromptModal.actionText || '⚡ Nâng Cấp Gói VIP Ngay')}
+                  ? 'Khôi Phục Đặc Quyền VIP (Miễn Phí)'
+                  : (upgradePromptModal.actionText || ' Nâng Cấp Gói VIP Ngay')}
               </button>
             </div>
           </div>
@@ -9395,7 +9576,7 @@ export default function OwnerPage() {
                   textTransform: 'uppercase',
                   letterSpacing: '0.06em'
                 }}>
-                  🛡️ ĐỘI NGŨ CHUYÊN TRÁCH CỐ ĐỊNH
+                  ĐỘI NGŨ CHUYÊN TRÁCH CỐ ĐỊNH
                 </span>
                 <h3 style={{ margin: '4px 0 0', fontSize: '18px', color: 'var(--paper)' }}>
                   Chỉ Định Đội Ngũ: <span style={{ color: 'var(--brass)' }}>{teamModalHorse.name}</span>
@@ -9412,9 +9593,7 @@ export default function OwnerPage() {
                   cursor: 'pointer',
                   padding: '4px'
                 }}
-              >
-                ✕
-              </button>
+              >&times;</button>
             </div>
 
             <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 18px', lineHeight: 1.5 }}>
@@ -9425,7 +9604,7 @@ export default function OwnerPage() {
               {/* 1. Chọn HLV */}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  <span>🏇</span> Huấn Luyện Viên Phụ Trách (1 trong 3 HLV chính):
+                  <span></span> Huấn Luyện Viên Phụ Trách (1 trong 3 HLV chính):
                 </label>
                 <select
                   value={selectedTeamStaff.trainerUsername}
@@ -9452,7 +9631,7 @@ export default function OwnerPage() {
               {/* 2. Chọn Bác sĩ Thú y */}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#34D399', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  <span>🩺</span> Bác Sĩ Thú Y Phụ Trách (1 trong 3 Bác sĩ chính):
+                  <span></span> Bác Sĩ Thú Y Phụ Trách (1 trong 3 Bác sĩ chính):
                 </label>
                 <select
                   value={selectedTeamStaff.vetUsername}
@@ -9479,7 +9658,7 @@ export default function OwnerPage() {
               {/* 3. Chọn Groom */}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#C084FC', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  <span>🌾</span> Chuyên Viên Chăm Sóc (1 trong 3 Groom chính):
+                  <span></span> Chuyên Viên Chăm Sóc (1 trong 3 Groom chính):
                 </label>
                 <select
                   value={selectedTeamStaff.groomUsername}
@@ -9518,7 +9697,7 @@ export default function OwnerPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  ✕ Hủy bỏ
+                  Hủy bỏ
                 </button>
 
                 <button
@@ -9535,7 +9714,7 @@ export default function OwnerPage() {
                   }}
                   title="Gửi yêu cầu phục vụ đến từng nhân sự và để ở trạng thái Chờ xác nhận"
                 >
-                  ⏳ Lưu & Chờ Xác Nhận
+                  Lưu & Chờ Xác Nhận
                 </button>
 
                 <button
@@ -9554,7 +9733,7 @@ export default function OwnerPage() {
                   }}
                   title="Lưu đội ngũ và lập tức đánh dấu Đã xác nhận cho cả 3 vai trò (HLV, BS, Groom)"
                 >
-                  ✓ Xác Nhận Đủ 3 Vai Trò
+                  Xác Nhận Đủ 3 Vai Trò
                 </button>
               </div>
             </form>
@@ -9567,7 +9746,7 @@ export default function OwnerPage() {
           <div className="modal-card" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">Đặt Lịch Tập Luyện Chung Cùng Huấn Luyện Viên</h3>
-              <button className="modal-close" onClick={() => setShowJointBookingModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowJointBookingModal(false)}>&times;</button>
             </div>
             <form onSubmit={handleSubmitJointBooking}>
               <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -9587,7 +9766,7 @@ export default function OwnerPage() {
                       const isLocked = lockStatus.isLocked || h.isLockedByVet;
                       return (
                         <option key={h.id} value={h.id}>
-                          {h.name} ({h.stable || 'Ô A1'}) {isLocked ? '⛔ [ĐANG KHÓA Y TẾ - CẤM TẬP]' : '✓ [Đủ điều kiện]'}
+                          {h.name} ({h.stable || 'Ô A1'}) {isLocked ? '[ĐANG KHÓA Y TẾ - CẤM TẬP]' : '[Đủ điều kiện]'}
                         </option>
                       );
                     })}
@@ -9611,11 +9790,11 @@ export default function OwnerPage() {
                         lineHeight: 1.5
                       }}>
                         <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                          <span>⛔</span> CHIẾN MÃ ĐANG BỊ KHÓA Y TẾ BỞI BÁC SĨ THÚ Y!
+                          <span></span> CHIẾN MÃ ĐANG BỊ KHÓA Y TẾ BỞI BÁC SĨ THÚ Y!
                         </div>
                         <div><b>Lý do phong tỏa:</b> {lockStatus.reason || 'Dấu hiệu chấn thương hoặc kiểm dịch'}</div>
                         <div style={{ marginTop: '4px', fontSize: '11.5px', color: 'var(--paper)' }}>
-                          ⚠️ <b>Quy định bắt buộc:</b> Bạn phải chờ Bác sĩ Thú y kiểm tra sức khỏe và xác nhận dỡ bỏ lệnh khóa y tế tại Cổng Thú Y thì mới được phép cho tập luyện hoặc thi đấu.
+                          ⚠ <b>Quy định bắt buộc:</b> Bạn phải chờ Bác sĩ Thú y kiểm tra sức khỏe và xác nhận dỡ bỏ lệnh khóa y tế tại Cổng Thú Y thì mới được phép cho tập luyện hoặc thi đấu.
                         </div>
                       </div>
                     );
@@ -9636,7 +9815,7 @@ export default function OwnerPage() {
                   >
                     {FIXED_TRAINERS_LIST.map(t => (
                       <option key={t.username} value={t.username}>
-                        🏇 {t.name} ({t.title})
+                        {t.name} ({t.title})
                       </option>
                     ))}
                   </select>
@@ -9682,10 +9861,10 @@ export default function OwnerPage() {
                             }}
                           >
                             {isLunch
-                              ? '🍽️ 11:45 - 13:00 [NGHỈ TRƯA & BẢO DƯỠNG BÃI TẬP]'
+                              ? ' 11:45 - 13:00 [NGHỈ TRƯA & BẢO DƯỠNG BÃI TẬP]'
                               : isBooked
-                              ? `🔒 ${slot.label} [ĐÃ CÓ NGƯỜI ĐẶT TRƯỚC - BÔI ĐEN]`
-                              : `🟢 ${slot.label} (${slot.desc.split(' - ')[1] || slot.desc})`}
+                              ? `${slot.label} [ĐÃ CÓ NGƯỜI ĐẶT TRƯỚC]`
+                              : `${slot.label} (${slot.desc.split(' - ')[1] || slot.desc})`}
                           </option>
                         );
                       })}
@@ -9723,7 +9902,7 @@ export default function OwnerPage() {
                           gap: '3px'
                         }}
                       >
-                        🔄 Reset lịch 18h
+                        Reset lịch 18h
                       </button>
                       <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                         ⬛ Bôi đen = Đã đặt trước
@@ -9742,7 +9921,7 @@ export default function OwnerPage() {
                     borderRadius: '4px'
                   }}>
                     <span>⏰ Khung giờ hoạt động: <b>06:00 - 18:00</b></span>
-                    <span style={{ color: '#10B981', fontWeight: 600 }}>✓ Tới 18:00 tự động reset mở lịch trống mới</span>
+                    <span style={{ color: '#10B981', fontWeight: 600 }}>Tới 18:00 tự động reset mở lịch trống mới</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
                     {TRAINING_TIME_SLOTS.map(slot => {
@@ -9771,7 +9950,7 @@ export default function OwnerPage() {
                               opacity: 0.65
                             }}
                           >
-                            🍽️ 11:45-13:00 (Nghỉ trưa)
+                            11:45-13:00 (Nghỉ trưa)
                           </div>
                         );
                       }
@@ -9797,7 +9976,7 @@ export default function OwnerPage() {
                               boxShadow: 'inset 0 0 8px rgba(0,0,0,0.95)'
                             }}
                           >
-                            🔒 {slot.label.split(' - ')[0]}
+                            {slot.label.split(' - ')[0]}
                           </div>
                         );
                       }
@@ -9840,11 +10019,11 @@ export default function OwnerPage() {
                     onChange={(e) => setJointBookingForm({ ...jointBookingForm, goal: e.target.value })}
                     style={{ width: '100%', boxSizing: 'border-box' }}
                   >
-                    <option value="Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV">🔍 Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV</option>
-                    <option value="Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa">🏇 Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa</option>
-                    <option value="Kiểm tra phản xạ xuất phát máy & chạy vòng cua">⚡ Kiểm tra phản xạ xuất phát máy & chạy vòng cua</option>
-                    <option value="Thử sức cự ly dài 2.400m sân cỏ tự nhiên">🌿 Thử sức cự ly dài 2.400m sân cỏ tự nhiên</option>
-                    <option value="Luyện bứt tốc nước rút 400m cuối sân cát">💨 Luyện bứt tốc nước rút 400m cuối sân cát</option>
+                    <option value="Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV"> Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV</option>
+                    <option value="Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa"> Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa</option>
+                    <option value="Kiểm tra phản xạ xuất phát máy & chạy vòng cua"> Kiểm tra phản xạ xuất phát máy & chạy vòng cua</option>
+                    <option value="Thử sức cự ly dài 2.400m sân cỏ tự nhiên"> Thử sức cự ly dài 2.400m sân cỏ tự nhiên</option>
+                    <option value="Luyện bứt tốc nước rút 400m cuối sân cát"> Luyện bứt tốc nước rút 400m cuối sân cát</option>
                   </select>
                 </div>
 
@@ -9889,7 +10068,7 @@ export default function OwnerPage() {
                       }}
                       title={isLocked ? 'Chiến mã đang bị Khóa Y Tế - Không thể đặt lịch tập' : 'Gửi yêu cầu đặt lịch tập chung'}
                     >
-                      {isLocked ? '⛔ Đang Khóa Y Tế (Cấm Tập)' : '🤝 Gửi Yêu Cầu Đặt Lịch'}
+                      {isLocked ? 'Đang Khóa Y Tế (Cấm Tập)' : 'Gửi Yêu Cầu Đặt Lịch'}
                     </button>
                   );
                 })()}
@@ -9990,9 +10169,7 @@ export default function OwnerPage() {
                   e.currentTarget.style.color = '#94A3B8';
                   e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
                 }}
-              >
-                ✕
-              </button>
+              >&times;</button>
             </div>
 
             {/* Modal Body Form */}
@@ -10004,9 +10181,9 @@ export default function OwnerPage() {
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                   {[
-                    { role: 'TRAINER', label: 'Huấn Luyện Viên', subtitle: 'HLV Trưởng & Cự ly', icon: '🏇' },
-                    { role: 'VET', label: 'Bác Sĩ Thú Y', subtitle: 'Khám & Hồ sơ y tế', icon: '🩺' },
-                    { role: 'CARETAKER', label: 'Nhân Viên Chăm Sóc', subtitle: 'Chuồng trại & Khẩu phần', icon: '🌾' }
+                    { role: 'TRAINER', label: 'Huấn Luyện Viên', subtitle: 'HLV Trưởng & Cự ly', icon: '' },
+                    { role: 'VET', label: 'Bác Sĩ Thú Y', subtitle: 'Khám & Hồ sơ y tế', icon: '' },
+                    { role: 'CARETAKER', label: 'Nhân Viên Chăm Sóc', subtitle: 'Chuồng trại & Khẩu phần', icon: '' }
                   ].map(item => {
                     const isSelected = reportForm.targetRole === item.role;
                     return (
@@ -10108,7 +10285,7 @@ export default function OwnerPage() {
                       const stall = h.stallCode || h.stall || h.stable?.split('(')[0]?.trim() || 'Ô A1';
                       return (
                         <option key={h.id} value={h.id} style={{ background: '#141A29', color: '#FFFFFF' }}>
-                          🏇 {h.name} ({stall})
+                           {h.name} ({stall})
                         </option>
                       );
                     })}
@@ -10170,10 +10347,10 @@ export default function OwnerPage() {
                       outline: 'none'
                     }}
                   >
-                    <option value="LOW" style={{ background: '#141A29', color: '#10B981' }}>🟢 Thông thường / Góp ý</option>
-                    <option value="MEDIUM" style={{ background: '#141A29', color: '#F59E0B' }}>🟡 Cần chấn chỉnh & Giải trình</option>
-                    <option value="HIGH" style={{ background: '#141A29', color: '#F97316' }}>🟠 Nghiêm trọng (Ảnh hưởng ngựa)</option>
-                    <option value="CRITICAL" style={{ background: '#141A29', color: '#EF4444' }}>🔴 Khẩn cấp (Lập biên bản)</option>
+                    <option value="LOW" style={{ background: '#141A29', color: '#10B981' }}> Thông thường / Góp ý</option>
+                    <option value="MEDIUM" style={{ background: '#141A29', color: '#F59E0B' }}>� Cần chấn chỉnh & Giải trình</option>
+                    <option value="HIGH" style={{ background: '#141A29', color: '#F97316' }}>� Nghiêm trọng (Ảnh hưởng ngựa)</option>
+                    <option value="CRITICAL" style={{ background: '#141A29', color: '#EF4444' }}>� Khẩn cấp (Lập biên bản)</option>
                   </select>
                 </div>
               </div>
@@ -10264,7 +10441,7 @@ export default function OwnerPage() {
                 alignItems: 'flex-start',
                 gap: '10px'
               }}>
-                <span style={{ fontSize: '18px', lineHeight: 1 }}>🛡️</span>
+                
                 <div style={{ fontSize: '11.5px', color: '#94A3B8', lineHeight: '1.5' }}>
                   <b style={{ color: '#38BDF8' }}>Quy trình xử lý bảo mật:</b> Báo cáo được chuyển trực tiếp tới hộp thư Ban Quản Trị (Admin). Admin sẽ tiến hành trích xuất dữ liệu camera ô chuồng, kiểm tra viễn trắc huấn luyện và yêu cầu nhân sự giải trình minh bạch.
                 </div>

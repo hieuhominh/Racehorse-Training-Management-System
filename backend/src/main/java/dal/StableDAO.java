@@ -17,18 +17,22 @@ public class StableDAO extends DBContext {
     private static final AtomicInteger stableIdSeq = new AtomicInteger(15);
 
     static {
-        memoryStables.add(new Stable(1, "A1", "Block A", "OCCUPIED", "Xích Thố", "Arabian", "14 m²", "3.8 x 3.8m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(2, "A2", "Block A", "OCCUPIED", "Bạch Long", "Thoroughbred", "14 m²", "3.8 x 3.8m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(3, "A3", "Block A", "OCCUPIED", "Hắc Phong", "Thoroughbred", "14 m²", "3.8 x 3.8m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(4, "A4", "Block A", "OCCUPIED", "Phi Vũ", "Thoroughbred", "14 m²", "3.8 x 3.8m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(5, "A5", "Block A", "OCCUPIED", "Phi Yến", "Thoroughbred", "14 m²", "3.8 x 3.8m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(6, "A6", "Block A", "OCCUPIED", "Kim Kê", "Quarter Horse", "14 m²", "3.8 x 3.8m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(7, "B1", "Block B", "OCCUPIED", "Thanh Vân", "Thoroughbred", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(8, "B2", "Block B", "OCCUPIED", "Lôi Chấn", "Quarter Horse", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(9, "B3", "Block B", "OCCUPIED", "Hồng Sa", "Arabian", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(10, "B4", "Block B", "OCCUPIED", "Thiên Lý", "Thoroughbred", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_occupied.jpg", null));
-        memoryStables.add(new Stable(11, "B5", "Block B", "OCCUPIED", "Bảo Mã", "Thoroughbred", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_occupied.jpg", null));
+        memoryStables.add(new Stable(1, "A1", "Block A", "AVAILABLE", "(Trống)", "Vacant", "18 m²", "4.2 x 4.2m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(2, "A2", "Block A", "AVAILABLE", "(Trống)", "Vacant", "18 m²", "4.2 x 4.2m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(3, "A3", "Block A", "AVAILABLE", "(Trống)", "Vacant", "18 m²", "4.2 x 4.2m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(4, "A4", "Block A", "AVAILABLE", "(Trống)", "Vacant", "18 m²", "4.2 x 4.2m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(5, "A5", "Block A", "AVAILABLE", "(Trống)", "Vacant", "18 m²", "4.2 x 4.2m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(6, "A6", "Block A", "AVAILABLE", "(Trống)", "Vacant", "18 m²", "4.2 x 4.2m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(7, "B1", "Block B", "AVAILABLE", "(Trống)", "Vacant", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(8, "B2", "Block B", "AVAILABLE", "(Trống)", "Vacant", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(9, "B3", "Block B", "AVAILABLE", "(Trống)", "Vacant", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(10, "B4", "Block B", "AVAILABLE", "(Trống)", "Vacant", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(11, "B5", "Block B", "AVAILABLE", "(Trống)", "Vacant", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_vacant.jpg", null));
         memoryStables.add(new Stable(12, "B6", "Block B", "AVAILABLE", "(Trống)", "Vacant", "16 m²", "4.0 x 4.0m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(13, "C1", "Block C", "AVAILABLE", "(Trống)", "Vacant", "14 m²", "3.6 x 3.6m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(14, "C2", "Block C", "AVAILABLE", "(Trống)", "Vacant", "14 m²", "3.6 x 3.6m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(15, "C3", "Block C", "AVAILABLE", "(Trống)", "Vacant", "14 m²", "3.6 x 3.6m", "/images/stall_simulation_vacant.jpg", null));
+        memoryStables.add(new Stable(16, "C4", "Block C", "AVAILABLE", "(Trống)", "Vacant", "14 m²", "3.6 x 3.6m", "/images/stall_simulation_vacant.jpg", null));
     }
 
     /**

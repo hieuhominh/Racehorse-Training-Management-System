@@ -229,7 +229,7 @@ export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', on
           <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
             <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Chủ Sở Hữu</div>
             <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--brass)', marginTop: '2px' }}>
-              {horse.ownerName || horse.owner || 'Phạm Tiến Thành'}
+              {horse.ownerName || horse.owner || 'Chủ sở hữu'}
             </div>
           </div>
 

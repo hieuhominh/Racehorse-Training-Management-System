@@ -410,8 +410,8 @@ export default function TrainerPage() {
         stall: stallCode,
         breed: fullHorse?.breed || existing?.breed || 'Thoroughbred',
         age: fullHorse?.age || existing?.age || '3 tuổi',
-        owner: fullHorse?.ownerName || asgn.ownerName || 'Phạm Tiến Thành',
-        ownerName: fullHorse?.ownerName || asgn.ownerName || 'Phạm Tiến Thành',
+        owner: fullHorse?.ownerName || asgn.ownerName || 'Chủ sở hữu',
+        ownerName: fullHorse?.ownerName || asgn.ownerName || 'Chủ sở hữu',
         status: existing?.status || 'CALIBRATING',
         statusText: existing?.statusText || 'Chờ hoàn thành 3 bài tập',
         isLockedByVet: existing?.isLockedByVet || false,
@@ -427,7 +427,7 @@ export default function TrainerPage() {
         isCalibrating: existing?.isCalibrating !== undefined ? existing.isCalibrating : true,
         workoutCount: existing?.workoutCount || 0,
         trainingProgram: existing?.trainingProgram || 'Làm quen nhịp chạy & Thu thập viễn trắc',
-        desc: existing?.desc || `Chiến mã của chủ sở hữu ${fullHorse?.ownerName || asgn.ownerName || 'Phạm Tiến Thành'}`,
+        desc: existing?.desc || `Chiến mã của chủ sở hữu ${fullHorse?.ownerName || asgn.ownerName || 'Chủ sở hữu'}`,
         avatar: fullHorse?.avatar || existing?.avatar
       };
 
@@ -570,94 +570,26 @@ export default function TrainerPage() {
   };
 
   const [trainerHorses, setTrainerHorses] = useState(() => {
-    const defaultList = [
-      {
-        id: 1,
-        name: 'Hắc Phong',
-        microchip: 'MC-VN-2022-001',
-        stall: 'Ô A3',
-        breed: 'Thoroughbred',
-        age: '4 tuổi',
-        status: 'WATCH',
-        statusText: 'Cần theo dõi',
-        isLockedByVet: false,
-        avgHeartRate: 118,
-        maxSpeed: 64.5,
-        totalDistanceKm: 184,
-        condition: '92%',
-        desc: 'Chiến mã cự ly 1.600m, đang tập thích ứng nhịp chạy nước rút cao.'
-      },
-      {
-        id: 2,
-        name: 'Xích Thố',
-        microchip: 'MC-VN-2021-014',
-        stall: 'Ô A1',
-        breed: 'Arabian',
-        age: '5 tuổi',
-        status: 'READY',
-        statusText: 'Sẵn sàng thi đấu',
-        isLockedByVet: false,
-        avgHeartRate: 108,
-        maxSpeed: 68.2,
-        totalDistanceKm: 260,
-        condition: '98%',
-        desc: 'Phong độ đỉnh cao, thể lực ổn định ở cự ly 2.400m sân cỏ.'
-      },
-      {
-        id: 3,
-        name: 'Phi Yến',
-        microchip: 'MC-VN-2023-009',
-        stall: 'Ô A5',
-        breed: 'Thoroughbred',
-        age: '3 tuổi',
-        status: 'INJURED',
-        statusText: 'Khóa tập bởi Thú y',
-        isLockedByVet: true,
-        vetNotice: 'Giãn gân chân trái - Cấm bài tập chạy nước rút và tải nặng!',
-        avgHeartRate: 136,
-        maxSpeed: 42.0,
-        totalDistanceKm: 98,
-        condition: '58%',
-        desc: 'Đang theo phác đồ vật lý trị liệu & đi bộ thả lỏng theo lệnh Bác sĩ Thú y.'
-      },
-      {
-        id: 4,
-        name: 'Lôi Chấn',
-        microchip: 'MC-VN-2022-088',
-        stall: 'Ô B2',
-        breed: 'Quarter Horse',
-        age: '4 tuổi',
-        status: 'WATCH',
-        statusText: 'Cách ly theo dõi',
-        isLockedByVet: false,
-        avgHeartRate: 122,
-        maxSpeed: 59.8,
-        totalDistanceKm: 142,
-        condition: '84%',
-        desc: 'Chiến mã cơ bắp, đang rèn kỹ thuật xuất phát máy và chuyển làn an toàn.'
-      },
-      {
-        id: 5,
-        name: 'Bạch Long',
-        microchip: 'MC-VN-2024-003',
-        stall: 'Ô A2',
-        breed: 'Thoroughbred',
-        age: '2 tuổi',
-        status: 'READY',
-        statusText: 'Đang phát triển tốt',
-        isLockedByVet: false,
-        avgHeartRate: 112,
-        maxSpeed: 62.0,
-        totalDistanceKm: 115,
-        condition: '90%',
-        desc: 'Chiến mã trẻ tiếp thu nhanh, thể lực phát triển vượt kỳ vọng.'
-      }
-    ];
+    const defaultList = [];
 
     try {
       const saved = localStorage.getItem('matruong_trainer_horses_managed');
       const allTel = getAllHorsesTelemetry();
       const map = new Map();
+
+      // Chỉ lấy các chiến mã không thuộc owner_thanh / Phạm Tiến Thành
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          parsed
+            .filter(h => h.owner !== 'Phạm Tiến Thành' && h.ownerName !== 'Phạm Tiến Thành')
+            .forEach(h => {
+              if (h && (h.name || h.microchip)) {
+                map.set((h.name || h.microchip).toLowerCase(), h);
+              }
+            });
+        }
+      }
       defaultList.forEach(h => {
         const k = (h.name || '').toLowerCase();
         const tel = allTel[h.microchip] || allTel[h.id] || allTel[h.name];
@@ -744,8 +676,8 @@ export default function TrainerPage() {
             stall: stallCode,
             breed: full?.breed || 'Thoroughbred',
             age: full?.age || '3 tuổi',
-            owner: asgn.ownerName || 'Phạm Tiến Thành',
-            ownerName: asgn.ownerName || 'Phạm Tiến Thành',
+            owner: asgn.ownerName || 'Chủ sở hữu',
+            ownerName: asgn.ownerName || 'Chủ sở hữu',
             status: 'READY',
             statusText: 'Sẵn sàng thi đấu',
             isLockedByVet: false,
@@ -754,7 +686,7 @@ export default function TrainerPage() {
             totalDistanceKm: 120,
             condition: '98%',
             trainingProgram: 'Nâng cao thể lực & Tốc độ',
-            desc: `Chiến mã của chủ sở hữu ${asgn.ownerName || 'Phạm Tiến Thành'}`,
+            desc: `Chiến mã của chủ sở hữu ${asgn.ownerName || 'Chủ sở hữu'}`,
             avatar: full?.avatar
           });
         } else {
@@ -782,6 +714,20 @@ export default function TrainerPage() {
     });
   }, [serviceAssignments, currentUser]);
 
+  useEffect(() => {
+    setTrainerHorses(prev => prev.filter(h => h.owner !== 'Phạm Tiến Thành' && h.ownerName !== 'Phạm Tiến Thành'));
+    try {
+      const managed = localStorage.getItem('matruong_trainer_horses_managed');
+      if (managed) {
+        const parsed = JSON.parse(managed);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(h => h.owner !== 'Phạm Tiến Thành' && h.ownerName !== 'Phạm Tiến Thành');
+          localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(filtered));
+        }
+      }
+    } catch {}
+  }, []);
+
   // Tự động lưu trainerHorses vào localStorage khi có thay đổi
   useEffect(() => {
     if (trainerHorses && trainerHorses.length > 0) {
@@ -800,52 +746,7 @@ export default function TrainerPage() {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return [
-      {
-        id: 1,
-        title: 'Tăng tốc nước rút 1.600m sân cát',
-        horseName: 'Hắc Phong',
-        phase: 'Nước rút (Sprint)',
-        targetDistance: 1600,
-        surface: 'SAND (Sân cát)',
-        startDate: '05/10/2026',
-        endDate: '25/10/2026',
-        status: 'ACTIVE'
-      },
-      {
-        id: 2,
-        title: 'Xây dựng thể lực nền sức bền 2.400m',
-        horseName: 'Xích Thố',
-        phase: 'Thể lực nền (Endurance)',
-        targetDistance: 2400,
-        surface: 'GRASS (Sân cỏ)',
-        startDate: '01/10/2026',
-        endDate: '30/10/2026',
-        status: 'ACTIVE'
-      },
-      {
-        id: 3,
-        title: 'Phục hồi chức năng & thả lỏng cơ khớp',
-        horseName: 'Phi Yến',
-        phase: 'Phục hồi (Recovery)',
-        targetDistance: 800,
-        surface: 'SAND (Sân cát)',
-        startDate: '08/10/2026',
-        endDate: '20/10/2026',
-        status: 'ACTIVE'
-      },
-      {
-        id: 4,
-        title: 'Kỹ thuật mở máy xuất phát & chuyển làn',
-        horseName: 'Lôi Chấn',
-        phase: 'Kỹ thuật (Gate & Pace)',
-        targetDistance: 1200,
-        surface: 'GRASS (Sân cỏ)',
-        startDate: '06/10/2026',
-        endDate: '22/10/2026',
-        status: 'ACTIVE'
-      }
-    ];
+    return [];
   });
 
   // Tự động lưu programs vào localStorage khi có thay đổi
@@ -921,212 +822,7 @@ export default function TrainerPage() {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return [
-      // XÍCH THỐ (3 bài tập đã hoàn thành -> Đủ dữ liệu đánh giá)
-      {
-        id: 101,
-        time: '10/10/2026 06:30',
-        horseName: 'Xích Thố',
-        programTitle: 'Xây dựng thể lực nền sức bền 2.400m',
-        distanceRun: 2400,
-        avgSpeed: 64.2,
-        maxHeartRate: 198,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 9.5,
-        feedback: 'Sải chân cực kỳ đều đặn, nhịp thở ổn định khi qua khúc cua số 3, hoàn thành xuất sắc bài tập.'
-      },
-      {
-        id: 102,
-        time: '08/10/2026 07:00',
-        horseName: 'Xích Thố',
-        programTitle: 'Bứt phá nước rút 1.600m sân cỏ',
-        distanceRun: 1600,
-        avgSpeed: 66.5,
-        maxHeartRate: 204,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 9.2,
-        feedback: 'Khả năng bung sức đoạn 400m cuối đạt đỉnh phong độ.'
-      },
-      {
-        id: 103,
-        time: '06/10/2026 06:15',
-        horseName: 'Xích Thố',
-        programTitle: 'Phi nước kiệu dẻo dai 3.200m',
-        distanceRun: 3200,
-        avgSpeed: 52.0,
-        maxHeartRate: 185,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 9.0,
-        feedback: 'Giữ nhịp tim vùng hiếu khí hoàn hảo.'
-      },
-
-      // HẮC PHONG (3 bài tập -> Đủ dữ liệu)
-      {
-        id: 104,
-        time: '09/10/2026 17:00',
-        horseName: 'Hắc Phong',
-        programTitle: 'Tăng tốc nước rút 1.600m sân cát',
-        distanceRun: 1600,
-        avgSpeed: 62.8,
-        maxHeartRate: 216,
-        isOverLimit: true,
-        status: 'INCOMPLETE',
-        score: 6.5,
-        feedback: 'Tăng tốc tốt ở 400m cuối nhưng nhịp tim lên 216 bpm vượt ngưỡng. Đã cho dừng sớm để bảo đảm an toàn cơ bắp.'
-      },
-      {
-        id: 105,
-        time: '07/10/2026 06:45',
-        horseName: 'Hắc Phong',
-        programTitle: 'Rèn sức bền kỵ khí 2.000m',
-        distanceRun: 2000,
-        avgSpeed: 61.5,
-        maxHeartRate: 202,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 8.5,
-        feedback: 'Tương tác tốt với nài ngựa, thích nghi đường cát ẩm.'
-      },
-      {
-        id: 106,
-        time: '05/10/2026 07:30',
-        horseName: 'Hắc Phong',
-        programTitle: 'Tập xuất phát máy & tăng tốc 1.200m',
-        distanceRun: 1200,
-        avgSpeed: 63.8,
-        maxHeartRate: 199,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 9.0,
-        feedback: 'Bật cửa máy nhanh nhất đội.'
-      },
-
-      // BẠCH LONG (3 bài tập -> Đủ dữ liệu)
-      {
-        id: 107,
-        time: '09/10/2026 07:15',
-        horseName: 'Bạch Long',
-        programTitle: 'Làm quen nhịp chạy cự ly ngắn',
-        distanceRun: 1000,
-        avgSpeed: 58.0,
-        maxHeartRate: 192,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 8.8,
-        feedback: 'Chiến mã trẻ tiếp thu bài rất nhanh, giữ thẳng lái tốt khi gặp áp lực bên cánh phải.'
-      },
-      {
-        id: 108,
-        time: '07/10/2026 08:00',
-        horseName: 'Bạch Long',
-        programTitle: 'Phi nước kiệu nhịp đều 2.400m',
-        distanceRun: 2400,
-        avgSpeed: 50.5,
-        maxHeartRate: 182,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 8.6,
-        feedback: 'Nhịp thở thông thoáng, bước chân dứt khoát.'
-      },
-      {
-        id: 109,
-        time: '05/10/2026 06:30',
-        horseName: 'Bạch Long',
-        programTitle: 'Bứt tốc nước rút 1.400m',
-        distanceRun: 1400,
-        avgSpeed: 62.0,
-        maxHeartRate: 196,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 8.9,
-        feedback: 'Đáp ứng tốt bài tăng tải cự ly trung bình.'
-      },
-
-      // LÔI CHẤN (3 bài tập -> Đủ dữ liệu)
-      {
-        id: 110,
-        time: '09/10/2026 16:30',
-        horseName: 'Lôi Chấn',
-        programTitle: 'Tăng cường sức mạnh cơ hông 1.800m',
-        distanceRun: 1800,
-        avgSpeed: 60.0,
-        maxHeartRate: 195,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 8.5,
-        feedback: 'Cơ bắp phát triển săn chắc, giữ thăng bằng tốt.'
-      },
-      {
-        id: 111,
-        time: '07/10/2026 16:00',
-        horseName: 'Lôi Chấn',
-        programTitle: 'Tập chạy dốc & đường cát lún 2.000m',
-        distanceRun: 2000,
-        avgSpeed: 56.5,
-        maxHeartRate: 199,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 8.4,
-        feedback: 'Độ chịu lực của khớp gối và móng tốt.'
-      },
-      {
-        id: 112,
-        time: '05/10/2026 15:30',
-        horseName: 'Lôi Chấn',
-        programTitle: 'Chạy biến tốc 1.600m',
-        distanceRun: 1600,
-        avgSpeed: 61.2,
-        maxHeartRate: 194,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 8.7,
-        feedback: 'Hoàn thành bài tập đúng thời gian chỉ định.'
-      },
-
-      // PHI YẾN (3 bài tập -> Đủ dữ liệu, chấn thương đang theo dõi)
-      {
-        id: 113,
-        time: '08/10/2026 08:00',
-        horseName: 'Phi Yến',
-        programTitle: 'Phục hồi chức năng & thả lỏng cơ khớp',
-        distanceRun: 800,
-        avgSpeed: 38.5,
-        maxHeartRate: 165,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 7.0,
-        feedback: 'Bài đi bộ thả lỏng theo đúng phác đồ bác sĩ thú y. Khớp gối trái đã bớt sưng đỏ.'
-      },
-      {
-        id: 114,
-        time: '06/10/2026 08:30',
-        horseName: 'Phi Yến',
-        programTitle: 'Thủy trị liệu & đi bộ máy',
-        distanceRun: 600,
-        avgSpeed: 25.0,
-        maxHeartRate: 140,
-        isOverLimit: false,
-        status: 'COMPLETED',
-        score: 7.5,
-        feedback: 'Đáp ứng tốt với liệu trình giảm tải.'
-      },
-      {
-        id: 115,
-        time: '04/10/2026 09:00',
-        horseName: 'Phi Yến',
-        programTitle: 'Chạy nhẹ trên thảm cỏ nhân tạo',
-        distanceRun: 1000,
-        avgSpeed: 42.0,
-        maxHeartRate: 172,
-        isOverLimit: false,
-        status: 'INCOMPLETE',
-        score: 6.0,
-        feedback: 'Có dấu hiệu nhói chân ở mét thứ 700, đã yêu cầu dừng bài tập lập tức.'
-      }
-    ];
+    return [];
   });
 
   // Tự động lưu sessions vào localStorage khi có thay đổi
@@ -2384,7 +2080,7 @@ setTrainerHorses(prev => {
 
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', padding: '6px 10px', background: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--line)' }}>
                             <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                              Chủ sở hữu: <b style={{ color: 'var(--brass)' }}>{horse.owner || horse.ownerName || 'Phạm Tiến Thành'}</b>
+                              Chủ sở hữu: <b style={{ color: 'var(--brass)' }}>{horse.owner || horse.ownerName || 'Chủ sở hữu'}</b>
                             </div>
                             <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
                               {horse.age || '3 tuổi'}
@@ -2523,7 +2219,7 @@ setTrainerHorses(prev => {
                               <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{horse.microchip}</div>
                             </td>
                             <td style={{ padding: '14px 18px' }}>
-                              <b style={{ color: 'var(--brass)', fontSize: '13px' }}>{horse.owner || horse.ownerName || 'Phạm Tiến Thành'}</b>
+                              <b style={{ color: 'var(--brass)', fontSize: '13px' }}>{horse.owner || horse.ownerName || 'Chủ sở hữu'}</b>
                             </td>
                             <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{horse.stall}</td>
                             <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
@@ -2839,7 +2535,7 @@ setTrainerHorses(prev => {
                           </div>
 
                           <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '6px' }}>
-                            Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{horse.owner || horse.ownerName || 'Phạm Tiến Thành'}</b>
+                            Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{horse.owner || horse.ownerName || 'Chủ sở hữu'}</b>
                           </div>
                           <p style={{
                             fontSize: '12px',

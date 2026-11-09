@@ -40,29 +40,6 @@ public class NotificationApiController extends HttpServlet {
     private final Gson gson = new Gson();
 
     static {
-        // Thông báo khởi tạo mẫu đồng bộ với Client
-        Map<String, Object> n1 = new HashMap<>();
-        n1.put("id", 101L);
-        n1.put("time", "08:30 Hôm nay");
-        n1.put("timestamp", System.currentTimeMillis() - 3600000L);
-        n1.put("type", "TRAINING_REQUEST");
-        n1.put("title", "YÊU CẦU HUẤN LUYỆN CHIẾN MÃ");
-        n1.put("message", "Chủ sở hữu Phạm Tiến Thành đã gửi yêu cầu chỉ định bạn làm Huấn luyện viên trưởng cho chiến mã \"Lôi Chấn\" (Ô A4, Chip: MC-VN-2022-088). Vui lòng thẩm định hồ sơ và xác nhận phục vụ.");
-        n1.put("horseName", "Lôi Chấn");
-        n1.put("horseId", 2);
-        n1.put("microchip", "MC-VN-2022-088");
-        n1.put("stable", "Ô A4");
-        n1.put("ownerName", "Phạm Tiến Thành");
-        n1.put("ownerKey", "owner_thanh");
-
-        List<String> roles = new ArrayList<>();
-        roles.add("TRAINER");
-        roles.add("ADMIN");
-        roles.add("ALL");
-        n1.put("recipientRoles", roles);
-        n1.put("readBy", new ArrayList<String>());
-
-        memoryNotifications.add(n1);
     }
 
     @Override

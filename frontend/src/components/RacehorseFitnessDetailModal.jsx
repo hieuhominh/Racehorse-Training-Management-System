@@ -9,9 +9,7 @@ import {
 import EquineRecoveryIcon from './EquineRecoveryIcon';
 
 export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHorse, sessions = [], isTrainer: isTrainerProp }) {
-  if (!horse) return null;
-
-  const [telemetry, setTelemetry] = useState(() => getHorseFitnessTelemetry(horse, sessions));
+  const [telemetry, setTelemetry] = useState(() => getHorseFitnessTelemetry(horse || {}, sessions));
   const isTrainer = isTrainerProp !== undefined
     ? isTrainerProp
     : (typeof window !== 'undefined' && (window.location.pathname.includes('trainer') || window.location.pathname.includes('huan-luyen')));
@@ -169,10 +167,13 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
 
   // Lắng nghe sự kiện cập nhật viễn trắc theo thời gian thực (Real-time reactivity)
   useEffect(() => {
-    setTelemetry(getHorseFitnessTelemetry(horse, sessions));
+    if (horse) {
+      setTelemetry(getHorseFitnessTelemetry(horse, sessions));
+    }
   }, [horse, sessions]);
 
   useEffect(() => {
+    if (!horse) return;
     const handleFitnessUpdate = (e) => {
       const { horse: updatedH, telemetry: newTelem } = e.detail || {};
       const thisKey = horse.microchip || horse.id || horse.name;
@@ -199,6 +200,7 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
 
   // Hàm kích hoạt thuật toán tính toán tức thì khi huấn luyện viên ghi nhận bài tập
   const triggerSessionAlgorithm = (status) => {
+    if (!horse) return;
     setIsSimulating(true);
     const nextWorkoutNum = (telemetry.workoutCount || 0) + 1;
     const isCompleted = status === 'COMPLETED';
@@ -234,9 +236,11 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
     setTimeout(() => setIsSimulating(false), 450);
   };
 
+  if (!horse) return null;
+
   const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
   const avatar = horse.avatar || horse.horse_avatar || defaultAvatar;
-  const ownerName = horse.ownerName || horse.owner || 'Phạm Tiến Thành';
+  const ownerName = horse.ownerName || horse.owner || 'Chủ sở hữu';
   const stallCode = horse.stall || horse.stable || 'Ô A1';
   const microchip = horse.microchip || 'MC-VN-2026-001';
   const breed = horse.breed || 'Thoroughbred (Thuần chủng)';

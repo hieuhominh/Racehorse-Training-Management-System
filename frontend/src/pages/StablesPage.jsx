@@ -71,11 +71,11 @@ export default function StablesPage({ onOpenAuth }) {
     {
       id: 'INC-9012',
       stallCode: 'A3',
-      horseName: 'Hắc Phong',
+      horseName: '',
       chipId: '982-000-348-192-003',
       symptoms: ['Ngựa bỏ ăn', 'Có dấu hiệu đau bụng / Sốt'],
       severity: 'HIGH',
-      description: 'Hắc Phong bỏ 2/3 khẩu phần cỏ Alfalfa buổi trưa, thở nhanh và dậm chân liên tục. Thân nhiệt 38.8°C, nghi ngờ đau bụng nhẹ (Colic).',
+      description: 'Ngựa bỏ 2/3 khẩu phần cỏ Alfalfa buổi trưa, thở nhanh và dậm chân liên tục. Thân nhiệt 38.8°C, nghi ngờ đau bụng nhẹ (Colic).',
       imageUrl: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=600&q=80',
       reportedBy: 'Groom Nguyễn Văn Hùng',
       timestamp: '11:45 - 08/10/2026',

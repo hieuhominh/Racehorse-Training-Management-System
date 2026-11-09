@@ -15,7 +15,10 @@ import {
   createStallApi,
   updateStallApi,
   reassignStallHorseApi,
-  deleteStallApi
+  deleteStallApi,
+  getStallRequestsApi,
+  approveStallRequestApi,
+  rejectStallRequestApi
 } from '../services/api';
 import {
   getPersonnelReports,
@@ -239,82 +242,21 @@ export default function AdminPage() {
   };
 
   // State danh sách ngựa quản lý
-  const [horses, setHorses] = useState([
-    {
-      id: 1,
-      microchip: 'MC-VN-2022-001',
-      name: 'Hắc Phong',
-      breed: 'Thoroughbred',
-      gender: 'Ngựa đực (Stallion)',
-      stable: 'A3',
-      owner: 'Phạm Tiến Thành',
-      status: 'WATCH',
-      statusText: 'Cần theo dõi',
-      statusColor: '#F59E0B',
-      locked: false,
-      desc: 'Chiến mã cự ly 1.600m, thể lực sung mãn, đang theo dõi tải nhịp tim cao.',
-      avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=600&q=80'
-    },
-    {
-      id: 2,
-      microchip: 'MC-VN-2021-014',
-      name: 'Xích Thố',
-      breed: 'Arabian',
-      gender: 'Ngựa thiến (Gelding)',
-      stable: 'A1',
-      owner: 'Phạm Tiến Thành',
-      status: 'ELIGIBLE',
-      statusText: 'Đủ điều kiện thi đấu',
-      statusColor: '#10B981',
-      locked: false,
-      desc: 'Sức bền tuyệt hảo 2.400m sân cỏ, đã vượt qua kiểm định y tế Thú y.',
-      avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80'
-    },
-    {
-      id: 3,
-      microchip: 'MC-VN-2023-009',
-      name: 'Phi Yến',
-      breed: 'Thoroughbred',
-      gender: 'Ngựa cái (Mare)',
-      stable: 'A5',
-      owner: 'Phạm Tiến Thành',
-      status: 'INJURED',
-      statusText: 'Chấn thương gân',
-      statusColor: '#EF4444',
-      locked: true,
-      desc: 'Bác sĩ Thú y kích hoạt lệnh khóa do giãn gân chân trái. Cấm tập nặng.',
-      avatar: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80'
-    },
-    {
-      id: 4,
-      microchip: 'MC-VN-2022-088',
-      name: 'Lôi Chấn',
-      breed: 'Quarter Horse',
-      gender: 'Ngựa đực (Stallion)',
-      stable: 'B2',
-      owner: 'Phạm Tiến Thành',
-      status: 'QUARANTINE',
-      statusText: 'Cách ly theo dõi',
-      statusColor: '#8B5CF6',
-      locked: true,
-      desc: 'Đang theo dõi kiểm dịch dịch tễ tại khu cách ly Block B. Sức khỏe ổn định.',
-      avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'
-    }
-  ]);
+  const [horses, setHorses] = useState([]);
 
   // State danh sách chuồng trại kèm hình ảnh chuồng trại mô phỏng 3D (Horse Barn 3D Simulation) chuẩn quốc tế
   const [stables, setStables] = useState([
-    { stall_code: 'A1', block: 'Block A', status: 'OCCUPIED', horse: 'Xích Thố', breed: 'Arabian', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A2', block: 'Block A', status: 'OCCUPIED', horse: 'Bạch Long', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A3', block: 'Block A', status: 'OCCUPIED', horse: 'Hắc Phong', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A4', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Vũ', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A5', block: 'Block A', status: 'OCCUPIED', horse: 'Phi Yến', breed: 'Thoroughbred', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'A6', block: 'Block A', status: 'OCCUPIED', horse: 'Kim Kê', breed: 'Quarter Horse', area: '14 m²', dim: '3.8 x 3.8m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B1', block: 'Block B', status: 'OCCUPIED', horse: 'Thanh Vân', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1576773689115-5cd2b0223523?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B2', block: 'Block B', status: 'OCCUPIED', horse: 'Lôi Chấn', breed: 'Quarter Horse', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B3', block: 'Block B', status: 'OCCUPIED', horse: 'Hồng Sa', breed: 'Arabian', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B4', block: 'Block B', status: 'OCCUPIED', horse: 'Thiên Lý', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { stall_code: 'B5', block: 'Block B', status: 'OCCUPIED', horse: 'Bảo Mã', breed: 'Thoroughbred', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_occupied.jpg', horse_avatar: 'https://images.unsplash.com/photo-1566251037378-5e04e3bec343?auto=format&fit=crop&w=300&q=80' },
+    { stall_code: 'A1', block: 'Block A', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A2', block: 'Block A', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A3', block: 'Block A', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A4', block: 'Block A', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A5', block: 'Block A', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'A6', block: 'Block A', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '18 m²', dim: '4.2 x 4.2m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B1', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B2', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B3', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B4', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
+    { stall_code: 'B5', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null },
     { stall_code: 'B6', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
   ]);
 
@@ -364,6 +306,13 @@ export default function AdminPage() {
   const [customHorseName, setCustomHorseName] = useState('');
   const [customHorseBreed, setCustomHorseBreed] = useState('Thoroughbred');
 
+  // Quản lý Yêu cầu cấp & đổi ô chuồng từ Chủ sở hữu
+  const [stallRequests, setStallRequests] = useState([]);
+  const [stallReqFilter, setStallReqFilter] = useState('ALL');
+  const [rejectingRequest, setRejectingRequest] = useState(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
+
   // Modal xem chi tiết chiến mã
   const [viewingHorseDetail, setViewingHorseDetail] = useState(null);
 
@@ -375,15 +324,15 @@ export default function AdminPage() {
     breed: 'Thoroughbred',
     gender: 'Ngựa đực (Stallion)',
     stable: 'B6',
-    owner: 'Phạm Tiến Thành'
+    owner: ''
   });
 
   // Nhật ký hệ thống Audit Logs
   const [auditLogs, setAuditLogs] = useState([
-    { id: 1, time: '10/10/2026 00:25', user: 'vet_an (Bác sĩ Thú y)', action: 'KHÓA HUẤN LUYỆN KHẨN CẤP', detail: 'Khóa bài tập nặng chiến mã Phi Yến do giãn gân chân trái' },
+    { id: 1, time: '10/10/2026 00:25', user: 'vet_an (Bác sĩ Thú y)', action: 'KHÓA HUẤN LUYỆN KHẨN CẤP', detail: 'Khóa bài tập nặng cho chiến mã khi phát hiện chấn thương gân' },
     { id: 2, time: '10/10/2026 00:15', user: 'admin (Ban Quản lý)', action: 'ĐỒNG BỘ CSDL HỆ THỐNG', detail: 'Nạp lại schema 10 bảng dữ liệu chuẩn Microsoft SQL Server 2019' },
-    { id: 3, time: '09/10/2026 18:30', user: 'trainer_truong (HLV Trưởng)', action: 'LẬP GIÁO ÁN HUẤN LUYỆN', detail: 'Thiết kế bài chạy nước rút 1,600m sân cát cho Hắc Phong' },
-    { id: 4, time: '09/10/2026 14:00', user: 'groom_nam (Chăm sóc chuồng)', action: 'CHECKLIST DINH DƯỠNG', detail: 'Hoàn tất bữa chiều và ngâm chân đá lạnh cho đàn ngựa Block A' },
+    { id: 3, time: '09/10/2026 18:30', user: 'trainer_truong (HLV Trưởng)', action: 'LẬP GIÁO ÁN HUẤN LUYỆN', detail: 'Thiết kế bài chạy nước rút 1,600m sân cát theo giáo án chuẩn' },
+    { id: 4, time: '09/10/2026 14:00', user: 'groom_nam (Chăm sóc chuồng)', action: 'CHECKLIST DINH DƯỠNG', detail: 'Hoàn tất bữa chiều và ngâm chân đá lạnh cho đàn ngựa' },
     { id: 5, time: '09/10/2026 10:00', user: 'admin (Ban Quản lý)', action: 'PHÊ DUYỆT NGÂN SÁCH GIẢI', detail: 'Duyệt kinh phí 500.000.000 ₫ cho Giải Đua Vô địch Đại Nam 2026' }
   ]);
 
@@ -398,37 +347,156 @@ export default function AdminPage() {
     };
 
     const loadHorses = () => {
+      const MOCK_NAMES = ['Xích Thố', 'Bạch Long', 'Hắc Phong', 'Kim Mã', 'Phi Yến', 'Thần Mã', 'Phi Vũ', 'Kim Kê', 'Thanh Vân', 'Lôi Chấn', 'Hồng Sa', 'Thiên Lý', 'Bảo Mã'];
+      
+      // Quét tất cả chiến mã thực tế từ các chủ sở hữu đã đăng ký
+      const ownerHorses = [];
+      try {
+        if (typeof localStorage !== 'undefined') {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('matruong_owner_horses_')) {
+              const raw = localStorage.getItem(k);
+              if (raw) {
+                const list = JSON.parse(raw);
+                if (Array.isArray(list)) {
+                  list.forEach(h => {
+                    if (h && !MOCK_NAMES.includes(h.name) && !ownerHorses.some(ex => ex.id === h.id || (ex.microchip && ex.microchip === h.microchip))) {
+                      ownerHorses.push({
+                        ...h,
+                        owner: h.ownerName || h.owner || 'Chủ sở hữu',
+                        stable: h.stable ? (String(h.stable).match(/[A-Z0-9]+/i)?.[0] || h.stable) : '(Chưa phân bổ)',
+                        avatar: fixAvatar(h.avatar)
+                      });
+                    }
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+
       getHorsesApi().then(res => {
-        if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
-          setHorses(res.data.map(h => ({ ...h, avatar: fixAvatar(h.avatar) })));
+        if (isMounted) {
+          const apiList = (res && Array.isArray(res.data)) ? res.data : [];
+          const cleanApi = apiList.filter(h => h && !MOCK_NAMES.includes(h.name));
+          const combined = [...ownerHorses];
+          cleanApi.forEach(h => {
+            if (!combined.some(ex => ex.id === h.id || (ex.chipId && ex.chipId === h.chipId) || (ex.microchip && ex.microchip === h.microchip))) {
+              combined.push({
+                ...h,
+                owner: h.ownerName || h.owner || 'Chủ sở hữu',
+                stable: h.stable ? (String(h.stable).match(/[A-Z0-9]+/i)?.[0] || h.stable) : '(Chưa phân bổ)',
+                avatar: fixAvatar(h.avatar)
+              });
+            }
+          });
+          setHorses(combined);
+        }
+      }).catch(() => {
+        if (isMounted) setHorses(ownerHorses);
+      });
+    };
+
+    const loadStables = () => {
+      const MOCK_HORSE_NAMES = ['xích thố', 'bạch long', 'hắc phong', 'kim mã', 'phi yến', 'thần mã', 'phi vũ', 'kim kê', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã'];
+
+      // Quét tất cả chiến mã thực tế từ các chủ sở hữu đã đăng ký (đồng thời xóa sạch ngựa mock)
+      const assignedHorsesMap = {};
+      try {
+        if (typeof localStorage !== 'undefined') {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('matruong_owner_horses_')) {
+              const raw = localStorage.getItem(k);
+              if (raw) {
+                const list = JSON.parse(raw);
+                if (Array.isArray(list)) {
+                  // Xóa sạch ngựa mock không có chủ hoặc dữ liệu mẫu bên chủ sở hữu
+                  const cleanList = list.filter(h => h && h.name && !MOCK_HORSE_NAMES.includes(h.name.trim().toLowerCase()));
+                  if (cleanList.length !== list.length) {
+                    localStorage.setItem(k, JSON.stringify(cleanList));
+                  }
+                  cleanList.forEach(h => {
+                    if (h && h.stable) {
+                      const m = String(h.stable).match(/[A-Z0-9]+/i);
+                      if (m) {
+                        const code = m[0].toUpperCase();
+                        assignedHorsesMap[code] = h;
+                      }
+                    }
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+
+      getStablesApi().then(res => {
+        if (isMounted && res && Array.isArray(res.data)) {
+          setStables(res.data.map(s => {
+            const assignedHorse = assignedHorsesMap[s.stall_code];
+            const isAssignedValid = assignedHorse && assignedHorse.name && !MOCK_HORSE_NAMES.includes(assignedHorse.name.trim().toLowerCase());
+            const horseNameLower = (s.horse || '').trim().toLowerCase();
+            const isStallMock = MOCK_HORSE_NAMES.includes(horseNameLower);
+
+            const hasResident = isAssignedValid || (!isStallMock && s.horse && s.horse !== '(Trống)' && s.status === 'OCCUPIED');
+            const horseName = isAssignedValid ? assignedHorse.name : (hasResident ? s.horse : '(Trống)');
+            const horseBreed = isAssignedValid ? (assignedHorse.breed || 'Thoroughbred') : (hasResident ? s.breed : 'Vacant');
+            const horseAvatar = isAssignedValid ? (assignedHorse.avatar || assignedHorse.horse_avatar) : (hasResident ? s.horse_avatar : null);
+            const stallImg = s.stall_image && !s.stall_image.includes('occupied') && !hasResident
+              ? s.stall_image
+              : (hasResident ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg');
+
+            return {
+              ...s,
+              status: hasResident ? 'OCCUPIED' : 'AVAILABLE',
+              horse: hasResident ? horseName : '(Trống)',
+              breed: hasResident ? horseBreed : 'Vacant',
+              horse_avatar: hasResident && horseAvatar ? fixAvatar(horseAvatar) : null,
+              stall_image: stallImg
+            };
+          }));
         }
       }).catch(() => {});
     };
 
-    const loadStables = () => {
-      getStablesApi().then(res => {
-        if (isMounted && res && Array.isArray(res.data) && res.data.length > 0) {
-          setStables(res.data.map(s => ({
-            ...s,
-            horse_avatar: s.horse_avatar ? fixAvatar(s.horse_avatar) : null
-          })));
+    const loadStallRequests = () => {
+      getStallRequestsApi().then(res => {
+        if (isMounted && res && Array.isArray(res.data)) {
+          setStallRequests(res.data);
         }
       }).catch(() => {});
     };
 
     loadHorses();
     loadStables();
+    loadStallRequests();
 
     const handleStablesUpdated = () => {
       loadStables();
+      loadHorses();
+      loadStallRequests();
+    };
+
+    const handleRequestsUpdated = () => {
+      loadStallRequests();
+      loadStables();
+      loadHorses();
     };
 
     window.addEventListener('matruong_stables_updated', handleStablesUpdated);
+    window.addEventListener('matruong_horses_updated', loadHorses);
+    window.addEventListener('matruong_stall_requests_updated', handleRequestsUpdated);
     window.addEventListener('storage', handleStablesUpdated);
 
     return () => {
       isMounted = false;
       window.removeEventListener('matruong_stables_updated', handleStablesUpdated);
+      window.removeEventListener('matruong_horses_updated', loadHorses);
+      window.removeEventListener('matruong_stall_requests_updated', handleRequestsUpdated);
       window.removeEventListener('storage', handleStablesUpdated);
     };
   }, []);
@@ -656,8 +724,8 @@ export default function AdminPage() {
       : (h.groom || 'Groom Nguyễn Văn Nam');
 
     const owner = isEn
-      ? (h.owner === 'Phạm Tiến Thành' ? 'Pham Tien Thanh (Owner)' : (h.owner || 'Syndicate Owner'))
-      : (h.owner || 'Phạm Tiến Thành');
+      ? (h.owner || 'Horse Owner')
+      : (h.owner || 'Chủ sở hữu');
 
     return {
       statusText,
@@ -890,7 +958,7 @@ export default function AdminPage() {
       ...prev
     ]);
     setShowAddHorseModal(false);
-    setNewHorseData({ name: '', microchip: '', breed: 'Thoroughbred', gender: 'Ngựa đực (Stallion)', stable: 'B6', owner: 'Phạm Tiến Thành' });
+    setNewHorseData({ name: '', microchip: '', breed: 'Thoroughbred', gender: 'Ngựa đực (Stallion)', stable: 'B6', owner: '' });
   };
 
   // Thay đổi trạng thái chuồng
@@ -1026,6 +1094,101 @@ export default function AdminPage() {
 
     setShowDeleteStallModal(false);
     setDeleteTargetStall(null);
+  };
+
+  // Admin tải lên / cập nhật hình ảnh ô chuồng
+  const handleUploadStallImage = (stallCode, e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP)!', 'LỖI ĐỊNH DẠNG', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        setStables(prev => {
+          const next = prev.map(s => s.stall_code === stallCode ? { ...s, stall_image: optimizedDataUrl } : s);
+          try {
+            localStorage.setItem('racehorse_api_stables', JSON.stringify(next));
+            window.dispatchEvent(new Event('matruong_stables_updated'));
+          } catch {}
+          return next;
+        });
+
+        updateStallApi({ stall_code: stallCode, stall_image: optimizedDataUrl }).catch(() => {});
+
+        showToast(
+          lang === 'en' ? `Updated photo for Stall ${stallCode} successfully!` : `Đã cập nhật hình ảnh cho ô chuồng ${stallCode} thành công!`,
+          lang === 'en' ? 'PHOTO UPDATED' : 'CẬP NHẬT ẢNH CHUỒNG',
+          'success'
+        );
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Xử lý phê duyệt yêu cầu cấp/đổi ô chuồng từ Chủ sở hữu
+  const handleApproveStallRequest = async (reqId) => {
+    try {
+      const ok = await approveStallRequestApi(reqId, currentUser?.name || 'Admin Quản Trị');
+      if (ok) {
+        showToast(
+          lang === 'en' ? 'Stall request approved successfully!' : 'Đã phê duyệt thành công! Ô chuồng mới đã được kích hoạt và ô cũ đã được giải phóng.',
+          lang === 'en' ? 'APPROVED' : 'PHÊ DUYỆT THÀNH CÔNG',
+          'success'
+        );
+      }
+    } catch {
+      showToast('Có lỗi xảy ra khi phê duyệt!', 'LỖI', 'error');
+    }
+  };
+
+  const handleOpenRejectModal = (req) => {
+    setRejectingRequest(req);
+    setRejectReasonInput('');
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmRejectStallRequest = async () => {
+    if (!rejectingRequest) return;
+    try {
+      const ok = await rejectStallRequestApi(rejectingRequest.id, rejectReasonInput, currentUser?.name || 'Admin Quản Trị');
+      if (ok) {
+        showToast(
+          lang === 'en' ? 'Stall request rejected.' : 'Đã từ chối yêu cầu cấp / đổi ô chuồng. Ô chuồng xin cấp đã được trả về trạng thái trống.',
+          lang === 'en' ? 'REJECTED' : 'ĐÃ TỪ CHỐI',
+          'info'
+        );
+        setShowRejectModal(false);
+        setRejectingRequest(null);
+      }
+    } catch {
+      showToast('Có lỗi xảy ra khi từ chối!', 'LỖI', 'error');
+    }
   };
 
   // Mở modal thay đổi chiến mã
@@ -1474,24 +1637,22 @@ export default function AdminPage() {
                     Thông Báo Trực Ban Điều Hành
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px' }}>Khóa y tế: Ngựa Phi Yến (Ô A5)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                        Bác sĩ thú y kích hoạt lệnh khóa y tế do giãn dây chằng. HLV tạm ngừng lịch tập cường độ cao.
+                    {horses.length === 0 ? (
+                      <div style={{ padding: '16px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px dashed var(--line)', color: 'var(--paper-dim)', fontSize: '12.5px', textAlign: 'center' }}>
+                        Hiện chưa có cảnh báo y tế hoặc lịch thi đấu khẩn cấp. Toàn bộ ô chuồng đã sẵn sàng đón chiến mã mới.
                       </div>
-                    </div>
-                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px' }}>Theo dõi thể lực: Ngựa Hắc Phong (Ô A3)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                        Buổi tập gần nhất đạt nhịp tim 210 bpm. Đã thông báo cho Groom bổ sung điện giải và theo dõi nhịp thở.
-                      </div>
-                    </div>
-                    <div style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--brass)', fontSize: '13px' }}>Sẵn sàng thi đấu: Ngựa Xích Thố (Ô A1)</div>
-                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                        Đạt phong độ tiêu chuẩn, hoàn tất kiểm định thú y và đủ điều kiện xuất trận.
-                      </div>
-                    </div>
+                    ) : (
+                      horses.slice(0, 3).map((h, idx) => (
+                        <div key={h.id || idx} style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
+                          <div style={{ fontWeight: 600, color: h.locked ? '#EF4444' : 'var(--brass)', fontSize: '13px' }}>
+                            {h.locked ? 'Khóa y tế: ' : 'Trạng thái: '}Ngựa {h.name} {h.stable ? `(Ô ${h.stable})` : ''}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                            {h.locked ? (h.lockReason || 'Bác sĩ thú y kích hoạt lệnh khóa y tế bảo đảm sức khỏe.') : `Chiến mã đạt thể trạng ${h.statusText || 'ổn định'}, thuộc chủ sở hữu ${h.owner || 'Chủ nuôi'}.`}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -1571,6 +1732,36 @@ export default function AdminPage() {
 
               {/* Card Grid View */}
               {viewMode === 'cards' ? (
+                filteredHorses.length === 0 ? (
+                  <div style={{
+                    padding: '48px 24px',
+                    textAlign: 'center',
+                    background: 'var(--bg-secondary)',
+                    borderRadius: '12px',
+                    border: '1px dashed var(--line)',
+                    color: 'var(--paper-dim)',
+                    width: '100%',
+                    gridColumn: '1 / -1'
+                  }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brass)', fontWeight: 800, fontSize: '13px', letterSpacing: '0.08em' }}>EQUINE</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)', marginBottom: '6px' }}>
+                      {lang === 'en' ? 'No racehorses registered yet' : 'Chưa có chiến mã nào trong hệ thống'}
+                    </div>
+                    <div style={{ fontSize: '13px', maxWidth: '440px', margin: '0 auto 16px', lineHeight: 1.6 }}>
+                      {lang === 'en'
+                        ? 'Horses registered by Owners or newly added by Admin will appear here in real-time.'
+                        : 'Chiến mã do Chủ sở hữu đăng ký mới hoặc Quản trị viên thêm vào sẽ tự động hiển thị và đồng bộ tại đây.'}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddHorseModal(true)}
+                      className="portal-view-btn"
+                      style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700, margin: '0 auto' }}
+                    >
+                      {t('adminBtnAddHorse')}
+                    </button>
+                  </div>
+                ) : (
                 <div className="portal-cards-grid">
                   {filteredHorses.map((h) => {
                     const badgeClass = h.breed === 'Thoroughbred' ? 'badge-gold' : 'badge-slate';
@@ -1580,20 +1771,60 @@ export default function AdminPage() {
                         ? (lang === 'en' ? 'Gelding' : 'Thiến')
                         : (lang === 'en' ? 'Mare' : 'Cái');
                     return (
-                      <div key={h.id} className="facility-card">
-                        {/* Top Badge */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className={`facility-card-badge ${badgeClass}`}>
-                            <span>{h.breed.toUpperCase()}</span>
-                          </span>
-                          <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>
+                      <div key={h.id} className="facility-card" style={{ padding: '16px', overflow: 'hidden' }}>
+                        {/* Ảnh chiến mã chính xác do Chủ sở hữu cập nhật */}
+                        <div style={{
+                          position: 'relative',
+                          width: '100%',
+                          height: '180px',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          marginBottom: '14px',
+                          background: '#161B22',
+                          border: '1px solid var(--line)'
+                        }}>
+                          <img
+                            src={h.avatar || h.horse_avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80'}
+                            alt={h.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block'
+                            }}
+                            onError={(e) => {
+                              e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
+                            }}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            top: '10px',
+                            left: '10px'
+                          }}>
+                            <span className={`facility-card-badge ${badgeClass}`} style={{ margin: 0, backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.65)' }}>
+                              <span>{h.breed.toUpperCase()}</span>
+                            </span>
+                          </div>
+                          <span style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            background: 'rgba(0,0,0,0.7)',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            color: '#F3F4F6',
+                            fontFamily: 'monospace',
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(255,255,255,0.15)'
+                          }}>
                             {h.microchip}
                           </span>
                         </div>
 
                         {/* Title & Desc */}
                         <h3 className="facility-card-title">{h.name}</h3>
-                        <p className="facility-card-desc">{h.desc}</p>
+                        <p className="facility-card-desc">{h.desc || `Chiến mã thuần chủng được nuôi dưỡng tại ô ${h.stable}`}</p>
                         
                         <div className="facility-card-bullets">
                           <div className="facility-bullet-item">
@@ -1618,7 +1849,9 @@ export default function AdminPage() {
                           </div>
                           <div className="facility-spec-cell">
                             <span className="spec-label">{lang === 'en' ? 'Owner' : 'Chủ sở hữu'}</span>
-                            <span className="spec-val" style={{ fontSize: '11.5px' }}>{h.owner.split(' ').slice(-1)[0]}</span>
+                            <span className="spec-val" style={{ fontSize: '11.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={h.ownerName || h.owner || 'Chủ sở hữu'}>
+                              {h.ownerName || h.owner || 'Chủ sở hữu'}
+                            </span>
                           </div>
                         </div>
 
@@ -1673,6 +1906,7 @@ export default function AdminPage() {
                     );
                   })}
                 </div>
+                )
               ) : (
                 /* Table View */
                 <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
@@ -1689,11 +1923,28 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredHorses.map(h => (
+                      {filteredHorses.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: 'var(--paper-dim)' }}>
+                            {lang === 'en' ? 'No racehorses registered yet. Click "Add Horse" to begin.' : 'Chưa có chiến mã nào trong hệ thống. Bấm "Thêm ngựa mới" để bắt đầu.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredHorses.map(h => (
                         <tr key={h.id} style={{ borderBottom: '1px solid var(--line)' }}>
                           <td style={{ padding: '14px 18px' }}>
-                            <div style={{ fontWeight: 700, color: 'var(--brass)', fontSize: '15px' }}>{h.name}</div>
-                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>{h.microchip}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <img
+                                src={h.avatar || h.horse_avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=150&q=80'}
+                                alt={h.name}
+                                style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
+                                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=150&q=80'; }}
+                              />
+                              <div>
+                                <div style={{ fontWeight: 700, color: 'var(--brass)', fontSize: '15px' }}>{h.name}</div>
+                                <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontFamily: 'monospace' }}>{h.microchip}</div>
+                              </div>
+                            </div>
                           </td>
                           <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
                             <div>{h.breed}</div>
@@ -1704,7 +1955,7 @@ export default function AdminPage() {
                               {lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}
                             </span>
                           </td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{h.owner}</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{h.ownerName || h.owner || 'Chủ sở hữu'}</td>
                           <td style={{ padding: '14px 18px' }}>
                             <span style={{
                               padding: '3px 8px',
@@ -1747,7 +1998,8 @@ export default function AdminPage() {
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      )))
+                    }
                     </tbody>
                   </table>
                 </div>
@@ -1758,6 +2010,302 @@ export default function AdminPage() {
           {/* ===================== TAB 3: STABLES ===================== */}
           {activeTab === 'stables' && (
             <div>
+              {/* ========================================================================= */}
+              {/* KHỐI QUẢN LÝ: YÊU CẦU PHÊ DUYỆT CẤP & ĐỔI Ô CHUỒNG TỪ CHỦ SỞ HỮU */}
+              {/* ========================================================================= */}
+              <div style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--line-strong)',
+                borderRadius: '10px',
+                padding: '18px 20px',
+                marginBottom: '20px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {lang === 'en' ? 'Stall Allocation & Relocation Requests' : 'Yêu Cầu Phê Duyệt Cấp & Đổi Ô Chuồng'}
+                    </h3>
+                    <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '3px' }}>
+                      {lang === 'en'
+                        ? 'Review and approve stall allocations. Approving a relocation instantly vacates the prior stall.'
+                        : 'Thẩm định và phê duyệt phân bổ ô chuồng. Khi duyệt đổi chuồng, ô cũ sẽ lập tức được giải phóng cho chủ sở hữu khác.'}
+                    </div>
+                  </div>
+
+                  {/* Pills lọc trạng thái yêu cầu */}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setStallReqFilter('ALL')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        border: '1px solid var(--line)',
+                        background: stallReqFilter === 'ALL' ? 'var(--brass)' : 'var(--bg-secondary)',
+                        color: stallReqFilter === 'ALL' ? '#14100A' : 'var(--paper)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {lang === 'en' ? 'All' : 'Tất cả'} ({stallRequests.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStallReqFilter('PENDING')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        border: `1px solid ${stallRequests.filter(r => r.status === 'PENDING').length > 0 ? '#F59E0B' : 'var(--line)'}`,
+                        background: stallReqFilter === 'PENDING' ? '#F59E0B' : 'rgba(245, 158, 11, 0.1)',
+                        color: stallReqFilter === 'PENDING' ? '#14100A' : '#F59E0B',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {lang === 'en' ? 'Pending' : 'Chờ duyệt'} ({stallRequests.filter(r => r.status === 'PENDING').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStallReqFilter('APPROVED')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        border: '1px solid var(--line)',
+                        background: stallReqFilter === 'APPROVED' ? '#10B981' : 'var(--bg-secondary)',
+                        color: stallReqFilter === 'APPROVED' ? '#FFFFFF' : 'var(--paper)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {lang === 'en' ? 'Approved' : 'Đã duyệt'} ({stallRequests.filter(r => r.status === 'APPROVED').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStallReqFilter('REJECTED')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        border: '1px solid var(--line)',
+                        background: stallReqFilter === 'REJECTED' ? '#EF4444' : 'var(--bg-secondary)',
+                        color: stallReqFilter === 'REJECTED' ? '#FFFFFF' : 'var(--paper)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {lang === 'en' ? 'Rejected' : 'Từ chối'} ({stallRequests.filter(r => r.status === 'REJECTED').length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Danh sách yêu cầu */}
+                {(() => {
+                  const filteredRequests = stallRequests.filter(r => {
+                    if (stallReqFilter === 'PENDING') return r.status === 'PENDING';
+                    if (stallReqFilter === 'APPROVED') return r.status === 'APPROVED';
+                    if (stallReqFilter === 'REJECTED') return r.status === 'REJECTED';
+                    return true;
+                  });
+
+                  if (filteredRequests.length === 0) {
+                    return (
+                      <div style={{
+                        padding: '16px',
+                        textAlign: 'center',
+                        color: 'var(--paper-dim)',
+                        fontSize: '13px',
+                        background: 'var(--bg-secondary)',
+                        borderRadius: '6px',
+                        border: '1px dashed var(--line)'
+                      }}>
+                        {stallReqFilter === 'PENDING'
+                          ? (lang === 'en' ? 'No pending stall requests at this moment.' : 'Hiện tại không có yêu cầu cấp hoặc đổi ô chuồng nào đang chờ phê duyệt.')
+                          : (lang === 'en' ? 'No requests match the selected filter.' : 'Không có yêu cầu nào phù hợp với bộ lọc đã chọn.')}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <th style={{ padding: '8px 12px' }}>Thời Gian</th>
+                            <th style={{ padding: '8px 12px' }}>Chủ Sở Hữu</th>
+                            <th style={{ padding: '8px 12px' }}>Chiến Mã</th>
+                            <th style={{ padding: '8px 12px' }}>Phân Loại</th>
+                            <th style={{ padding: '8px 12px' }}>Vị Trí Yêu Cầu</th>
+                            <th style={{ padding: '8px 12px' }}>Lý Do</th>
+                            <th style={{ padding: '8px 12px' }}>Trạng Thái</th>
+                            <th style={{ padding: '8px 12px', textAlign: 'right' }}>Thao Tác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredRequests.map(req => {
+                            const isPending = req.status === 'PENDING';
+                            const isApproved = req.status === 'APPROVED';
+                            const isChange = req.type === 'CHANGE' || !!req.currentStall;
+
+                            return (
+                              <tr key={req.id} style={{ borderBottom: '1px solid var(--line)', background: isPending ? 'rgba(212, 175, 55, 0.04)' : 'transparent' }}>
+                                <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                                  {req.createdAt ? new Date(req.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : 'Vừa xong'}
+                                </td>
+                                <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                                  <b style={{ color: 'var(--paper)' }}>{req.ownerName || req.ownerUsername || 'Chủ sở hữu'}</b>
+                                  {req.ownerUsername && <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>@{req.ownerUsername}</div>}
+                                </td>
+                                <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <img
+                                      src={req.horseAvatar || '/images/default_horse.jpg'}
+                                      alt={req.horseName}
+                                      style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--line)' }}
+                                      onError={(e) => { e.target.src = '/images/default_horse.jpg'; }}
+                                    />
+                                    <div>
+                                      <b style={{ color: 'var(--brass)' }}>{req.horseName}</b>
+                                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>{req.horseBreed || 'Thoroughbred'}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                                  {isChange ? (
+                                    <span style={{
+                                      padding: '3px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '10.5px',
+                                      fontWeight: 700,
+                                      textTransform: 'uppercase',
+                                      background: 'rgba(245, 158, 11, 0.12)',
+                                      color: '#F59E0B',
+                                      border: '1px solid rgba(245, 158, 11, 0.3)'
+                                    }}>
+                                      Đổi Ô Chuồng
+                                    </span>
+                                  ) : (
+                                    <span style={{
+                                      padding: '3px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '10.5px',
+                                      fontWeight: 700,
+                                      textTransform: 'uppercase',
+                                      background: 'rgba(59, 130, 246, 0.12)',
+                                      color: '#3B82F6',
+                                      border: '1px solid rgba(59, 130, 246, 0.3)'
+                                    }}>
+                                      Cấp Chuồng Mới
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                                  {isChange ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ color: 'var(--paper-dim)', textDecoration: 'line-through' }}>
+                                        Ô {req.currentStall || '?'}
+                                      </span>
+                                      <span style={{ color: 'var(--paper-dim)' }}>→</span>
+                                      <b style={{ color: 'var(--brass)', fontSize: '13.5px' }}>
+                                        Ô {req.requestedStall}
+                                      </b>
+                                    </div>
+                                  ) : (
+                                    <b style={{ color: 'var(--brass)', fontSize: '13.5px' }}>
+                                      Ô {req.requestedStall}
+                                    </b>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 12px', maxWidth: '220px', color: 'var(--paper-dim)', fontSize: '12px' }}>
+                                  {req.reason || 'Đăng ký vào chuồng'}
+                                </td>
+                                <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                                  {isPending && (
+                                    <span style={{ color: '#F59E0B', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                      Chờ Phê Duyệt
+                                    </span>
+                                  )}
+                                  {isApproved && (
+                                    <span style={{ color: '#10B981', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                      Đã Phê Duyệt
+                                    </span>
+                                  )}
+                                  {req.status === 'REJECTED' && (
+                                    <span style={{ color: '#EF4444', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }} title={req.rejectReason || ''}>
+                                      Đã Từ Chối
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                  {isPending ? (
+                                    <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApproveStallRequest(req.id)}
+                                        style={{
+                                          padding: '5px 12px',
+                                          background: '#10B981',
+                                          color: '#FFFFFF',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          fontSize: '11px',
+                                          fontWeight: 700,
+                                          textTransform: 'uppercase',
+                                          letterSpacing: '0.03em',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                        title="Phê duyệt gán chuồng cho ngựa (nhả ô cũ nếu đổi)"
+                                      >
+                                        Phê Duyệt
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenRejectModal(req)}
+                                        style={{
+                                          padding: '5px 10px',
+                                          background: 'rgba(239, 68, 68, 0.15)',
+                                          color: '#EF4444',
+                                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                                          borderRadius: '4px',
+                                          fontSize: '11px',
+                                          fontWeight: 700,
+                                          textTransform: 'uppercase',
+                                          letterSpacing: '0.03em',
+                                          cursor: 'pointer'
+                                        }}
+                                        title="Từ chối yêu cầu"
+                                      >
+                                        Từ Chối
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                                      {req.approvedBy || req.rejectedBy || 'Đã xử lý'}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
+
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button
@@ -1815,14 +2363,129 @@ export default function AdminPage() {
                     const badgeClass = isOccupied ? 'badge-gold' : 'badge-slate';
 
                     return (
-                      <div key={s.stall_code} className="facility-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className={`facility-card-badge ${badgeClass}`}>
-                            <span>{s.block.toUpperCase()}</span>
-                          </span>
-                          <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 600 }}>
-                            {s.stall_code}
-                          </span>
+                      <div key={s.stall_code} className="facility-card" style={{ padding: '16px', overflow: 'hidden' }}>
+                        {/* Ảnh ô chuồng (3D Simulation hoặc ảnh do Admin tải lên) */}
+                        <div style={{
+                          position: 'relative',
+                          width: '100%',
+                          height: '175px',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          marginBottom: '14px',
+                          background: '#161B22',
+                          border: '1px solid var(--line)'
+                        }}>
+                          <img
+                            src={s.stall_image || (isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg')}
+                            alt={`Ô Chuồng ${s.stall_code}`}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block'
+                            }}
+                            onError={(e) => {
+                              e.target.src = isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg';
+                            }}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            top: '10px',
+                            left: '10px'
+                          }}>
+                            <span className={`facility-card-badge ${badgeClass}`} style={{ margin: 0, backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.65)' }}>
+                              <span>{s.block.toUpperCase()}</span>
+                            </span>
+                          </div>
+
+                          <div style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            display: 'flex',
+                            gap: '6px'
+                          }}>
+                            <label
+                              style={{
+                                cursor: 'pointer',
+                                background: 'rgba(0,0,0,0.75)',
+                                padding: '4px 10px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                color: 'var(--brass)',
+                                border: '1px solid rgba(212,175,55,0.4)',
+                                backdropFilter: 'blur(8px)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.03em',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title="Cập nhật ảnh ô chuồng"
+                            >
+                              <span>Đổi ảnh</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={(e) => handleUploadStallImage(s.stall_code, e)}
+                              />
+                            </label>
+                            <span style={{
+                              background: 'rgba(0,0,0,0.7)',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              color: '#F3F4F6',
+                              fontWeight: 700,
+                              backdropFilter: 'blur(8px)',
+                              border: '1px solid rgba(255,255,255,0.15)'
+                            }}>
+                              {s.stall_code}
+                            </span>
+                          </div>
+
+                          {/* Nếu ô chuồng đang nuôi dưỡng ngựa, hiển thị thumbnail nhỏ của chiến mã ở góc dưới */}
+                          {isOccupied && (
+                            <div style={{
+                              position: 'absolute',
+                              bottom: '8px',
+                              left: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: 'rgba(10, 13, 20, 0.85)',
+                              padding: '3px 10px 3px 4px',
+                              borderRadius: '20px',
+                              backdropFilter: 'blur(8px)',
+                              border: '1px solid rgba(212,175,55,0.3)'
+                            }}>
+                              {s.horse_avatar ? (
+                                <img
+                                  src={s.horse_avatar}
+                                  alt={s.horse}
+                                  style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
+                                />
+                              ) : (
+                                <span style={{
+                                  width: '20px',
+                                  height: '20px',
+                                  borderRadius: '50%',
+                                  background: 'var(--brass)',
+                                  color: '#14100A',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '10px',
+                                  fontWeight: 800
+                                }}>
+                                  {s.horse.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                              <span style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 700 }}>{s.horse}</span>
+                            </div>
+                          )}
                         </div>
 
                         <h3 className="facility-card-title">{lang === 'en' ? `Barn Stall ${s.stall_code}` : `Ô Chuồng ${s.stall_code}`}</h3>
@@ -1887,13 +2550,33 @@ export default function AdminPage() {
                         </div>
 
                         <div className="facility-card-actions">
-                          <div className="actions-left">
+                          <div className="actions-left" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                             <button
                               className="facility-btn-action"
                               onClick={() => handleToggleStable(s.stall_code)}
                             >
                               {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
                             </button>
+                            <button
+                              className="facility-btn-action"
+                              onClick={() => handleOpenChangeHorse(s)}
+                              style={{ borderColor: 'rgba(212,175,55,0.4)', color: 'var(--brass)' }}
+                            >
+                              {isOccupied ? 'Đổi ngựa' : 'Gán ngựa'}
+                            </button>
+                            <label
+                              className="facility-btn-action"
+                              style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                              title="Admin: Cập nhật hình ảnh chuồng"
+                            >
+                              <span>Cập nhật ảnh</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={(e) => handleUploadStallImage(s.stall_code, e)}
+                              />
+                            </label>
                           </div>
                           <span className="facility-link-action" style={{ cursor: 'default' }}>
                             {s.block} →
@@ -1921,9 +2604,36 @@ export default function AdminPage() {
                         const isAvailable = s.status === 'AVAILABLE';
                         return (
                           <tr key={s.stall_code} style={{ borderBottom: '1px solid var(--line)' }}>
-                            <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>{lang === 'en' ? 'Stall ' : 'Ô '}{s.stall_code}</td>
+                            <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <img
+                                  src={s.stall_image || (isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg')}
+                                  alt={s.stall_code}
+                                  style={{ width: '48px', height: '36px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
+                                  onError={(e) => { e.target.src = isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg'; }}
+                                />
+                                <div>
+                                  <div>{lang === 'en' ? 'Stall ' : 'Ô '}{s.stall_code}</div>
+                                  <label style={{ fontSize: '11px', color: 'var(--brass)', cursor: 'pointer', display: 'inline-block', marginTop: '2px', fontWeight: 600 }}>
+                                    <span>Đổi ảnh</span>
+                                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleUploadStallImage(s.stall_code, e)} />
+                                  </label>
+                                </div>
+                              </div>
+                            </td>
                             <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{s.block}</td>
-                            <td style={{ padding: '14px 18px', color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 600 }}>{s.horse}</td>
+                            <td style={{ padding: '14px 18px', color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 600 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {isOccupied && s.horse_avatar && (
+                                  <img
+                                    src={s.horse_avatar}
+                                    alt={s.horse}
+                                    style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                                  />
+                                )}
+                                <span>{s.horse}</span>
+                              </div>
+                            </td>
                             <td style={{ padding: '14px 18px' }}>
                               <span style={{
                                 padding: '3px 8px',
@@ -1938,20 +2648,37 @@ export default function AdminPage() {
                               </span>
                             </td>
                             <td style={{ padding: '14px 18px' }}>
-                              <button
-                                onClick={() => handleToggleStable(s.stall_code)}
-                                style={{
-                                  padding: '5px 12px',
-                                  background: 'var(--bg-secondary)',
-                                  border: '1px solid var(--line)',
-                                  borderRadius: '4px',
-                                  color: 'var(--paper)',
-                                  fontSize: '12px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
-                              </button>
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                <button
+                                  onClick={() => handleToggleStable(s.stall_code)}
+                                  style={{
+                                    padding: '5px 10px',
+                                    background: 'var(--bg-secondary)',
+                                    border: '1px solid var(--line)',
+                                    borderRadius: '4px',
+                                    color: 'var(--paper)',
+                                    fontSize: '12px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {lang === 'en' ? 'Toggle' : 'Đổi trạng thái'}
+                                </button>
+                                <button
+                                  onClick={() => handleOpenChangeHorse(s)}
+                                  style={{
+                                    padding: '5px 10px',
+                                    background: 'var(--bg-secondary)',
+                                    border: '1px solid rgba(212,175,55,0.4)',
+                                    borderRadius: '4px',
+                                    color: 'var(--brass)',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  {isOccupied ? 'Đổi ngựa' : 'Gán ngựa'}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1983,7 +2710,18 @@ export default function AdminPage() {
                   flexWrap: 'wrap'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <span style={{ fontSize: '26px' }}>⏳</span>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      background: 'rgba(232, 107, 44, 0.15)',
+                      color: '#E86B2C',
+                      fontWeight: 800,
+                      fontSize: '14px'
+                    }}>!</span>
                     <div>
                       <div style={{ fontSize: '14.5px', fontWeight: 800, color: '#E86B2C', letterSpacing: '0.02em' }}>
                         {lang === 'en' 
@@ -2037,7 +2775,7 @@ export default function AdminPage() {
                       fontWeight: 700
                     } : {}}
                   >
-                    ⏳ {lang === 'en' ? 'Pending Approval' : 'Chờ Phê Duyệt'} <span className="pill-count" style={{ background: '#E86B2C', color: '#fff' }}>{usersList.filter(u => u.status === 'PENDING').length}</span>
+                    {lang === 'en' ? 'Pending Approval' : 'Chờ Phê Duyệt'} <span className="pill-count" style={{ background: '#E86B2C', color: '#fff' }}>{usersList.filter(u => u.status === 'PENDING').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'TRAINER' ? 'active' : ''}`}
@@ -2171,7 +2909,7 @@ export default function AdminPage() {
                                   }}
                                   title="Phê duyệt kích hoạt tài khoản này"
                                 >
-                                  ✓ {lang === 'en' ? 'Approve' : 'Phê duyệt'}
+                                  {lang === 'en' ? 'Approve' : 'Phê duyệt'}
                                 </button>
                                 <button
                                   type="button"
@@ -2188,7 +2926,7 @@ export default function AdminPage() {
                                   }}
                                   title="Từ chối yêu cầu đăng ký"
                                 >
-                                  ✕ {lang === 'en' ? 'Reject' : 'Từ chối'}
+                                  {lang === 'en' ? 'Reject' : 'Từ chối'}
                                 </button>
                               </>
                             ) : (
@@ -2305,7 +3043,7 @@ export default function AdminPage() {
                                       }}
                                       title="Phê duyệt kích hoạt tài khoản"
                                     >
-                                      ✓ {lang === 'en' ? 'Approve' : 'Phê duyệt'}
+                                      {lang === 'en' ? 'Approve' : 'Phê duyệt'}
                                     </button>
                                     <button
                                       onClick={() => handleRejectUser(u)}
@@ -2321,7 +3059,7 @@ export default function AdminPage() {
                                       }}
                                       title="Từ chối duyệt"
                                     >
-                                      ✕ {lang === 'en' ? 'Reject' : 'Từ chối'}
+                                      {lang === 'en' ? 'Reject' : 'Từ chối'}
                                     </button>
                                   </>
                                 ) : (
@@ -2507,21 +3245,21 @@ export default function AdminPage() {
                     className={`portal-pill-btn ${reportRoleFilter === 'TRAINER' ? 'active' : ''}`}
                     onClick={() => setReportRoleFilter('TRAINER')}
                   >
-                    🏇 HLV <span className="pill-count">{personnelReports.filter(r => r.targetRole === 'TRAINER').length}</span>
+                    HLV <span className="pill-count">{personnelReports.filter(r => r.targetRole === 'TRAINER').length}</span>
                   </button>
                   <button
                     type="button"
                     className={`portal-pill-btn ${reportRoleFilter === 'VET' ? 'active' : ''}`}
                     onClick={() => setReportRoleFilter('VET')}
                   >
-                    🩺 Thú Y <span className="pill-count">{personnelReports.filter(r => r.targetRole === 'VET').length}</span>
+                    Thú Y <span className="pill-count">{personnelReports.filter(r => r.targetRole === 'VET').length}</span>
                   </button>
                   <button
                     type="button"
                     className={`portal-pill-btn ${reportRoleFilter === 'CARETAKER' ? 'active' : ''}`}
                     onClick={() => setReportRoleFilter('CARETAKER')}
                   >
-                    🌾 Chăm Sóc <span className="pill-count">{personnelReports.filter(r => r.targetRole === 'CARETAKER').length}</span>
+                    Chăm Sóc <span className="pill-count">{personnelReports.filter(r => r.targetRole === 'CARETAKER').length}</span>
                   </button>
                 </div>
 
@@ -2533,10 +3271,10 @@ export default function AdminPage() {
                     style={{ padding: '7px 10px', fontSize: '12px', minWidth: '170px' }}
                   >
                     <option value="ALL">Tất cả trạng thái ({personnelReports.length})</option>
-                    <option value="PENDING">⏳ Chờ Admin tiếp nhận</option>
-                    <option value="INVESTIGATING">🔍 Đang thẩm tra</option>
-                    <option value="RESOLVED">✓ Đã giải quyết</option>
-                    <option value="DISMISSED">✕ Bác bỏ</option>
+                    <option value="PENDING">Chờ Admin tiếp nhận</option>
+                    <option value="INVESTIGATING">Đang thẩm tra</option>
+                    <option value="RESOLVED">Đã giải quyết</option>
+                    <option value="DISMISSED">Bác bỏ</option>
                   </select>
 
                   <input
@@ -2573,7 +3311,7 @@ export default function AdminPage() {
                       borderRadius: '12px',
                       margin: '10px 0'
                     }}>
-                      <div style={{ fontSize: '42px', marginBottom: '12px' }}>🛡️</div>
+                      <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brass)', fontWeight: 800, fontSize: '11px', letterSpacing: '0.08em' }}>REPORT</div>
                       <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--paper)' }}>
                         Hiện chưa có khiếu nại nhân sự nào
                       </div>
@@ -2601,7 +3339,7 @@ export default function AdminPage() {
                       </thead>
                       <tbody>
                         {filteredReports.map(report => {
-                          const roleMeta = REPORT_TARGET_ROLES[report.targetRole] || { label: report.targetRole, icon: '👤', color: 'var(--paper)' };
+                          const roleMeta = REPORT_TARGET_ROLES[report.targetRole] || { label: report.targetRole, icon: '', color: 'var(--paper)' };
                           const sevMeta = REPORT_SEVERITIES.find(s => s.id === report.severity) || REPORT_SEVERITIES[1];
                           const statMeta = REPORT_STATUSES.find(s => s.id === report.status) || REPORT_STATUSES[0];
 
@@ -2657,7 +3395,7 @@ export default function AdminPage() {
                               {/* Chiến mã */}
                               <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                                 <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13.5px' }}>
-                                  🏇 {report.horseName}
+                                  Chiến mã: {report.horseName}
                                 </div>
                                 <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '3px' }}>
                                   {report.stall}
@@ -2713,7 +3451,7 @@ export default function AdminPage() {
                                 </div>
                                 {report.adminFeedback && (
                                   <div style={{ marginTop: '6px', fontSize: '11.5px', color: '#10B981', background: 'rgba(16, 185, 129, 0.08)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.25)', lineHeight: 1.4 }}>
-                                    ✓ Đã phản hồi: {report.adminFeedback}
+                                    Phản hồi: {report.adminFeedback}
                                   </div>
                                 )}
                               </td>
@@ -2753,7 +3491,7 @@ export default function AdminPage() {
                                       whiteSpace: 'nowrap'
                                     }}
                                   >
-                                    ⚖️ Thẩm Tra & Xử Lý
+                                    Thẩm Tra & Xử Lý
                                   </button>
                                   <button
                                     type="button"
@@ -2769,7 +3507,7 @@ export default function AdminPage() {
                                     }}
                                     title="Xóa bản ghi khiếu nại"
                                   >
-                                    🗑️
+                                    Xóa
                                   </button>
                                 </div>
                               </td>
@@ -2887,7 +3625,7 @@ export default function AdminPage() {
                   color: 'var(--brass)',
                   fontWeight: 700
                 }}>
-                  👑 {lang === 'en' ? 'Horse Owner (Owner)' : 'Chủ sở hữu Ngựa (Horse Owner)'}
+                  {lang === 'en' ? 'Horse Owner (Owner)' : 'Chủ sở hữu Ngựa (Horse Owner)'}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px', lineHeight: 1.4 }}>
                   {lang === 'en'
@@ -3243,7 +3981,7 @@ export default function AdminPage() {
               textAlign: 'left',
               marginBottom: '20px'
             }}>
-              ⚠️ {lang === 'en'
+              {lang === 'en'
                 ? 'Warning: This action cannot be undone. System access will be permanently revoked.'
                 : 'Cảnh báo: Hành động này không thể hoàn tác. Quyền truy cập hệ thống của tài khoản sẽ bị xóa bỏ vĩnh viễn.'}
             </div>
@@ -3419,7 +4157,7 @@ export default function AdminPage() {
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    <span>🏷️</span>
+                    <span style={{ fontSize: "11px", fontWeight: 700 }}>[TIÊU CHUẨN]</span>
                     <span>{lang === 'en' ? 'Standard Stall' : 'Chuồng Thường (Tiêu chuẩn)'}</span>
                   </button>
 
@@ -3442,14 +4180,14 @@ export default function AdminPage() {
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    <span>👑</span>
+                    <span style={{ fontSize: "11px", fontWeight: 700 }}>[VIP]</span>
                     <span>{lang === 'en' ? 'VIP Stall' : 'Chuồng VIP (Chỉ VIP thấy)'}</span>
                   </button>
                 </div>
                 <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '5px' }}>
                   {newStallData.tier === 'VIP'
-                    ? '👑 Chuồng VIP: Chỉ các chủ sở hữu có đăng ký gói VIP mới thấy ô chuồng này khi đăng ký ngựa.'
-                    : '🏷️ Chuồng Thường: Hiển thị cho tất cả chủ sở hữu (cả người chưa VIP lẫn người có VIP).'}
+                    ? 'Chuồng VIP: Chỉ các chủ sở hữu có đăng ký gói VIP mới thấy ô chuồng này khi đăng ký ngựa.'
+                    : 'Chuồng Thường: Hiển thị cho tất cả chủ sở hữu (cả người chưa VIP lẫn người có VIP).'}
                 </div>
               </div>
 
@@ -3678,7 +4416,7 @@ export default function AdminPage() {
                 textAlign: 'left',
                 marginBottom: '20px'
               }}>
-                ⚠️ {lang === 'en'
+                {lang === 'en'
                   ? `Notice: Horse "${deleteTargetStall.horse}" currently in this stall will be marked as "Unassigned" and awaiting a new stall.`
                   : `Lưu ý: Chiến mã "${deleteTargetStall.horse}" đang ở ô này sẽ được chuyển về trạng thái "Chưa phân bổ" để bạn xếp chuồng mới.`}
               </div>
@@ -3805,17 +4543,17 @@ export default function AdminPage() {
                   style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box', fontSize: '13px' }}
                 >
                   <option value="VACANT">
-                    {lang === 'en' ? '🚫 Vacant Stall (No horse / Empty stall)' : '🚫 Làm trống ô chuồng (Không gán chiến mã)'}
+                    {lang === 'en' ? 'Vacant Stall (No horse / Empty stall)' : 'Làm trống ô chuồng (Không gán chiến mã)'}
                   </option>
                   <optgroup label={lang === 'en' ? 'Active Racehorses' : 'Danh sách chiến mã hiện có'}>
                     {horses.map(h => (
                       <option key={h.id} value={String(h.id)}>
-                        🏇 {h.name} ({h.breed} · Chip: {h.microchip} · Chuồng: {h.stable})
+                        {h.name} ({h.breed} · Chip: {h.microchip} · Chuồng: {h.stable})
                       </option>
                     ))}
                   </optgroup>
                   <option value="CUSTOM">
-                    {lang === 'en' ? '✍️ Add custom / new horse name...' : '✍️ Nhập tên chiến mã mới khác...'}
+                    {lang === 'en' ? 'Add custom / new horse name...' : 'Nhập tên chiến mã mới khác...'}
                   </option>
                 </select>
               </div>
@@ -3906,6 +4644,108 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== MODAL TỪ CHỐI YÊU CẦU CẤP / ĐỔI Ô CHUỒNG ===================== */}
+      {showRejectModal && rejectingRequest && (
+        <div
+          onClick={() => { setShowRejectModal(false); setRejectingRequest(null); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.78)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 1000000,
+            cursor: 'pointer'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--line)',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '440px',
+              padding: '24px',
+              color: 'var(--paper)',
+              boxShadow: 'var(--shadow)',
+              cursor: 'default'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <span style={{ fontSize: "18px", color: "#EF4444", fontWeight: 700 }}>&times;</span>
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--paper)' }}>
+                Từ Chối Yêu Cầu Ô Chuồng
+              </h3>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '0 0 14px', lineHeight: 1.4 }}>
+              Bạn đang từ chối yêu cầu cấp / đổi sang <b>Ô {rejectingRequest.requestedStall}</b> cho chiến mã <b>{rejectingRequest.horseName}</b> (Chủ sở hữu: {rejectingRequest.ownerName}). Ô chuồng này sẽ được trả về trạng thái trống.
+            </p>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'var(--paper)', marginBottom: '6px' }}>
+                Lý Do Từ Chối:
+              </label>
+              <textarea
+                value={rejectReasonInput}
+                onChange={(e) => setRejectReasonInput(e.target.value)}
+                placeholder="Nhập lý do từ chối để thông báo tới Chủ sở hữu..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  color: 'var(--paper)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  boxSizing: 'border-box',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => { setShowRejectModal(false); setRejectingRequest(null); }}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  color: 'var(--paper-dim)',
+                  border: '1px solid var(--line)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRejectStallRequest}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '6px',
+                  background: '#EF4444',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Xác Nhận Từ Chối
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -4117,7 +4957,7 @@ export default function AdminPage() {
                         }}
                         title={lang === 'en' ? 'Chuyển sang Tiếng Việt' : 'Switch to English'}
                       >
-                        🌐 {lang === 'en' ? 'EN' : 'VI'}
+                        {lang === 'en' ? 'EN' : 'VI'}
                       </button>
 
                       <button
@@ -4137,9 +4977,7 @@ export default function AdminPage() {
                           fontSize: '14px',
                           fontWeight: 700
                         }}
-                      >
-                        ✕
-                      </button>
+                      >&times;</button>
                     </div>
                   </div>
 
@@ -4376,10 +5214,12 @@ export default function AdminPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '18px',
-                  color: 'var(--brass)'
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: 'var(--brass)',
+                  letterSpacing: '0.05em'
                 }}>
-                  ⚖️
+                  AUDIT
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#FFFFFF' }}>
@@ -4415,9 +5255,7 @@ export default function AdminPage() {
                   e.currentTarget.style.color = '#94A3B8';
                   e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
                 }}
-              >
-                ✕
-              </button>
+              >&times;</button>
             </div>
 
             {/* Modal Body */}
@@ -4450,7 +5288,7 @@ export default function AdminPage() {
                     <span style={{ fontSize: '11.5px', color: '#94A3B8' }}>({selectedReportForReview.targetTitle})</span>
                   </div>
                   <div style={{ fontSize: '12px', color: '#94A3B8' }}>
-                    Chủ sở hữu: <b style={{ color: '#F1F5F9' }}>{selectedReportForReview.ownerName}</b> · 🏇 <b style={{ color: 'var(--brass)' }}>{selectedReportForReview.horseName}</b>
+                    Chủ sở hữu: <b style={{ color: '#F1F5F9' }}>{selectedReportForReview.ownerName}</b> · Chiến mã: <b style={{ color: 'var(--brass)' }}>{selectedReportForReview.horseName}</b>
                   </div>
                 </div>
 
@@ -4499,7 +5337,7 @@ export default function AdminPage() {
                         wordBreak: 'break-word',
                         overflowWrap: 'anywhere'
                       }}>
-                        📎 Bằng chứng / Ghi chú: {selectedReportForReview.evidenceNote}
+                        Bằng chứng / Ghi chú: {selectedReportForReview.evidenceNote}
                       </div>
                     )}
                   </div>
@@ -4534,41 +5372,41 @@ export default function AdminPage() {
                     outline: 'none'
                   }}
                 >
-                  <option value="INVESTIGATING" style={{ background: '#141A29', color: '#38BDF8' }}>🔍 Đang thẩm tra & Yêu cầu giải trình</option>
+                  <option value="INVESTIGATING" style={{ background: '#141A29', color: '#38BDF8' }}>Đang thẩm tra & Yêu cầu giải trình</option>
                   <option value="RESOLVED" style={{ background: '#141A29', color: '#10B981' }}>✅ Đã giải quyết & Xử lý kỷ luật</option>
-                  <option value="DISMISSED" style={{ background: '#141A29', color: '#EF4444' }}>✕ Bác bỏ khiếu nại (Không đủ căn cứ)</option>
-                  <option value="PENDING" style={{ background: '#141A29', color: '#F59E0B' }}>⏳ Chờ tiếp nhận hồ sơ</option>
+                  <option value="DISMISSED" style={{ background: '#141A29', color: '#EF4444' }}>Bác bỏ khiếu nại (Không đủ căn cứ)</option>
+                  <option value="PENDING" style={{ background: '#141A29', color: '#F59E0B' }}>Chờ tiếp nhận hồ sơ</option>
                 </select>
 
                 {/* Gợi ý phương án nhanh dạng chip gọn gàng */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {[
                     {
-                      tag: '📋 Yêu cầu giải trình 24h',
+                      tag: 'Yêu cầu giải trình 24h',
                       status: 'INVESTIGATING',
                       action: 'Yêu cầu nhân sự giải trình bằng văn bản trong 24h & tạm đình chỉ buổi tập',
                       feedback: 'Ban Quản Trị đã tiếp nhận phản ánh và yêu cầu nhân sự giải trình chi tiết trong 24h. Chúng tôi sẽ thông báo kết quả kỷ luật sớm nhất tới bạn.'
                     },
                     {
-                      tag: '⚠️ Nhắc nhở & Chấn chỉnh',
+                      tag: 'Nhắc nhở & Chấn chỉnh',
                       status: 'RESOLVED',
                       action: 'Phê bình nghiêm khắc, nhắc nhở quy trình phục vụ và lập biên bản nội bộ',
                       feedback: 'Ban Quản Trị đã làm việc trực tiếp, tiến hành nhắc nhở và chấn chỉnh nghiêm túc nhân sự. Cảm ơn Chủ sở hữu đã phản ánh để nâng cao chất lượng phục vụ.'
                     },
                     {
-                      tag: '⚖️ Kỷ luật & Trừ thi đua',
+                      tag: 'Kỷ luật & Trừ thi đua',
                       status: 'RESOLVED',
                       action: 'Phạt trừ điểm thi đua tháng và bố trí nhân sự khác có chuyên môn cao hơn phụ trách',
                       feedback: 'Ban Quản Trị đã thi hành kỷ luật trừ thi đua đối với nhân sự và điều phối nhân sự mới thay thế theo đúng yêu cầu của Chủ sở hữu.'
                     },
                     {
-                      tag: '🤝 Hòa giải & Xin lỗi',
+                      tag: 'Hòa giải & Xin lỗi',
                       status: 'RESOLVED',
                       action: 'Tổ chức đối thoại trực tiếp, nhân sự đã nhận khuyết điểm và xin lỗi Chủ sở hữu',
                       feedback: 'Nhân sự đã nhận trách nhiệm, nhận khuyết điểm và gửi lời xin lỗi chân thành tới Chủ sở hữu. Ban Quản Trị cam kết không để tái diễn sự việc.'
                     },
                     {
-                      tag: '❌ Bác bỏ (Bất khả kháng)',
+                      tag: 'Bác bỏ (Bất khả kháng)',
                       status: 'DISMISSED',
                       action: 'Bác bỏ khiếu nại sau khi trích xuất camera chuồng và nhật ký viễn trắc (sự việc bất khả kháng)',
                       feedback: 'Qua trích xuất camera và dữ liệu viễn trắc khách quan, Ban Quản Trị xác minh nhân sự đã xử lý đúng quy trình ứng phó tình huống bất khả kháng.'
@@ -4718,7 +5556,7 @@ export default function AdminPage() {
                     transition: 'all 0.15s'
                   }}
                 >
-                  <span>✓ Lưu Kết Luận & Gửi Phản Hồi</span>
+                  <span>Lưu Kết Luận & Gửi Phản Hồi</span>
                 </button>
               </div>
             </form>
