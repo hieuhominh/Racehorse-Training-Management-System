@@ -158,7 +158,9 @@ export function AuthProvider({ children }) {
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const stored = localStorage.getItem('matruong_auth_user');
+      // Dọn dẹp session vĩnh viễn trong localStorage để khi npm run dev / mở tab mới luôn bắt đầu ở trang Home với tư cách Khách
+      localStorage.removeItem('matruong_auth_user');
+      const stored = sessionStorage.getItem('matruong_auth_user');
       if (!stored) return null;
       const parsed = JSON.parse(stored);
       const match = SEED_USERS.find(u => u.username === parsed?.username || u.email === parsed?.email);
@@ -172,11 +174,14 @@ export function AuthProvider({ children }) {
   });
 
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('matruong_auth_user', JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem('matruong_auth_user');
-    }
+    try {
+      if (currentUser) {
+        sessionStorage.setItem('matruong_auth_user', JSON.stringify(currentUser));
+      } else {
+        sessionStorage.removeItem('matruong_auth_user');
+        localStorage.removeItem('matruong_auth_user');
+      }
+    } catch {}
   }, [currentUser]);
 
   useEffect(() => {
@@ -385,6 +390,10 @@ export function AuthProvider({ children }) {
   // Đăng xuất
   const logout = () => {
     setCurrentUser(null);
+    try {
+      sessionStorage.removeItem('matruong_auth_user');
+      localStorage.removeItem('matruong_auth_user');
+    } catch {}
   };
 
   // Đăng ký tài khoản mới kết hợp Backend API & Đồng bộ tức thì localStorage

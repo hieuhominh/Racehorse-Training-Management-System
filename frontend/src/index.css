@@ -42,8 +42,8 @@
   --bg-card: #FFFFFF;
   --bg-card-hover: #FAF8F4;
   --bg-elevated: #FFFFFF;
-  --nav-bg: rgba(26, 46, 37, 0.96);
-  --ticker-bg: #1A2E25;
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --ticker-bg: #EAEFEA;
   --ink: #FFFFFF;
   --ink-2: #F8FAFC;
   --ink-3: #F1F5F9;
@@ -64,7 +64,7 @@
   --shadow-sm: 0 1px 3px rgba(26,46,37,0.10);
   --shadow-md: 0 8px 24px -4px rgba(26,46,37,0.12);
   --shadow-lg: 0 16px 36px -6px rgba(26,46,37,0.16);
-  --hero-gradient: radial-gradient(ellipse at 60% 50%, rgba(26,46,37,0.95) 0%, rgba(20,38,28,1) 70%);
+  --hero-gradient: radial-gradient(ellipse at 60% 50%, rgba(220, 233, 226, 0.85) 0%, rgba(244, 246, 244, 1) 70%);
 }
 
 *, *::before, *::after {
@@ -8206,27 +8206,195 @@ header.nav {
   background: #1A2E25 !important;
 }
 
-/* ── Light mode hero background stays dark ── */
+/* ── Light Mode Specific Polish for Home & Global Nav ── */
+[data-theme="light"] header.nav {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid rgba(26, 46, 37, 0.08) !important;
+  box-shadow: 0 2px 14px rgba(26, 46, 37, 0.04);
+}
+
+[data-theme="light"] .mainnav > a,
+[data-theme="light"] .navlink {
+  color: #1A2E25 !important;
+}
+
+[data-theme="light"] .mainnav > a:hover,
+[data-theme="light"] .mainnav > a.active,
+[data-theme="light"] .navlink:hover,
+[data-theme="light"] .navlink.active,
+[data-theme="light"] .navitem.open .navlink {
+  color: #E86B2C !important;
+  border-color: #E86B2C !important;
+}
+
+[data-theme="light"] .brand .name {
+  color: #1A2E25 !important;
+}
+
+[data-theme="light"] .ticker {
+  background: var(--ticker-bg) !important;
+  color: #4A6355 !important;
+  border-bottom: 1px solid rgba(26, 46, 37, 0.08) !important;
+}
+
+[data-theme="light"] .ticker .meet span {
+  color: #4A6355 !important;
+}
+
+[data-theme="light"] .ticker nav a {
+  color: #4A6355 !important;
+}
+
+[data-theme="light"] .ticker nav a:hover {
+  color: #E86B2C !important;
+}
+
 [data-theme="light"] .hero {
-  background: #1A2E25 !important;
-  background-color: #1A2E25 !important;
+  background: var(--hero-gradient) !important;
+  background-color: #F4F6F4 !important;
+  border-bottom: 1px solid rgba(26, 46, 37, 0.08) !important;
 }
 
 [data-theme="light"] .hero h1 {
-  color: #E8EDE8 !important;
+  color: #1A2E25 !important;
 }
 
 [data-theme="light"] .hero p.lede {
-  color: rgba(232,237,232,0.65) !important;
+  color: #4A6355 !important;
 }
 
 [data-theme="light"] .hero .eyebrow {
   color: #E86B2C !important;
+  background: rgba(232, 107, 44, 0.10) !important;
+  border-color: rgba(232, 107, 44, 0.25) !important;
 }
 
-[data-theme="light"] header.nav {
-  background-color: rgba(26,46,37,0.97) !important;
-  background: rgba(26,46,37,0.97) !important;
+[data-theme="light"] .btn-hero-ghost {
+  color: #1A2E25 !important;
+  border: 1px solid rgba(26, 46, 37, 0.25) !important;
+  background: rgba(26, 46, 37, 0.02) !important;
+}
+
+[data-theme="light"] .btn-hero-ghost:hover {
+  color: #E86B2C !important;
+  border-color: #E86B2C !important;
+  background: rgba(232, 107, 44, 0.08) !important;
+}
+
+[data-theme="light"] .hero-circle-bg {
+  background: radial-gradient(circle, rgba(162, 198, 180, 0.50) 0%, rgba(200, 222, 210, 0.20) 75%, transparent 100%) !important;
+  background-color: #DDE8E2 !important;
+}
+
+[data-theme="light"] .race-command-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(26, 46, 37, 0.12) !important;
+  backdrop-filter: blur(16px) !important;
+  box-shadow: 0 14px 38px rgba(26, 46, 37, 0.08) !important;
+}
+
+[data-theme="light"] .rcc-label {
+  color: rgba(26, 46, 37, 0.55) !important;
+}
+
+[data-theme="light"] .rcc-roles-count strong {
+  color: #1A2E25 !important;
+}
+
+[data-theme="light"] .rcc-roles-count span {
+  color: #4A6355 !important;
+}
+
+[data-theme="light"] .rcc-divider {
+  background: rgba(26, 46, 37, 0.10) !important;
+}
+
+[data-theme="light"] .rcc-explore-label {
+  color: rgba(26, 46, 37, 0.55) !important;
+}
+
+[data-theme="light"] .rcc-open-text {
+  color: #1A2E25 !important;
+}
+
+[data-theme="light"] .strip {
+  border-top: 1px solid rgba(26, 46, 37, 0.10) !important;
+}
+
+[data-theme="light"] .strip span {
+  color: #4A6355 !important;
+}
+
+[data-theme="light"] .navitem.open .mega,
+[data-theme="light"] .navitem:hover .mega,
+[data-theme="light"] .mega {
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+  border: 1px solid rgba(26, 46, 37, 0.12) !important;
+  border-top: 3px solid #E86B2C !important;
+  box-shadow: 0 18px 40px rgba(26, 46, 37, 0.12) !important;
+}
+
+[data-theme="light"] .mega h4,
+[data-theme="light"] .mega h5,
+[data-theme="light"] .mega strong,
+[data-theme="light"] .mega .mega-col-title {
+  color: #1A2E25 !important;
+}
+
+[data-theme="light"] .mega a {
+  color: #334E41 !important;
+}
+
+[data-theme="light"] .mega a:hover {
+  color: #E86B2C !important;
+}
+
+[data-theme="light"] .mega p,
+[data-theme="light"] .mega span,
+[data-theme="light"] .mega-desc {
+  color: #4A6355 !important;
+}
+
+/* ── Whole-Page Ultra-Smooth Theme Transition (View Transitions & Lightweight Fallback) ── */
+::view-transition-group(root) {
+  animation-duration: 0.34s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* Fallback & smooth transition for major layout containers only (no lag, 60fps) */
+html.theme-transitioning,
+html.theme-transitioning body,
+html.theme-transitioning header,
+html.theme-transitioning main,
+html.theme-transitioning footer,
+html.theme-transitioning section,
+html.theme-transitioning .hero,
+html.theme-transitioning .ticker,
+html.theme-transitioning .race-command-card,
+html.theme-transitioning .mega,
+html.theme-transitioning .card,
+html.theme-transitioning nav {
+  transition: background-color 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 /* ── Responsive: Hero 3-col → 1-col ── */

@@ -14,8 +14,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,8 @@ import java.util.concurrent.ConcurrentHashMap;
     "/api/training/telemetry/*",
     "/api/training/sessions",
     "/api/training/sessions/*",
+    "/api/training/joint-sessions",
+    "/api/training/joint-sessions/*",
     "/api/trainer/horses",
     "/api/trainer/nominations",
     "/api/trainer/nominations/review",
@@ -48,6 +52,7 @@ public class TrainingApiController extends HttpServlet {
 
     private static final List<Map<String, Object>> memoryPrograms = Collections.synchronizedList(new ArrayList<>());
     private static final List<Map<String, Object>> memoryTelemetry = Collections.synchronizedList(new ArrayList<>());
+    private static final List<Map<String, Object>> memoryJointSessions = Collections.synchronizedList(new ArrayList<>());
     private static final List<Map<String, Object>> memoryNominations = Collections.synchronizedList(new ArrayList<>());
     private static final Map<String, Map<String, Object>> memoryFeedback = new ConcurrentHashMap<>();
 
@@ -120,6 +125,25 @@ public class TrainingApiController extends HttpServlet {
         n2.put("reviewedBy", null);
         n2.put("reviewedAt", null);
         memoryNominations.add(n2);
+
+        Map<String, Object> j1 = new HashMap<>();
+        j1.put("id", 1730000001L);
+        j1.put("horseName", "Xích Thố");
+        j1.put("microchip", "MC-VN-2023-001");
+        j1.put("stable", "Ô A1");
+        j1.put("ownerName", "Phạm Tiến Thành");
+        j1.put("ownerUsername", "owner_thanh");
+        j1.put("trainerUsername", "trainer_truong");
+        j1.put("trainerName", "Trần Văn Hùng");
+        j1.put("sessionDate", "2026-11-10");
+        j1.put("sessionTime", "06:00 - 07:00 (Sáng sớm - Bứt tốc cự ly)");
+        j1.put("goal", "Quan sát và phối hợp tập luyện chung cùng Huấn luyện viên");
+        j1.put("ownerNotes", "Tôi muốn trực tiếp ra sân xem sải chân của Xích Thố khi vào khúc cua số 3 cự ly 2.400m.");
+        j1.put("status", "CONFIRMED");
+        j1.put("trainerFeedback", "Đã chuẩn bị cảm biến IoT viễn trắc nhịp tim và bố trí sân cỏ tự nhiên. Hẹn gặp Chủ sở hữu lúc 06:45 tại khán đài A.");
+        j1.put("confirmedAt", "03/11/2026 09:30");
+        j1.put("createdAt", "02/11/2026 14:00");
+        memoryJointSessions.add(j1);
     }
 
     private final HorseDAO horseDAO = new HorseDAO();
@@ -161,6 +185,26 @@ public class TrainingApiController extends HttpServlet {
                 return;
             }
 
+            if ("/api/training/joint-sessions".equals(path) || (path != null && path.startsWith("/api/training/joint-sessions"))) {
+                String trainerUser = request.getParameter("trainerUsername");
+                String date = request.getParameter("sessionDate");
+                List<Map<String, Object>> result = new ArrayList<>();
+                synchronized (memoryJointSessions) {
+                    for (Map<String, Object> s : memoryJointSessions) {
+                        if (trainerUser != null && !trainerUser.trim().isEmpty() && !"ALL".equalsIgnoreCase(trainerUser)) {
+                            if (!trainerUser.equalsIgnoreCase(String.valueOf(s.get("trainerUsername")))) continue;
+                        }
+                        if (date != null && !date.trim().isEmpty()) {
+                            if (!date.equals(String.valueOf(s.get("sessionDate")))) continue;
+                        }
+                        result.add(s);
+                    }
+                }
+                out.print(gson.toJson(result));
+                out.flush();
+                return;
+            }
+
             if ("/api/trainer/nominations".equals(path)) {
                 synchronized (memoryNominations) {
                     out.print(gson.toJson(memoryNominations));
@@ -183,12 +227,16 @@ public class TrainingApiController extends HttpServlet {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        User authUser = SecurityUtil.requireRole(request, response, "TRAINER", "MANAGER");
+        String path = request.getServletPath();
+        User authUser;
+        if (path != null && path.startsWith("/api/training/joint-sessions")) {
+            authUser = SecurityUtil.requireRole(request, response, "OWNER", "TRAINER", "MANAGER", "ADMIN");
+        } else {
+            authUser = SecurityUtil.requireRole(request, response, "TRAINER", "MANAGER");
+        }
         if (authUser == null) {
             return;
         }
-
-        String path = request.getServletPath();
 
         try {
             JsonObject body = SecurityUtil.parseJsonObject(request);
@@ -344,6 +392,84 @@ public class TrainingApiController extends HttpServlet {
                     out.print(gson.toJson(updatedItem));
                     out.flush();
                 }
+                return;
+            }
+
+            // 4. POST /api/training/joint-sessions: Đặt lịch, Duyệt (confirm) hoặc Từ chối (reject) buổi tập chung
+            if (path != null && path.startsWith("/api/training/joint-sessions")) {
+                String pathInfo = request.getPathInfo();
+                if (pathInfo != null && pathInfo.contains("/confirm")) {
+                    String cleanId = pathInfo.replace("/confirm", "").replaceAll("^/+", "");
+                    String feedback = SecurityUtil.getString(body, "feedback", "HLV đã xác nhận lịch tập.");
+                    Map<String, Object> target = null;
+                    synchronized (memoryJointSessions) {
+                        for (Map<String, Object> s : memoryJointSessions) {
+                            if (cleanId.equals(String.valueOf(s.get("id")))) {
+                                s.put("status", "CONFIRMED");
+                                s.put("trainerFeedback", feedback);
+                                s.put("confirmedAt", new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date()));
+                                target = s;
+                                break;
+                            }
+                        }
+                    }
+                    if (target != null) {
+                        try (PrintWriter out = response.getWriter()) { out.print(gson.toJson(target)); out.flush(); }
+                    } else {
+                        SecurityUtil.sendJsonError(response, HttpServletResponse.SC_NOT_FOUND, "Không tìm thấy lịch tập cần duyệt.");
+                    }
+                    return;
+                }
+
+                if (pathInfo != null && pathInfo.contains("/reject")) {
+                    String cleanId = pathInfo.replace("/reject", "").replaceAll("^/+", "");
+                    String reason = SecurityUtil.getString(body, "reason", "HLV từ chối lịch tập.");
+                    Map<String, Object> target = null;
+                    synchronized (memoryJointSessions) {
+                        for (Map<String, Object> s : memoryJointSessions) {
+                            if (cleanId.equals(String.valueOf(s.get("id")))) {
+                                s.put("status", "REJECTED");
+                                s.put("trainerFeedback", reason);
+                                s.put("rejectedAt", new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date()));
+                                target = s;
+                                break;
+                            }
+                        }
+                    }
+                    if (target != null) {
+                        try (PrintWriter out = response.getWriter()) { out.print(gson.toJson(target)); out.flush(); }
+                    } else {
+                        SecurityUtil.sendJsonError(response, HttpServletResponse.SC_NOT_FOUND, "Không tìm thấy lịch tập cần từ chối.");
+                    }
+                    return;
+                }
+
+                // Đặt lịch mới
+                long newId = System.currentTimeMillis();
+                Map<String, Object> session = new HashMap<>();
+                session.put("id", newId);
+                session.put("horseName", SecurityUtil.getString(body, "horseName", "Chiến mã"));
+                session.put("microchip", SecurityUtil.getString(body, "microchip", ""));
+                session.put("stall", SecurityUtil.getString(body, "stall", "Ô A1"));
+                session.put("trainerUsername", SecurityUtil.getString(body, "trainerUsername", ""));
+                session.put("trainerName", SecurityUtil.getString(body, "trainerName", ""));
+                session.put("ownerName", SecurityUtil.getString(body, "ownerName", "Chủ sở hữu"));
+                session.put("ownerKey", SecurityUtil.getString(body, "ownerKey", "owner"));
+                session.put("sessionDate", SecurityUtil.getString(body, "sessionDate", ""));
+                session.put("sessionTime", SecurityUtil.getString(body, "sessionTime", ""));
+                session.put("goal", SecurityUtil.getString(body, "goal", "Tập luyện chung"));
+                session.put("ownerNotes", SecurityUtil.getString(body, "ownerNotes", ""));
+                session.put("status", "PENDING");
+                session.put("createdAt", new SimpleDateFormat("dd/MM/yyyy HH:mm").format(new Date()));
+
+                synchronized (memoryJointSessions) {
+                    memoryJointSessions.add(0, session);
+                }
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(session));
+                    out.flush();
+                }
+                return;
             }
         } catch (Exception e) {
             SecurityUtil.sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -422,12 +548,16 @@ public class TrainingApiController extends HttpServlet {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        User authUser = SecurityUtil.requireRole(request, response, "TRAINER", "MANAGER");
+        String path = request.getServletPath();
+        User authUser;
+        if (path != null && path.startsWith("/api/training/joint-sessions")) {
+            authUser = SecurityUtil.requireRole(request, response, "OWNER", "TRAINER", "MANAGER", "ADMIN");
+        } else {
+            authUser = SecurityUtil.requireRole(request, response, "TRAINER", "MANAGER");
+        }
         if (authUser == null) {
             return;
         }
-
-        String path = request.getServletPath();
         String pathInfo = request.getPathInfo();
         String targetId = "";
 
@@ -447,6 +577,8 @@ public class TrainingApiController extends HttpServlet {
 
         if (path.contains("programs")) {
             deleted = memoryPrograms.removeIf(p -> idToDelete.equals(String.valueOf(p.get("id"))));
+        } else if (path.contains("joint-sessions")) {
+            deleted = memoryJointSessions.removeIf(j -> idToDelete.equals(String.valueOf(j.get("id"))));
         } else {
             deleted = memoryTelemetry.removeIf(t -> idToDelete.equals(String.valueOf(t.get("id"))));
         }

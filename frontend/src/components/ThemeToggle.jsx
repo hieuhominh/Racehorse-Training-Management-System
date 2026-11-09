@@ -6,7 +6,7 @@ export default function ThemeToggle({ showLabel = true, className = '' }) {
 
   return (
     <button
-      onClick={toggleTheme}
+      onClick={(e) => toggleTheme(e)}
       className={`theme-toggle-btn ${isDark ? 'is-dark' : 'is-light'} ${className}`}
       title={isDark ? "Đang ở chế độ Tối • Nhấn để chuyển sang giao diện Dịu Sáng" : "Đang ở chế độ Sáng • Nhấn để chuyển sang giao diện Tối"}
       aria-label="Chuyển chế độ sáng tối"

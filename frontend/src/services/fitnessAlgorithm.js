@@ -24,6 +24,8 @@
  *    - HRV buồng ngủ ban đêm sụt giảm (dưới 50ms) phản ánh stress thần kinh giao cảm.
  */
 
+import { saveHorseFitnessAssessmentApi } from './api';
+
 const STORAGE_KEY = 'racehorse_fitness_telemetry';
 export const REQUIRED_WORKOUTS_TO_EVALUATE = 3;
 
@@ -906,6 +908,11 @@ function saveTelemetryToCache(horse, telemetry) {
     const key = horse.microchip || horse.id || horse.name;
     all[key] = telemetry;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+
+    // Đồng bộ chỉ số thể lực lên API
+    saveHorseFitnessAssessmentApi(key, telemetry).catch(err => {
+      console.warn('API fitness sync notice (cached locally):', err);
+    });
   } catch (err) {
     console.error('Lỗi lưu telemetry chiến mã:', err);
   }

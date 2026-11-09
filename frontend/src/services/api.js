@@ -48,7 +48,7 @@ function getAuthHeaders(includeJson = false) {
     headers['Content-Type'] = 'application/json';
   }
   try {
-    const raw = localStorage.getItem('matruong_auth_user');
+    const raw = sessionStorage.getItem('matruong_auth_user') || localStorage.getItem('matruong_auth_user');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.token) {
@@ -2187,4 +2187,319 @@ export async function clearNotificationsApi() {
     }
   } catch {}
   return { success: true };
+}
+
+
+// =========================================================================
+// 14. QUẢN LÝ KHIẾU NẠI & BÁO CÁO NHÂN SỰ (PERSONNEL REPORTS API)
+// =========================================================================
+
+/**
+ * Lấy danh sách khiếu nại & báo cáo nhân sự (kèm lọc theo chủ sở hữu)
+ */
+export async function getPersonnelReportsApi(ownerKey = '') {
+  try {
+    const url = ownerKey ? `/api/reports?ownerKey=${encodeURIComponent(ownerKey)}` : '/api/reports';
+    const res = await fetch(url, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) return data;
+    }
+  } catch {}
+
+  const key = 'matruong_personnel_reports';
+  const list = getLocalData(key, []);
+  if (!ownerKey || ownerKey === 'ALL') return list;
+  return list.filter(r => (r.ownerKey || '').toLowerCase() === ownerKey.toLowerCase());
+}
+
+/**
+ * Chủ sở hữu gửi khiếu nại nhân sự mới
+ */
+export async function createPersonnelReportApi(reportData) {
+  try {
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(reportData)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+
+  const key = 'matruong_personnel_reports';
+  const list = getLocalData(key, []);
+  const newReport = {
+    ...reportData,
+    id: reportData.id || Date.now(),
+    createdAt: reportData.createdAt || new Date().toLocaleString('vi-VN'),
+    status: reportData.status || 'PENDING'
+  };
+  const updatedList = [newReport, ...list.filter(item => String(item.id) !== String(newReport.id))];
+  setLocalData(key, updatedList);
+  return newReport;
+}
+
+/**
+ * Ban Quản Trị tiếp nhận, cập nhật thẩm tra và kết luận xử lý khiếu nại
+ */
+export async function updateReportAdminReviewApi(reportId, reviewData) {
+  try {
+    const res = await fetch(`/api/reports/${reportId}/review`, {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(reviewData)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+
+  const key = 'matruong_personnel_reports';
+  const list = getLocalData(key, []);
+  const index = list.findIndex(r => String(r.id) === String(reportId));
+  if (index !== -1) {
+    const nowStr = new Date().toLocaleString('vi-VN');
+    const updated = {
+      ...list[index],
+      ...reviewData,
+      status: reviewData.status || list[index].status,
+      adminNotes: reviewData.adminNotes !== undefined ? reviewData.adminNotes : list[index].adminNotes,
+      adminAction: reviewData.adminAction !== undefined ? reviewData.adminAction : list[index].adminAction,
+      adminFeedback: reviewData.adminFeedback !== undefined ? reviewData.adminFeedback : list[index].adminFeedback,
+      resolvedBy: reviewData.adminUser?.username || 'admin',
+      resolvedAt: (reviewData.status === 'RESOLVED' || reviewData.status === 'DISMISSED') ? nowStr : list[index].resolvedAt
+    };
+    list[index] = updated;
+    setLocalData(key, list);
+    return updated;
+  }
+  return null;
+}
+
+/**
+ * Xóa bản ghi khiếu nại khỏi hệ thống
+ */
+export async function deletePersonnelReportApi(reportId) {
+  try {
+    const res = await fetch(`/api/reports/${reportId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+
+  const key = 'matruong_personnel_reports';
+  const list = getLocalData(key, []);
+  const nextList = list.filter(r => String(r.id) !== String(reportId));
+  setLocalData(key, nextList);
+  return nextList;
+}
+
+// =========================================================================
+// 15. ĐẶT LỊCH HUẤN LUYỆN CHUNG (JOINT TRAINING SESSIONS API)
+// =========================================================================
+
+/**
+ * Lấy danh sách lịch hẹn huấn luyện chung giữa Chủ sở hữu và Huấn luyện viên
+ */
+export async function getJointTrainingSessionsApi(trainerUsername = '', sessionDate = '') {
+  try {
+    let url = '/api/training/joint-sessions';
+    const params = [];
+    if (trainerUsername) params.push(`trainerUsername=${encodeURIComponent(trainerUsername)}`);
+    if (sessionDate) params.push(`sessionDate=${encodeURIComponent(sessionDate)}`);
+    if (params.length > 0) url += `?${params.join('&')}`;
+
+    const res = await fetch(url, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) return data;
+    }
+  } catch {}
+
+  const key = 'matruong_joint_training_sessions';
+  const list = getLocalData(key, []);
+  return list.filter(s => {
+    if (trainerUsername && s.trainerUsername !== trainerUsername) return false;
+    if (sessionDate && s.sessionDate !== sessionDate) return false;
+    return true;
+  });
+}
+
+/**
+ * Chủ sở hữu đặt lịch hẹn tập luyện chung
+ */
+export async function bookJointTrainingSessionApi(sessionData) {
+  try {
+    const res = await fetch('/api/training/joint-sessions/book', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(sessionData)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+
+  const key = 'matruong_joint_training_sessions';
+  const list = getLocalData(key, []);
+  const newSession = {
+    ...sessionData,
+    id: sessionData.id || Date.now(),
+    status: sessionData.status || 'PENDING',
+    createdAt: sessionData.createdAt || new Date().toLocaleString('vi-VN')
+  };
+  const updatedList = [newSession, ...list.filter(s => String(s.id) !== String(newSession.id))];
+  setLocalData(key, updatedList);
+  return newSession;
+}
+
+/**
+ * HLV phê duyệt & xác nhận buổi hẹn tập luyện chung
+ */
+export async function confirmJointTrainingSessionApi(sessionId, feedback = '', trainerUser = null) {
+  try {
+    const res = await fetch(`/api/training/joint-sessions/${sessionId}/confirm`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ feedback, trainerUser })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+
+  const key = 'matruong_joint_training_sessions';
+  const list = getLocalData(key, []);
+  const index = list.findIndex(s => String(s.id) === String(sessionId));
+  if (index !== -1) {
+    const updated = {
+      ...list[index],
+      status: 'CONFIRMED',
+      trainerFeedback: feedback,
+      confirmedAt: new Date().toLocaleString('vi-VN'),
+      confirmedBy: trainerUser?.username || 'trainer'
+    };
+    list[index] = updated;
+    setLocalData(key, list);
+    return updated;
+  }
+  return null;
+}
+
+/**
+ * HLV từ chối buổi hẹn tập luyện chung kèm lý do
+ */
+export async function rejectJointTrainingSessionApi(sessionId, reason = '', trainerUser = null) {
+  try {
+    const res = await fetch(`/api/training/joint-sessions/${sessionId}/reject`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ reason, trainerUser })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+
+  const key = 'matruong_joint_training_sessions';
+  const list = getLocalData(key, []);
+  const index = list.findIndex(s => String(s.id) === String(sessionId));
+  if (index !== -1) {
+    const updated = {
+      ...list[index],
+      status: 'REJECTED',
+      rejectionReason: reason,
+      rejectedAt: new Date().toLocaleString('vi-VN'),
+      rejectedBy: trainerUser?.username || 'trainer'
+    };
+    list[index] = updated;
+    setLocalData(key, list);
+    return updated;
+  }
+  return null;
+}
+
+/**
+ * Hủy lịch hẹn tập luyện chung
+ */
+export async function cancelJointTrainingSessionApi(sessionId) {
+  try {
+    const res = await fetch(`/api/training/joint-sessions/${sessionId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+
+  const key = 'matruong_joint_training_sessions';
+  const list = getLocalData(key, []);
+  const nextList = list.filter(s => String(s.id) !== String(sessionId));
+  setLocalData(key, nextList);
+  return nextList;
+}
+
+// =========================================================================
+// 16. ĐÁNH GIÁ THỂ LỰC & CHỈ SỐ AI SỨC KHỎE CHIẾN MÃ (FITNESS TELEMETRY API)
+// =========================================================================
+
+/**
+ * Lấy dữ liệu viễn trắc & thể lực của chiến mã
+ */
+export async function getHorseFitnessApi(horseIdOrChip) {
+  try {
+    const res = await fetch(`/api/horses/${encodeURIComponent(horseIdOrChip)}/fitness`, {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+
+  const key = 'racehorse_fitness_telemetry';
+  const all = getLocalData(key, {});
+  return all[horseIdOrChip] || null;
+}
+
+/**
+ * Lưu kết quả đánh giá thể lực & sinh lý chiến mã
+ */
+export async function saveHorseFitnessAssessmentApi(horseIdOrChip, fitnessData) {
+  try {
+    const res = await fetch(`/api/horses/${encodeURIComponent(horseIdOrChip)}/fitness`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(fitnessData)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+
+  const key = 'racehorse_fitness_telemetry';
+  const all = getLocalData(key, {});
+  all[horseIdOrChip] = fitnessData;
+  setLocalData(key, all);
+  return fitnessData;
 }

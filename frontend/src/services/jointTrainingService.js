@@ -2,6 +2,13 @@
 // Tích hợp kiểm tra nghiêm ngặt Quyền phủ quyết y tế (Medical Safety Veto của Bác sĩ Thú y)
 // Logic chống trùng lịch (Ưu tiên người đặt trước), Khung giờ 06:00 - 18:00 & Nghỉ trưa 11:45 - 13:00
 import { addSystemNotification } from './notificationService';
+import {
+  getJointTrainingSessionsApi,
+  bookJointTrainingSessionApi,
+  confirmJointTrainingSessionApi,
+  rejectJointTrainingSessionApi,
+  cancelJointTrainingSessionApi
+} from './api';
 
 const STORAGE_KEY = 'matruong_joint_training_sessions';
 const EVENT_NAME = 'matruong_joint_training_updated';
@@ -85,18 +92,45 @@ const INITIAL_JOINT_SESSIONS = [
   }
 ];
 
+let isJointSyncing = false;
+
 /**
- * Lấy danh sách toàn bộ các buổi hẹn tập luyện chung
+ * Lấy danh sách toàn bộ các buổi hẹn tập luyện chung (hỗ trợ nền tự động đồng bộ API)
  */
 export function getJointTrainingSessions() {
+  let list = INITIAL_JOINT_SESSIONS;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) list = parsed;
     }
   } catch {}
-  return INITIAL_JOINT_SESSIONS;
+
+  if (!isJointSyncing && typeof window !== 'undefined') {
+    isJointSyncing = true;
+    getJointTrainingSessionsApi().then(apiList => {
+      isJointSyncing = false;
+      if (Array.isArray(apiList) && apiList.length > 0) {
+        const rawLocal = localStorage.getItem(STORAGE_KEY);
+        const localList = rawLocal ? JSON.parse(rawLocal) : [];
+        const mergedMap = new Map();
+        apiList.forEach(s => mergedMap.set(String(s.id), s));
+        localList.forEach(s => {
+          if (!mergedMap.has(String(s.id))) mergedMap.set(String(s.id), s);
+        });
+        const merged = Array.from(mergedMap.values());
+        if (JSON.stringify(merged) !== rawLocal) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+          window.dispatchEvent(new Event(EVENT_NAME));
+        }
+      }
+    }).catch(() => {
+      isJointSyncing = false;
+    });
+  }
+
+  return list;
 }
 
 /**
@@ -328,6 +362,11 @@ export function bookJointTrainingSession({
   const nextList = [newSession, ...list];
   saveJointTrainingSessions(nextList);
 
+  // Gửi lên Backend API
+  bookJointTrainingSessionApi(newSession).catch(err => {
+    console.warn('API joint booking sync notice (cached locally):', err);
+  });
+
   // Gửi thông báo đến Huấn Luyện Viên
   try {
     addSystemNotification({
@@ -385,6 +424,11 @@ export function confirmJointTrainingSession(sessionId, feedback = '', trainerUse
   list[index] = updatedSession;
   saveJointTrainingSessions(list);
 
+  // Cập nhật trạng thái duyệt lên Backend API
+  confirmJointTrainingSessionApi(sessionId, defaultFeedback, trainerUser).catch(err => {
+    console.warn('API confirm joint session notice (cached locally):', err);
+  });
+
   // Gửi thông báo đến Chủ sở hữu chiến mã
   try {
     addSystemNotification({
@@ -429,6 +473,11 @@ export function rejectJointTrainingSession(sessionId, reason = '', trainerUser =
   list[index] = updatedSession;
   saveJointTrainingSessions(list);
 
+  // Cập nhật trạng thái từ chối lên Backend API
+  rejectJointTrainingSessionApi(sessionId, reason, trainerUser).catch(err => {
+    console.warn('API reject joint session notice (cached locally):', err);
+  });
+
   try {
     addSystemNotification({
       type: 'JOINT_TRAINING_REJECTED',
@@ -452,6 +501,12 @@ export function cancelJointTrainingSession(sessionId) {
   const list = getJointTrainingSessions();
   const nextList = list.filter(s => String(s.id) !== String(sessionId));
   saveJointTrainingSessions(nextList);
+
+  // Hủy trên Backend API
+  cancelJointTrainingSessionApi(sessionId).catch(err => {
+    console.warn('API cancel joint session notice (cached locally):', err);
+  });
+
   return nextList;
 }
 

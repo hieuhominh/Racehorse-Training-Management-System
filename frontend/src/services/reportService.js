@@ -1,6 +1,12 @@
 // Quản lý hệ thống Khiếu nại & Báo cáo Nhân sự (Huấn Luyện Viên, Bác Sĩ Thú Y, Nhân Viên Chăm Sóc)
 // Cho phép Chủ sở hữu gửi phản ánh/khiếu nại, và Ban Quản Trị (Admin) tiếp nhận, thẩm tra, phản hồi và xử lý kỷ luật.
 import { addSystemNotification } from './notificationService';
+import {
+  getPersonnelReportsApi,
+  createPersonnelReportApi,
+  updateReportAdminReviewApi,
+  deletePersonnelReportApi
+} from './api';
 
 const STORAGE_KEY = 'matruong_personnel_reports';
 const EVENT_NAME = 'matruong_personnel_reports_updated';
@@ -54,26 +60,67 @@ export const REPORT_STATUSES = [
   { id: 'DISMISSED', label: 'Bác bỏ (Không đủ cơ sở)', color: '#6B7280', badgeBg: 'rgba(107, 114, 128, 0.15)' }
 ];
 
-const INITIAL_REPORTS = [];
+let isSyncing = false;
 
+/**
+ * Lấy danh sách báo cáo khiếu nại (đồng bộ tức thì từ cache, tự động cập nhật nền từ API)
+ */
 export function getPersonnelReports() {
+  let cached = [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        // Lọc sạch các khiếu nại mẫu ban đầu (nếu còn sót trong localStorage)
-        const cleaned = parsed.filter(r => r && r.id !== 1730001001 && r.id !== 1730001002 && r.id !== 1730001003);
-        if (cleaned.length !== parsed.length) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
-        }
-        return cleaned;
+        cached = parsed.filter(r => r && r.id !== 1730001001 && r.id !== 1730001002 && r.id !== 1730001003);
       }
     }
   } catch {}
-  return [];
+
+  // Tự động tải từ API backend nếu chưa đồng bộ
+  if (!isSyncing && typeof window !== 'undefined') {
+    isSyncing = true;
+    getPersonnelReportsApi().then(apiList => {
+      isSyncing = false;
+      if (Array.isArray(apiList) && apiList.length > 0) {
+        const rawLocal = localStorage.getItem(STORAGE_KEY);
+        const localList = rawLocal ? JSON.parse(rawLocal) : [];
+        // Gộp thông minh bảo toàn dữ liệu
+        const mergedMap = new Map();
+        apiList.forEach(r => mergedMap.set(String(r.id), r));
+        localList.forEach(r => {
+          if (!mergedMap.has(String(r.id))) {
+            mergedMap.set(String(r.id), r);
+          }
+        });
+        const mergedList = Array.from(mergedMap.values());
+        if (JSON.stringify(mergedList) !== rawLocal) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedList));
+          window.dispatchEvent(new Event(EVENT_NAME));
+        }
+      }
+    }).catch(() => {
+      isSyncing = false;
+    });
+  }
+
+  return cached;
 }
 
+/**
+ * Lấy danh sách báo cáo bất đồng bộ trực tiếp từ API
+ */
+export async function fetchPersonnelReportsAsync(ownerKey = '') {
+  const data = await getPersonnelReportsApi(ownerKey);
+  if (Array.isArray(data)) {
+    savePersonnelReports(data);
+  }
+  return data;
+}
+
+/**
+ * Lưu danh sách báo cáo cục bộ và phát sự kiện đồng bộ
+ */
 export function savePersonnelReports(list) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
@@ -85,7 +132,7 @@ export function savePersonnelReports(list) {
 }
 
 /**
- * Chủ sở hữu tạo báo cáo / khiếu nại nhân sự
+ * Chủ sở hữu tạo báo cáo / khiếu nại nhân sự (Gọi API và đồng bộ hệ thống)
  */
 export function createPersonnelReport({
   ownerUser,
@@ -134,9 +181,15 @@ export function createPersonnelReport({
     resolvedAt: null
   };
 
+  // Cập nhật local state ngay
   const list = getPersonnelReports();
   const updatedList = [newReport, ...list];
   savePersonnelReports(updatedList);
+
+  // Đẩy lên Backend API
+  createPersonnelReportApi(newReport).catch(err => {
+    console.warn('API report sync notice (cached locally):', err);
+  });
 
   // Phát thông báo khẩn tới Admin
   try {
@@ -156,7 +209,7 @@ export function createPersonnelReport({
 }
 
 /**
- * Admin tiếp nhận, cập nhật thẩm tra và giải quyết báo cáo
+ * Admin tiếp nhận, cập nhật thẩm tra và giải quyết báo cáo (Gọi API và thông báo)
  */
 export function updateReportAdminReview(reportId, {
   status,
@@ -187,6 +240,17 @@ export function updateReportAdminReview(reportId, {
   list[index] = updatedReport;
   savePersonnelReports(list);
 
+  // Cập nhật lên Backend API
+  updateReportAdminReviewApi(reportId, {
+    status: updatedReport.status,
+    adminNotes: updatedReport.adminNotes,
+    adminAction: updatedReport.adminAction,
+    adminFeedback: updatedReport.adminFeedback,
+    adminUser
+  }).catch(err => {
+    console.warn('API review sync notice (cached locally):', err);
+  });
+
   // Gửi thông báo kết quả thẩm tra đến Chủ sở hữu
   try {
     const statusText = status === 'RESOLVED'
@@ -211,12 +275,16 @@ export function updateReportAdminReview(reportId, {
 }
 
 /**
- * Admin xóa báo cáo nếu là spam hoặc đã xử lý lưu trữ
+ * Admin xóa báo cáo nếu là spam hoặc đã xử lý lưu trữ (Gọi API và cập nhật local)
  */
 export function deletePersonnelReport(reportId) {
   const list = getPersonnelReports();
   const nextList = list.filter(r => String(r.id) !== String(reportId));
   savePersonnelReports(nextList);
+
+  deletePersonnelReportApi(reportId).catch(err => {
+    console.warn('API delete report notice (cached locally):', err);
+  });
+
   return nextList;
 }
-
