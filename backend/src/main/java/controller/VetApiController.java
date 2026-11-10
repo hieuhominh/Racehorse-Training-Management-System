@@ -51,9 +51,6 @@ public class VetApiController extends HttpServlet {
     static {
         // Khởi tạo danh sách nhật ký thú y rỗng
     }
-        c4.put("notes", "TỪ CHỐI CẤP PHÉP: Đang chịu lệnh Khóa Y Tế do giãn gân chân trái!");
-        memoryClearances.add(c4);
-    }
 
     private final HorseDAO horseDAO = new HorseDAO();
     private final Gson gson = new Gson();

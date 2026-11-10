@@ -27,10 +27,12 @@ public class HorseApiController extends HttpServlet {
 
     private final HorseDAO horseDAO = new HorseDAO();
     private final Gson gson = new Gson();
+    private static final Map<String, Object> memoryFitnessStore = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * GET /api/horses: Lấy toàn bộ danh sách ngựa
      * GET /api/horses/{id}: Lấy chi tiết hồ sơ 1 chiến mã
+     * GET /api/horses/{id}/fitness: Lấy chỉ số thể lực & sinh lý chiến mã
      */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -45,6 +47,28 @@ public class HorseApiController extends HttpServlet {
                 if (SecurityUtil.containsMaliciousPayload(param)) {
                     SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
                         "Tham số truy vấn chiến mã không hợp lệ.");
+                    return;
+                }
+
+                // Xử lý truy vấn thể lực & viễn trắc chiến mã
+                if (param.endsWith("/fitness")) {
+                    String horseKey = param.replace("/fitness", "").trim();
+                    Object fitData = memoryFitnessStore.get(horseKey);
+                    if (fitData == null) {
+                        Map<String, Object> defaultFit = new HashMap<>();
+                        defaultFit.put("horseKey", horseKey);
+                        defaultFit.put("fitnessScore", 88);
+                        defaultFit.put("lactateThreshold", "4.0 mmol/L");
+                        defaultFit.put("heartRateAvg", 125);
+                        defaultFit.put("heartRateMax", 215);
+                        defaultFit.put("staminaIndex", 85);
+                        defaultFit.put("recoveryRate", "Nhanh (dưới 15 phút)");
+                        defaultFit.put("status", "ELIGIBLE");
+                        defaultFit.put("evaluatedAt", "Hôm nay");
+                        fitData = defaultFit;
+                    }
+                    out.print(gson.toJson(fitData));
+                    out.flush();
                     return;
                 }
 
@@ -94,6 +118,33 @@ public class HorseApiController extends HttpServlet {
             throws ServletException, IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
+
+        String pathInfo = request.getPathInfo();
+
+        // 1. Lưu đánh giá thể lực: POST /api/horses/{id}/fitness
+        if (pathInfo != null && pathInfo.endsWith("/fitness")) {
+            User authUser = SecurityUtil.requireRole(request, response, "MANAGER", "TRAINER", "VET");
+            if (authUser == null) return;
+
+            String horseKey = pathInfo.substring(1).replace("/fitness", "").trim();
+            JsonObject body = SecurityUtil.parseJsonObject(request);
+            if (body == null) {
+                SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST, "Dữ liệu JSON không hợp lệ.");
+                return;
+            }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> fitMap = gson.fromJson(body, Map.class);
+            fitMap.put("updatedAt", new java.text.SimpleDateFormat("HH:mm dd/MM/yyyy").format(new java.util.Date()));
+            memoryFitnessStore.put(horseKey, fitMap);
+
+            response.setStatus(HttpServletResponse.SC_OK);
+            try (PrintWriter out = response.getWriter()) {
+                out.print(gson.toJson(fitMap));
+                out.flush();
+            }
+            return;
+        }
 
         User authUser = SecurityUtil.requireRole(request, response, "MANAGER", "TRAINER", "OWNER");
         if (authUser == null) {

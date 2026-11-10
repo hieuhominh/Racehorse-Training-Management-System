@@ -101,6 +101,22 @@ public class AuthApiController extends HttpServlet {
 
                 User user = userDAO.login(account, password);
                 if (user != null) {
+                    if ("INACTIVE".equalsIgnoreCase(user.getStatus()) || "LOCKED".equalsIgnoreCase(user.getStatus()) || "SUSPENDED".equalsIgnoreCase(user.getStatus())) {
+                        SecurityUtil.sendJsonError(response, HttpServletResponse.SC_FORBIDDEN,
+                            "Tài khoản của bạn đã bị Quản trị viên (Admin) tạm khóa quyền truy cập. Vui lòng liên hệ Admin để được mở khóa!");
+                        return;
+                    }
+                    if ("PENDING".equalsIgnoreCase(user.getStatus())) {
+                        SecurityUtil.sendJsonError(response, HttpServletResponse.SC_FORBIDDEN,
+                            "Tài khoản của bạn đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin hoặc thử lại sau khi được kích hoạt!");
+                        return;
+                    }
+                    if ("REJECTED".equalsIgnoreCase(user.getStatus())) {
+                        SecurityUtil.sendJsonError(response, HttpServletResponse.SC_FORBIDDEN,
+                            "Yêu cầu đăng ký tài khoản của bạn đã bị từ chối bởi Quản trị viên.");
+                        return;
+                    }
+
                     HttpSession session = request.getSession(true);
                     session.setAttribute("currentUser", user);
                     String token = SecurityUtil.generateToken(user);
