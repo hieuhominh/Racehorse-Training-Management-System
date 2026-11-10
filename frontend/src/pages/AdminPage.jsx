@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
@@ -127,6 +128,8 @@ export default function AdminPage() {
   };
   const { t, lang, toggleLang } = useLanguage();
   const { showToast } = useToast();
+  const { theme } = useTheme();
+  const isDark = theme !== 'light';
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -172,6 +175,13 @@ export default function AdminPage() {
       return 'ALL';
     }
   });
+  const [stableTierTab, setStableTierTab] = useState(() => {
+    try {
+      return localStorage.getItem('matruong_admin_stable_tier_tab') || 'ALL';
+    } catch {
+      return 'ALL';
+    }
+  });
 
   useEffect(() => {
     try {
@@ -180,8 +190,9 @@ export default function AdminPage() {
       localStorage.setItem('matruong_admin_horse_filter', horseFilter);
       localStorage.setItem('matruong_admin_user_filter', userFilter);
       localStorage.setItem('matruong_admin_stable_filter', stableFilter);
+      localStorage.setItem('matruong_admin_stable_tier_tab', stableTierTab);
     } catch {}
-  }, [activeTab, viewMode, horseFilter, userFilter, stableFilter]);
+  }, [activeTab, viewMode, horseFilter, userFilter, stableFilter, stableTierTab]);
 
   // State: Quản lý Khiếu Nại & Báo Cáo Nhân Sự (HLV, Bác Sĩ, Chăm Sóc)
   const [personnelReports, setPersonnelReports] = useState(() => getPersonnelReports());
@@ -1395,11 +1406,26 @@ export default function AdminPage() {
     return u.role === userFilter;
   });
 
-  // Lọc chuồng
+  // Hàm xác định ô chuồng là VIP hay Tiêu chuẩn
+  const isVipStall = (s) => {
+    if (!s) return false;
+    if (s.tier === 'VIP' || s.is_vip === true) return true;
+    if (s.tier === 'STANDARD' || s.tier === 'NORMAL' || s.is_vip === false) return false;
+    const code = String(s.stall_code || '').toUpperCase();
+    const block = String(s.block || '').toUpperCase();
+    return block.includes('VIP') || block.includes('BLOCK A') || block.includes('BLOCK B') || code.startsWith('VIP') || code.startsWith('A') || code.startsWith('B');
+  };
+
+  // Lọc chuồng theo trạng thái và phân hạng VIP / Tiêu Chuẩn
   const filteredStables = stables.filter(s => {
-    if (stableFilter === 'ALL') return true;
-    return s.status === stableFilter;
+    if (stableFilter !== 'ALL' && s.status !== stableFilter) return false;
+    if (stableTierTab === 'VIP' && !isVipStall(s)) return false;
+    if (stableTierTab === 'STANDARD' && isVipStall(s)) return false;
+    return true;
   });
+
+  const vipStablesTotal = stables.filter(s => isVipStall(s)).length;
+  const stdStablesTotal = stables.filter(s => !isVipStall(s)).length;
 
   // Initials for avatar
   const getInitials = (name) => {
@@ -2331,25 +2357,169 @@ export default function AdminPage() {
                 })()}
               </div>
 
+              {/* 1. THANH ĐIỀU HƯỚNG PHÂN KHU CHUỒNG (TIER TABS: SIÊU GỌN, ĐỘ TƯƠNG PHẢN CAO CHO CẢ SÁNG & TỐI) */}
+              <div style={{
+                display: 'inline-flex',
+                gap: '6px',
+                marginBottom: '10px',
+                background: isDark ? 'var(--bg-secondary)' : '#EAE4D8',
+                padding: '4px',
+                borderRadius: '8px',
+                border: isDark ? '1px solid var(--line)' : '1px solid #D1C5B4',
+                flexWrap: 'wrap',
+                maxWidth: '100%',
+                boxShadow: isDark ? 'none' : 'inset 0 1px 2px rgba(0,0,0,0.06)'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setStableTierTab('ALL')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: stableTierTab === 'ALL'
+                      ? (isDark ? '1.5px solid var(--brass)' : '1.5px solid #C2410C')
+                      : (isDark ? '1px solid transparent' : '1px solid #CBD5E1'),
+                    background: stableTierTab === 'ALL'
+                      ? (isDark ? 'var(--bg-card)' : '#FFFFFF')
+                      : (isDark ? 'transparent' : '#FFFFFF'),
+                    color: stableTierTab === 'ALL'
+                      ? (isDark ? 'var(--brass)' : '#9A3412')
+                      : (isDark ? 'var(--paper-dim)' : '#334155'),
+                    fontWeight: 800,
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap',
+                    boxShadow: stableTierTab === 'ALL' ? (isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.1)') : 'none'
+                  }}
+                >
+                  <span>{lang === 'en' ? 'All' : 'Tất cả'}</span>
+                  <span style={{
+                    background: stableTierTab === 'ALL'
+                      ? (isDark ? 'var(--brass)' : '#C2410C')
+                      : (isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0'),
+                    color: stableTierTab === 'ALL' ? '#FFFFFF' : (isDark ? 'var(--paper-dim)' : '#475569'),
+                    padding: '1px 5px',
+                    borderRadius: '5px',
+                    fontSize: '10px',
+                    fontWeight: 800
+                  }}>{stables.length}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStableTierTab('VIP')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: stableTierTab === 'VIP'
+                      ? (isDark ? '1.5px solid #F59E0B' : '2px solid #B45309')
+                      : (isDark ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #D97706'),
+                    background: stableTierTab === 'VIP'
+                      ? (isDark ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7')
+                      : (isDark ? 'rgba(245, 158, 11, 0.05)' : '#FFFFFF'),
+                    color: isDark
+                      ? (stableTierTab === 'VIP' ? '#FBBF24' : '#F59E0B')
+                      : '#78350F',
+                    fontWeight: 800,
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap',
+                    boxShadow: stableTierTab === 'VIP' ? (isDark ? 'none' : '0 1px 3px rgba(180,83,9,0.2)') : 'none'
+                  }}
+                >
+                  <span style={{
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    padding: '1px 5px',
+                    background: isDark ? '#F59E0B' : '#B45309',
+                    color: '#FFFFFF',
+                    borderRadius: '3px'
+                  }}>VIP</span>
+                  <span>{lang === 'en' ? 'VIP Stalls' : 'Chuồng VIP'}</span>
+                  <span style={{
+                    background: isDark ? '#F59E0B' : '#B45309',
+                    color: '#FFFFFF',
+                    padding: '1px 5px',
+                    borderRadius: '5px',
+                    fontSize: '10px',
+                    fontWeight: 800
+                  }}>{vipStablesTotal}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStableTierTab('STANDARD')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: stableTierTab === 'STANDARD'
+                      ? (isDark ? '1.5px solid #3B82F6' : '2px solid #1D4ED8')
+                      : (isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #3B82F6'),
+                    background: stableTierTab === 'STANDARD'
+                      ? (isDark ? 'rgba(59, 130, 246, 0.2)' : '#DBEAFE')
+                      : (isDark ? 'rgba(59, 130, 246, 0.05)' : '#FFFFFF'),
+                    color: isDark
+                      ? (stableTierTab === 'STANDARD' ? '#93C5FD' : '#60A5FA')
+                      : '#1E3A8A',
+                    fontWeight: 800,
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap',
+                    boxShadow: stableTierTab === 'STANDARD' ? (isDark ? 'none' : '0 1px 3px rgba(29,78,216,0.2)') : 'none'
+                  }}
+                >
+                  <span style={{
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    padding: '1px 5px',
+                    background: isDark ? '#3B82F6' : '#1D4ED8',
+                    color: '#FFFFFF',
+                    borderRadius: '3px'
+                  }}>TIÊU CHUẨN</span>
+                  <span>{lang === 'en' ? 'Standard Stalls' : 'Chuồng Tiêu Chuẩn'}</span>
+                  <span style={{
+                    background: isDark ? '#3B82F6' : '#1D4ED8',
+                    color: '#FFFFFF',
+                    padding: '1px 5px',
+                    borderRadius: '5px',
+                    fontSize: '10px',
+                    fontWeight: 800
+                  }}>{stdStablesTotal}</span>
+                </button>
+              </div>
+
+              {/* 2. THANH LỌC TRẠNG THÁI & CÔNG CỤ XEM */}
               <div className="portal-filter-bar">
                 <div className="portal-filter-pills">
                   <button
                     className={`portal-pill-btn ${stableFilter === 'ALL' ? 'active' : ''}`}
                     onClick={() => setStableFilter('ALL')}
                   >
-                    {lang === 'en' ? 'All 12 Stalls' : 'Tất cả 12 ô'} <span className="pill-count">{stables.length}</span>
+                    {lang === 'en' ? 'All Stalls' : 'Tất cả'} <span className="pill-count">{filteredStables.length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${stableFilter === 'AVAILABLE' ? 'active' : ''}`}
                     onClick={() => setStableFilter('AVAILABLE')}
                   >
-                    {lang === 'en' ? 'Available' : 'Còn trống'} <span className="pill-count">{stables.filter(s => s.status === 'AVAILABLE').length}</span>
+                    {lang === 'en' ? 'Available' : 'Còn trống'} <span className="pill-count">{filteredStables.filter(s => s.status === 'AVAILABLE').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${stableFilter === 'OCCUPIED' ? 'active' : ''}`}
                     onClick={() => setStableFilter('OCCUPIED')}
                   >
-                    {lang === 'en' ? 'Occupied' : 'Đã lấp đầy'} <span className="pill-count">{stables.filter(s => s.status === 'OCCUPIED').length}</span>
+                    {lang === 'en' ? 'Occupied' : 'Đã lấp đầy'} <span className="pill-count">{filteredStables.filter(s => s.status === 'OCCUPIED').length}</span>
                   </button>
                 </div>
 
@@ -2380,338 +2550,608 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {viewMode === 'cards' ? (
-                <div className="portal-cards-grid">
-                  {filteredStables.map(s => {
-                    const isOccupied = s.status === 'OCCUPIED';
-                    const isAvailable = s.status === 'AVAILABLE';
-                    const badgeClass = isOccupied ? 'badge-gold' : 'badge-slate';
+              {/* 3. HIỂN THỊ DANH SÁCH Ô CHUỒNG TÁCH BIỆT CHỖ RIÊNG CHO VIP VÀ TIÊU CHUẨN */}
+              {(() => {
+                const vipStallsList = filteredStables.filter(s => isVipStall(s));
+                const stdStallsList = filteredStables.filter(s => !isVipStall(s));
 
-                    return (
-                      <div key={s.stall_code} className="facility-card" style={{ padding: '16px', overflow: 'hidden' }}>
-                        {/* Ảnh ô chuồng (3D Simulation hoặc ảnh do Admin tải lên) */}
+                const renderStallCard = (s) => {
+                  const isOccupied = s.status === 'OCCUPIED';
+                  const isAvailable = s.status === 'AVAILABLE';
+                  const isVip = isVipStall(s);
+                  const badgeClass = isOccupied ? 'badge-gold' : 'badge-slate';
+
+                  return (
+                    <div key={s.stall_code} className="facility-card" style={{ padding: '16px', overflow: 'hidden' }}>
+                      {/* Ảnh ô chuồng (3D Simulation hoặc ảnh do Admin tải lên) */}
+                      <div style={{
+                        position: 'relative',
+                        width: '100%',
+                        height: '175px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        marginBottom: '14px',
+                        background: '#161B22',
+                        border: '1px solid var(--line)'
+                      }}>
+                        <img
+                          src={s.stall_image || (isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg')}
+                          alt={`Ô Chuồng ${s.stall_code}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: 'block'
+                          }}
+                          onError={(e) => {
+                            e.target.src = isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg';
+                          }}
+                        />
+
+                        {/* PHẦN GHI LÊN TRÊN: Badge Phân Hạng VIP / Tiêu Chuẩn & Block */}
                         <div style={{
-                          position: 'relative',
-                          width: '100%',
-                          height: '175px',
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          marginBottom: '14px',
-                          background: '#161B22',
-                          border: '1px solid var(--line)'
+                          position: 'absolute',
+                          top: '10px',
+                          left: '10px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '5px',
+                          alignItems: 'flex-start'
                         }}>
-                          <img
-                            src={s.stall_image || (isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg')}
-                            alt={`Ô Chuồng ${s.stall_code}`}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              display: 'block'
-                            }}
-                            onError={(e) => {
-                              e.target.src = isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg';
-                            }}
-                          />
-                          <div style={{
-                            position: 'absolute',
-                            top: '10px',
-                            left: '10px'
-                          }}>
-                            <span className={`facility-card-badge ${badgeClass}`} style={{ margin: 0, backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.65)' }}>
-                              <span>{s.block.toUpperCase()}</span>
-                            </span>
-                          </div>
-
-                          <div style={{
-                            position: 'absolute',
-                            top: '10px',
-                            right: '10px',
-                            display: 'flex',
-                            gap: '6px'
-                          }}>
-                            <label
-                              style={{
-                                cursor: 'pointer',
-                                background: 'rgba(0,0,0,0.75)',
-                                padding: '4px 10px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                color: 'var(--brass)',
-                                border: '1px solid rgba(212,175,55,0.4)',
-                                backdropFilter: 'blur(8px)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                fontWeight: 700,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.03em',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title="Cập nhật ảnh ô chuồng"
-                            >
-                              <span>Đổi ảnh</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                style={{ display: 'none' }}
-                                onChange={(e) => handleUploadStallImage(s.stall_code, e)}
-                              />
-                            </label>
+                          {isVip ? (
                             <span style={{
-                              background: 'rgba(0,0,0,0.7)',
+                              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.95), rgba(180, 83, 9, 0.95))',
+                              color: '#1A0E02',
+                              fontWeight: 800,
                               padding: '3px 8px',
                               borderRadius: '4px',
-                              fontSize: '11px',
-                              color: '#F3F4F6',
-                              fontWeight: 700,
-                              backdropFilter: 'blur(8px)',
-                              border: '1px solid rgba(255,255,255,0.15)'
+                              fontSize: '10.5px',
+                              letterSpacing: '0.04em',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                              border: '1px solid rgba(251, 191, 36, 0.6)'
                             }}>
-                              {s.stall_code}
+                              {lang === 'en' ? 'VIP EQUINE STALL' : 'CHUỒNG VIP (PREMIUM)'}
                             </span>
-                          </div>
-
-                          {/* Nếu ô chuồng đang nuôi dưỡng ngựa, hiển thị thumbnail nhỏ của chiến mã ở góc dưới */}
-                          {isOccupied && (
-                            <div style={{
-                              position: 'absolute',
-                              bottom: '8px',
-                              left: '8px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              background: 'rgba(10, 13, 20, 0.85)',
-                              padding: '3px 10px 3px 4px',
-                              borderRadius: '20px',
-                              backdropFilter: 'blur(8px)',
-                              border: '1px solid rgba(212,175,55,0.3)'
+                          ) : (
+                            <span style={{
+                              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(30, 64, 175, 0.95))',
+                              color: '#FFFFFF',
+                              fontWeight: 800,
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '10.5px',
+                              letterSpacing: '0.04em',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                              border: '1px solid rgba(147, 197, 253, 0.6)'
                             }}>
-                              {s.horse_avatar ? (
-                                <img
-                                  src={s.horse_avatar}
-                                  alt={s.horse}
-                                  style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
-                                />
-                              ) : (
-                                <span style={{
-                                  width: '20px',
-                                  height: '20px',
-                                  borderRadius: '50%',
-                                  background: 'var(--brass)',
-                                  color: '#14100A',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '10px',
-                                  fontWeight: 800
-                                }}>
-                                  {s.horse.charAt(0).toUpperCase()}
-                                </span>
-                              )}
-                              <span style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 700 }}>{s.horse}</span>
-                            </div>
+                              {lang === 'en' ? 'STANDARD (FREE TIER)' : 'CHUỒNG TIÊU CHUẨN (GÓI CƠ BẢN)'}
+                            </span>
                           )}
-                        </div>
 
-                        <h3 className="facility-card-title">{lang === 'en' ? `Barn Stall ${s.stall_code}` : `Ô Chuồng ${s.stall_code}`}</h3>
-                        <p className="facility-card-desc">
-                          {isOccupied
-                            ? (lang === 'en' ? `Housing racehorse ${s.horse}. Premium equine amenities.` : `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.`)
-                            : (lang === 'en' ? 'Clean empty stall ready for horse intake.' : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.')}
-                        </p>
-
-                        <div className="facility-card-bullets">
-                          <div className="facility-bullet-item">
-                            <span className="bullet-dot" />
-                            <span>{lang === 'en' ? 'Resident horse:' : 'Chiến mã lưu trú:'} <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)' }}>{s.horse}</b></span>
-                          </div>
-                          <div className="facility-bullet-item">
-                            <span className="bullet-dot" />
-                            <span>{lang === 'en' ? 'Barn block:' : 'Khu chuồng:'} <b>{s.block}</b></span>
-                          </div>
-                        </div>
-
-                        <div className="facility-specs-grid">
-                          <div className="facility-spec-cell">
-                            <span className="spec-label">{lang === 'en' ? 'Area' : 'Diện tích'}</span>
-                            <span className="spec-val">{s.area || '14 m²'}</span>
-                          </div>
-                          <div className="facility-spec-cell">
-                            <span className="spec-label">{lang === 'en' ? 'Dimensions' : 'Kích thước'}</span>
-                            <span className="spec-val">{s.dim || '3.8 x 3.8m'}</span>
-                          </div>
-                          <div className="facility-spec-cell">
-                            <span className="spec-label">{lang === 'en' ? 'Standard' : 'Tiêu chuẩn'}</span>
-                            <span className="spec-val">Pro Stall</span>
-                          </div>
-                        </div>
-
-                        <div className="facility-price-box">
-                          <div>
-                            <div className="price-label">{lang === 'en' ? 'Stall Status' : 'Trạng thái ô'}</div>
-                            <div className="price-value" style={{ fontSize: '14.5px', color: isOccupied ? 'var(--brass)' : 'var(--paper)' }}>
-                              {isOccupied
-                                ? (lang === 'en' ? 'Currently Occupied' : 'Đang nuôi dưỡng')
-                                : isAvailable
-                                  ? (lang === 'en' ? 'Available & Ready' : 'Còn trống sẵn sàng')
-                                  : (lang === 'en' ? 'Under Maintenance' : 'Đang bảo dưỡng')}
-                            </div>
-                          </div>
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            padding: '3px 7px',
-                            borderRadius: '4px',
-                            background: 'var(--bg-primary)',
-                            color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)',
-                            border: '1px solid var(--line)'
-                          }}>
-                            {isOccupied
-                              ? (lang === 'en' ? 'OCCUPIED' : 'LẤP ĐẦY')
-                              : isAvailable
-                                ? (lang === 'en' ? 'VACANT' : 'TRỐNG')
-                                : (lang === 'en' ? 'SERVICE' : 'BẢO TRÌ')}
+                          <span className={`facility-card-badge ${badgeClass}`} style={{ margin: 0, backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.7)', fontSize: '10px' }}>
+                            <span>{s.block.toUpperCase()}</span>
                           </span>
                         </div>
 
-                        <div className="facility-card-actions">
-                          <div className="actions-left" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <button
-                              className="facility-btn-action"
-                              onClick={() => handleToggleStable(s.stall_code)}
-                            >
-                              {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
-                            </button>
-                            <button
-                              className="facility-btn-action"
-                              onClick={() => handleOpenChangeHorse(s)}
-                              style={{ borderColor: 'rgba(212,175,55,0.4)', color: 'var(--brass)' }}
-                            >
-                              {isOccupied ? 'Đổi ngựa' : 'Gán ngựa'}
-                            </button>
-                            <label
-                              className="facility-btn-action"
-                              style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-                              title="Admin: Cập nhật hình ảnh chuồng"
-                            >
-                              <span>Cập nhật ảnh</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                style={{ display: 'none' }}
-                                onChange={(e) => handleUploadStallImage(s.stall_code, e)}
+                        <div style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          display: 'flex',
+                          gap: '6px'
+                        }}>
+                          <label
+                            style={{
+                              cursor: 'pointer',
+                              background: 'rgba(0,0,0,0.75)',
+                              padding: '4px 10px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              color: 'var(--brass)',
+                              border: '1px solid rgba(212,175,55,0.4)',
+                              backdropFilter: 'blur(8px)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.03em',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title="Cập nhật ảnh ô chuồng"
+                          >
+                            <span>{lang === 'en' ? 'Edit photo' : 'Đổi ảnh'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => handleUploadStallImage(s.stall_code, e)}
+                            />
+                          </label>
+                          <span style={{
+                            background: 'rgba(0,0,0,0.7)',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            color: '#F3F4F6',
+                            fontWeight: 700,
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(255,255,255,0.15)'
+                          }}>
+                            {s.stall_code}
+                          </span>
+                        </div>
+
+                        {/* Nếu ô chuồng đang nuôi dưỡng ngựa, hiển thị thumbnail nhỏ của chiến mã ở góc dưới */}
+                        {isOccupied && (
+                          <div style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            left: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'rgba(10, 13, 20, 0.85)',
+                            padding: '3px 10px 3px 4px',
+                            borderRadius: '20px',
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(212,175,55,0.3)'
+                          }}>
+                            {s.horse_avatar ? (
+                              <img
+                                src={s.horse_avatar}
+                                alt={s.horse}
+                                style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
                               />
-                            </label>
+                            ) : (
+                              <span style={{
+                                width: '20px',
+                                height: '20px',
+                                borderRadius: '50%',
+                                background: 'var(--brass)',
+                                color: '#14100A',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px',
+                                fontWeight: 800
+                              }}>
+                                {s.horse.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                            <span style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 700 }}>{s.horse}</span>
                           </div>
-                          <span className="facility-link-action" style={{ cursor: 'default' }}>
-                            {s.block} →
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <h3 className="facility-card-title" style={{ margin: 0 }}>
+                          {lang === 'en' ? `Barn Stall ${s.stall_code}` : `Ô Chuồng ${s.stall_code}`}
+                        </h3>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          background: isVip
+                            ? (isDark ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7')
+                            : (isDark ? 'rgba(59, 130, 246, 0.15)' : '#DBEAFE'),
+                          color: isVip
+                            ? (isDark ? '#FBBF24' : '#78350F')
+                            : (isDark ? '#93C5FD' : '#1E3A8A'),
+                          border: isVip
+                            ? (isDark ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #D97706')
+                            : (isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #2563EB')
+                        }}>
+                          {isVip ? (lang === 'en' ? 'VIP Equine' : 'Hạng VIP') : (lang === 'en' ? 'Standard' : 'Tiêu Chuẩn')}
+                        </span>
+                      </div>
+
+                      <p className="facility-card-desc">
+                        {isOccupied
+                          ? (lang === 'en' ? `Housing racehorse ${s.horse}. Premium equine amenities.` : `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.`)
+                          : (lang === 'en' ? 'Clean empty stall ready for horse intake.' : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.')}
+                      </p>
+
+                      <div className="facility-card-bullets">
+                        <div className="facility-bullet-item">
+                          <span className="bullet-dot" />
+                          <span>{lang === 'en' ? 'Resident horse:' : 'Chiến mã lưu trú:'} <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)' }}>{s.horse}</b></span>
+                        </div>
+                        <div className="facility-bullet-item">
+                          <span className="bullet-dot" />
+                          <span>{lang === 'en' ? 'Barn block:' : 'Khu chuồng:'} <b>{s.block}</b></span>
+                        </div>
+                      </div>
+
+                      {/* ĐỔI CHỮ "TIÊU CHUẨN" THÀNH "PHÂN HẠNG" */}
+                      <div className="facility-specs-grid">
+                        <div className="facility-spec-cell">
+                          <span className="spec-label">{lang === 'en' ? 'Area' : 'Diện tích'}</span>
+                          <span className="spec-val">{s.area || '14 m²'}</span>
+                        </div>
+                        <div className="facility-spec-cell">
+                          <span className="spec-label">{lang === 'en' ? 'Dimensions' : 'Kích thước'}</span>
+                          <span className="spec-val">{s.dim || '3.8 x 3.8m'}</span>
+                        </div>
+                        <div className="facility-spec-cell">
+                          <span className="spec-label" style={{ color: 'var(--brass)', fontWeight: 700 }}>
+                            {lang === 'en' ? 'Classification' : 'Phân hạng'}
+                          </span>
+                          <span className="spec-val" style={{
+                            color: isVip
+                              ? (isDark ? '#FBBF24' : '#78350F')
+                              : (isDark ? '#93C5FD' : '#1E3A8A'),
+                            fontWeight: 800
+                          }}>
+                            {isVip ? (lang === 'en' ? 'VIP Stall' : 'VIP Đặc Quyền') : (lang === 'en' ? 'Standard' : 'Tiêu Chuẩn')}
                           </span>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Code' : 'Mã Ô Chuồng'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Barn Block' : 'Khu Vực'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Resident Runner' : 'Chiến Mã Đang Ở'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Status' : 'Trạng Thái'}</th>
-                        <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action' : 'Thao Tác'}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStables.map(s => {
-                        const isOccupied = s.status === 'OCCUPIED';
-                        const isAvailable = s.status === 'AVAILABLE';
-                        return (
-                          <tr key={s.stall_code} style={{ borderBottom: '1px solid var(--line)' }}>
-                            <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <img
-                                  src={s.stall_image || (isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg')}
-                                  alt={s.stall_code}
-                                  style={{ width: '48px', height: '36px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
-                                  onError={(e) => { e.target.src = isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg'; }}
-                                />
-                                <div>
-                                  <div>{lang === 'en' ? 'Stall ' : 'Ô '}{s.stall_code}</div>
-                                  <label style={{ fontSize: '11px', color: 'var(--brass)', cursor: 'pointer', display: 'inline-block', marginTop: '2px', fontWeight: 600 }}>
-                                    <span>Đổi ảnh</span>
-                                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleUploadStallImage(s.stall_code, e)} />
-                                  </label>
-                                </div>
-                              </div>
-                            </td>
-                            <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{s.block}</td>
-                            <td style={{ padding: '14px 18px', color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 600 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {isOccupied && s.horse_avatar && (
-                                  <img
-                                    src={s.horse_avatar}
-                                    alt={s.horse}
-                                    style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
-                                  />
-                                )}
-                                <span>{s.horse}</span>
-                              </div>
-                            </td>
-                            <td style={{ padding: '14px 18px' }}>
-                              <span style={{
-                                padding: '3px 8px',
-                                borderRadius: '4px',
-                                fontSize: '11.5px',
-                                fontWeight: 600,
+
+                      <div className="facility-price-box">
+                        <div>
+                          <div className="price-label">{lang === 'en' ? 'Stall Status' : 'Trạng thái ô'}</div>
+                          <div className="price-value" style={{ fontSize: '14.5px', color: isOccupied ? 'var(--brass)' : 'var(--paper)' }}>
+                            {isOccupied
+                              ? (lang === 'en' ? 'Currently Occupied' : 'Đang nuôi dưỡng')
+                              : isAvailable
+                                ? (lang === 'en' ? 'Available & Ready' : 'Còn trống sẵn sàng')
+                                : (lang === 'en' ? 'Under Maintenance' : 'Đang bảo dưỡng')}
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: '3px 7px',
+                          borderRadius: '4px',
+                          background: 'var(--bg-primary)',
+                          color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)',
+                          border: '1px solid var(--line)'
+                        }}>
+                          {isOccupied
+                            ? (lang === 'en' ? 'OCCUPIED' : 'LẤP ĐẦY')
+                            : isAvailable
+                              ? (lang === 'en' ? 'VACANT' : 'TRỐNG')
+                              : (lang === 'en' ? 'SERVICE' : 'BẢO TRÌ')}
+                        </span>
+                      </div>
+
+                      <div className="facility-card-actions">
+                        <div className="actions-left" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <button
+                            className="facility-btn-action"
+                            onClick={() => handleToggleStable(s.stall_code)}
+                          >
+                            {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
+                          </button>
+                          <button
+                            className="facility-btn-action"
+                            onClick={() => handleOpenChangeHorse(s)}
+                            style={{ borderColor: 'rgba(212,175,55,0.4)', color: 'var(--brass)' }}
+                          >
+                            {isOccupied ? 'Đổi ngựa' : 'Gán ngựa'}
+                          </button>
+                          <label
+                            className="facility-btn-action"
+                            style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                            title="Admin: Cập nhật hình ảnh chuồng"
+                          >
+                            <span>{lang === 'en' ? 'Upload photo' : 'Cập nhật ảnh'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => handleUploadStallImage(s.stall_code, e)}
+                            />
+                          </label>
+                        </div>
+                        <span className="facility-link-action" style={{ cursor: 'default' }}>
+                          {s.block} →
+                        </span>
+                      </div>
+                    </div>
+                  );
+                };
+
+                const renderTableRows = (list) => {
+                  return list.map(s => {
+                    const isOccupied = s.status === 'OCCUPIED';
+                    const isAvailable = s.status === 'AVAILABLE';
+                    const isVip = isVipStall(s);
+                    return (
+                      <tr key={s.stall_code} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--paper)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <img
+                              src={s.stall_image || (isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg')}
+                              alt={s.stall_code}
+                              style={{ width: '48px', height: '36px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
+                              onError={(e) => { e.target.src = isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg'; }}
+                            />
+                            <div>
+                              <div>{lang === 'en' ? 'Stall ' : 'Ô '}{s.stall_code}</div>
+                              <label style={{ fontSize: '11px', color: 'var(--brass)', cursor: 'pointer', display: 'inline-block', marginTop: '2px', fontWeight: 600 }}>
+                                <span>{lang === 'en' ? 'Edit photo' : 'Đổi ảnh'}</span>
+                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleUploadStallImage(s.stall_code, e)} />
+                              </label>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{s.block}</td>
+                        <td style={{ padding: '14px 18px' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background: isVip
+                              ? (isDark ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7')
+                              : (isDark ? 'rgba(59, 130, 246, 0.15)' : '#DBEAFE'),
+                            color: isVip
+                              ? (isDark ? '#FBBF24' : '#78350F')
+                              : (isDark ? '#93C5FD' : '#1E3A8A'),
+                            border: isVip
+                              ? (isDark ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #D97706')
+                              : (isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #2563EB')
+                          }}>
+                            {isVip ? (lang === 'en' ? 'VIP Equine' : 'VIP Đặc Quyền') : (lang === 'en' ? 'Standard (Basic)' : 'Tiêu Chuẩn (Cơ Bản)')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 18px', color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 600 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {isOccupied && s.horse_avatar && (
+                              <img
+                                src={s.horse_avatar}
+                                alt={s.horse}
+                                style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                              />
+                            )}
+                            <span>{s.horse}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '14px 18px' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                            background: 'var(--bg-secondary)',
+                            color: isOccupied ? 'var(--brass)' : 'var(--paper)',
+                            border: '1px solid var(--line)'
+                          }}>
+                            {isOccupied ? (lang === 'en' ? 'Occupied' : 'Đang dùng') : isAvailable ? (lang === 'en' ? 'Available' : 'Còn trống') : (lang === 'en' ? 'Maintenance' : 'Bảo trì')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 18px' }}>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => handleToggleStable(s.stall_code)}
+                              style={{
+                                padding: '5px 10px',
                                 background: 'var(--bg-secondary)',
-                                color: isOccupied ? 'var(--brass)' : 'var(--paper)',
-                                border: '1px solid var(--line)'
-                              }}>
-                                {isOccupied ? (lang === 'en' ? 'Occupied' : 'Đang dùng') : isAvailable ? (lang === 'en' ? 'Available' : 'Còn trống') : (lang === 'en' ? 'Maintenance' : 'Bảo trì')}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 18px' }}>
-                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                <button
-                                  onClick={() => handleToggleStable(s.stall_code)}
-                                  style={{
-                                    padding: '5px 10px',
-                                    background: 'var(--bg-secondary)',
-                                    border: '1px solid var(--line)',
-                                    borderRadius: '4px',
-                                    color: 'var(--paper)',
-                                    fontSize: '12px',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  {lang === 'en' ? 'Toggle' : 'Đổi trạng thái'}
-                                </button>
-                                <button
-                                  onClick={() => handleOpenChangeHorse(s)}
-                                  style={{
-                                    padding: '5px 10px',
-                                    background: 'var(--bg-secondary)',
-                                    border: '1px solid rgba(212,175,55,0.4)',
-                                    borderRadius: '4px',
-                                    color: 'var(--brass)',
-                                    fontSize: '12px',
-                                    cursor: 'pointer',
-                                    fontWeight: 600
-                                  }}
-                                >
-                                  {isOccupied ? 'Đổi ngựa' : 'Gán ngựa'}
-                                </button>
+                                border: '1px solid var(--line)',
+                                borderRadius: '4px',
+                                color: 'var(--paper)',
+                                fontSize: '12px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {lang === 'en' ? 'Toggle' : 'Đổi trạng thái'}
+                            </button>
+                            <button
+                              onClick={() => handleOpenChangeHorse(s)}
+                              style={{
+                                padding: '5px 10px',
+                                background: 'var(--bg-secondary)',
+                                border: '1px solid rgba(212,175,55,0.4)',
+                                borderRadius: '4px',
+                                color: 'var(--brass)',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                              }}
+                            >
+                              {isOccupied ? 'Đổi ngựa' : 'Gán ngựa'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  });
+                };
+
+                if (viewMode === 'cards') {
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* KHU VỰC 1: CHUỒNG VIP (DÀNH CHO HỘI VIÊN VIP) */}
+                      {(stableTierTab === 'ALL' || stableTierTab === 'VIP') && (
+                        <div>
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '9px 15px',
+                            background: isDark
+                              ? 'linear-gradient(90deg, rgba(245, 158, 11, 0.14) 0%, rgba(20, 24, 33, 0.8) 100%)'
+                              : 'linear-gradient(90deg, #FEF3C7 0%, #FFFFFF 100%)',
+                            border: isDark ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid #FCD34D',
+                            borderLeft: isDark ? '4px solid #F59E0B' : '4px solid #B45309',
+                            borderRadius: '8px',
+                            marginBottom: '12px',
+                            flexWrap: 'wrap',
+                            gap: '8px'
+                          }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 800, background: isDark ? '#F59E0B' : '#B45309', color: '#FFFFFF', padding: '1px 5px', borderRadius: '3px' }}>VIP</span>
+                                <h3 style={{ margin: 0, fontSize: '14.5px', color: isDark ? '#FBBF24' : '#78350F', fontWeight: 800 }}>
+                                  {lang === 'en' ? 'VIP EQUINE STALLS ZONE (RESERVED FOR VIP)' : 'KHU VỰC CHUỒNG VIP (DÀNH CHO HỘI VIÊN VIP)'}
+                                </h3>
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                              <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                                {lang === 'en'
+                                  ? 'Premium stalls 16 - 18 m² with specialized amenities, allocated exclusively for VIP tier equine members.'
+                                  : 'Hệ thống ô chuồng tiện nghi cao cấp 16 - 18 m², kiểm soát vi khí hậu dành riêng cho chủ sở hữu gói VIP.'}
+                              </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <span style={{
+                                fontSize: '11.5px',
+                                padding: '3px 8px',
+                                borderRadius: '14px',
+                                background: isDark ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7',
+                                color: isDark ? '#FBBF24' : '#78350F',
+                                border: isDark ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #F59E0B',
+                                fontWeight: 700
+                              }}>
+                                {vipStallsList.length} {lang === 'en' ? 'Stalls' : 'ô chuồng'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {vipStallsList.length === 0 ? (
+                            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--paper-dim)', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--line)', fontSize: '13px' }}>
+                              {lang === 'en' ? 'No VIP stalls match the current status filter.' : 'Không có ô chuồng VIP nào khớp với bộ lọc trạng thái hiện tại.'}
+                            </div>
+                          ) : (
+                            <div className="portal-cards-grid">
+                              {vipStallsList.map(s => renderStallCard(s))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* KHU VỰC 2: CHUỒNG TIÊU CHUẨN (DÀNH CHO NGƯỜI KHÔNG MUA VIP / GÓI CƠ BẢN) */}
+                      {(stableTierTab === 'ALL' || stableTierTab === 'STANDARD') && (
+                        <div>
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '9px 15px',
+                            background: isDark
+                              ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.14) 0%, rgba(20, 24, 33, 0.8) 100%)'
+                              : 'linear-gradient(90deg, #DBEAFE 0%, #FFFFFF 100%)',
+                            border: isDark ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid #93C5FD',
+                            borderLeft: isDark ? '4px solid #3B82F6' : '4px solid #1D4ED8',
+                            borderRadius: '8px',
+                            marginBottom: '12px',
+                            flexWrap: 'wrap',
+                            gap: '8px'
+                          }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 800, background: isDark ? '#3B82F6' : '#1D4ED8', color: '#FFFFFF', padding: '1px 5px', borderRadius: '3px' }}>TIÊU CHUẨN</span>
+                                <h3 style={{ margin: 0, fontSize: '14.5px', color: isDark ? '#93C5FD' : '#1E3A8A', fontWeight: 800 }}>
+                                  {lang === 'en' ? 'STANDARD STALLS ZONE (FOR BASIC / NON-VIP OWNERS)' : 'KHU VỰC CHUỒNG TIÊU CHUẨN (DÀNH CHO NGƯỜI KHÔNG MUA VIP)'}
+                                </h3>
+                              </div>
+                              <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                                {lang === 'en'
+                                  ? 'Standard facility stalls 14 m² allocated for basic free-tier horse owners who have not subscribed to VIP.'
+                                  : 'Hệ thống ô chuồng tiêu chuẩn 14 m² sạch sẽ, sẵn sàng phân bổ cho chủ sở hữu ngựa gói cơ bản chưa mua VIP.'}
+                              </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <span style={{
+                                fontSize: '11.5px',
+                                padding: '3px 8px',
+                                borderRadius: '14px',
+                                background: isDark ? 'rgba(59, 130, 246, 0.15)' : '#DBEAFE',
+                                color: isDark ? '#93C5FD' : '#1E3A8A',
+                                border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #3B82F6',
+                                fontWeight: 700
+                              }}>
+                                {stdStallsList.length} {lang === 'en' ? 'Stalls' : 'ô chuồng'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {stdStallsList.length === 0 ? (
+                            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--paper-dim)', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--line)', fontSize: '13px' }}>
+                              {lang === 'en' ? 'No standard stalls match the current status filter.' : 'Không có ô chuồng tiêu chuẩn nào khớp với bộ lọc trạng thái hiện tại.'}
+                            </div>
+                          ) : (
+                            <div className="portal-cards-grid">
+                              {stdStallsList.map(s => renderStallCard(s))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {(stableTierTab === 'ALL' || stableTierTab === 'VIP') && (
+                      <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '12px', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+                        <div style={{
+                          padding: '12px 18px',
+                          background: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7',
+                          borderBottom: isDark ? '1px solid rgba(245, 158, 11, 0.25)' : '1px solid #FCD34D',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}>
+                          <span style={{ fontWeight: 800, color: isDark ? '#FBBF24' : '#78350F', fontSize: '14px' }}>
+                            {lang === 'en' ? 'VIP EQUINE STALLS' : 'BẢNG DANH SÁCH: KHU CHUỒNG VIP (DÀNH CHO VIP)'}
+                          </span>
+                          <span style={{ fontSize: '11px', color: isDark ? '#FBBF24' : '#78350F', fontWeight: 700 }}>{vipStallsList.length} ô chuồng</span>
+                        </div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                          <thead>
+                            <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Code' : 'Mã Ô Chuồng'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Barn Block' : 'Khu Vực'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Classification' : 'Phân Hạng'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Resident Runner' : 'Chiến Mã Đang Ở'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Status' : 'Trạng Thái'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action' : 'Thao Tác'}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {renderTableRows(vipStallsList)}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {(stableTierTab === 'ALL' || stableTierTab === 'STANDARD') && (
+                      <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '12px', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+                        <div style={{
+                          padding: '12px 18px',
+                          background: isDark ? 'rgba(59, 130, 246, 0.12)' : '#DBEAFE',
+                          borderBottom: isDark ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #BFDBFE',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}>
+                          <span style={{ fontWeight: 800, color: isDark ? '#93C5FD' : '#1E3A8A', fontSize: '14px' }}>
+                            {lang === 'en' ? 'STANDARD STALLS' : 'BẢNG DANH SÁCH: KHU CHUỒNG TIÊU CHUẨN (KHÔNG MUA VIP)'}
+                          </span>
+                          <span style={{ fontSize: '11px', color: isDark ? '#93C5FD' : '#1E3A8A', fontWeight: 700 }}>{stdStallsList.length} ô chuồng</span>
+                        </div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
+                          <thead>
+                            <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Code' : 'Mã Ô Chuồng'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Barn Block' : 'Khu Vực'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Classification' : 'Phân Hạng'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Resident Runner' : 'Chiến Mã Đang Ở'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Stall Status' : 'Trạng Thái'}</th>
+                              <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action' : 'Thao Tác'}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {renderTableRows(stdStallsList)}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
