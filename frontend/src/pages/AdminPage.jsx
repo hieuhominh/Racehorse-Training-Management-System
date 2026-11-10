@@ -38,6 +38,7 @@ import {
   REPORT_STATUSES
 } from '../services/reportService';
 import { getServiceAssignments, lookupFullHorseInfo } from '../services/serviceAssignment';
+import FacilityFinancialReport from '../components/FacilityFinancialReport';
 
 // Minimalist SVG Icons
 const IconGlobe = ({ size = 15, color = 'currentColor' }) => (
@@ -162,7 +163,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const saved = localStorage.getItem('matruong_tab_admin');
-      if (['overview', 'horses', 'stables', 'users', 'audit'].includes(saved)) {
+      if (['overview', 'horses', 'stables', 'users', 'reports'].includes(saved)) {
         return saved;
       }
     } catch {}
@@ -2131,14 +2132,6 @@ export default function AdminPage() {
           </button>
 
           <button
-            className={`portal-nav-item ${activeTab === 'audit' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('audit'); setSidebarOpen(false); }}
-          >
-            <span className="portal-nav-icon"><IconAudit /></span>
-            <span className="portal-nav-label">{t('adminTabAudit')}</span>
-          </button>
-
-          <button
             className={`portal-nav-item ${activeTab === 'reports' ? 'active' : ''}`}
             onClick={() => { setActiveTab('reports'); setSidebarOpen(false); }}
             title="Khiếu Nại & Báo Cáo Nhân Sự từ Chủ Sở Hữu"
@@ -2175,7 +2168,6 @@ export default function AdminPage() {
                 {activeTab === 'horses' && t('adminTitleHorses')}
                 {activeTab === 'stables' && t('adminTitleStables')}
                 {activeTab === 'users' && t('adminTitleUsers')}
-                {activeTab === 'audit' && t('adminTitleAudit')}
                 {activeTab === 'reports' && 'Quản Lý Báo Cáo & Khiếu Nại Nhân Sự'}
               </h2>
               <div className="portal-page-subtitle">
@@ -2183,7 +2175,6 @@ export default function AdminPage() {
                 {activeTab === 'horses' && t('adminSubHorses')}
                 {activeTab === 'stables' && t('adminSubStables')}
                 {activeTab === 'users' && t('adminSubUsers')}
-                {activeTab === 'audit' && t('adminSubAudit')}
                 {activeTab === 'reports' && 'Tiếp nhận, thẩm tra và xử lý phản ánh của Chủ sở hữu về Huấn luyện viên, Bác sĩ Thú y & Nhân viên chăm sóc'}
               </div>
             </div>
@@ -2259,102 +2250,72 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* 4 KPI Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '18px', marginBottom: '28px' }}>
-                <div className="facility-card" style={{ padding: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'TOTAL RACEHORSES' : 'TỔNG ĐÀN CHIẾN MÃ'}</span>
+              {/* 4 Balanced Executive KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div className="facility-card" style={{ padding: '20px', borderTop: '3px solid var(--brass)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '12.5px' }}>
+                    <span style={{ fontWeight: 700, letterSpacing: '0.4px' }}>{lang === 'en' ? 'TOTAL RACEHORSES' : 'TỔNG ĐÀN CHIẾN MÃ'}</span>
                     <span style={{ color: 'var(--brass)' }}><IconHorse /></span>
                   </div>
-                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    {horses.length} {lang === 'en' ? 'horses' : 'con'}
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 2px' }}>
+                    {horses.length} {lang === 'en' ? 'horses' : 'chiến mã'}
                   </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    {lang === 'en' ? '2 Cleared · 1 Monitored · 1 Locked' : '2 Đủ điều kiện · 1 Theo dõi · 1 Tạm khóa'}
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 500 }}>
+                    {horses.filter(h => !h.locked).length} Đủ chuẩn · {horses.filter(h => h.locked).length} Tạm khóa y tế
                   </div>
                 </div>
 
-                <div className="facility-card" style={{ padding: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'BARN OCCUPANCY RATE' : 'CÔNG SUẤT CHUỒNG TRẠI'}</span>
-                    <span style={{ color: 'var(--brass)' }}><IconStable /></span>
+                <div className="facility-card" style={{ padding: '20px', borderTop: '3px solid #3B82F6' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '12.5px' }}>
+                    <span style={{ fontWeight: 700, letterSpacing: '0.4px' }}>{lang === 'en' ? 'BARN OCCUPANCY RATE' : 'CÔNG SUẤT CHUỒNG TRẠI'}</span>
+                    <span style={{ color: '#3B82F6' }}><IconStable /></span>
                   </div>
-                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 2px' }}>
                     {stables.filter(s => s.status === 'OCCUPIED').length} / {stables.length} {lang === 'en' ? 'stalls' : 'ô'}
                   </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--brass)', fontWeight: 500 }}>
-                    {lang === 'en' ? 'Occupancy: 91.7% (1 stall vacant)' : 'Lấp đầy: 91.7% (1 chuồng trống)'}
+                  <div style={{ fontSize: '12px', color: '#60A5FA', fontWeight: 600 }}>
+                    {stables.length > 0 ? ((stables.filter(s => s.status === 'OCCUPIED').length / stables.length) * 100).toFixed(1) : 0}% lấp đầy ({stables.filter(s => s.status !== 'OCCUPIED').length} ô sẵn sàng)
                   </div>
                 </div>
 
-                <div className="facility-card" style={{ padding: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'TOTAL STAFF USERS (RBAC)' : 'TỔNG NHÂN SỰ RBAC'}</span>
-                    <span style={{ color: 'var(--brass)' }}><IconUsers /></span>
+                <div className="facility-card" style={{ padding: '20px', borderTop: '3px solid #A855F7' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '12.5px' }}>
+                    <span style={{ fontWeight: 700, letterSpacing: '0.4px' }}>{lang === 'en' ? 'TOTAL STAFF' : 'NHÂN SỰ VẬN HÀNH'}</span>
+                    <span style={{ color: '#A855F7' }}><IconUsers /></span>
                   </div>
-                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 2px' }}>
                     {staffList.length} {lang === 'en' ? 'staff members' : 'nhân sự'}
                   </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    {lang === 'en' ? 'Delegated across staff functional tiers' : 'Định biên các bộ phận chuyên môn'}
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 500 }}>
+                    {staffList.filter(u => u.role === 'TRAINER').length} HLV · {staffList.filter(u => u.role === 'VET').length} Bác sĩ · {staffList.filter(u => u.role === 'GROOM').length} Groom
                   </div>
                 </div>
 
-                <div className="facility-card" style={{ padding: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    <span style={{ fontWeight: 600 }}>{lang === 'en' ? 'PRIZE PURSE & OPS FUND' : 'QUỸ GIẢI ĐẤU & HOẠT ĐỘNG'}</span>
-                    <span style={{ color: 'var(--brass)' }}><IconShield /></span>
+                <div className="facility-card" style={{ padding: '20px', borderTop: '3px solid #10B981', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10B981', fontSize: '12.5px' }}>
+                    <span style={{ fontWeight: 700, letterSpacing: '0.4px' }}>{lang === 'en' ? 'OPERATING SURPLUS' : 'THẶNG DƯ HOẠT ĐỘNG'}</span>
+                    <span style={{ color: '#10B981' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    </span>
                   </div>
-                  <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--brass)', margin: '12px 0 6px' }}>
-                    500.000.000 ₫
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: '#10B981', margin: '8px 0 2px' }}>
+                    +542.300.000 ₫
                   </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    {lang === 'en' ? 'National Championship 2026 (Approved)' : 'Giải Vô địch Quốc gia 2026 (Đã duyệt)'}
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 500 }}>
+                    Doanh thu ròng giải đấu bù đắp toàn bộ chi phí
                   </div>
                 </div>
               </div>
 
-              {/* Status and business workflow */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px' }}>
-                <div className="facility-card" style={{ padding: '24px' }}>
-                  <h3 style={{ fontSize: '16px', color: 'var(--brass)', marginBottom: '16px', fontWeight: 600 }}>
-                    Thông Báo Trực Ban Điều Hành
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {horses.length === 0 ? (
-                      <div style={{ padding: '16px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px dashed var(--line)', color: 'var(--paper-dim)', fontSize: '12.5px', textAlign: 'center' }}>
-                        Hiện chưa có cảnh báo y tế hoặc lịch thi đấu khẩn cấp. Toàn bộ ô chuồng đã sẵn sàng đón chiến mã mới.
-                      </div>
-                    ) : (
-                      horses.slice(0, 3).map((h, idx) => (
-                        <div key={h.id || idx} style={{ padding: '12px 14px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)' }}>
-                          <div style={{ fontWeight: 600, color: h.locked ? '#EF4444' : 'var(--brass)', fontSize: '13px' }}>
-                            {h.locked ? 'Khóa y tế: ' : 'Trạng thái: '}Ngựa {h.name} {h.stable ? `(Ô ${h.stable})` : ''}
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                            {h.locked ? (h.lockReason || 'Bác sĩ thú y kích hoạt lệnh khóa y tế bảo đảm sức khỏe.') : `Chiến mã đạt thể trạng ${h.statusText || 'ổn định'}, thuộc chủ sở hữu ${h.owner || 'Chủ nuôi'}.`}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="facility-card" style={{ padding: '24px' }}>
-                  <h3 style={{ fontSize: '16px', color: 'var(--paper)', marginBottom: '16px', fontWeight: 600 }}>
-                    Quy Trình Nghiệp Vụ Tương Tác
-                  </h3>
-                  <div style={{ fontSize: '13.5px', color: 'var(--paper-dim)', lineHeight: 1.75 }}>
-                    <p style={{ margin: '0 0 10px' }}>Hệ thống vận hành theo chu trình khép kín và tự động đối soát:</p>
-                    <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <li><b style={{ color: 'var(--paper)' }}>Ban Quản lý (Admin)</b>: Cấp tài khoản, giám sát ngân sách, phân bổ ô chuồng.</li>
-                      <li><b style={{ color: 'var(--paper)' }}>Thú y (Vet)</b>: Độc quyền quyền <i>Khóa / Mở khóa y tế</i> để bảo vệ tính mạng ngựa đua.</li>
-                      <li><b style={{ color: 'var(--paper)' }}>HLV (Trainer)</b>: Lập giáo án và theo dõi telemetry chỉ số buổi chạy.</li>
-                      <li><b style={{ color: 'var(--paper)' }}>Groom (Chăm sóc)</b>: Báo cáo bữa ăn và sự cố thực tế chuồng trại.</li>
-                      <li><b style={{ color: 'var(--paper)' }}>Chủ ngựa (Owner)</b>: Theo dõi báo cáo minh bạch chi phí và kết quả giải.</li>
-                    </ul>
-                  </div>
-                </div>
+              {/* BÁO CÁO TỔNG QUAN CHI PHÍ VẬN HÀNH & DOANH THU GIẢI ĐẤU */}
+              <div id="facility-finance-report">
+                <FacilityFinancialReport
+                  staffList={staffList}
+                  horses={horses}
+                  stables={stables}
+                  lang={lang}
+                  showToast={showToast}
+                />
               </div>
             </div>
           )}
@@ -4336,54 +4297,6 @@ export default function AdminPage() {
                   </table>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ===================== TAB 5: AUDIT LOGS ===================== */}
-          {activeTab === 'audit' && (
-            <div>
-              <div className="portal-filter-bar">
-                <div className="portal-filter-pills">
-                  <button className="portal-pill-btn active">
-                    {lang === 'en' ? 'All Audit Events' : 'Tất cả sự kiện'} <span className="pill-count">{auditLogs.length}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="table-responsive" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: 'var(--shadow)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13.5px' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Timestamp' : 'Thời gian'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Actor / Operator' : 'Người thực hiện'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Action Type' : 'Hành động'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'en' ? 'Transaction Details' : 'Nội dung chi tiết'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {auditLogs.map(log => (
-                      <tr key={log.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', whiteSpace: 'nowrap' }}>{log.time}</td>
-                        <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{log.user}</td>
-                        <td style={{ padding: '14px 18px' }}>
-                          <span style={{
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            background: 'rgba(201, 162, 39, 0.15)',
-                            color: 'var(--brass, #C9A227)',
-                            border: '1px solid rgba(201, 162, 39, 0.3)'
-                          }}>
-                            {log.action}
-                          </span>
-                        </td>
-                        <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>{log.detail}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
           )}
 
