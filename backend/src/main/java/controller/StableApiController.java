@@ -81,6 +81,14 @@ public class StableApiController extends HttpServlet {
             String block = SecurityUtil.getString(body, "block",
                 SecurityUtil.getString(body, "blockName", "Block C")).trim();
             String status = SecurityUtil.getString(body, "status", "AVAILABLE").trim().toUpperCase();
+            String tier = SecurityUtil.getString(body, "tier", "").trim();
+            Boolean isVip = body.has("is_vip") ? body.get("is_vip").getAsBoolean() : null;
+            String area = SecurityUtil.getString(body, "area", "16 m²").trim();
+            String dim = SecurityUtil.getString(body, "dim", "4.0 x 4.0m").trim();
+            String horse = SecurityUtil.getString(body, "horse", "(Trống)").trim();
+            String breed = SecurityUtil.getString(body, "breed", "Vacant").trim();
+            String stallImage = SecurityUtil.getString(body, "stall_image",
+                "OCCUPIED".equalsIgnoreCase(status) ? "/images/stall_simulation_occupied.jpg" : "/images/stall_simulation_vacant.jpg").trim();
 
             if (SecurityUtil.containsMaliciousPayload(block) || SecurityUtil.containsMaliciousPayload(status)) {
                 SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
@@ -88,7 +96,7 @@ public class StableApiController extends HttpServlet {
                 return;
             }
 
-            Stable newStall = new Stable(0, stallCode, block, status);
+            Stable newStall = new Stable(0, stallCode, block, status, horse, breed, area, dim, stallImage, null, tier, isVip);
             boolean created = stableDAO.addStable(newStall);
 
             if (created) {

@@ -963,15 +963,23 @@ export default function AdminPage() {
 
   // Thay đổi trạng thái chuồng
   const handleToggleStable = (stallCode) => {
-    setStables(prev => prev.map(s => {
-      if (s.stall_code === stallCode) {
-        const nextStatus = s.status === 'AVAILABLE' ? 'OCCUPIED' : s.status === 'OCCUPIED' ? 'MAINTENANCE' : 'AVAILABLE';
-        const nextImage = nextStatus === 'OCCUPIED' ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg';
-        updateStallApi(stallCode, { status: nextStatus, stall_image: nextImage }).catch(() => {});
-        return { ...s, status: nextStatus, stall_image: nextImage };
-      }
-      return s;
-    }));
+    setStables(prev => {
+      const next = prev.map(s => {
+        if (s.stall_code === stallCode) {
+          const nextStatus = s.status === 'AVAILABLE' ? 'OCCUPIED' : s.status === 'OCCUPIED' ? 'MAINTENANCE' : 'AVAILABLE';
+          const nextImage = nextStatus === 'OCCUPIED' ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg';
+          updateStallApi(stallCode, { status: nextStatus, stall_image: nextImage }).catch(() => {});
+          return { ...s, status: nextStatus, stall_image: nextImage };
+        }
+        return s;
+      });
+      try {
+        localStorage.setItem('racehorse_api_stables', JSON.stringify(next));
+        localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+        window.dispatchEvent(new Event('matruong_stables_updated'));
+      } catch {}
+      return next;
+    });
   };
 
   // Khởi tạo ô chuồng mới
@@ -999,10 +1007,11 @@ export default function AdminPage() {
     const isOccupied = newStallData.status === 'OCCUPIED';
     const horseName = isOccupied ? (newStallData.horse.trim() || 'Chiến mã mới') : '(Trống)';
     const breedName = isOccupied ? (newStallData.breed || 'Thoroughbred') : 'Vacant';
-    const isVipTier = newStallData.tier === 'VIP' || newStallData.block === 'Block VIP' || code.startsWith('VIP');
+    const isVipTier = newStallData.tier ? newStallData.tier === 'VIP' : (newStallData.block === 'Block VIP' || code.startsWith('VIP') || code.startsWith('A') || code.startsWith('B'));
 
     const newStall = {
       stall_code: code,
+      stallCode: code,
       block: newStallData.block,
       tier: isVipTier ? 'VIP' : 'STANDARD',
       is_vip: isVipTier,
@@ -1018,7 +1027,15 @@ export default function AdminPage() {
     // Gửi yêu cầu tới Backend API
     createStallApi(newStall).catch(() => {});
 
-    setStables(prev => [...prev, newStall]);
+    setStables(prev => {
+      const updated = [...prev, newStall];
+      try {
+        localStorage.setItem('racehorse_api_stables', JSON.stringify(updated));
+        localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+        window.dispatchEvent(new Event('matruong_stables_updated'));
+      } catch {}
+      return updated;
+    });
 
     setAuditLogs(prev => [
       {
@@ -1068,7 +1085,15 @@ export default function AdminPage() {
     deleteStallApi(targetCode).catch(() => {});
 
     // Xóa khỏi danh sách stables
-    setStables(prev => prev.filter(s => s.stall_code !== targetCode));
+    setStables(prev => {
+      const updated = prev.filter(s => s.stall_code !== targetCode);
+      try {
+        localStorage.setItem('racehorse_api_stables', JSON.stringify(updated));
+        localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+        window.dispatchEvent(new Event('matruong_stables_updated'));
+      } catch {}
+      return updated;
+    });
 
     // Nếu có ngựa cư trú, chuyển ngựa đó về trạng thái chờ phân bổ
     if (isOccupied && targetHorse && targetHorse !== '(Trống)') {

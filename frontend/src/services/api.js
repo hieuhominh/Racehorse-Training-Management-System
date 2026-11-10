@@ -484,6 +484,7 @@ export async function getStablesApi() {
     { stall_code: 'C4', block: 'Block C', tier: 'STANDARD', is_vip: false, status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '14 m²', dim: '3.6 x 3.6m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
   ];
 
+  const localSavedStables = getLocalData(STORAGE_KEYS.STABLES, []);
   let rawList = defaultStables;
 
   try {
@@ -496,20 +497,60 @@ export async function getStablesApi() {
       if (Array.isArray(data) && data.length > 0) {
         rawList = data;
       } else {
-        rawList = getLocalData(STORAGE_KEYS.STABLES, defaultStables);
+        rawList = localSavedStables.length > 0 ? localSavedStables : defaultStables;
       }
     } else {
-      rawList = getLocalData(STORAGE_KEYS.STABLES, defaultStables);
+      rawList = localSavedStables.length > 0 ? localSavedStables : defaultStables;
     }
   } catch {
-    rawList = getLocalData(STORAGE_KEYS.STABLES, defaultStables);
+    rawList = localSavedStables.length > 0 ? localSavedStables : defaultStables;
   }
 
+  // Merge thông minh: Kết hợp danh sách từ backend với danh sách chuồng mới tạo trong local
+  const combinedMap = new Map();
+
+  rawList.forEach(s => {
+    const code = (s.stall_code || s.stallCode || '').toUpperCase();
+    if (code) combinedMap.set(code, { ...s, stall_code: code, stallCode: code });
+  });
+
+  if (Array.isArray(localSavedStables)) {
+    localSavedStables.forEach(s => {
+      const code = (s.stall_code || s.stallCode || '').toUpperCase();
+      if (!code) return;
+      if (!combinedMap.has(code)) {
+        combinedMap.set(code, { ...s, stall_code: code, stallCode: code });
+      } else {
+        const existing = combinedMap.get(code);
+        combinedMap.set(code, {
+          ...existing,
+          ...s,
+          stall_code: code,
+          stallCode: code,
+          tier: s.tier || existing.tier,
+          is_vip: s.is_vip !== undefined ? s.is_vip : existing.is_vip,
+          stall_image: s.stall_image || existing.stall_image
+        });
+      }
+    });
+  }
+
+  const mergedList = Array.from(combinedMap.values());
+
   // Đảm bảo dữ liệu được chuẩn hóa trường, đồng bộ chiến mã thực tế và dọn sạch 100% ngựa mock
-  let normalized = rawList.map(s => {
+  let normalized = mergedList.map(s => {
     const code = (s.stall_code || s.stallCode || '').toUpperCase();
     const block = s.block || s.blockName || (code.startsWith('B') ? 'Block B' : code.startsWith('C') ? 'Block C' : 'Block A');
-    const isVip = s.tier === 'VIP' || s.is_vip === true || block.includes('Block A') || block.includes('Block B') || code.startsWith('A') || code.startsWith('B');
+    
+    let isVip = false;
+    if (s.tier === 'VIP' || s.is_vip === true) {
+      isVip = true;
+    } else if (s.tier === 'STANDARD' || s.tier === 'NORMAL' || s.is_vip === false) {
+      isVip = false;
+    } else {
+      isVip = block.includes('Block A') || block.includes('Block B') || block.includes('VIP') || code.startsWith('A') || code.startsWith('B') || code.startsWith('VIP');
+    }
+
     const assigned = assignedHorsesMap[code];
     const isAssignedValid = assigned && assigned.name && !MOCK_HORSE_NAMES.includes(assigned.name.trim().toLowerCase());
 
@@ -531,7 +572,8 @@ export async function getStablesApi() {
       };
     }
 
-    // Nếu không có ngựa thật hợp lệ hoặc là ngựa mock -> buộc chuồng phải TRỐNG
+    // Nếu không có ngựa thật hợp lệ hoặc là ngựa mock -> chuồng khả dụng
+    const isMaintenance = s.status === 'MAINTENANCE';
     return {
       stall_code: code,
       stallCode: code,
@@ -539,7 +581,7 @@ export async function getStablesApi() {
       blockName: block,
       tier: isVip ? 'VIP' : 'STANDARD',
       is_vip: isVip,
-      status: 'AVAILABLE',
+      status: isMaintenance ? 'MAINTENANCE' : 'AVAILABLE',
       horse: '(Trống)',
       breed: 'Vacant',
       horse_avatar: null,
@@ -568,54 +610,98 @@ export async function getStablesApi() {
  * Tạo ô chuồng mới
  */
 export async function createStallApi(stallData) {
+  const code = (stallData.stall_code || stallData.stallCode || '').trim().toUpperCase();
+  const block = stallData.block || stallData.blockName || 'Block C';
+  const isVip = stallData.tier === 'VIP' || stallData.is_vip === true || stallData.block === 'Block VIP' || code.startsWith('VIP');
+  const isOccupied = stallData.status === 'OCCUPIED';
+
+  const newStall = {
+    stall_code: code,
+    stallCode: code,
+    block: block,
+    blockName: block,
+    tier: isVip ? 'VIP' : 'STANDARD',
+    is_vip: isVip,
+    status: stallData.status || 'AVAILABLE',
+    horse: isOccupied ? (stallData.horse || 'Chiến mã mới') : '(Trống)',
+    breed: isOccupied ? (stallData.breed || 'Thoroughbred') : 'Vacant',
+    area: stallData.area || '16 m²',
+    dim: stallData.dim || '4.0 x 4.0m',
+    stall_image: stallData.stall_image || (isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg'),
+    horse_avatar: isOccupied ? (stallData.horse_avatar || null) : null
+  };
+
   try {
-    const res = await fetch('/api/stables', {
+    await fetch('/api/stables', {
       method: 'POST',
       headers: getAuthHeaders(true),
       credentials: 'include',
-      body: JSON.stringify(stallData)
+      body: JSON.stringify(newStall)
     });
-    if (res.ok) return await res.json();
   } catch {
     // Fallback
   }
 
-  const { data: stables } = await getStablesApi();
-  const newStall = {
-    stall_code: stallData.stall_code.toUpperCase(),
-    block: stallData.block || 'Block C',
-    status: stallData.status || 'AVAILABLE',
-    horse: stallData.horse || '(Trống)',
-    breed: stallData.breed || 'Vacant',
-    area: stallData.area || '16 m²',
-    dim: stallData.dim || '4.0 x 4.0m',
-    stall_image: stallData.status === 'OCCUPIED' ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg',
-    horse_avatar: null
-  };
-  const updated = [...stables, newStall];
+  const currentLocal = getLocalData(STORAGE_KEYS.STABLES, []);
+  const filtered = currentLocal.filter(s => (s.stall_code || s.stallCode || '').toUpperCase() !== code);
+  const updated = [...filtered, newStall];
   setLocalData(STORAGE_KEYS.STABLES, updated);
+  try {
+    localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+    window.dispatchEvent(new Event('matruong_stables_updated'));
+  } catch {}
+
   return newStall;
 }
 
 /**
  * Cập nhật thông tin ô chuồng
  */
-export async function updateStallApi(stallData) {
+export async function updateStallApi(stallCodeOrData, maybeData) {
+  let stallCode = '';
+  let payload = {};
+
+  if (typeof stallCodeOrData === 'string') {
+    stallCode = stallCodeOrData.trim().toUpperCase();
+    payload = maybeData || {};
+  } else if (stallCodeOrData && typeof stallCodeOrData === 'object') {
+    stallCode = (stallCodeOrData.stall_code || stallCodeOrData.stallCode || '').trim().toUpperCase();
+    payload = stallCodeOrData;
+  }
+
+  if (!stallCode) return false;
+
   try {
-    const res = await fetch(`/api/stables/${stallData.stall_code}`, {
+    await fetch(`/api/stables/${stallCode}`, {
       method: 'PUT',
       headers: getAuthHeaders(true),
       credentials: 'include',
-      body: JSON.stringify(stallData)
+      body: JSON.stringify({ ...payload, stall_code: stallCode })
     });
-    if (res.ok) return true;
   } catch {
     // Fallback
   }
 
-  const { data: stables } = await getStablesApi();
-  const updated = stables.map(s => s.stall_code === stallData.stall_code ? { ...s, ...stallData } : s);
+  const currentLocal = getLocalData(STORAGE_KEYS.STABLES, []);
+  let found = false;
+  const updated = currentLocal.map(s => {
+    if ((s.stall_code || s.stallCode || '').toUpperCase() === stallCode) {
+      found = true;
+      return { ...s, ...payload, stall_code: stallCode, stallCode };
+    }
+    return s;
+  });
+
+  if (!found) {
+    updated.push({ stall_code: stallCode, stallCode, ...payload });
+  }
+
   setLocalData(STORAGE_KEYS.STABLES, updated);
+  try {
+    localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+    window.dispatchEvent(new Event('matruong_stables_updated'));
+  } catch {}
+
   return true;
 }
 
@@ -667,6 +753,10 @@ export async function reassignStallHorseApi(stallCode, horseOption, customHorse 
     return s;
   });
   setLocalData(STORAGE_KEYS.STABLES, updated);
+  try {
+    localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+    window.dispatchEvent(new Event('matruong_stables_updated'));
+  } catch {}
   return true;
 }
 
@@ -674,20 +764,24 @@ export async function reassignStallHorseApi(stallCode, horseOption, customHorse 
  * Xóa ô chuồng
  */
 export async function deleteStallApi(stallCode) {
+  const code = (stallCode || '').trim().toUpperCase();
   try {
-    const res = await fetch(`/api/stables/${stallCode}`, {
+    await fetch(`/api/stables/${code}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
       credentials: 'include'
     });
-    if (res.ok) return true;
   } catch {
     // Fallback
   }
 
-  const { data: stables } = await getStablesApi();
-  const updated = stables.filter(s => s.stall_code !== stallCode);
+  const currentLocal = getLocalData(STORAGE_KEYS.STABLES, []);
+  const updated = currentLocal.filter(s => (s.stall_code || s.stallCode || '').toUpperCase() !== code);
   setLocalData(STORAGE_KEYS.STABLES, updated);
+  try {
+    localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+    window.dispatchEvent(new Event('matruong_stables_updated'));
+  } catch {}
   return true;
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
@@ -1308,6 +1308,14 @@ export default function OwnerPage() {
   // Quản lý danh sách ô chuồng thực tế đồng bộ từ Backend/Admin
   const [allStables, setAllStables] = useState([]);
 
+  const refreshStablesList = useCallback(() => {
+    getStablesApi().then(res => {
+      if (res && Array.isArray(res.data)) {
+        setAllStables(res.data);
+      }
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
     const fetchStables = () => {
@@ -1325,17 +1333,20 @@ export default function OwnerPage() {
 
     window.addEventListener('matruong_stables_updated', handleStablesUpdate);
     window.addEventListener('storage', handleStablesUpdate);
+    window.addEventListener('focus', handleStablesUpdate);
 
     return () => {
       isMounted = false;
       window.removeEventListener('matruong_stables_updated', handleStablesUpdate);
       window.removeEventListener('storage', handleStablesUpdate);
+      window.removeEventListener('focus', handleStablesUpdate);
     };
   }, []);
 
   const isStallVip = (stall) => {
     if (!stall) return false;
     if (stall.tier === 'VIP' || stall.is_vip === true) return true;
+    if (stall.tier === 'STANDARD' || stall.tier === 'NORMAL' || stall.is_vip === false) return false;
     const code = String(stall.stall_code || '').toUpperCase();
     const block = String(stall.block || '').toUpperCase();
     return block.includes('VIP') || block.includes('BLOCK A') || block.includes('BLOCK B') || code.startsWith('VIP') || code.startsWith('A') || code.startsWith('B');
@@ -1388,6 +1399,7 @@ export default function OwnerPage() {
 
   // Xử lý mở Modal Đăng Ký Chiến Mã (Ràng buộc tối đa 02 chiến mã đối với gói Free)
   const handleOpenAddHorseModal = () => {
+    refreshStablesList();
     if (membershipTier !== 'PREMIUM' && myHorses.length >= 2) {
       showToast('Gói cơ bản (Horse 0 Đồng) chỉ cho phép tối đa 02 chiến mã!', 'GIỚI HẠN GÓI CƠ BẢN', 'warning');
       setUpgradePromptModal({
@@ -1450,6 +1462,7 @@ export default function OwnerPage() {
 
   // Mở modal đổi ô chuồng cho một chiến mã cụ thể
   const handleOpenChangeStallModal = (horse) => {
+    refreshStablesList();
     setChangeStallHorse(horse);
     setChangeStallReason('');
 
@@ -1781,6 +1794,7 @@ export default function OwnerPage() {
   });
 
   const handleOpenEditHorseModal = (horse) => {
+    refreshStablesList();
     const current = serviceAssignments.find(a =>
       (a.microchip && a.microchip === horse.microchip) ||
       (a.horseName && a.horseName.toLowerCase() === horse.name?.toLowerCase()) ||
@@ -2604,29 +2618,31 @@ export default function OwnerPage() {
               ) : (
                 <div className="portal-cards-grid" style={{ display: 'grid', gap: '18px' }}>
                   {myHorses.map((h) => (
-                    <div key={h.id} className="facility-card" style={{ padding: '18px 20px', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', gap: '14px', marginBottom: '14px' }}>
+                    <div key={h.id} className="facility-card" style={{ padding: '18px 20px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {/* 1. Header: Avatar & Thông tin định danh */}
+                      <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
                         <img
                           src={h.avatar || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'}
                           alt={h.name}
-                          style={{ width: '84px', height: '84px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
+                          style={{ width: '80px', height: '80px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
                           onError={(e) => {
                             e.target.src = h.name === 'Bạch Long'
                               ? 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80'
                               : 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
                           }}
                         />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '80px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                             <b
                               style={{
-                                fontSize: '16px',
+                                fontSize: '16.5px',
                                 color: 'var(--brass)',
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 minWidth: 0,
-                                flex: 1
+                                flex: 1,
+                                lineHeight: 1.25
                               }}
                               title={h.name}
                             >
@@ -2692,9 +2708,9 @@ export default function OwnerPage() {
                             {h.englishName ? `${h.englishName} · ` : ''}{h.breed}
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
                             <span style={{
-                              padding: '2px 7px',
+                              padding: '2px 8px',
                               borderRadius: '4px',
                               fontSize: '10.5px',
                               fontWeight: 700,
@@ -2712,35 +2728,72 @@ export default function OwnerPage() {
                         </div>
                       </div>
 
-                      {/* Tỷ lệ sở hữu & Ô chuồng kèm nút Đổi chuồng */}
-                      <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      {/* 2. Tỷ lệ sở hữu & Vị trí ô chuồng (Bố cục 2 cột cân bằng tuyệt đối, không rớt dòng) */}
+                      <div style={{
+                        background: 'var(--bg-secondary)',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--line)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.35fr', gap: '8px', alignItems: 'center' }}>
                           <div>
-                            <span style={{ color: 'var(--paper-dim)' }}>Tỷ lệ sở hữu: </span>
-                            <b style={{ color: 'var(--paper)' }}>{h.ownershipShare}%</b>
+                            <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                              Tỷ Lệ Sở Hữu
+                            </div>
+                            <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--paper)' }}>
+                              {h.ownershipShare}%
+                            </div>
                           </div>
-                          <div>
-                            <span style={{ color: 'var(--paper-dim)' }}>Vị trí ô chuồng: </span>
-                            <b style={{ color: 'var(--brass)' }}>{h.stable || '(Chưa phân bổ)'}</b>
+                          <div style={{ borderLeft: '1px solid var(--line)', paddingLeft: '10px' }}>
+                            <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+                              Vị Trí Ô Chuồng
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '12.5px',
+                                fontWeight: 700,
+                                color: 'var(--brass)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                              title={h.stable || '(Chưa phân bổ)'}
+                            >
+                              {h.stable || '(Chưa phân bổ)'}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Trạng thái duyệt ô chuồng & Nút Đổi ô chuồng */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px dashed var(--line)', gap: '8px', flexWrap: 'wrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        {/* Hàng trạng thái phê duyệt chuồng & Nút Đổi ô chuồng căn đều 2 bên */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          paddingTop: '8px',
+                          borderTop: '1px dashed var(--line)',
+                          gap: '8px'
+                        }}>
+                          <div>
                             {h.stallStatus === 'PENDING_APPROVAL' || h.pendingStall ? (
                               <span style={{
                                 fontSize: '10px',
                                 fontWeight: 700,
                                 color: '#F59E0B',
                                 background: 'rgba(245, 158, 11, 0.12)',
-                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                border: '1px solid rgba(245, 158, 11, 0.35)',
                                 padding: '3px 8px',
                                 borderRadius: '4px',
                                 textTransform: 'uppercase',
-                                letterSpacing: '0.03em'
+                                letterSpacing: '0.03em',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                height: '24px',
+                                boxSizing: 'border-box'
                               }}>
-                                Chờ Duyệt {h.pendingStall ? `Đổi Sang Ô ${h.pendingStall}` : 'Cấp Chuồng'}
+                                Chờ Duyệt {h.pendingStall ? `Đổi Ô ${h.pendingStall}` : 'Cấp Chuồng'}
                               </span>
                             ) : h.stallStatus === 'REJECTED' ? (
                               <span style={{
@@ -2748,11 +2801,15 @@ export default function OwnerPage() {
                                 fontWeight: 700,
                                 color: '#EF4444',
                                 background: 'rgba(239, 68, 68, 0.12)',
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                border: '1px solid rgba(239, 68, 68, 0.35)',
                                 padding: '3px 8px',
                                 borderRadius: '4px',
                                 textTransform: 'uppercase',
-                                letterSpacing: '0.03em'
+                                letterSpacing: '0.03em',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                height: '24px',
+                                boxSizing: 'border-box'
                               }}>
                                 Từ Chối Cấp Chuồng
                               </span>
@@ -2762,11 +2819,15 @@ export default function OwnerPage() {
                                 fontWeight: 700,
                                 color: '#10B981',
                                 background: 'rgba(16, 185, 129, 0.12)',
-                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                border: '1px solid rgba(16, 185, 129, 0.35)',
                                 padding: '3px 8px',
                                 borderRadius: '4px',
                                 textTransform: 'uppercase',
-                                letterSpacing: '0.03em'
+                                letterSpacing: '0.03em',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                height: '24px',
+                                boxSizing: 'border-box'
                               }}>
                                 Đã Phê Duyệt
                               </span>
@@ -2783,10 +2844,13 @@ export default function OwnerPage() {
                               color: 'var(--brass)',
                               fontSize: '11px',
                               fontWeight: 700,
-                              padding: '4px 10px',
+                              padding: '0 10px',
+                              height: '24px',
+                              boxSizing: 'border-box',
                               cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
+                              justifyContent: 'center',
                               textTransform: 'uppercase',
                               letterSpacing: '0.03em',
                               transition: 'all 0.15s ease'
@@ -2800,7 +2864,7 @@ export default function OwnerPage() {
                         </div>
                       </div>
 
-                      {/* Đội ngũ phục vụ chuyên trách (HLV, Bác sĩ, Groom) & Trạng thái xác nhận */}
+                      {/* 3. Đội ngũ phục vụ chuyên trách (Cân bằng cột, độ rộng nút cố định 118px không thụt thò) */}
                       {(() => {
                         const asgn = serviceAssignments.find(a =>
                           (h.microchip && a.microchip && a.microchip.trim().toLowerCase() === h.microchip.trim().toLowerCase()) ||
@@ -2818,9 +2882,8 @@ export default function OwnerPage() {
                           <div style={{
                             background: 'var(--bg-secondary)',
                             padding: '10px 12px',
-                            borderRadius: '6px',
+                            borderRadius: '8px',
                             fontSize: '11.5px',
-                            marginBottom: '14px',
                             border: '1px solid var(--line)'
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px dashed var(--line)', paddingBottom: '6px' }}>
@@ -2848,83 +2911,107 @@ export default function OwnerPage() {
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                               {/* HLV */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '6px' }}>
-                                  HLV: <b style={{ color: 'var(--paper)' }}>{trName}</b>
-                                </span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                                  <span style={{ color: 'var(--paper-dim)', width: '54px', flexShrink: 0, fontSize: '11.5px' }}>HLV:</span>
+                                  <b style={{ color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trName}</b>
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => handleToggleRoleConfirm(h, 'TRAINER', trName)}
                                   style={{
-                                    fontSize: '9.5px',
+                                    fontSize: '10px',
                                     fontWeight: 700,
                                     color: trOk ? '#10B981' : '#F59E0B',
                                     background: trOk ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
                                     border: `1px solid ${trOk ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
-                                    padding: '2px 7px',
+                                    width: '118px',
+                                    minWidth: '118px',
+                                    height: '24px',
+                                    padding: '0 4px',
                                     borderRadius: '4px',
                                     whiteSpace: 'nowrap',
                                     flexShrink: 0,
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s ease',
+                                    boxSizing: 'border-box'
                                   }}
                                   title={trOk ? 'HLV đã xác nhận phục vụ. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ HLV xác nhận. Bấm để duyệt xác nhận ngay.'}
                                 >
-                                  {trOk ? 'Đã xác nhận' : 'Chờ HLV xác nhận'}
+                                  {trOk ? 'Đã xác nhận' : 'Chờ HLV duyệt'}
                                 </button>
                               </div>
 
                               {/* Bác sĩ */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '6px' }}>
-                                  Bác sĩ: <b style={{ color: 'var(--paper)' }}>{vtName}</b>
-                                </span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                                  <span style={{ color: 'var(--paper-dim)', width: '54px', flexShrink: 0, fontSize: '11.5px' }}>Bác sĩ:</span>
+                                  <b style={{ color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vtName}</b>
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => handleToggleRoleConfirm(h, 'VET', vtName)}
                                   style={{
-                                    fontSize: '9.5px',
+                                    fontSize: '10px',
                                     fontWeight: 700,
                                     color: vtOk ? '#10B981' : '#F59E0B',
                                     background: vtOk ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
                                     border: `1px solid ${vtOk ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
-                                    padding: '2px 7px',
+                                    width: '118px',
+                                    minWidth: '118px',
+                                    height: '24px',
+                                    padding: '0 4px',
                                     borderRadius: '4px',
                                     whiteSpace: 'nowrap',
                                     flexShrink: 0,
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s ease',
+                                    boxSizing: 'border-box'
                                   }}
                                   title={vtOk ? 'Bác sĩ thú y đã xác nhận phụ trách. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ BS xác nhận. Bấm để duyệt xác nhận ngay.'}
                                 >
-                                  {vtOk ? 'Đã xác nhận' : 'Chờ BS xác nhận'}
+                                  {vtOk ? 'Đã xác nhận' : 'Chờ BS duyệt'}
                                 </button>
                               </div>
 
                               {/* Groom */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'var(--paper-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '6px' }}>
-                                  Groom: <b style={{ color: 'var(--paper)' }}>{gmName}</b>
-                                </span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                                  <span style={{ color: 'var(--paper-dim)', width: '54px', flexShrink: 0, fontSize: '11.5px' }}>Groom:</span>
+                                  <b style={{ color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{gmName}</b>
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => handleToggleRoleConfirm(h, 'GROOM', gmName)}
                                   style={{
-                                    fontSize: '9.5px',
+                                    fontSize: '10px',
                                     fontWeight: 700,
                                     color: gmOk ? '#10B981' : '#F59E0B',
                                     background: gmOk ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
                                     border: `1px solid ${gmOk ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
-                                    padding: '2px 7px',
+                                    width: '118px',
+                                    minWidth: '118px',
+                                    height: '24px',
+                                    padding: '0 4px',
                                     borderRadius: '4px',
                                     whiteSpace: 'nowrap',
                                     flexShrink: 0,
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s ease',
+                                    boxSizing: 'border-box'
                                   }}
                                   title={gmOk ? 'Groom đã xác nhận chăm sóc. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ Groom xác nhận. Bấm để duyệt xác nhận ngay.'}
                                 >
-                                  {gmOk ? 'Đã xác nhận' : 'Chờ Groom xác nhận'}
+                                  {gmOk ? 'Đã xác nhận' : 'Chờ Groom duyệt'}
                                 </button>
                               </div>
                             </div>
@@ -2932,9 +3019,10 @@ export default function OwnerPage() {
                         );
                       })()}
 
+                      {/* 4. Thống kê thành tích & Nút hành động đáy thẻ (Bố cục 2 tầng vững chãi, cân đối) */}
                       <div style={{
                         borderTop: '1px solid var(--line)',
-                        paddingTop: '12px',
+                        paddingTop: '10px',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '10px'
@@ -2943,7 +3031,7 @@ export default function OwnerPage() {
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
-                          fontSize: '12.5px'
+                          fontSize: '12px'
                         }}>
                           <div>
                             <span style={{ color: 'var(--paper-dim)' }}>Thắng giải: </span>
@@ -2955,16 +3043,17 @@ export default function OwnerPage() {
                           </div>
                         </div>
 
-                        <div className="modal-responsive-grid-2" style={{
+                        {/* Hàng 1: Nút Thể lực & Phả hệ cân đối 50-50 */}
+                        <div style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
+                          gridTemplateColumns: '1fr 1fr',
                           gap: '8px'
                         }}>
                           <button
                             type="button"
                             onClick={() => setFitnessDetailModalHorse(h)}
                             style={{
-                              padding: '7px 10px',
+                              height: '34px',
                               borderRadius: '6px',
                               background: 'rgba(212, 175, 55, 0.12)',
                               color: 'var(--brass)',
@@ -2972,23 +3061,22 @@ export default function OwnerPage() {
                               fontSize: '12px',
                               fontWeight: 700,
                               cursor: 'pointer',
-                              whiteSpace: 'nowrap',
-                              textAlign: 'center',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: '4px'
+                              transition: 'all 0.15s ease'
                             }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(212, 175, 55, 0.22)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(212, 175, 55, 0.12)'; }}
                             title="Xem chi tiết thể lực, nhịp tim và tải luyện tập EvoLab như bên Huấn Luyện Viên"
                           >
-                            
-                            <span>Thể lực</span>
+                            Thể lực
                           </button>
                           <button
                             type="button"
                             onClick={() => handleOpenPedigreeModal(h)}
                             style={{
-                              padding: '7px 10px',
+                              height: '34px',
                               borderRadius: '6px',
                               background: 'var(--bg-secondary)',
                               color: 'var(--brass)',
@@ -2996,42 +3084,47 @@ export default function OwnerPage() {
                               fontSize: '12px',
                               fontWeight: 600,
                               cursor: 'pointer',
-                              whiteSpace: 'nowrap',
-                              textAlign: 'center',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                          >
-                            Phả hệ
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedTournamentToRegister(OPEN_TOURNAMENTS[0]);
-                              setRaceRegForm(prev => ({ ...prev, horseId: h.id }));
-                              setShowRaceRegisterModal(true);
-                            }}
-                            style={{
-                              padding: '7px 12px',
-                              borderRadius: '6px',
-                              background: 'var(--brass)',
-                              color: '#0A0D14',
-                              fontWeight: 700,
-                              border: 'none',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap',
-                              textAlign: 'center',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              boxShadow: '0 2px 6px rgba(212, 175, 55, 0.2)'
+                              transition: 'all 0.15s ease'
                             }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
                           >
-                            Ghi danh đua
+                            Phả hệ
                           </button>
                         </div>
+
+                        {/* Hàng 2: Nút Ghi danh đua (Primary Action) bề rộng 100% */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedTournamentToRegister(OPEN_TOURNAMENTS[0]);
+                            setRaceRegForm(prev => ({ ...prev, horseId: h.id }));
+                            setShowRaceRegisterModal(true);
+                          }}
+                          style={{
+                            height: '36px',
+                            width: '100%',
+                            borderRadius: '6px',
+                            background: 'var(--brass)',
+                            color: '#0A0D14',
+                            fontWeight: 700,
+                            border: 'none',
+                            fontSize: '12.5px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
+                        >
+                          Ghi danh đua
+                        </button>
                       </div>
                     </div>
                   ))}
