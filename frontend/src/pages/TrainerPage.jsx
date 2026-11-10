@@ -644,10 +644,14 @@ export default function TrainerPage() {
 
   // Tự động đồng bộ các chiến mã đã xác nhận huấn luyện vào Thể lực tàu ngựa
   useEffect(() => {
-    const currentUsername = currentUser?.username || 'trainer_truong';
+    const uName = (currentUser?.username || '').trim().toLowerCase();
+    const fName = (currentUser?.full_name || '').trim().toLowerCase();
+    const isMyHorse = (a) => (
+      (a.trainerUsername && a.trainerUsername.trim().toLowerCase() === uName) ||
+      (!a.trainerUsername && a.trainerName && a.trainerName.trim().toLowerCase() === fName)
+    );
     const myConfirmedAssignments = serviceAssignments.filter(a =>
-      (a.trainerUsername === currentUsername || (!a.trainerUsername && currentUsername === 'trainer_truong')) &&
-      a.trainerStatus === 'CONFIRMED'
+      isMyHorse(a) && a.trainerStatus === 'CONFIRMED'
     );
 
     if (myConfirmedAssignments.length === 0) return;
@@ -1661,15 +1665,14 @@ setTrainerHorses(prev => {
 
               {/* Khối Xác Nhận Phục Vụ & Nhật Ký Hoạt Động Tiếp Nhận */}
               {(() => {
-                const currentUsername = currentUser?.username || 'trainer_truong';
-                const pendingAssignments = serviceAssignments.filter(a => a.trainerStatus === 'PENDING');
-                const confirmedAssignments = serviceAssignments.filter(a =>
-                  a.trainerStatus === 'CONFIRMED' && (
-                    a.trainerUsername === currentUsername ||
-                    currentUsername === 'trainer_truong' ||
-                    !a.trainerUsername
-                  )
+                const uName = (currentUser?.username || '').trim().toLowerCase();
+                const fName = (currentUser?.full_name || '').trim().toLowerCase();
+                const isMyHorse = (a) => (
+                  (a.trainerUsername && a.trainerUsername.trim().toLowerCase() === uName) ||
+                  (!a.trainerUsername && a.trainerName && a.trainerName.trim().toLowerCase() === fName)
                 );
+                const pendingAssignments = serviceAssignments.filter(a => isMyHorse(a) && a.trainerStatus === 'PENDING');
+                const confirmedAssignments = serviceAssignments.filter(a => isMyHorse(a) && a.trainerStatus === 'CONFIRMED');
                 if (pendingAssignments.length === 0 && confirmedAssignments.length === 0) return null;
 
                 return (

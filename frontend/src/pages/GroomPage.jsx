@@ -772,12 +772,13 @@ export default function GroomPage() {
 
               {/* Khối Xác Nhận Chăm Sóc Cho Nhân Viên Groom */}
               {(() => {
-                const currentUsername = currentUser?.username || 'groom_nam';
-                const assignedToMe = serviceAssignments.filter(a =>
-                  a.groomUsername === currentUsername ||
-                  (!a.groomUsername && currentUsername === 'groom_nam') ||
-                  a.groomStatus === 'PENDING'
+                const uName = (currentUser?.username || '').trim().toLowerCase();
+                const fName = (currentUser?.full_name || '').trim().toLowerCase();
+                const isMyGroomHorse = (a) => (
+                  (a.groomUsername && a.groomUsername.trim().toLowerCase() === uName) ||
+                  (!a.groomUsername && a.groomName && a.groomName.trim().toLowerCase() === fName)
                 );
+                const assignedToMe = serviceAssignments.filter(a => isMyGroomHorse(a));
                 if (assignedToMe.length === 0) return null;
 
                 const pendingAssignments = assignedToMe.filter(a => a.groomStatus === 'PENDING');

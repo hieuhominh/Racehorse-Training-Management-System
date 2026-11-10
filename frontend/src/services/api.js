@@ -427,11 +427,107 @@ export async function deleteHorseApi(horseId) {
 // 2. QUẢN LÝ Ô CHUỒNG (STABLES & STALLS API)
 // =========================================================================
 
+export const STALL_MAINTENANCES_KEY = 'matruong_stall_maintenances';
+
+/**
+ * Lấy danh sách các ca bảo dưỡng ô chuồng đang hoạt động
+ */
+export function getActiveStallMaintenances() {
+  try {
+    if (typeof localStorage === 'undefined') return {};
+    const raw = localStorage.getItem(STALL_MAINTENANCES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Lưu danh sách các ca bảo dưỡng ô chuồng
+ */
+export function saveActiveStallMaintenances(maintenancesMap) {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(STALL_MAINTENANCES_KEY, JSON.stringify(maintenancesMap));
+    localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+  } catch {}
+}
+
+/**
+ * Kiểm tra và tự động giải phóng/hoàn trả ô chuồng khi hết thời hạn 30 phút bảo dưỡng
+ */
+export function checkAndExpireStallMaintenances() {
+  try {
+    if (typeof localStorage === 'undefined') return [];
+    const recordMap = getActiveStallMaintenances();
+    const now = Date.now();
+    const expiredList = [];
+    const remainingMap = {};
+
+    Object.entries(recordMap).forEach(([stallCode, record]) => {
+      if (now >= record.endTime) {
+        expiredList.push(record);
+      } else {
+        remainingMap[stallCode] = record;
+      }
+    });
+
+    if (expiredList.length > 0) {
+      saveActiveStallMaintenances(remainingMap);
+
+      const localStables = getLocalData(STORAGE_KEYS.STABLES, []);
+      const updated = localStables.map(s => {
+        const code = (s.stall_code || s.stallCode || '').toUpperCase();
+        const expMatchOriginal = expiredList.find(e => e.stallCode === code);
+        if (expMatchOriginal) {
+          return {
+            ...s,
+            status: 'OCCUPIED',
+            horse: expMatchOriginal.horseName,
+            breed: expMatchOriginal.horseBreed || 'Thuần chủng',
+            horse_avatar: expMatchOriginal.horseAvatar || null,
+            temp_relocated_to: null,
+            maintenance_start: null,
+            maintenance_end: null
+          };
+        }
+        const expMatchTemp = expiredList.find(e => e.tempStallCode === code);
+        if (expMatchTemp) {
+          return {
+            ...s,
+            status: 'AVAILABLE',
+            horse: '(Trống)',
+            breed: 'Vacant',
+            horse_avatar: null,
+            is_temp_stall: false,
+            temp_for_stall: null,
+            maintenance_end: null
+          };
+        }
+        return s;
+      });
+
+      setLocalData(STORAGE_KEYS.STABLES, updated);
+      try {
+        window.dispatchEvent(new Event('matruong_stables_updated'));
+      } catch {}
+    }
+
+    return expiredList;
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Lấy danh sách toàn bộ ô chuồng trại kèm hình ảnh mô phỏng 3D
  */
 export async function getStablesApi() {
   const MOCK_HORSE_NAMES = ['xích thố', 'bạch long', 'hắc phong', 'phi vũ', 'phi yến', 'kim kê', 'kim mã', 'thần mã', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã'];
+
+  // 0. Quét và giải phóng các ca bảo dưỡng đã quá 30 phút
+  checkAndExpireStallMaintenances();
+  const activeMaintenances = getActiveStallMaintenances();
 
   // Đồng bộ tức thì với các chiến mã thực tế đã được đăng ký và phân bổ chuồng từ các chủ sở hữu
   const assignedHorsesMap = {};
@@ -554,26 +650,61 @@ export async function getStablesApi() {
     const assigned = assignedHorsesMap[code];
     const isAssignedValid = assigned && assigned.name && !MOCK_HORSE_NAMES.includes(assigned.name.trim().toLowerCase());
 
-    if (isAssignedValid) {
-      return {
-        stall_code: code,
-        stallCode: code,
-        block,
-        blockName: block,
-        tier: isVip ? 'VIP' : 'STANDARD',
-        is_vip: isVip,
-        status: 'OCCUPIED',
-        horse: assigned.name,
-        breed: assigned.breed || 'Thoroughbred',
-        horse_avatar: assigned.avatar || assigned.horse_avatar || null,
-        stall_image: s.stall_image || s.stallImage || '/images/stall_simulation_occupied.jpg',
-        area: s.area || (code.startsWith('A') ? '18 m²' : code.startsWith('B') ? '16 m²' : '14 m²'),
-        dim: s.dim || (code.startsWith('A') ? '4.2 x 4.2m' : code.startsWith('B') ? '4.0 x 4.0m' : '3.6 x 3.6m')
-      };
+    const activeMaint = activeMaintenances[code];
+    const isTempFor = Object.values(activeMaintenances).find(m => m.tempStallCode === code);
+
+    let stallStatus = 'AVAILABLE';
+    let stallHorse = '(Trống)';
+    let stallBreed = 'Vacant';
+    let horseAvatar = null;
+    let tempRelocatedTo = s.temp_relocated_to || null;
+    let isTempStall = Boolean(s.is_temp_stall || isTempFor);
+    let tempForStall = s.temp_for_stall || (isTempFor ? isTempFor.stallCode : null);
+    let maintenanceStart = s.maintenance_start || (activeMaint ? activeMaint.startTime : null);
+    let maintenanceEnd = s.maintenance_end || (activeMaint ? activeMaint.endTime : (isTempFor ? isTempFor.endTime : null));
+
+    if (activeMaint) {
+      // Chuồng đang trong ca bảo dưỡng 30 phút: Tên ngựa cố định và ghi nhận chuồng tạm
+      stallStatus = 'MAINTENANCE';
+      stallHorse = activeMaint.horseName;
+      stallBreed = activeMaint.horseBreed || 'Thuần chủng';
+      horseAvatar = activeMaint.horseAvatar || null;
+      tempRelocatedTo = activeMaint.tempStallCode;
+    } else if (isTempFor) {
+      // Chuồng trống tạm thời tiếp nhận chiến mã của chuồng đang bảo dưỡng
+      stallStatus = 'OCCUPIED';
+      stallHorse = isTempFor.horseName;
+      stallBreed = isTempFor.horseBreed || 'Thuần chủng';
+      horseAvatar = isTempFor.horseAvatar || null;
+    } else {
+      if (s.status === 'MAINTENANCE') {
+        stallStatus = 'MAINTENANCE';
+        stallHorse = isAssignedValid ? assigned.name : (s.horse && s.horse !== '(Trống)' ? s.horse : '(Trống)');
+        stallBreed = isAssignedValid ? (assigned.breed || 'Thuần chủng') : (s.breed || 'Vacant');
+        horseAvatar = isAssignedValid ? (assigned.avatar || assigned.horse_avatar) : (s.horse_avatar || null);
+      } else if (s.status === 'AVAILABLE') {
+        stallStatus = 'AVAILABLE';
+        stallHorse = '(Trống)';
+        stallBreed = 'Vacant';
+        horseAvatar = null;
+      } else if (s.status === 'OCCUPIED' || isAssignedValid) {
+        stallStatus = 'OCCUPIED';
+        stallHorse = isAssignedValid ? assigned.name : (s.horse && s.horse !== '(Trống)' ? s.horse : 'Đang nuôi dưỡng');
+        stallBreed = isAssignedValid ? (assigned.breed || 'Thoroughbred') : (s.breed && s.breed !== 'Vacant' ? s.breed : 'Thuần chủng');
+        horseAvatar = isAssignedValid ? (assigned.avatar || assigned.horse_avatar || null) : (s.horse_avatar || null);
+      } else {
+        stallStatus = 'AVAILABLE';
+        stallHorse = '(Trống)';
+        stallBreed = 'Vacant';
+        horseAvatar = null;
+      }
     }
 
-    // Nếu không có ngựa thật hợp lệ hoặc là ngựa mock -> chuồng khả dụng
-    const isMaintenance = s.status === 'MAINTENANCE';
+    const isOccupiedStall = stallStatus === 'OCCUPIED';
+    const stallImg = s.stall_image && !s.stall_image.includes('simulation')
+      ? s.stall_image
+      : (isOccupiedStall ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg');
+
     return {
       stall_code: code,
       stallCode: code,
@@ -581,11 +712,16 @@ export async function getStablesApi() {
       blockName: block,
       tier: isVip ? 'VIP' : 'STANDARD',
       is_vip: isVip,
-      status: isMaintenance ? 'MAINTENANCE' : 'AVAILABLE',
-      horse: '(Trống)',
-      breed: 'Vacant',
-      horse_avatar: null,
-      stall_image: s.stall_image && !s.stall_image.includes('occupied') ? s.stall_image : (s.stallImage && !s.stallImage.includes('occupied') ? s.stallImage : '/images/stall_simulation_vacant.jpg'),
+      status: stallStatus,
+      horse: stallHorse,
+      breed: stallBreed,
+      horse_avatar: horseAvatar,
+      stall_image: stallImg,
+      temp_relocated_to: tempRelocatedTo,
+      is_temp_stall: isTempStall,
+      temp_for_stall: tempForStall,
+      maintenance_start: maintenanceStart,
+      maintenance_end: maintenanceEnd,
       area: s.area || (code.startsWith('A') ? '18 m²' : code.startsWith('B') ? '16 m²' : '14 m²'),
       dim: s.dim || (code.startsWith('A') ? '4.2 x 4.2m' : code.startsWith('B') ? '4.0 x 4.0m' : '3.6 x 3.6m')
     };
@@ -697,6 +833,36 @@ export async function updateStallApi(stallCodeOrData, maybeData) {
   }
 
   setLocalData(STORAGE_KEYS.STABLES, updated);
+
+  if (horseOption === 'VACANT') {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('matruong_owner_horses_')) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list)) {
+                let changed = false;
+                const updatedList = list.map(h => {
+                  if (h && h.stable && String(h.stable).toUpperCase().includes(stallCode)) {
+                    changed = true;
+                    return { ...h, stable: '(Chưa phân bổ)' };
+                  }
+                  return h;
+                });
+                if (changed) {
+                  localStorage.setItem(k, JSON.stringify(updatedList));
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
   try {
     localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
     window.dispatchEvent(new Event('matruong_stables_updated'));
@@ -753,6 +919,36 @@ export async function reassignStallHorseApi(stallCode, horseOption, customHorse 
     return s;
   });
   setLocalData(STORAGE_KEYS.STABLES, updated);
+
+  if (horseOption === 'VACANT') {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('matruong_owner_horses_')) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list)) {
+                let changed = false;
+                const updatedList = list.map(h => {
+                  if (h && h.stable && String(h.stable).toUpperCase().includes(stallCode)) {
+                    changed = true;
+                    return { ...h, stable: '(Chưa phân bổ)' };
+                  }
+                  return h;
+                });
+                if (changed) {
+                  localStorage.setItem(k, JSON.stringify(updatedList));
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
   try {
     localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
     window.dispatchEvent(new Event('matruong_stables_updated'));
@@ -778,6 +974,34 @@ export async function deleteStallApi(stallCode) {
   const currentLocal = getLocalData(STORAGE_KEYS.STABLES, []);
   const updated = currentLocal.filter(s => (s.stall_code || s.stallCode || '').toUpperCase() !== code);
   setLocalData(STORAGE_KEYS.STABLES, updated);
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('matruong_owner_horses_')) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              let changed = false;
+              const updatedList = list.map(h => {
+                if (h && h.stable && String(h.stable).toUpperCase().includes(code)) {
+                  changed = true;
+                  return { ...h, stable: '(Chưa phân bổ)' };
+                }
+                return h;
+              });
+              if (changed) {
+                localStorage.setItem(k, JSON.stringify(updatedList));
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
   try {
     localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
     window.dispatchEvent(new Event('matruong_stables_updated'));

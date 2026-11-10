@@ -134,9 +134,16 @@ export function AuthProvider({ children }) {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Chỉ giữ lại các tài khoản OWNER đã đăng ký từ trước, loại bỏ hoàn toàn owner_thanh
+          // Bảo lưu toàn bộ thông tin nhân sự đã chỉnh sửa, đối chiếu với FIXED_CORE_STAFF
+          const mergedStaff = FIXED_CORE_STAFF.map(core => {
+            const found = parsed.find(u => Number(u.user_id) === Number(core.user_id) || (u.username && u.username.toLowerCase() === core.username.toLowerCase()));
+            return found ? { ...core, ...found } : core;
+          });
+          // Nhân sự mới do Admin tạo thêm (không thuộc core)
+          const customStaff = parsed.filter(u => u.role !== 'OWNER' && !FIXED_CORE_STAFF.some(core => Number(core.user_id) === Number(u.user_id)));
+          // Các tài khoản chủ sở hữu đã đăng ký
           const storedOwners = parsed.filter(u => u.role === 'OWNER' && u.username !== 'owner_thanh');
-          return [...FIXED_CORE_STAFF, ...storedOwners];
+          return [...mergedStaff, ...customStaff, ...storedOwners];
         }
       }
       return SEED_USERS;
@@ -156,6 +163,23 @@ export function AuthProvider({ children }) {
         sessionStorage.removeItem('matruong_auth_user');
         return null;
       }
+
+      // Kiểm tra trạng thái tài khoản trong danh sách mới nhất
+      const userListRaw = localStorage.getItem('matruong_users_list');
+      if (userListRaw) {
+        const uList = JSON.parse(userListRaw);
+        if (Array.isArray(uList)) {
+          const matched = uList.find(u => Number(u.user_id) === Number(parsed.user_id) || u.username === parsed.username);
+          if (matched) {
+            if (matched.username !== 'admin' && matched.status && matched.status !== 'ACTIVE') {
+              sessionStorage.removeItem('matruong_auth_user');
+              return null;
+            }
+            return { ...parsed, ...matched, status: matched.status };
+          }
+        }
+      }
+
       const match = SEED_USERS.find(u => u.username === parsed?.username || u.email === parsed?.email);
       if (match && (!parsed.user_id || Number(parsed.user_id) > 1000)) {
         return { ...parsed, user_id: match.user_id };
@@ -180,6 +204,38 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('matruong_users_list', JSON.stringify(usersList));
   }, [usersList]);
+
+  // Đồng bộ trạng thái người dùng trong thời gian thực khi Admin khóa/mở tài khoản từ tab/cửa sổ khác
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      // Chỉ phản hồi các sự kiện storage thực từ tab trình duyệt khác
+      if (e && e.key && e.key !== 'matruong_users_list') return;
+      try {
+        const stored = localStorage.getItem('matruong_users_list');
+        if (stored) {
+          const list = JSON.parse(stored);
+          if (Array.isArray(list)) {
+            setUsersList(list);
+            if (currentUser && currentUser.username !== 'admin') {
+              const matched = list.find(u => Number(u.user_id) === Number(currentUser.user_id) || u.username === currentUser.username);
+              if (matched) {
+                if (matched.status !== 'ACTIVE') {
+                  // Tài khoản bị khóa: Tự động kết thúc phiên làm việc
+                  setCurrentUser(null);
+                  sessionStorage.removeItem('matruong_auth_user');
+                  localStorage.removeItem('matruong_auth_user');
+                } else if (matched.status !== currentUser.status) {
+                  setCurrentUser(prev => prev ? { ...prev, status: matched.status } : null);
+                }
+              }
+            }
+          }
+        }
+      } catch { }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [currentUser]);
 
   // Nạp danh sách người dùng từ API Backend khi khởi động (merge với danh sách cục bộ để không mất user đã đăng ký)
   useEffect(() => {
@@ -209,8 +265,20 @@ export function AuthProvider({ children }) {
           const prevOwners = prev.filter(u => u.role === 'OWNER' && u.username !== 'owner_thanh');
           const combinedOwnersMap = new Map();
           [...prevOwners, ...backendOwners].forEach(o => combinedOwnersMap.set(o.username || o.email, o));
-          const merged = [...FIXED_CORE_STAFF, ...Array.from(combinedOwnersMap.values())];
-          localStorage.setItem('matruong_users_list', JSON.stringify(merged));
+
+          // Giữ lại toàn bộ chỉnh sửa của nhân sự trong `prev`
+          const currentStaff = prev.filter(u => u.role !== 'OWNER');
+          const staffMap = new Map();
+          FIXED_CORE_STAFF.forEach(s => staffMap.set(Number(s.user_id), s));
+          currentStaff.forEach(s => {
+            const existing = staffMap.get(Number(s.user_id)) || {};
+            staffMap.set(Number(s.user_id), { ...existing, ...s });
+          });
+
+          const merged = [...Array.from(staffMap.values()), ...Array.from(combinedOwnersMap.values())];
+          try {
+            localStorage.setItem('matruong_users_list', JSON.stringify(merged));
+          } catch { }
           return merged;
         });
       }
@@ -279,48 +347,7 @@ export function AuthProvider({ children }) {
 
     const systemPreset = SYSTEM_ROLE_PRESETS.find(p => p.aliases.includes(cleanUser));
 
-    // 1. Thử gọi API Backend Tomcat
-    try {
-      const apiRes = await loginApi(usernameOrEmail, password);
-      if (apiRes && apiRes.success && apiRes.user) {
-        const u = apiRes.user;
-        const roleMap = {
-          'MANAGER': 'Quản lý Câu lạc bộ',
-          'TRAINER': 'Huấn luyện viên Trưởng',
-          'VET': 'Bác sĩ Thú y',
-          'GROOM': 'Nhân viên Chăm sóc',
-          'OWNER': 'Chủ sở hữu Ngựa'
-        };
-        const appUser = {
-          user_id: u.userId || u.user_id,
-          username: u.username,
-          full_name: u.fullName || u.full_name,
-          email: u.email,
-          phone: u.phone,
-          role: u.roleCode || u.role,
-          role_name: roleMap[u.roleCode || u.role] || u.roleCode || u.role,
-          status: u.status || 'ACTIVE',
-          token: u.token || null
-        };
-        setCurrentUser(appUser);
-        return { success: true, user: appUser };
-      }
-      if (apiRes && apiRes.isFromBackend && !apiRes.success) {
-        return { success: false, error: apiRes.error || 'Tài khoản hoặc mật khẩu không chính xác.' };
-      }
-    } catch {
-      // Backend offline -> Tiếp tục fallback
-    }
-
-    // Kiểm tra đăng nhập cho các tài khoản hệ thống khi offline (Mật khẩu hợp lệ: 123 hoặc 123456)
-    if (systemPreset) {
-      if (cleanPass === '123' || cleanPass === '123456') {
-        setCurrentUser(systemPreset.data);
-        return { success: true, user: systemPreset.data };
-      }
-    }
-
-    // 2. Fallback sang dữ liệu cục bộ (Lấy trực tiếp từ localStorage để luôn có tài khoản vừa đăng ký)
+    // Nạp danh sách người dùng cục bộ mới nhất từ localStorage (hoặc usersList / SEED_USERS)
     let activeUsers = [];
     try {
       const stored = localStorage.getItem('matruong_users_list');
@@ -334,12 +361,85 @@ export function AuthProvider({ children }) {
       activeUsers = usersList && usersList.length > 0 ? usersList : SEED_USERS;
     }
 
-    const found = activeUsers.find(
+    // 1. Thử gọi API Backend Tomcat
+    try {
+      const apiRes = await loginApi(usernameOrEmail, password);
+      if (apiRes && apiRes.success && apiRes.user) {
+        const u = apiRes.user;
+        const localMatched = activeUsers.find(
+          au => (au.username?.toLowerCase() === u.username?.toLowerCase() || Number(au.user_id) === Number(u.userId || u.user_id))
+        );
+        const resolvedStatus = localMatched?.status || u.status || 'ACTIVE';
+
+        // Kiểm tra xem tài khoản có bị khóa không
+        if (resolvedStatus === 'INACTIVE' || resolvedStatus === 'SUSPENDED' || resolvedStatus === 'LOCKED') {
+          return {
+            success: false,
+            error: 'Tài khoản của bạn đã bị Quản trị viên (Admin) tạm khóa quyền truy cập. Vui lòng liên hệ Admin để được mở khóa!'
+          };
+        }
+        if (resolvedStatus === 'PENDING') {
+          return {
+            success: false,
+            isPending: true,
+            error: 'Tài khoản của bạn đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin hoặc thử lại sau khi được kích hoạt!'
+          };
+        }
+        if (resolvedStatus === 'REJECTED') {
+          return {
+            success: false,
+            error: 'Yêu cầu đăng ký tài khoản của bạn đã bị từ chối bởi Quản trị viên.'
+          };
+        }
+
+        const roleMap = {
+          'MANAGER': 'Quản lý Câu lạc bộ',
+          'TRAINER': 'Huấn luyện viên Trưởng',
+          'VET': 'Bác sĩ Thú y',
+          'GROOM': 'Nhân viên Chăm sóc',
+          'OWNER': 'Chủ sở hữu Ngựa'
+        };
+        const appUser = {
+          user_id: u.userId || u.user_id,
+          username: u.username,
+          full_name: localMatched?.full_name || u.fullName || u.full_name,
+          email: u.email,
+          phone: localMatched?.phone || u.phone,
+          role: u.roleCode || u.role,
+          role_name: roleMap[u.roleCode || u.role] || u.roleCode || u.role,
+          status: resolvedStatus,
+          token: u.token || null
+        };
+        setCurrentUser(appUser);
+        return { success: true, user: appUser };
+      }
+      if (apiRes && apiRes.isFromBackend && !apiRes.success) {
+        return { success: false, error: apiRes.error || 'Tài khoản hoặc mật khẩu không chính xác.' };
+      }
+    } catch {
+      // Backend offline -> Tiếp tục fallback
+    }
+
+    // 2. Fallback sang dữ liệu cục bộ: Tìm tài khoản phù hợp
+    let found = activeUsers.find(
       u => (u.username?.toLowerCase() === cleanUser || u.email?.toLowerCase() === cleanUser)
     );
 
+    // Nếu không khớp trực tiếp tên đăng nhập/email, kiểm tra qua systemPreset (aliases: trainer, hlv, vet, doctor, groom...)
+    if (!found && systemPreset) {
+      found = activeUsers.find(u => Number(u.user_id) === Number(systemPreset.data.user_id) || u.username === systemPreset.data.username) || systemPreset.data;
+    }
+
     if (!found) {
       return { success: false, error: 'Tài khoản hoặc mật khẩu không chính xác.' };
+    }
+
+    // 3. KIỂM TRA TRẠNG THÁI KHÓA TRUY CẬP (Bắt buộc kiểm tra TRƯỚC KHI cho phép đăng nhập)
+    if (found.status === 'INACTIVE' || found.status === 'SUSPENDED' || found.status === 'LOCKED' || (found.status && found.status !== 'ACTIVE' && found.status !== 'PENDING' && found.status !== 'REJECTED')) {
+      return {
+        success: false,
+        error: 'Tài khoản của bạn đã bị Quản trị viên (Admin) tạm khóa quyền truy cập. Vui lòng liên hệ Admin để được mở khóa!'
+      };
     }
 
     if (found.status === 'PENDING') {
@@ -357,11 +457,7 @@ export function AuthProvider({ children }) {
       };
     }
 
-    if (found.status && found.status !== 'ACTIVE') {
-      return { success: false, error: 'Tài khoản này hiện đang bị tạm khóa!' };
-    }
-
-    // Kiểm tra mật khẩu (hỗ trợ mật khẩu riêng đã tạo hoặc mật khẩu seed 123/123456)
+    // 4. Kiểm tra mật khẩu (hỗ trợ mật khẩu riêng đã tạo hoặc mật khẩu seed 123/123456)
     const isPasswordCorrect = found.password
       ? (String(found.password) === cleanPass || cleanPass === '123' || cleanPass === '123456')
       : (cleanPass === '123' || cleanPass === '123456');
@@ -482,26 +578,64 @@ export function AuthProvider({ children }) {
   // Cập nhật người dùng (dành cho Admin)
   const updateUser = (userId, updatedFields) => {
     updateUserApi(userId, updatedFields).catch(() => { });
-    setUsersList(prev => prev.map(u => Number(u.user_id) === Number(userId) ? { ...u, ...updatedFields } : u));
-    if (currentUser && Number(currentUser.user_id) === Number(userId)) {
-      setCurrentUser(prev => ({ ...prev, ...updatedFields }));
+    setUsersList(prev => {
+      const nextList = prev.map(u => 
+        (Number(u.user_id) === Number(userId) || Number(u.id) === Number(userId)) ? { ...u, ...updatedFields } : u
+      );
+      try {
+        localStorage.setItem('matruong_users_list', JSON.stringify(nextList));
+      } catch { }
+      return nextList;
+    });
+
+    if (currentUser && (Number(currentUser.user_id) === Number(userId) || Number(currentUser.id) === Number(userId))) {
+      setCurrentUser(prev => {
+        const next = { ...prev, ...updatedFields };
+        try {
+          sessionStorage.setItem('matruong_auth_user', JSON.stringify(next));
+        } catch { }
+        return next;
+      });
     }
   };
 
-  // Xóa / Vô hiệu hóa người dùng (Tạm khóa)
+  // Xóa / Vô hiệu hóa người dùng (Tạm khóa / Mở khóa)
   const toggleUserStatus = (userId) => {
-    if (Number(userId) === 1) return;
+    if (Number(userId) === 1) return 'ACTIVE';
+
+    let nextStatusResult = 'ACTIVE';
+
     setUsersList(prev => {
       const nextList = prev.map(u => {
-        if (Number(u.user_id) === Number(userId)) {
+        if (Number(u.user_id) === Number(userId) || (u.id && Number(u.id) === Number(userId))) {
           const nextStatus = u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-          updateUserApi(userId, { status: nextStatus }).catch(() => { });
+          nextStatusResult = nextStatus;
           return { ...u, status: nextStatus };
         }
         return u;
       });
+
+      try {
+        localStorage.setItem('matruong_users_list', JSON.stringify(nextList));
+      } catch { }
+
       return nextList;
     });
+
+    updateUserApi(userId, { status: nextStatusResult }).catch(() => { });
+
+    if (currentUser && (Number(currentUser.user_id) === Number(userId) || Number(currentUser.id) === Number(userId))) {
+      setCurrentUser(prev => {
+        if (!prev) return null;
+        const updated = { ...prev, status: nextStatusResult };
+        try {
+          sessionStorage.setItem('matruong_auth_user', JSON.stringify(updated));
+        } catch { }
+        return updated;
+      });
+    }
+
+    return nextStatusResult;
   };
 
   // Xóa vĩnh viễn người dùng khỏi danh sách (dành cho Admin)
@@ -553,6 +687,7 @@ export function useAuth() {
  */
 export function getRolePortalPath(user) {
   if (!user) return '/';
+  if (user.status && user.status !== 'ACTIVE') return '/';
   const r = (user.role || user.role_code || '').toUpperCase();
   if (r === 'TRAINER') return '/trainer';
   if (r === 'VET') return '/vet';

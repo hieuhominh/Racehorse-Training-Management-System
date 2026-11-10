@@ -8,14 +8,21 @@ import { useAuth, getRolePortalPath } from '../context/AuthContext';
  * - Nếu không có quyền Quản trị: Tự động điều hướng về đúng Cổng của vai trò mình
  */
 export default function AdminRoute({ children }) {
-  const { currentUser } = useAuth();
+  const { currentUser, usersList } = useAuth();
 
   // 1. Trường hợp CHƯA ĐĂNG NHẬP: Chuyển hướng về Trang chủ
   if (!currentUser) {
     return <Navigate to="/" replace />;
   }
 
-  // 2. Kiểm tra vai trò: Nếu không phải ADMIN/MANAGER thì chuyển về Cổng của chính họ
+  // 2. Kiểm tra nếu tài khoản bị khóa truy cập
+  const currentInList = usersList?.find(u => Number(u.user_id) === Number(currentUser.user_id) || u.username === currentUser.username);
+  const effectiveStatus = currentInList?.status || currentUser.status || 'ACTIVE';
+  if (currentUser.username !== 'admin' && effectiveStatus !== 'ACTIVE') {
+    return <Navigate to="/" replace />;
+  }
+
+  // 3. Kiểm tra vai trò: Nếu không phải ADMIN/MANAGER thì chuyển về Cổng của chính họ
   const r = (currentUser.role || currentUser.role_code || '').toUpperCase();
   if (r !== 'MANAGER' && r !== 'ADMIN') {
     return <Navigate to={getRolePortalPath(currentUser)} replace />;

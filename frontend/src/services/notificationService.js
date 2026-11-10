@@ -262,3 +262,37 @@ export function clearAllSystemNotifications() {
   clearNotificationsApi().catch(() => {});
 }
 
+/**
+ * Thông báo khi chuồng chuyển sang trạng thái bảo dưỡng (30 phút) và điều chuyển ngựa sang chuồng tạm:
+ * Gửi thông báo tới Chủ sở hữu, Huấn luyện viên, Bác sĩ thú y, Chăm sóc (Groom) và Admin
+ */
+export function notifyStallMaintenanceStarted(stallCode, tempStallCode, horseName, durationMinutes = 30) {
+  return addSystemNotification({
+    type: 'STALL_MAINTENANCE',
+    title: `BẢO TRÌ Ô CHUỒNG ${stallCode} & ĐIỀU CHUYỂN TẠM (${durationMinutes} PHÚT)`,
+    message: `Ô chuồng ${stallCode} của chiến mã "${horseName}" bắt đầu quá trình bảo dưỡng, khử trùng định kỳ trong ${durationMinutes} phút. Chiến mã đã được tự động điều chuyển tạm thời sang ô chuồng ${tempStallCode}. Sau ${durationMinutes} phút, chiến mã sẽ tự động quay trở về ô chuồng ${stallCode}.`,
+    horseName,
+    stable: stallCode,
+    tempStable: tempStallCode,
+    durationMinutes,
+    recipientRoles: ['OWNER', 'TRAINER', 'VET', 'GROOM', 'ADMIN', 'ALL']
+  });
+}
+
+/**
+ * Thông báo khi chuồng hoàn tất bảo dưỡng 30 phút và ngựa quay trở lại chuồng ban đầu:
+ * Gửi thông báo tới Chủ sở hữu, Huấn luyện viên, Bác sĩ thú y, Chăm sóc (Groom) và Admin
+ */
+export function notifyStallMaintenanceCompleted(stallCode, tempStallCode, horseName) {
+  return addSystemNotification({
+    type: 'STALL_MAINTENANCE_COMPLETED',
+    title: `HOÀN TẤT BẢO TRÌ Ô CHUỒNG ${stallCode}`,
+    message: `Quá trình bảo dưỡng định kỳ cho ô chuồng ${stallCode} đã hoàn tất. Chiến mã "${horseName}" đã được đưa trở lại đúng ô chuồng ${stallCode} an toàn. Ô chuồng tạm ${tempStallCode} đã được giải phóng trở về trạng thái sẵn sàng.`,
+    horseName,
+    stable: stallCode,
+    tempStable: tempStallCode,
+    recipientRoles: ['OWNER', 'TRAINER', 'VET', 'GROOM', 'ADMIN', 'ALL']
+  });
+}
+
+

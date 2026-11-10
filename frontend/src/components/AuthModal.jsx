@@ -301,7 +301,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     setShowGoogleDialog(true);
   };
 
-  const handleConfirmGoogleRegister = (e) => {
+  const handleConfirmGoogleRegister = async (e) => {
     e.preventDefault();
     if (!googleEmail?.trim() || !googleName?.trim()) {
       setIsError(true);
@@ -313,14 +313,20 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     const existing = usersList?.find(u => u.email?.toLowerCase() === cleanEmail);
 
     if (existing) {
-      login(existing.email, existing.password || '123');
-      setNotification(`Đăng nhập Google thành công. Chào mừng ${existing.full_name}.`);
-      setShowGoogleDialog(false);
-      setTimeout(() => {
-        setNotification('');
-        onClose();
-        redirectToRolePortal(existing);
-      }, 600);
+      const res = await login(existing.email, existing.password || '123');
+      if (res && res.success) {
+        setNotification(`Đăng nhập Google thành công. Chào mừng ${existing.full_name}.`);
+        setShowGoogleDialog(false);
+        setTimeout(() => {
+          setNotification('');
+          onClose();
+          redirectToRolePortal(res.user || existing);
+        }, 600);
+      } else {
+        setShowGoogleDialog(false);
+        setIsError(true);
+        setNotification(res?.error || 'Đăng nhập không thành công.');
+      }
       return;
     }
 

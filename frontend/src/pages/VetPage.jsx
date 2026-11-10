@@ -426,8 +426,14 @@ export default function VetPage() {
   const [horseFilterBreed, setHorseFilterBreed] = useState('ALL');
 
   const pendingVetAssignments = useMemo(() => {
-    return serviceAssignments.filter(a => a.vetStatus === 'PENDING');
-  }, [serviceAssignments]);
+    const uName = (currentUser?.username || '').trim().toLowerCase();
+    const fName = (currentUser?.full_name || '').trim().toLowerCase();
+    const isMyVetHorse = (a) => (
+      (a.vetUsername && a.vetUsername.trim().toLowerCase() === uName) ||
+      (!a.vetUsername && a.vetName && a.vetName.trim().toLowerCase() === fName)
+    );
+    return serviceAssignments.filter(a => isMyVetHorse(a) && a.vetStatus === 'PENDING');
+  }, [serviceAssignments, currentUser]);
 
   const breedOptions = useMemo(() => {
     const set = new Set();
@@ -1633,7 +1639,13 @@ export default function VetPage() {
 
               {/* Khối Yêu Cầu Phục Vụ Thú Y Chờ Bác Sĩ Xác Nhận */}
               {(() => {
-                const pendingVetAssignments = serviceAssignments.filter(a => a.vetStatus === 'PENDING');
+                const uName = (currentUser?.username || '').trim().toLowerCase();
+                const fName = (currentUser?.full_name || '').trim().toLowerCase();
+                const isMyVetHorse = (a) => (
+                  (a.vetUsername && a.vetUsername.trim().toLowerCase() === uName) ||
+                  (!a.vetUsername && a.vetName && a.vetName.trim().toLowerCase() === fName)
+                );
+                const pendingVetAssignments = serviceAssignments.filter(a => isMyVetHorse(a) && a.vetStatus === 'PENDING');
                 if (pendingVetAssignments.length === 0) return null;
 
                 return (

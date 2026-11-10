@@ -1,3 +1,4 @@
+// Admin Portal - Racehorse Training & Stall Management (Synchronized)
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -6,7 +7,11 @@ import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
-import { getSystemNotifications } from '../services/notificationService';
+import {
+  getSystemNotifications,
+  notifyStallMaintenanceStarted,
+  notifyStallMaintenanceCompleted
+} from '../services/notificationService';
 import { initialHorsesData } from '../data/horsesData';
 import {
   getHorsesApi,
@@ -19,7 +24,10 @@ import {
   deleteStallApi,
   getStallRequestsApi,
   approveStallRequestApi,
-  rejectStallRequestApi
+  rejectStallRequestApi,
+  getActiveStallMaintenances,
+  saveActiveStallMaintenances,
+  checkAndExpireStallMaintenances
 } from '../services/api';
 import {
   getPersonnelReports,
@@ -29,6 +37,7 @@ import {
   REPORT_SEVERITIES,
   REPORT_STATUSES
 } from '../services/reportService';
+import { getServiceAssignments } from '../services/serviceAssignment';
 
 // Minimalist SVG Icons
 const IconGlobe = ({ size = 15, color = 'currentColor' }) => (
@@ -131,6 +140,19 @@ export default function AdminPage() {
   const { theme } = useTheme();
   const isDark = theme !== 'light';
   const navigate = useNavigate();
+
+  const handleToggleUserStatus = (u) => {
+    const isCurrentlyActive = u.status === 'ACTIVE';
+    const nextStatus = toggleUserStatus(u.user_id);
+    const willBeActive = nextStatus === 'ACTIVE' || !isCurrentlyActive;
+    showToast(
+      willBeActive
+        ? `Đã mở khóa tài khoản cho ${u.full_name} (@${u.username}) thành công! Nhân sự này hiện có thể đăng nhập bình thường.`
+        : `Đã tạm khóa quyền truy cập của ${u.full_name} (@${u.username}). Nhân sự này sẽ không thể đăng nhập cho đến khi được mở khóa.`,
+      willBeActive ? 'MỞ KHÓA TÀI KHOẢN' : 'KHÓA TRUY CẬP NHÂN SỰ',
+      willBeActive ? 'success' : 'warning'
+    );
+  };
 
   const handleLogout = () => {
     logout();
@@ -271,20 +293,21 @@ export default function AdminPage() {
     { stall_code: 'B6', block: 'Block B', status: 'AVAILABLE', horse: '(Trống)', breed: 'Vacant', area: '16 m²', dim: '4.0 x 4.0m', stall_image: '/images/stall_simulation_vacant.jpg', horse_avatar: null }
   ]);
 
-  // Modal thêm người dùng mới
+  // Modal thêm nhân sự mới
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUserData, setNewUserData] = useState({
     username: '',
     full_name: '',
     email: '',
     phone: '',
-    role: 'OWNER',
+    role: 'TRAINER',
     password: '123'
   });
 
-  // Modal sửa thông tin nhân sự
+  // Modal sửa thông tin nhân sự & Hồ sơ nghiệp vụ
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [editUserData, setEditUserData] = useState(null);
+  const [editUserModalTab, setEditUserModalTab] = useState('all');
 
   // Modal xác nhận sửa thông tin
   const [showConfirmEditModal, setShowConfirmEditModal] = useState(false);
@@ -303,7 +326,8 @@ export default function AdminPage() {
     area: '16 m²',
     dim: '4.0 x 4.0m',
     horse: '',
-    breed: 'Thoroughbred'
+    breed: 'Thoroughbred',
+    stall_image: ''
   });
 
   // Modal xóa ô chuồng
@@ -319,7 +343,7 @@ export default function AdminPage() {
 
   // Quản lý Yêu cầu cấp & đổi ô chuồng từ Chủ sở hữu
   const [stallRequests, setStallRequests] = useState([]);
-  const [stallReqFilter, setStallReqFilter] = useState('ALL');
+  const [stallReqFilter, setStallReqFilter] = useState('PENDING');
   const [rejectingRequest, setRejectingRequest] = useState(null);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -454,20 +478,49 @@ export default function AdminPage() {
             const isStallMock = MOCK_HORSE_NAMES.includes(horseNameLower);
 
             const hasResident = isAssignedValid || (!isStallMock && s.horse && s.horse !== '(Trống)' && s.status === 'OCCUPIED');
-            const horseName = isAssignedValid ? assignedHorse.name : (hasResident ? s.horse : '(Trống)');
-            const horseBreed = isAssignedValid ? (assignedHorse.breed || 'Thoroughbred') : (hasResident ? s.breed : 'Vacant');
-            const horseAvatar = isAssignedValid ? (assignedHorse.avatar || assignedHorse.horse_avatar) : (hasResident ? s.horse_avatar : null);
-            const stallImg = s.stall_image && !s.stall_image.includes('occupied') && !hasResident
-              ? s.stall_image
-              : (hasResident ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg');
+
+            let finalStatus = s.status || 'AVAILABLE';
+            if (s.status === 'MAINTENANCE') {
+              finalStatus = 'MAINTENANCE';
+            } else if (s.status === 'AVAILABLE') {
+              finalStatus = 'AVAILABLE';
+            } else if (s.status === 'OCCUPIED' || hasResident) {
+              finalStatus = 'OCCUPIED';
+            } else {
+              finalStatus = 'AVAILABLE';
+            }
+
+            const isOccupied = finalStatus === 'OCCUPIED';
+            const isMaintenance = finalStatus === 'MAINTENANCE';
+
+            const horseName = isOccupied
+              ? (s.horse && s.horse !== '(Trống)' ? s.horse : (isAssignedValid ? assignedHorse.name : 'Đang nuôi dưỡng'))
+              : isMaintenance
+                ? (s.horse && s.horse !== '(Trống)' ? s.horse : (isAssignedValid ? assignedHorse.name : '(Trống)'))
+                : '(Trống)';
+
+            const horseBreed = isOccupied
+              ? (isAssignedValid ? (assignedHorse.breed || 'Thoroughbred') : (s.breed && s.breed !== 'Vacant' ? s.breed : 'Thuần chủng'))
+              : 'Vacant';
+
+            const horseAvatar = (isOccupied || isMaintenance) && isAssignedValid
+              ? (assignedHorse.avatar || assignedHorse.horse_avatar || null)
+              : (s.horse_avatar || null);
+
+            const stallImg = s.stall_image || (isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg');
 
             return {
               ...s,
-              status: hasResident ? 'OCCUPIED' : 'AVAILABLE',
-              horse: hasResident ? horseName : '(Trống)',
-              breed: hasResident ? horseBreed : 'Vacant',
-              horse_avatar: hasResident && horseAvatar ? fixAvatar(horseAvatar) : null,
-              stall_image: stallImg
+              status: finalStatus,
+              horse: horseName,
+              breed: horseBreed,
+              horse_avatar: horseAvatar ? fixAvatar(horseAvatar) : null,
+              stall_image: stallImg,
+              temp_relocated_to: s.temp_relocated_to || null,
+              is_temp_stall: s.is_temp_stall || false,
+              temp_for_stall: s.temp_for_stall || null,
+              maintenance_start: s.maintenance_start || null,
+              maintenance_end: s.maintenance_end || null
             };
           }));
         }
@@ -478,6 +531,16 @@ export default function AdminPage() {
       getStallRequestsApi().then(res => {
         if (isMounted && res && Array.isArray(res.data)) {
           setStallRequests(res.data);
+          setStallReqFilter(prev => {
+            if (prev === 'ALL' || prev === 'PENDING') {
+              const hasPending = res.data.some(r => r.status === 'PENDING');
+              if (!hasPending && res.data.some(r => r.status === 'APPROVED')) {
+                return 'APPROVED';
+              }
+              return 'PENDING';
+            }
+            return prev;
+          });
         }
       }).catch(() => {});
     };
@@ -511,6 +574,51 @@ export default function AdminPage() {
       window.removeEventListener('storage', handleStablesUpdated);
     };
   }, []);
+
+  // Đồng hồ đếm ngược thời gian thực cho các ô chuồng đang bảo dưỡng (30 phút)
+  const [currentClock, setCurrentClock] = useState(Date.now());
+
+  const formatRemainingTime = (endTime, now) => {
+    if (!endTime) return '30:00';
+    const diffSec = Math.max(0, Math.ceil((endTime - now) / 1000));
+    const m = Math.floor(diffSec / 60);
+    const s = diffSec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setCurrentClock(now);
+
+      // Tự động kiểm tra và hoàn tất trả chuồng khi hết 30 phút bảo dưỡng
+      const expired = checkAndExpireStallMaintenances();
+      if (expired.length > 0) {
+        expired.forEach(rec => {
+          notifyStallMaintenanceCompleted(rec.stallCode, rec.tempStallCode, rec.horseName);
+          setAuditLogs(prev => [
+            {
+              id: Date.now() + Math.random(),
+              time: new Date().toLocaleString('vi-VN'),
+              user: 'Hệ thống tự động (Auto System)',
+              action: 'HOÀN TẤT BẢO DƯỠNG (30 PHÚT)',
+              detail: `Ô chuồng ${rec.stallCode} đã kết thúc 30 phút bảo dưỡng. Chiến mã "${rec.horseName}" tự động quay về ô ${rec.stallCode}. Giải phóng ô tạm ${rec.tempStallCode}. Đã thông báo Chủ sở hữu, HLV, Bác sĩ & Groom.`
+            },
+            ...prev
+          ]);
+          showToast(
+            lang === 'en'
+              ? `Stall ${rec.stallCode} 30-min maintenance finished! Horse "${rec.horseName}" returned home.`
+              : `Bảo dưỡng 30 phút ô ${rec.stallCode} đã hoàn tất! Chiến mã "${rec.horseName}" đã tự động quay về ô chuồng ban đầu.`,
+            lang === 'en' ? 'MAINTENANCE COMPLETED' : 'HOÀN TẤT BẢO DƯỠNG',
+            'success'
+          );
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lang]);
 
   // Lắng nghe thông báo khi Chủ sở hữu xóa chiến mã
   useEffect(() => {
@@ -782,27 +890,197 @@ export default function AdminPage() {
     setViewingHorseDetail(fullDetail);
   };
 
-  // Thêm người dùng mới
+  // Thêm nhân sự mới
   const handleCreateUser = (e) => {
     e.preventDefault();
+    const roleMap = {
+      TRAINER: 'Huấn luyện viên',
+      VET: 'Bác sĩ Thú y',
+      GROOM: 'Nhân viên Chăm sóc',
+      MANAGER: 'Ban Quản lý'
+    };
+    const chosenRole = newUserData.role || 'TRAINER';
     registerUser({
       ...newUserData,
-      role: 'OWNER',
-      role_name: 'Chủ sở hữu Ngựa'
+      role: chosenRole,
+      role_name: roleMap[chosenRole] || 'Nhân sự'
     });
     setAuditLogs(prev => [
       {
         id: Date.now(),
         time: new Date().toLocaleString('vi-VN'),
         user: `${currentUser?.username || 'admin'} (Admin)`,
-        action: 'TẠO TÀI KHOẢN MỚI',
-        detail: `Thêm tài khoản Chủ sở hữu ${newUserData.full_name} (${newUserData.username})`
+        action: 'TẠO NHÂN SỰ MỚI',
+        detail: `Thêm nhân sự mới ${newUserData.full_name} (@${newUserData.username}, vai trò: ${roleMap[chosenRole] || chosenRole})`
       },
       ...prev
     ]);
     setShowAddUserModal(false);
-    setNewUserData({ username: '', full_name: '', email: '', phone: '', role: 'OWNER', password: '123' });
-    showToast(`Đã tạo tài khoản Chủ sở hữu "${newUserData.full_name}" thành công!`, 'TẠO TÀI KHOẢN', 'success');
+    setNewUserData({ username: '', full_name: '', email: '', phone: '', role: 'TRAINER', password: '123' });
+    showToast(
+      lang === 'en' ? `Created staff account "${newUserData.full_name}" successfully!` : `Đã tạo tài khoản nhân sự "${newUserData.full_name}" thành công!`,
+      lang === 'en' ? 'STAFF CREATED' : 'TẠO NHÂN SỰ THÀNH CÔNG',
+      'success'
+    );
+  };
+
+  // Lấy danh sách chiến mã và chủ sở hữu mà nhân sự đang phục vụ
+  const getStaffAssignedHorsesAndOwners = (staffUser) => {
+    if (!staffUser) return [];
+    const uName = (staffUser.username || '').trim().toLowerCase();
+    const fName = (staffUser.full_name || '').trim().toLowerCase();
+    const role = (staffUser.role || '').toUpperCase();
+
+    // Chỉ nhân sự chuyên trách (HLV, Bác sĩ, Groom) mới có danh sách chiến mã phụ trách
+    if (role !== 'TRAINER' && role !== 'VET' && role !== 'GROOM') {
+      return [];
+    }
+
+    const resultMap = new Map();
+
+    // 1. Quét từ danh sách phân công chính thức getServiceAssignments()
+    try {
+      const assignments = getServiceAssignments() || [];
+      assignments.forEach(item => {
+        if (!item || !item.horseName) return;
+        const matchTrainer = (role === 'TRAINER') && (
+          (item.trainerUsername && item.trainerUsername.trim().toLowerCase() === uName) ||
+          (!item.trainerUsername && item.trainerName && item.trainerName.trim().toLowerCase() === fName)
+        );
+        const matchVet = (role === 'VET') && (
+          (item.vetUsername && item.vetUsername.trim().toLowerCase() === uName) ||
+          (!item.vetUsername && item.vetName && item.vetName.trim().toLowerCase() === fName)
+        );
+        const matchGroom = (role === 'GROOM') && (
+          (item.groomUsername && item.groomUsername.trim().toLowerCase() === uName) ||
+          (!item.groomUsername && item.groomName && item.groomName.trim().toLowerCase() === fName)
+        );
+
+        if (matchTrainer || matchVet || matchGroom) {
+          const rawStatus = matchTrainer
+            ? (item.trainerStatus || (item.trainerConfirmed ? 'CONFIRMED' : 'PENDING'))
+            : matchVet
+            ? (item.vetStatus || (item.vetConfirmed ? 'CONFIRMED' : 'PENDING'))
+            : (item.groomStatus || (item.groomConfirmed ? 'CONFIRMED' : 'PENDING'));
+
+          const serviceStatus = (rawStatus === 'CONFIRMED') ? 'CONFIRMED' : 'PENDING';
+
+          const horseKey = (item.horseName || item.microchip || String(item.id)).trim().toLowerCase();
+          resultMap.set(horseKey, {
+            id: item.id || horseKey,
+            horseName: item.horseName,
+            microchip: item.microchip || 'MC-VN-2026-001',
+            breed: item.breed || 'Quarter Horse',
+            stable: item.stable || 'Block A',
+            avatar: item.avatar || null,
+            gender: item.gender || 'Chiến mã đực',
+            age: item.age || '4 tuổi',
+            ownerName: item.ownerName || 'Chủ sở hữu',
+            ownerKey: item.ownerKey || 'owner',
+            status: serviceStatus,
+            scope: role === 'TRAINER'
+              ? 'HLV chuyên trách: Luyện tập thể lực & bứt tốc'
+              : role === 'VET'
+              ? 'Bác sĩ thú y: Khám sức khỏe & theo dõi dinh dưỡng'
+              : 'Groom chuyên trách: Vệ sinh ô chuồng & móng ngựa'
+          });
+        }
+      });
+    } catch {}
+
+    // 2. Quét từ các kho của chủ sở hữu: matruong_owner_horses_*
+    try {
+      if (typeof localStorage !== 'undefined') {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('matruong_owner_horses_')) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list)) {
+                const ownerUsername = k.replace('matruong_owner_horses_', '');
+                list.forEach(h => {
+                  if (!h || !h.name) return;
+                  const hName = (h.name || '').trim().toLowerCase();
+                  const trUser = (h.trainerUsername || '').trim().toLowerCase();
+                  const trName = (h.trainer || h.trainerName || '').trim().toLowerCase();
+                  const vtUser = (h.vetUsername || '').trim().toLowerCase();
+                  const vtName = (h.vet || h.vetName || '').trim().toLowerCase();
+                  const grUser = (h.groomUsername || '').trim().toLowerCase();
+                  const grName = (h.groom || h.groomName || '').trim().toLowerCase();
+
+                  const matchTrainer = (role === 'TRAINER') && (
+                    (trUser && trUser === uName) ||
+                    (!trUser && trName && trName === fName)
+                  );
+                  const matchVet = (role === 'VET') && (
+                    (vtUser && vtUser === uName) ||
+                    (!vtUser && vtName && vtName === fName)
+                  );
+                  const matchGroom = (role === 'GROOM') && (
+                    (grUser && grUser === uName) ||
+                    (!grUser && grName && grName === fName)
+                  );
+
+                  if (matchTrainer || matchVet || matchGroom) {
+                    if (!resultMap.has(hName)) {
+                      const rawStatus = matchTrainer
+                        ? (h.trainerStatus || (h.trainerConfirmed ? 'CONFIRMED' : 'PENDING'))
+                        : matchVet
+                        ? (h.vetStatus || (h.vetConfirmed ? 'CONFIRMED' : 'PENDING'))
+                        : (h.groomStatus || (h.groomConfirmed ? 'CONFIRMED' : 'PENDING'));
+
+                      const serviceStatus = (rawStatus === 'CONFIRMED') ? 'CONFIRMED' : 'PENDING';
+
+                      resultMap.set(hName, {
+                        id: h.id || hName,
+                        horseName: h.name,
+                        microchip: h.microchip || 'MC-VN-2026-002',
+                        breed: h.breed || 'Quarter Horse',
+                        stable: h.stable || 'Block C',
+                        avatar: h.avatar || null,
+                        gender: h.gender || 'Chiến mã đực',
+                        age: h.age || '4 tuổi',
+                        ownerName: h.ownerName || h.owner || ownerUsername,
+                        ownerKey: ownerUsername,
+                        status: serviceStatus,
+                        scope: role === 'TRAINER'
+                          ? 'HLV chuyên trách: Luyện tập thể lực & bứt tốc'
+                          : role === 'VET'
+                          ? 'Bác sĩ thú y: Khám sức khỏe & theo dõi dinh dưỡng'
+                          : 'Groom chuyên trách: Vệ sinh ô chuồng & móng ngựa'
+                      });
+                    }
+                  }
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // 3. Bổ sung thông tin người dùng từ usersList và vị trí ô chuồng
+    return Array.from(resultMap.values()).map(item => {
+      const ownerUser = (usersList || []).find(u =>
+        (u.username && u.username.toLowerCase() === item.ownerKey.toLowerCase()) ||
+        (u.full_name && u.full_name.toLowerCase() === item.ownerName.toLowerCase())
+      );
+      let currentStable = item.stable;
+      if (stables && Array.isArray(stables)) {
+        const foundStall = stables.find(s => s.horse && s.horse.toLowerCase() === item.horseName.toLowerCase());
+        if (foundStall) {
+          currentStable = `Ô ${foundStall.stall_code} (${foundStall.block})`;
+        }
+      }
+      return {
+        ...item,
+        stable: currentStable,
+        ownerFullName: ownerUser?.full_name || item.ownerName,
+        ownerPhone: ownerUser?.phone || '0988 123 456',
+        ownerEmail: ownerUser?.email || `${item.ownerKey}@matruong.vn`
+      };
+    });
   };
 
   // Mở modal sửa nhân sự
@@ -817,6 +1095,7 @@ export default function AdminPage() {
       role_name: user.role_name || '',
       status: user.status || 'ACTIVE'
     });
+    setEditUserModalTab('all');
     setShowEditUserModal(true);
   };
 
@@ -844,6 +1123,44 @@ export default function AdminPage() {
 
     const updatedRoleName = roleLabels[editUserData.role] || editUserData.role_name || editUserData.role;
 
+    // Đồng bộ nếu username hoặc họ tên nhân sự thay đổi trong bảng phân công
+    const originalUser = (usersList || []).find(u => Number(u.user_id) === Number(editUserData.user_id));
+    if (originalUser) {
+      const oldUName = (originalUser.username || '').trim().toLowerCase();
+      const oldFName = (originalUser.full_name || '').trim().toLowerCase();
+      const newUName = (editUserData.username || '').trim();
+      const newFName = (editUserData.full_name || '').trim();
+
+      if (oldUName !== newUName.toLowerCase() || oldFName !== newFName.toLowerCase()) {
+        try {
+          const rawAssignments = localStorage.getItem('matruong_service_assignments');
+          if (rawAssignments) {
+            const parsed = JSON.parse(rawAssignments);
+            if (Array.isArray(parsed)) {
+              const updated = parsed.map(asgn => {
+                const next = { ...asgn };
+                if ((asgn.trainerUsername || '').toLowerCase() === oldUName || (asgn.trainerName || '').toLowerCase() === oldFName) {
+                  next.trainerUsername = newUName;
+                  next.trainerName = newFName;
+                }
+                if ((asgn.vetUsername || '').toLowerCase() === oldUName || (asgn.vetName || '').toLowerCase() === oldFName) {
+                  next.vetUsername = newUName;
+                  next.vetName = newFName;
+                }
+                if ((asgn.groomUsername || '').toLowerCase() === oldUName || (asgn.groomName || '').toLowerCase() === oldFName) {
+                  next.groomUsername = newUName;
+                  next.groomName = newFName;
+                }
+                return next;
+              });
+              localStorage.setItem('matruong_service_assignments', JSON.stringify(updated));
+              window.dispatchEvent(new Event('matruong_service_assignment_updated'));
+            }
+          }
+        } catch {}
+      }
+    }
+
     updateUser(editUserData.user_id, {
       full_name: editUserData.full_name,
       username: editUserData.username,
@@ -864,6 +1181,14 @@ export default function AdminPage() {
       },
       ...prev
     ]);
+
+    showToast(
+      lang === 'en'
+        ? `Updated staff profile "${editUserData.full_name}" successfully!`
+        : `Đã lưu cập nhật thông tin nhân sự "${editUserData.full_name}" thành công!`,
+      lang === 'en' ? 'PROFILE UPDATED' : 'CẬP NHẬT THÀNH CÔNG',
+      'success'
+    );
 
     setShowConfirmEditModal(false);
     setShowEditUserModal(false);
@@ -974,23 +1299,209 @@ export default function AdminPage() {
 
   // Thay đổi trạng thái chuồng
   const handleToggleStable = (stallCode) => {
-    setStables(prev => {
-      const next = prev.map(s => {
-        if (s.stall_code === stallCode) {
-          const nextStatus = s.status === 'AVAILABLE' ? 'OCCUPIED' : s.status === 'OCCUPIED' ? 'MAINTENANCE' : 'AVAILABLE';
-          const nextImage = nextStatus === 'OCCUPIED' ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg';
-          updateStallApi(stallCode, { status: nextStatus, stall_image: nextImage }).catch(() => {});
-          return { ...s, status: nextStatus, stall_image: nextImage };
+    const target = stables.find(s => s.stall_code === stallCode);
+    if (!target) return;
+
+    const hasAssignedHorse = Boolean(target.horse && target.horse !== '(Trống)');
+    const activeMap = getActiveStallMaintenances();
+
+    // 1. TRƯỜNG HỢP Ô CHUỒNG ĐÃ ĐƯỢC GÁN CHIẾN MÃ:
+    // Tuyệt đối không chuyển sang "Còn trống" (AVAILABLE) vì đã có ngựa được gán vào trước đó!
+    // Chỉ được chuyển đổi giữa: OCCUPIED (Đang nuôi dưỡng) <-> MAINTENANCE (Đang bảo dưỡng 30 phút)
+    if (hasAssignedHorse) {
+      if (target.status === 'OCCUPIED') {
+        // Chuyển sang MAINTENANCE (Bảo dưỡng 30 phút):
+        // Tự động tìm ô chuồng đang trống để chuyển tạm chiến mã
+        const availableTempStall = stables.find(s =>
+          s.stall_code !== stallCode &&
+          s.status === 'AVAILABLE' &&
+          (!s.horse || s.horse === '(Trống)') &&
+          !activeMap[s.stall_code]
+        );
+
+        if (!availableTempStall) {
+          showToast(
+            lang === 'en'
+              ? 'Cannot maintain stall: No vacant stall available to temporarily house the horse!'
+              : 'Không thể bảo dưỡng: Hiện không còn ô chuồng trống nào để điều chuyển tạm thời cho chiến mã!',
+            lang === 'en' ? 'NO VACANT STALL' : 'KHÔNG CÒN CHUỒNG TRỐNG',
+            'warning'
+          );
+          return;
+        }
+
+        const tempCode = availableTempStall.stall_code;
+        const durationMinutes = 30;
+        const startTime = Date.now();
+        const endTime = startTime + durationMinutes * 60 * 1000;
+
+        // Lưu thông tin ca bảo dưỡng 30 phút
+        const maintRecord = {
+          stallCode: target.stall_code,
+          tempStallCode: tempCode,
+          horseName: target.horse,
+          horseBreed: target.breed || 'Thuần chủng',
+          horseAvatar: target.horse_avatar || null,
+          startTime,
+          durationMs: durationMinutes * 60 * 1000,
+          endTime
+        };
+        activeMap[target.stall_code] = maintRecord;
+        saveActiveStallMaintenances(activeMap);
+
+        // Gửi thông báo liên thông cho: Chủ sở hữu ngựa, HLV, Bác sĩ thú y, Chăm sóc (Groom) và Admin
+        notifyStallMaintenanceStarted(target.stall_code, tempCode, target.horse, durationMinutes);
+
+        // Ghi Audit Logs hệ thống
+        setAuditLogs(prev => [
+          {
+            id: Date.now() + Math.random(),
+            time: new Date().toLocaleString('vi-VN'),
+            user: `${currentUser?.username || 'admin'} (Admin)`,
+            action: 'BẢO DƯỠNG Ô CHUỒNG (30 PHÚT)',
+            detail: `Bắt đầu bảo dưỡng ô ${target.stall_code} trong 30 phút. Chiến mã "${target.horse}" tự động chuyển sang ô tạm ${tempCode}. Đã thông báo Chủ sở hữu, HLV, Bác sĩ & Groom.`
+          },
+          ...prev
+        ]);
+
+        const updatedStalls = stables.map(s => {
+          if (s.stall_code === target.stall_code) {
+            return {
+              ...s,
+              status: 'MAINTENANCE',
+              horse: target.horse, // Tên chiến mã CỐ ĐỊNH, không bị mất!
+              temp_relocated_to: tempCode,
+              maintenance_start: startTime,
+              maintenance_end: endTime
+            };
+          }
+          if (s.stall_code === tempCode) {
+            return {
+              ...s,
+              status: 'OCCUPIED',
+              horse: target.horse,
+              breed: target.breed || 'Thuần chủng',
+              horse_avatar: target.horse_avatar || null,
+              is_temp_stall: true,
+              temp_for_stall: target.stall_code,
+              maintenance_end: endTime
+            };
+          }
+          return s;
+        });
+
+        setStables(updatedStalls);
+        try {
+          localStorage.setItem('racehorse_api_stables', JSON.stringify(updatedStalls));
+          localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+          window.dispatchEvent(new Event('matruong_stables_updated'));
+        } catch {}
+
+        showToast(
+          lang === 'en'
+            ? `Stall ${target.stall_code} set to Maintenance (30m). Horse "${target.horse}" relocated to ${tempCode}. Notifications sent!`
+            : `Đã chuyển ô ${target.stall_code} sang Bảo dưỡng (30 phút). Chiến mã "${target.horse}" tạm chuyển sang ô ${tempCode}. Đã thông báo cho Chủ sở hữu, HLV, Bác sĩ & Groom!`,
+          lang === 'en' ? 'MAINTENANCE STARTED' : 'BẢO DƯỠNG Ô CHUỒNG',
+          'success'
+        );
+      } else {
+        // Đang MAINTENANCE -> Chuyển lại về OCCUPIED (kết thúc bảo dưỡng)
+        const record = activeMap[target.stall_code];
+        const tempCode = record ? record.tempStallCode : target.temp_relocated_to;
+
+        if (record) {
+          delete activeMap[target.stall_code];
+          saveActiveStallMaintenances(activeMap);
+        }
+
+        if (tempCode) {
+          notifyStallMaintenanceCompleted(target.stall_code, tempCode, target.horse);
+        }
+
+        setAuditLogs(prev => [
+          {
+            id: Date.now() + Math.random(),
+            time: new Date().toLocaleString('vi-VN'),
+            user: `${currentUser?.username || 'admin'} (Admin)`,
+            action: 'HOÀN TẤT BẢO DƯỠNG Ô CHUỒNG',
+            detail: `Kết thúc bảo dưỡng ô ${target.stall_code}. Chiến mã "${target.horse}" đã quay về ô chuồng ban đầu. Đã giải phóng ô tạm ${tempCode || ''}.`
+          },
+          ...prev
+        ]);
+
+        const updatedStalls = stables.map(s => {
+          if (s.stall_code === target.stall_code) {
+            return {
+              ...s,
+              status: 'OCCUPIED',
+              horse: target.horse, // Tên chiến mã CỐ ĐỊNH!
+              temp_relocated_to: null,
+              maintenance_start: null,
+              maintenance_end: null
+            };
+          }
+          if (tempCode && s.stall_code === tempCode) {
+            return {
+              ...s,
+              status: 'AVAILABLE',
+              horse: '(Trống)',
+              breed: 'Vacant',
+              horse_avatar: null,
+              is_temp_stall: false,
+              temp_for_stall: null,
+              maintenance_end: null
+            };
+          }
+          return s;
+        });
+
+        setStables(updatedStalls);
+        try {
+          localStorage.setItem('racehorse_api_stables', JSON.stringify(updatedStalls));
+          localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+          window.dispatchEvent(new Event('matruong_stables_updated'));
+        } catch {}
+
+        showToast(
+          lang === 'en'
+            ? `Stall ${target.stall_code} maintenance finished! Horse "${target.horse}" returned home.`
+            : `Đã hoàn tất bảo dưỡng ô ${target.stall_code}. Chiến mã "${target.horse}" đã quay về ô chuồng ban đầu!`,
+          lang === 'en' ? 'MAINTENANCE ENDED' : 'HOÀN TẤT BẢO DƯỠNG',
+          'success'
+        );
+      }
+    } else {
+      // 2. Ô CHUỒNG TRỐNG (chưa có ngựa): Luân chuyển giữa AVAILABLE <-> MAINTENANCE
+      const nextStatus = target.status === 'AVAILABLE' ? 'MAINTENANCE' : 'AVAILABLE';
+      const updatedStalls = stables.map(s => {
+        if (s.stall_code === target.stall_code) {
+          return {
+            ...s,
+            status: nextStatus,
+            horse: '(Trống)',
+            breed: 'Vacant'
+          };
         }
         return s;
       });
-      try {
-        localStorage.setItem('racehorse_api_stables', JSON.stringify(next));
-        localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
-        window.dispatchEvent(new Event('matruong_stables_updated'));
-      } catch {}
-      return next;
-    });
+
+      setStables(updatedStalls);
+      updateStallApi(target.stall_code, {
+        status: nextStatus,
+        horse: '(Trống)',
+        breed: 'Vacant'
+      }).catch(() => {});
+
+      const nextStName = nextStatus === 'MAINTENANCE'
+        ? (lang === 'en' ? 'Maintenance' : 'Bảo dưỡng')
+        : (lang === 'en' ? 'Available' : 'Còn trống');
+
+      showToast(
+        lang === 'en' ? `Stall ${stallCode} status: ${nextStName}` : `Đã chuyển ô chuồng ${stallCode} sang: ${nextStName}`,
+        lang === 'en' ? 'STATUS UPDATED' : 'CẬP NHẬT TRẠNG THÁI',
+        'success'
+      );
+    }
   };
 
   // Khởi tạo ô chuồng mới
@@ -1031,7 +1542,7 @@ export default function AdminPage() {
       breed: breedName,
       area: newStallData.area || '16 m²',
       dim: newStallData.dim || '4.0 x 4.0m',
-      stall_image: isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg',
+      stall_image: newStallData.stall_image || (isOccupied ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg'),
       horse_avatar: isOccupied ? 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80' : null
     };
 
@@ -1074,7 +1585,8 @@ export default function AdminPage() {
       area: '16 m²',
       dim: '4.0 x 4.0m',
       horse: '',
-      breed: 'Thoroughbred'
+      breed: 'Thoroughbred',
+      stall_image: ''
     });
   };
 
@@ -1179,6 +1691,51 @@ export default function AdminPage() {
         showToast(
           lang === 'en' ? `Updated photo for Stall ${stallCode} successfully!` : `Đã cập nhật hình ảnh cho ô chuồng ${stallCode} thành công!`,
           lang === 'en' ? 'PHOTO UPDATED' : 'CẬP NHẬT ẢNH CHUỒNG',
+          'success'
+        );
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Admin tải lên hình ảnh cho ô chuồng mới khi khởi tạo
+  const handleUploadNewStallImage = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP)!', 'LỖI ĐỊNH DẠNG', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        setNewStallData(prev => ({ ...prev, stall_image: optimizedDataUrl }));
+        showToast(
+          lang === 'en' ? 'Stall photo uploaded successfully!' : 'Đã tải ảnh chuồng lên thành công!',
+          lang === 'en' ? 'PHOTO UPLOADED' : 'TẢI ẢNH THÀNH CÔNG',
           'success'
         );
       };
@@ -1399,8 +1956,15 @@ export default function AdminPage() {
     return true;
   });
 
-  // Lọc dữ liệu người dùng
-  const filteredUsers = usersList.filter(u => {
+  // Danh sách nhân sự nội bộ (Loại trừ Chủ sở hữu ngựa khỏi phân công nhân sự)
+  const isOwnerUser = (u) => {
+    const roleUpper = String(u.role || '').toUpperCase();
+    return roleUpper === 'OWNER';
+  };
+  const staffList = usersList.filter(u => !isOwnerUser(u));
+
+  // Lọc dữ liệu nhân sự (chỉ hiển thị nhân sự, không có Chủ sở hữu ngựa)
+  const filteredUsers = staffList.filter(u => {
     if (userFilter === 'PENDING') return u.status === 'PENDING';
     if (userFilter === 'ALL') return true;
     return u.role === userFilter;
@@ -1488,12 +2052,12 @@ export default function AdminPage() {
           >
             <span className="portal-nav-icon"><IconUsers /></span>
             <span className="portal-nav-label">{t('adminTabUsers')}</span>
-            {usersList.some(u => u.status === 'PENDING') ? (
+            {staffList.some(u => u.status === 'PENDING') ? (
               <span className="portal-nav-badge" style={{ background: '#E86B2C', color: '#fff', fontWeight: 800 }}>
-                {usersList.filter(u => u.status === 'PENDING').length} {lang === 'en' ? 'pending' : 'chờ duyệt'}
+                {staffList.filter(u => u.status === 'PENDING').length} {lang === 'en' ? 'pending' : 'chờ duyệt'}
               </span>
             ) : (
-              <span className="portal-nav-badge">{usersList.length}</span>
+              <span className="portal-nav-badge">{staffList.length}</span>
             )}
           </button>
 
@@ -1621,7 +2185,7 @@ export default function AdminPage() {
                     {t('adminFilterStables')} <span className="pill-count">{stables.length}</span>
                   </button>
                   <button className="portal-pill-btn" onClick={() => setActiveTab('users')}>
-                    {t('adminFilterUsers')} <span className="pill-count">{usersList.length}</span>
+                    {t('adminFilterUsers')} <span className="pill-count">{staffList.length}</span>
                   </button>
                 </div>
               </div>
@@ -1660,10 +2224,10 @@ export default function AdminPage() {
                     <span style={{ color: 'var(--brass)' }}><IconUsers /></span>
                   </div>
                   <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    {usersList.length} {lang === 'en' ? 'accounts' : 'tài khoản'}
+                    {staffList.length} {lang === 'en' ? 'staff members' : 'nhân sự'}
                   </div>
                   <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', fontWeight: 500 }}>
-                    {lang === 'en' ? 'Delegated across 5 functional tiers' : 'Phân quyền 5 nhóm chức năng'}
+                    {lang === 'en' ? 'Delegated across staff functional tiers' : 'Định biên các bộ phận chuyên môn'}
                   </div>
                 </div>
 
@@ -2086,24 +2650,6 @@ export default function AdminPage() {
 
                   {/* Pills lọc trạng thái yêu cầu */}
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => setStallReqFilter('ALL')}
-                      style={{
-                        padding: '5px 12px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                        border: '1px solid var(--line)',
-                        background: stallReqFilter === 'ALL' ? 'var(--brass)' : 'var(--bg-secondary)',
-                        color: stallReqFilter === 'ALL' ? '#14100A' : 'var(--paper)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {lang === 'en' ? 'All' : 'Tất cả'} ({stallRequests.length})
-                    </button>
                     <button
                       type="button"
                       onClick={() => setStallReqFilter('PENDING')}
@@ -2539,7 +3085,17 @@ export default function AdminPage() {
                   <button
                     onClick={() => {
                       const nextCode = 'C' + (stables.filter(s => s.block === 'Block C').length + 1);
-                      setNewStallData(prev => ({ ...prev, stall_code: nextCode }));
+                      setNewStallData({
+                        stall_code: nextCode,
+                        block: 'Block C',
+                        tier: 'STANDARD',
+                        status: 'AVAILABLE',
+                        area: '16 m²',
+                        dim: '4.0 x 4.0m',
+                        horse: '',
+                        breed: 'Thoroughbred',
+                        stall_image: ''
+                      });
                       setShowAddStallModal(true);
                     }}
                     className="portal-view-btn"
@@ -2681,8 +3237,8 @@ export default function AdminPage() {
                           </span>
                         </div>
 
-                        {/* Nếu ô chuồng đang nuôi dưỡng ngựa, hiển thị thumbnail nhỏ của chiến mã ở góc dưới */}
-                        {isOccupied && (
+                        {/* Nếu ô chuồng đang nuôi dưỡng ngựa hoặc đang bảo trì có ngựa cố định, hiển thị thumbnail nhỏ của chiến mã ở góc dưới */}
+                        {(isOccupied || (s.status === 'MAINTENANCE' && s.horse && s.horse !== '(Trống)')) && (
                           <div style={{
                             position: 'absolute',
                             bottom: '8px',
@@ -2711,7 +3267,7 @@ export default function AdminPage() {
                                 color: '#14100A',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
+                                justifySelf: 'center',
                                 fontSize: '10px',
                                 fontWeight: 800
                               }}>
@@ -2748,14 +3304,37 @@ export default function AdminPage() {
 
                       <p className="facility-card-desc">
                         {isOccupied
-                          ? (lang === 'en' ? `Housing racehorse ${s.horse}. Premium equine amenities.` : `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.`)
-                          : (lang === 'en' ? 'Clean empty stall ready for horse intake.' : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.')}
+                          ? (s.is_temp_stall
+                              ? (lang === 'en'
+                                  ? `Temporarily housing racehorse ${s.horse} while stall ${s.temp_for_stall} is maintained.`
+                                  : `Đang tiếp nhận lưu trú tạm thời cho chiến mã ${s.horse} trong thời gian ô ${s.temp_for_stall} bảo dưỡng 30 phút.`)
+                              : (lang === 'en' ? `Housing racehorse ${s.horse}. Premium equine amenities.` : `Đang nuôi dưỡng chiến mã ${s.horse}. Chuẩn tiện nghi cao cấp.`))
+                          : isAvailable
+                            ? (lang === 'en' ? 'Clean empty stall ready for horse intake.' : 'Ô chuồng trống sạch sẽ, sẵn sàng phân bổ.')
+                            : (lang === 'en'
+                                ? `Under 30-minute maintenance. Horse ${s.horse} temporarily housed in Stall ${s.temp_relocated_to || 'temp'}.`
+                                : `Đang bảo dưỡng định kỳ (30 phút). Chiến mã ${s.horse} tạm trú tại Ô ${s.temp_relocated_to || 'tạm'}.`)}
                       </p>
 
                       <div className="facility-card-bullets">
                         <div className="facility-bullet-item">
                           <span className="bullet-dot" />
-                          <span>{lang === 'en' ? 'Resident horse:' : 'Chiến mã lưu trú:'} <b style={{ color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)' }}>{s.horse}</b></span>
+                          <span>
+                            {lang === 'en' ? 'Resident horse:' : 'Chiến mã lưu trú:'}{' '}
+                            <b style={{ color: (isOccupied || !isAvailable) && s.horse !== '(Trống)' ? 'var(--brass)' : 'var(--paper-dim)' }}>
+                              {s.horse && s.horse !== '(Trống)' ? s.horse : '(Trống)'}
+                            </b>
+                            {s.temp_relocated_to && (
+                              <span style={{ fontSize: '11px', color: '#E86B2C', marginLeft: '6px', fontWeight: 600 }}>
+                                (Tạm trú tại Ô {s.temp_relocated_to})
+                              </span>
+                            )}
+                            {s.is_temp_stall && s.temp_for_stall && (
+                              <span style={{ fontSize: '11px', color: '#3B82F6', marginLeft: '6px', fontWeight: 600 }}>
+                                (Lưu trú tạm từ Ô {s.temp_for_stall})
+                              </span>
+                            )}
+                          </span>
                         </div>
                         <div className="facility-bullet-item">
                           <span className="bullet-dot" />
@@ -2777,13 +3356,17 @@ export default function AdminPage() {
                           <span className="spec-label" style={{ color: 'var(--brass)', fontWeight: 700 }}>
                             {lang === 'en' ? 'Classification' : 'Phân hạng'}
                           </span>
-                          <span className="spec-val" style={{
-                            color: isVip
-                              ? (isDark ? '#FBBF24' : '#78350F')
-                              : (isDark ? '#93C5FD' : '#1E3A8A'),
-                            fontWeight: 800
-                          }}>
-                            {isVip ? (lang === 'en' ? 'VIP Stall' : 'VIP Đặc Quyền') : (lang === 'en' ? 'Standard' : 'Tiêu Chuẩn')}
+                          <span
+                            className="spec-val"
+                            title={isVip ? 'VIP' : (lang === 'en' ? 'Standard' : 'Tiêu chuẩn')}
+                            style={{
+                              color: isVip
+                                ? (isDark ? '#FBBF24' : '#78350F')
+                                : (isDark ? '#93C5FD' : '#1E3A8A'),
+                              fontWeight: 800
+                            }}
+                          >
+                            {isVip ? 'VIP' : (lang === 'en' ? 'Standard' : 'Tiêu chuẩn')}
                           </span>
                         </div>
                       </div>
@@ -2791,30 +3374,87 @@ export default function AdminPage() {
                       <div className="facility-price-box">
                         <div>
                           <div className="price-label">{lang === 'en' ? 'Stall Status' : 'Trạng thái ô'}</div>
-                          <div className="price-value" style={{ fontSize: '14.5px', color: isOccupied ? 'var(--brass)' : 'var(--paper)' }}>
+                          <div
+                            className="price-value"
+                            style={{
+                              fontSize: '14.5px',
+                              color: isOccupied ? (s.is_temp_stall ? '#3B82F6' : 'var(--brass)') : isAvailable ? '#10B981' : '#E86B2C'
+                            }}
+                          >
                             {isOccupied
-                              ? (lang === 'en' ? 'Currently Occupied' : 'Đang nuôi dưỡng')
+                              ? (s.is_temp_stall
+                                  ? (lang === 'en' ? 'Temporary Housing' : 'Lưu trú tạm thời')
+                                  : (lang === 'en' ? 'Currently Occupied' : 'Đang nuôi dưỡng'))
                               : isAvailable
                                 ? (lang === 'en' ? 'Available & Ready' : 'Còn trống sẵn sàng')
-                                : (lang === 'en' ? 'Under Maintenance' : 'Đang bảo dưỡng')}
+                                : (lang === 'en' ? 'Under Maintenance (30m)' : 'Bảo dưỡng định kỳ (30p)')}
                           </div>
                         </div>
                         <span style={{
                           fontSize: '11px',
-                          fontWeight: 600,
-                          padding: '3px 7px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
                           borderRadius: '4px',
-                          background: 'var(--bg-primary)',
-                          color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)',
-                          border: '1px solid var(--line)'
+                          background: isOccupied
+                            ? (s.is_temp_stall ? 'rgba(59, 130, 246, 0.15)' : 'rgba(212, 175, 55, 0.12)')
+                            : isAvailable
+                              ? 'rgba(16, 185, 129, 0.12)'
+                              : 'rgba(232, 107, 44, 0.15)',
+                          color: isOccupied
+                            ? (s.is_temp_stall ? '#3B82F6' : 'var(--brass)')
+                            : isAvailable
+                              ? '#10B981'
+                              : '#E86B2C',
+                          border: isOccupied
+                            ? (s.is_temp_stall ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(212, 175, 55, 0.3)')
+                            : isAvailable
+                              ? '1px solid rgba(16, 185, 129, 0.3)'
+                              : '1px solid rgba(232, 107, 44, 0.4)'
                         }}>
                           {isOccupied
-                            ? (lang === 'en' ? 'OCCUPIED' : 'LẤP ĐẦY')
+                            ? (s.is_temp_stall ? (lang === 'en' ? 'TEMP STALL' : 'CHUỒNG TẠM') : (lang === 'en' ? 'OCCUPIED' : 'LẤP ĐẦY'))
                             : isAvailable
                               ? (lang === 'en' ? 'VACANT' : 'TRỐNG')
-                              : (lang === 'en' ? 'SERVICE' : 'BẢO TRÌ')}
+                              : (lang === 'en' ? 'MAINTENANCE (30M)' : 'BẢO TRÌ (30P)')}
                         </span>
                       </div>
+
+                      {/* Đồng hồ đếm ngược thời gian thực cho bảo dưỡng và chuồng tạm */}
+                      {s.maintenance_end && (
+                        <div style={{
+                          marginTop: '8px',
+                          padding: '7px 12px',
+                          borderRadius: '6px',
+                          background: s.status === 'MAINTENANCE' ? 'rgba(232, 107, 44, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                          border: s.status === 'MAINTENANCE' ? '1px solid rgba(232, 107, 44, 0.35)' : '1px solid rgba(59, 130, 246, 0.35)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px'
+                        }}>
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            color: s.status === 'MAINTENANCE' ? '#E86B2C' : '#60A5FA',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}>
+                            <span>⏱</span>
+                            {s.status === 'MAINTENANCE'
+                              ? (lang === 'en' ? 'Maintenance time left:' : 'Thời gian bảo dưỡng còn lại:')
+                              : (lang === 'en' ? `Auto-return to Stall ${s.temp_for_stall} in:` : `Tự động về ô ${s.temp_for_stall} sau:`)}
+                          </span>
+                          <span style={{
+                            fontSize: '13px',
+                            fontWeight: 800,
+                            fontFamily: 'monospace',
+                            color: s.status === 'MAINTENANCE' ? '#FFA500' : '#93C5FD'
+                          }}>
+                            {formatRemainingTime(s.maintenance_end, currentClock)}
+                          </span>
+                        </div>
+                      )}
 
                       <div className="facility-card-actions">
                         <div className="actions-left" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -2894,19 +3534,31 @@ export default function AdminPage() {
                               ? (isDark ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #D97706')
                               : (isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #2563EB')
                           }}>
-                            {isVip ? (lang === 'en' ? 'VIP Equine' : 'VIP Đặc Quyền') : (lang === 'en' ? 'Standard (Basic)' : 'Tiêu Chuẩn (Cơ Bản)')}
+                            {isVip ? 'VIP' : (lang === 'en' ? 'Standard' : 'Tiêu Chuẩn')}
                           </span>
                         </td>
-                        <td style={{ padding: '14px 18px', color: isOccupied ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 600 }}>
+                        <td style={{ padding: '14px 18px', color: (isOccupied || !isAvailable) && s.horse !== '(Trống)' ? 'var(--brass)' : 'var(--paper-dim)', fontWeight: 600 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {isOccupied && s.horse_avatar && (
+                            {(isOccupied || !isAvailable) && s.horse_avatar && (
                               <img
                                 src={s.horse_avatar}
                                 alt={s.horse}
                                 style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
                               />
                             )}
-                            <span>{s.horse}</span>
+                            <div>
+                              <div>{s.horse && s.horse !== '(Trống)' ? s.horse : '(Trống)'}</div>
+                              {s.temp_relocated_to && (
+                                <div style={{ fontSize: '11px', color: '#E86B2C', fontWeight: 600 }}>
+                                  Tạm trú tại Ô {s.temp_relocated_to} ({formatRemainingTime(s.maintenance_end, currentClock)})
+                                </div>
+                              )}
+                              {s.is_temp_stall && s.temp_for_stall && (
+                                <div style={{ fontSize: '11px', color: '#3B82F6', fontWeight: 600 }}>
+                                  Chuyển tạm từ Ô {s.temp_for_stall} ({formatRemainingTime(s.maintenance_end, currentClock)})
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td style={{ padding: '14px 18px' }}>
@@ -2914,12 +3566,28 @@ export default function AdminPage() {
                             padding: '3px 8px',
                             borderRadius: '4px',
                             fontSize: '11.5px',
-                            fontWeight: 600,
-                            background: 'var(--bg-secondary)',
-                            color: isOccupied ? 'var(--brass)' : 'var(--paper)',
-                            border: '1px solid var(--line)'
+                            fontWeight: 700,
+                            background: isOccupied
+                              ? (s.is_temp_stall ? 'rgba(59, 130, 246, 0.15)' : 'rgba(212, 175, 55, 0.12)')
+                              : isAvailable
+                                ? 'rgba(16, 185, 129, 0.12)'
+                                : 'rgba(232, 107, 44, 0.15)',
+                            color: isOccupied
+                              ? (s.is_temp_stall ? '#3B82F6' : 'var(--brass)')
+                              : isAvailable
+                                ? '#10B981'
+                                : '#E86B2C',
+                            border: isOccupied
+                              ? (s.is_temp_stall ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(212, 175, 55, 0.3)')
+                              : isAvailable
+                                ? '1px solid rgba(16, 185, 129, 0.3)'
+                                : '1px solid rgba(232, 107, 44, 0.4)'
                           }}>
-                            {isOccupied ? (lang === 'en' ? 'Occupied' : 'Đang dùng') : isAvailable ? (lang === 'en' ? 'Available' : 'Còn trống') : (lang === 'en' ? 'Maintenance' : 'Bảo trì')}
+                            {isOccupied
+                              ? (s.is_temp_stall ? (lang === 'en' ? 'TEMP STALL' : 'CHUỒNG TẠM') : (lang === 'en' ? 'Occupied' : 'Đang nuôi dưỡng'))
+                              : isAvailable
+                                ? (lang === 'en' ? 'Available' : 'Còn trống')
+                                : (lang === 'en' ? 'Maintenance (30m)' : 'Bảo dưỡng (30p)')}
                           </span>
                         </td>
                         <td style={{ padding: '14px 18px' }}>
@@ -3160,8 +3828,8 @@ export default function AdminPage() {
           {/* ===================== TAB 4: USERS & RBAC ===================== */}
           {activeTab === 'users' && (
             <div>
-              {/* Cảnh báo tài khoản mới chờ Admin xét duyệt */}
-              {usersList.some(u => u.status === 'PENDING') && (
+              {/* Cảnh báo tài khoản nhân sự mới chờ Admin xét duyệt */}
+              {staffList.some(u => u.status === 'PENDING') && (
                 <div style={{
                   padding: '16px 20px',
                   borderRadius: '12px',
@@ -3190,13 +3858,13 @@ export default function AdminPage() {
                     <div>
                       <div style={{ fontSize: '14.5px', fontWeight: 800, color: '#E86B2C', letterSpacing: '0.02em' }}>
                         {lang === 'en' 
-                          ? `${usersList.filter(u => u.status === 'PENDING').length} new member applications awaiting your approval`
-                          : `Có ${usersList.filter(u => u.status === 'PENDING').length} yêu cầu đăng ký tài khoản thành viên mới đang chờ bạn xét duyệt`}
+                          ? `${staffList.filter(u => u.status === 'PENDING').length} new staff applications awaiting your approval`
+                          : `Có ${staffList.filter(u => u.status === 'PENDING').length} yêu cầu đăng ký tài khoản nhân sự mới đang chờ bạn xét duyệt`}
                       </div>
                       <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginTop: '3px', lineHeight: 1.5 }}>
                         {lang === 'en'
-                          ? 'Once approved by Admin, new accounts begin with fresh zero data, reflecting actual clinical reports in real time.'
-                          : 'Tài khoản mới sau khi được bạn phê duyệt sẽ khởi tạo toàn bộ số liệu từ 0, dữ liệu thực tế bắt đầu ghi nhận từ lúc bạn kích hoạt.'}
+                          ? 'Once approved by Admin, new staff accounts begin with fresh zero data, reflecting actual clinical reports in real time.'
+                          : 'Tài khoản nhân sự mới sau khi được phê duyệt sẽ được phân quyền và bắt đầu làm việc theo chuyên môn.'}
                       </div>
                     </div>
                   </div>
@@ -3228,43 +3896,37 @@ export default function AdminPage() {
                     className={`portal-pill-btn ${userFilter === 'ALL' ? 'active' : ''}`}
                     onClick={() => setUserFilter('ALL')}
                   >
-                    {lang === 'en' ? 'All Staff' : 'Tất cả'} <span className="pill-count">{usersList.length}</span>
+                    {lang === 'en' ? 'All Staff' : 'Tất cả nhân sự'} <span className="pill-count">{staffList.length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'PENDING' ? 'active' : ''}`}
                     onClick={() => setUserFilter('PENDING')}
-                    style={usersList.some(u => u.status === 'PENDING') ? {
+                    style={staffList.some(u => u.status === 'PENDING') ? {
                       borderColor: '#E86B2C',
                       color: userFilter === 'PENDING' ? '#fff' : '#E86B2C',
                       background: userFilter === 'PENDING' ? '#E86B2C' : 'rgba(232, 107, 44, 0.12)',
                       fontWeight: 700
                     } : {}}
                   >
-                    {lang === 'en' ? 'Pending Approval' : 'Chờ Phê Duyệt'} <span className="pill-count" style={{ background: '#E86B2C', color: '#fff' }}>{usersList.filter(u => u.status === 'PENDING').length}</span>
+                    {lang === 'en' ? 'Pending Approval' : 'Chờ Phê Duyệt'} <span className="pill-count" style={{ background: '#E86B2C', color: '#fff' }}>{staffList.filter(u => u.status === 'PENDING').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'TRAINER' ? 'active' : ''}`}
                     onClick={() => setUserFilter('TRAINER')}
                   >
-                    {lang === 'en' ? 'Trainers' : 'Huấn Luyện Viên'} <span className="pill-count">{usersList.filter(u => u.role === 'TRAINER').length}</span>
+                    {lang === 'en' ? 'Trainers' : 'Huấn Luyện Viên'} <span className="pill-count">{staffList.filter(u => u.role === 'TRAINER').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'VET' ? 'active' : ''}`}
                     onClick={() => setUserFilter('VET')}
                   >
-                    {lang === 'en' ? 'Veterinarians' : 'Bác Sĩ Thú Y'} <span className="pill-count">{usersList.filter(u => u.role === 'VET').length}</span>
+                    {lang === 'en' ? 'Veterinarians' : 'Bác Sĩ Thú Y'} <span className="pill-count">{staffList.filter(u => u.role === 'VET').length}</span>
                   </button>
                   <button
                     className={`portal-pill-btn ${userFilter === 'GROOM' ? 'active' : ''}`}
                     onClick={() => setUserFilter('GROOM')}
                   >
-                    {lang === 'en' ? 'Stable Grooms' : 'Chăm Sóc Groom'} <span className="pill-count">{usersList.filter(u => u.role === 'GROOM').length}</span>
-                  </button>
-                  <button
-                    className={`portal-pill-btn ${userFilter === 'OWNER' ? 'active' : ''}`}
-                    onClick={() => setUserFilter('OWNER')}
-                  >
-                    {lang === 'en' ? 'Horse Owners' : 'Chủ Ngựa'} <span className="pill-count">{usersList.filter(u => u.role === 'OWNER').length}</span>
+                    {lang === 'en' ? 'Stable Grooms' : 'Chăm Sóc Groom'} <span className="pill-count">{staffList.filter(u => u.role === 'GROOM').length}</span>
                   </button>
                 </div>
 
@@ -3405,8 +4067,18 @@ export default function AdminPage() {
                                 {u.username !== 'admin' && (
                                   <>
                                     <button
+                                      type="button"
                                       className={`facility-btn-action ${u.status === 'ACTIVE' ? 'btn-danger' : ''}`}
-                                      onClick={() => toggleUserStatus(u.user_id)}
+                                      style={u.status !== 'ACTIVE' ? {
+                                        background: 'rgba(16, 185, 129, 0.15)',
+                                        border: '1px solid rgba(16, 185, 129, 0.45)',
+                                        color: '#10B981',
+                                        fontWeight: 700
+                                      } : {}}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleUserStatus(u);
+                                      }}
                                     >
                                       {u.status === 'ACTIVE' ? (lang === 'en' ? 'Lock' : 'Khóa') : (lang === 'en' ? 'Unlock' : 'Mở')}
                                     </button>
@@ -3548,14 +4220,19 @@ export default function AdminPage() {
                                     {u.username !== 'admin' && (
                                       <>
                                         <button
-                                          onClick={() => toggleUserStatus(u.user_id)}
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleUserStatus(u);
+                                          }}
                                           style={{
                                             padding: '5px 12px',
-                                            background: 'var(--bg-secondary)',
-                                            border: '1px solid var(--line)',
-                                            color: 'var(--paper-dim)',
+                                            background: u.status === 'ACTIVE' ? 'var(--bg-secondary)' : 'rgba(16, 185, 129, 0.15)',
+                                            border: u.status === 'ACTIVE' ? '1px solid var(--line)' : '1px solid rgba(16, 185, 129, 0.45)',
+                                            color: u.status === 'ACTIVE' ? 'var(--paper-dim)' : '#10B981',
                                             borderRadius: '4px',
                                             fontSize: '12px',
+                                            fontWeight: u.status === 'ACTIVE' ? 500 : 700,
                                             cursor: 'pointer'
                                           }}
                                         >
@@ -4079,23 +4756,22 @@ export default function AdminPage() {
               </div>
               <div>
                 <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'RBAC Role' : 'Vai trò Nghiệp vụ (RBAC)'}
+                  {lang === 'en' ? 'RBAC Role (Staff Only)' : 'Vai trò Nhân sự (RBAC Role)'}
                 </label>
-                <div style={{
-                  padding: '10px 12px',
-                  background: 'rgba(212, 175, 55, 0.08)',
-                  border: '1px solid rgba(212, 175, 55, 0.3)',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  color: 'var(--brass)',
-                  fontWeight: 700
-                }}>
-                  {lang === 'en' ? 'Horse Owner (Owner)' : 'Chủ sở hữu Ngựa (Horse Owner)'}
-                </div>
+                <select
+                  value={newUserData.role}
+                  onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
+                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                >
+                  <option value="TRAINER">{lang === 'en' ? 'Head Trainer' : 'Huấn luyện viên Trưởng (Trainer)'}</option>
+                  <option value="VET">{lang === 'en' ? 'Veterinarian (Vet)' : 'Bác sĩ Thú y (Veterinarian)'}</option>
+                  <option value="GROOM">{lang === 'en' ? 'Groom / Caretaker' : 'Nhân viên Chăm sóc (Groom)'}</option>
+                  <option value="MANAGER">{lang === 'en' ? 'Club Manager' : 'Ban Quản lý Câu lạc bộ (Manager)'}</option>
+                </select>
                 <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px', lineHeight: 1.4 }}>
                   {lang === 'en'
-                    ? '* System core staff is fixed (1 Admin, 3 Trainers, 3 Vets, 3 Grooms). New accounts are added as Horse Owners.'
-                    : '* Hệ thống đã định biên cố định 10 nhân sự (1 Admin, 3 HLV, 3 BS Thú y, 3 Groom). Tài khoản mới tạo được phân quyền Chủ sở hữu ngựa để quản lý chiến mã.'}
+                    ? '* Create new staff account for club operations (Trainer, Vet, Groom, Manager).'
+                    : '* Tạo mới tài khoản nhân sự phục vụ vận hành chuồng trại và huấn luyện (HLV, Bác sĩ thú y, Groom, Quản lý).'}
                 </div>
               </div>
 
@@ -4119,153 +4795,419 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* ===================== MODAL CHỈNH SỬA THÔNG TIN NHÂN SỰ ===================== */}
-      {showEditUserModal && editUserData && (
-        <div
-          onClick={() => { setShowEditUserModal(false); setEditUserData(null); }}
-          style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            zIndex: 999998,
-            cursor: 'pointer'
-          }}
-        >
+      {/* ===================== MODAL CHỈNH SỬA THÔNG TIN NHÂN SỰ & HỒ SƠ PHỤC VỤ (GỌN GÀNG) ===================== */}
+      {showEditUserModal && editUserData && (() => {
+        const staffHorses = getStaffAssignedHorsesAndOwners(editUserData);
+        const uniqueOwners = Array.from(new Set(staffHorses.map(h => h.ownerKey))).length;
+        const activeStalls = staffHorses.map(h => h.stable).filter(Boolean);
+
+        // Màu sắc biểu trưng theo vai trò
+        const roleColorMap = {
+          'TRAINER': { bg: 'rgba(245, 158, 11, 0.14)', text: '#F59E0B', border: '#F59E0B', label: 'Huấn luyện viên Trưởng (Trainer)' },
+          'VET': { bg: 'rgba(59, 130, 246, 0.14)', text: '#3B82F6', border: '#3B82F6', label: 'Bác sĩ Thú y (Veterinarian)' },
+          'GROOM': { bg: 'rgba(16, 185, 129, 0.14)', text: '#10B981', border: '#10B981', label: 'Nhân viên Chăm sóc (Groom)' },
+          'MANAGER': { bg: 'rgba(168, 85, 247, 0.14)', text: '#A855F7', border: '#A855F7', label: 'Ban Quản lý (Club Manager)' },
+          'OWNER': { bg: 'rgba(201, 162, 39, 0.14)', text: 'var(--brass)', border: 'var(--brass)', label: 'Chủ sở hữu Ngựa (Owner)' }
+        };
+        const currentRoleStyle = roleColorMap[editUserData.role] || roleColorMap['TRAINER'];
+
+        // Lấy chữ viết tắt tên nhân sự
+        const initials = (editUserData.full_name || 'NS')
+          .split(' ')
+          .filter(Boolean)
+          .slice(-2)
+          .map(w => w[0].toUpperCase())
+          .join('');
+
+        return (
           <div
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => { setShowEditUserModal(false); setEditUserData(null); }}
             style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--line)',
-              borderRadius: '12px',
-              width: '100%',
-              maxWidth: '480px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              padding: '28px',
-              color: 'var(--paper)',
-              boxShadow: 'var(--shadow)',
-              cursor: 'default'
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0, 0, 0, 0.82)',
+              backdropFilter: 'blur(5px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+              zIndex: 999998,
+              cursor: 'pointer'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-              <h3 style={{ fontSize: '18px', margin: 0, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {lang === 'en' ? 'Edit Staff Profile' : 'Sửa Thông Tin Nhân Sự'}
-              </h3>
-              <span style={{ fontSize: '12px', background: 'rgba(201, 162, 39, 0.12)', color: 'var(--brass)', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--brass)', fontWeight: 600 }}>
-                ID: #{editUserData.user_id}
-              </span>
-            </div>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--line)',
+                borderRadius: '14px',
+                width: '100%',
+                maxWidth: '920px',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                padding: '18px 22px',
+                color: 'var(--paper)',
+                boxShadow: '0 20px 50px -10px rgba(0,0,0,0.5)',
+                cursor: 'default',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px'
+              }}
+            >
+              {/* TOP HEADER: Gọn gàng kèm tóm tắt chỉ số */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '50%',
+                      background: currentRoleStyle.bg,
+                      border: `1.5px solid ${currentRoleStyle.border}`,
+                      color: currentRoleStyle.text,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '15px',
+                      fontWeight: 800
+                    }}
+                  >
+                    {initials}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--paper)' }}>
+                        {editUserData.full_name}
+                      </h3>
+                      <span style={{ fontSize: '11px', background: 'rgba(201, 162, 39, 0.12)', color: 'var(--brass)', padding: '1px 6px', borderRadius: '4px', border: '1px solid var(--brass)', fontWeight: 700 }}>
+                        ID: #{editUserData.user_id}
+                      </span>
+                      <span style={{ color: currentRoleStyle.text, fontWeight: 600, background: currentRoleStyle.bg, padding: '1px 6px', borderRadius: '4px', fontSize: '12px' }}>
+                        {currentRoleStyle.label}
+                      </span>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        color: editUserData.status === 'ACTIVE' ? '#10B981' : '#EF4444',
+                        fontWeight: 600,
+                        fontSize: '11.5px'
+                      }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: editUserData.status === 'ACTIVE' ? '#10B981' : '#EF4444' }} />
+                        {editUserData.status === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm khóa'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '3px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                      <span>@{editUserData.username}</span>
+                      <span>•</span>
+                      <span>🏇 <b>{staffHorses.length}</b> chiến mã</span>
+                      <span>•</span>
+                      <span>👑 <b>{uniqueOwners}</b> chủ ngựa</span>
+                      <span>•</span>
+                      <span>📍 <b>{activeStalls.slice(0, 2).join(', ') || 'Block A & B'}</b></span>
+                    </div>
+                  </div>
+                </div>
 
-            <form onSubmit={handleRequestSaveEditUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Full Name' : 'Họ và tên'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={lang === 'en' ? 'Staff full name' : 'Họ và tên nhân sự'}
-                  value={editUserData.full_name}
-                  onChange={(e) => setEditUserData({ ...editUserData, full_name: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Username' : 'Tên đăng nhập (Username)'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Username"
-                  value={editUserData.username}
-                  onChange={(e) => setEditUserData({ ...editUserData, username: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>Email</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="Email"
-                  value={editUserData.email}
-                  onChange={(e) => setEditUserData({ ...editUserData, email: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Phone Number' : 'Số điện thoại'}
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder={lang === 'en' ? 'Phone number' : 'Số điện thoại'}
-                  value={editUserData.phone}
-                  onChange={(e) => setEditUserData({ ...editUserData, phone: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'RBAC Role' : 'Vai trò Nghiệp vụ (RBAC Role)'}
-                </label>
-                <select
-                  value={editUserData.role}
-                  onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                >
-                  <option value="TRAINER">{lang === 'en' ? 'Head Trainer' : 'Huấn luyện viên Trưởng (Trainer)'}</option>
-                  <option value="VET">{lang === 'en' ? 'Veterinarian (Vet)' : 'Bác sĩ Thú y (Veterinarian)'}</option>
-                  <option value="GROOM">{lang === 'en' ? 'Groom / Caretaker' : 'Nhân viên Chăm sóc (Groom)'}</option>
-                  <option value="OWNER">{lang === 'en' ? 'Horse Owner' : 'Chủ sở hữu Ngựa (Owner)'}</option>
-                  <option value="MANAGER">{lang === 'en' ? 'Club Manager' : 'Ban Quản lý Câu lạc bộ (Club Manager)'}</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Account Status' : 'Trạng thái tài khoản'}
-                </label>
-                <select
-                  value={editUserData.status}
-                  onChange={(e) => setEditUserData({ ...editUserData, status: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
-                >
-                  <option value="ACTIVE">{lang === 'en' ? 'Active (ACTIVE)' : 'Đang hoạt động (ACTIVE)'}</option>
-                  <option value="INACTIVE">{lang === 'en' ? 'Suspended (INACTIVE)' : 'Tạm khóa (INACTIVE)'}</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '14px' }}>
                 <button
                   type="button"
                   onClick={() => { setShowEditUserModal(false); setEditUserData(null); }}
-                  style={{ flex: 1, padding: '11px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper-dim)',
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  title="Đóng modal"
                 >
-                  {lang === 'en' ? 'Cancel' : 'Hủy'}
-                </button>
-                <button
-                  type="submit"
-                  style={{ flex: 1, padding: '11px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
-                >
-                  {lang === 'en' ? 'Save Changes' : 'Lưu thay đổi'}
+                  ✕
                 </button>
               </div>
-            </form>
+
+              {/* MAIN CONTENT: 2 CỘT CÂN BẰNG & ĐỒNG BỘ CHIỀU CAO */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(320px, 1fr) minmax(360px, 1.25fr)',
+                gap: '16px',
+                alignItems: 'stretch'
+              }}>
+                {/* CỘT TRÁI: FORM SỬA THÔNG TIN TÀI KHOẢN (CÂN BẰNG CHIỀU CAO) */}
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  boxSizing: 'border-box'
+                }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--paper)', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1px solid var(--line)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>👤</span> {lang === 'en' ? 'Account Details' : 'Thông tin tài khoản & Vai trò'}
+                  </div>
+
+                  <form onSubmit={handleRequestSaveEditUser} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, marginTop: '10px', gap: '10px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
+                            {lang === 'en' ? 'Full Name *' : 'Họ và tên *'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={editUserData.full_name}
+                            onChange={(e) => setEditUserData({ ...editUserData, full_name: e.target.value })}
+                            style={{ width: '100%', padding: '7px 9px', background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '5px', boxSizing: 'border-box', fontSize: '12.5px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
+                            {lang === 'en' ? 'Username *' : 'Username *'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={editUserData.username}
+                            onChange={(e) => setEditUserData({ ...editUserData, username: e.target.value })}
+                            style={{ width: '100%', padding: '7px 9px', background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '5px', boxSizing: 'border-box', fontSize: '12.5px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>Email *</label>
+                          <input
+                            type="email"
+                            required
+                            value={editUserData.email}
+                            onChange={(e) => setEditUserData({ ...editUserData, email: e.target.value })}
+                            style={{ width: '100%', padding: '7px 9px', background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '5px', boxSizing: 'border-box', fontSize: '12.5px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
+                            {lang === 'en' ? 'Phone *' : 'Số điện thoại *'}
+                          </label>
+                          <input
+                            type="tel"
+                            required
+                            value={editUserData.phone}
+                            onChange={(e) => setEditUserData({ ...editUserData, phone: e.target.value })}
+                            style={{ width: '100%', padding: '7px 9px', background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '5px', boxSizing: 'border-box', fontSize: '12.5px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
+                            {lang === 'en' ? 'RBAC Role *' : 'Vai trò RBAC *'}
+                          </label>
+                          <select
+                            value={editUserData.role}
+                            onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
+                            style={{ width: '100%', padding: '7px 8px', background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '5px', boxSizing: 'border-box', fontSize: '12px' }}
+                          >
+                            <option value="TRAINER">{lang === 'en' ? 'Trainer' : 'HLV Trưởng'}</option>
+                            <option value="VET">{lang === 'en' ? 'Veterinarian' : 'Bác sĩ Thú y'}</option>
+                            <option value="GROOM">{lang === 'en' ? 'Groom' : 'Chăm sóc (Groom)'}</option>
+                            <option value="MANAGER">{lang === 'en' ? 'Club Manager' : 'Ban Quản lý'}</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
+                            {lang === 'en' ? 'Status' : 'Trạng thái tài khoản'}
+                          </label>
+                          <select
+                            value={editUserData.status}
+                            onChange={(e) => setEditUserData({ ...editUserData, status: e.target.value })}
+                            style={{ width: '100%', padding: '7px 8px', background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '5px', boxSizing: 'border-box', fontSize: '12px' }}
+                          >
+                            <option value="ACTIVE">{lang === 'en' ? 'Active' : 'Hoạt động (ACTIVE)'}</option>
+                            <option value="INACTIVE">{lang === 'en' ? 'Suspended' : 'Tạm khóa (INACTIVE)'}</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                      <button
+                        type="button"
+                        onClick={() => { setShowEditUserModal(false); setEditUserData(null); }}
+                        style={{ flex: 1, padding: '9px', background: 'transparent', border: '1px solid var(--line)', color: 'var(--paper-dim)', borderRadius: '5px', cursor: 'pointer', fontWeight: 600, fontSize: '12.5px' }}
+                      >
+                        {lang === 'en' ? 'Cancel' : 'Hủy'}
+                      </button>
+                      <button
+                        type="submit"
+                        style={{ flex: 1.2, padding: '9px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '5px', cursor: 'pointer', fontSize: '12.5px' }}
+                      >
+                        {lang === 'en' ? 'Save Changes' : 'Lưu thay đổi'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* CỘT PHẢI: DANH SÁCH CHIẾN MÃ & CHỦ SỞ HỮU (CÂN BẰNG CHIỀU CAO) */}
+                <div style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
+                  boxSizing: 'border-box'
+                }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--paper)', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1px solid var(--line)', paddingBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🏇</span> {lang === 'en' ? 'Assigned Horses' : 'Chiến mã & Chủ sở hữu phục vụ'} ({staffHorses.length})
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 500, textTransform: 'none' }}>
+                      Chuyên trách nghiệp vụ
+                    </span>
+                  </div>
+
+                  {staffHorses.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto', marginTop: '10px', paddingRight: '2px' }}>
+                      {staffHorses.map((h, idx) => (
+                        <div
+                          key={h.id || idx}
+                          style={{
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--line)',
+                            borderRadius: '8px',
+                            padding: '9px 12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                          }}
+                        >
+                          {/* Hàng 1: Chiến mã + Chuồng + Xác nhận/Chờ xác nhận */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                              <span style={{ fontSize: '16px', flexShrink: 0 }}>🐎</span>
+                              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontWeight: 800, color: 'var(--brass)', fontSize: '13.5px' }}>{h.horseName}</span>
+                                <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginLeft: '6px' }}>
+                                  ({h.breed} • {h.age})
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                color: 'var(--brass)',
+                                background: 'rgba(201, 162, 39, 0.12)',
+                                border: '1px solid var(--brass)',
+                                padding: '2px 7px',
+                                borderRadius: '4px',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                📍 {h.stable}
+                              </span>
+                              {h.status === 'CONFIRMED' ? (
+                                <span style={{
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  color: '#10B981',
+                                  background: 'rgba(16, 185, 129, 0.12)',
+                                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  ✓ ĐÃ XÁC NHẬN
+                                </span>
+                              ) : (
+                                <span style={{
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  color: '#F59E0B',
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  ⏳ CHỜ XÁC NHẬN
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Hàng 2: Chủ sở hữu chiến mã */}
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '11.5px',
+                            background: 'var(--bg-secondary)',
+                            padding: '5px 8px',
+                            borderRadius: '5px',
+                            border: '1px solid var(--line)',
+                            flexWrap: 'wrap',
+                            gap: '4px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <span style={{ color: 'var(--paper-dim)' }}>Chủ ngựa:</span>
+                              <b style={{ color: 'var(--paper)' }}>{h.ownerFullName}</b>
+                              <span style={{ color: 'var(--paper-dim)', fontSize: '11px' }}>@{h.ownerKey}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--paper-dim)' }}>
+                              <span>📞 <b style={{ color: 'var(--paper)' }}>{h.ownerPhone}</b></span>
+                              <span>✉️ {h.ownerEmail}</span>
+                            </div>
+                          </div>
+
+                          {/* Hàng 3: Nghiệp vụ */}
+                          <div style={{ fontSize: '11px', color: 'var(--paper-dim)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span>★ {h.scope}</span>
+                            <span>Chip: {h.microchip}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      background: 'var(--bg-card)',
+                      border: '1px dashed var(--line)',
+                      borderRadius: '8px',
+                      padding: '24px 16px',
+                      textAlign: 'center',
+                      color: 'var(--paper-dim)',
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginTop: '10px'
+                    }}>
+                      <div style={{ fontSize: '24px', marginBottom: '4px' }}>🐎</div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--paper)', marginBottom: '3px' }}>
+                        Chưa có phân công chiến mã
+                      </div>
+                      <div style={{ fontSize: '11.5px', lineHeight: '1.4' }}>
+                        Nhân sự này hiện chưa được chủ sở hữu nào chỉ định phân công phục vụ.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ===================== MODAL XÁC NHẬN SỬA THÔNG TIN ===================== */}
       {showConfirmEditModal && editUserData && (
@@ -4514,50 +5456,68 @@ export default function AdminPage() {
             style={{
               background: 'var(--bg-card)',
               border: '1px solid var(--line)',
-              borderRadius: '12px',
+              borderRadius: '14px',
               width: '100%',
-              maxWidth: '520px',
+              maxWidth: '540px',
               maxHeight: '90vh',
               overflowY: 'auto',
-              padding: '28px',
+              padding: '26px 28px',
               color: 'var(--paper)',
               boxShadow: 'var(--shadow)',
               cursor: 'default'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'rgba(201, 162, 39, 0.15)',
-                color: 'var(--brass)'
-              }}>
-                <IconStable />
-              </span>
-              <h3 style={{ fontSize: '19px', margin: 0, color: 'var(--paper)', fontWeight: 700 }}>
-                {lang === 'en' ? 'Create New Barn Stall' : 'Khởi Tạo Ô Chuồng Mới'}
-              </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  background: 'rgba(201, 162, 39, 0.15)',
+                  color: 'var(--brass)'
+                }}>
+                  <IconStable />
+                </span>
+                <h3 style={{ fontSize: '19px', margin: 0, color: 'var(--paper)', fontWeight: 800 }}>
+                  {lang === 'en' ? 'Create New Barn Stall' : 'Khởi Tạo Ô Chuồng Mới'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddStallModal(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--paper-dim)',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  lineHeight: 1
+                }}
+                title="Đóng"
+              >
+                ✕
+              </button>
             </div>
             <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: '0 0 18px', lineHeight: '1.4' }}>
               {lang === 'en'
-                ? 'Register a new barn stall unit into the facility network with standard 3D simulation.'
-                : 'Thêm mới ô chuồng nuôi dưỡng chiến mã vào hệ thống trang trại với mô hình 3D chuẩn hóa.'}
+                ? 'Register a new barn stall unit into the facility network with customizable photo or standard 3D simulation.'
+                : 'Thêm mới ô chuồng nuôi dưỡng chiến mã vào trang trại với tùy chọn tải ảnh thực tế hoặc dùng mô phỏng 3D.'}
             </p>
 
             <form onSubmit={handleCreateStall} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                  <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '5px', fontWeight: 700 }}>
                     {lang === 'en' ? 'Stall Code *' : 'Mã ô chuồng *'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder={lang === 'en' ? 'e.g. C1, B7, VIP-1' : 'Ví dụ: C1, B7, VIP-1'}
+                    placeholder={lang === 'en' ? 'e.g. C1, B7, VIP-1' : 'Ví dụ: C6, B2, A1'}
                     value={newStallData.stall_code}
                     onChange={(e) => {
                       const codeVal = e.target.value.toUpperCase();
@@ -4568,12 +5528,22 @@ export default function AdminPage() {
                         tier: isVipCode ? 'VIP' : prev.tier
                       }));
                     }}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box', fontWeight: 700 }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box',
+                      fontWeight: 800,
+                      fontSize: '14px'
+                    }}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
-                    {lang === 'en' ? 'Barn Block / Zone' : 'Khu vực chuồng'}
+                  <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '5px', fontWeight: 700 }}>
+                    {lang === 'en' ? 'Barn Block / Zone *' : 'Khu vực chuồng *'}
                   </label>
                   <select
                     value={newStallData.block}
@@ -4586,117 +5556,199 @@ export default function AdminPage() {
                         tier: isVipBlock ? 'VIP' : 'STANDARD'
                       });
                     }}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box',
+                      fontWeight: 600,
+                      fontSize: '13.5px'
+                    }}
                   >
-                    <option value="Block A">{lang === 'en' ? 'Block A (Main Training - VIP)' : 'Block A (Huấn luyện chính - VIP)'}</option>
-                    <option value="Block B">{lang === 'en' ? 'Block B (Standard VIP Stalls)' : 'Block B (Chuồng tiêu chuẩn VIP)'}</option>
-                    <option value="Block C">{lang === 'en' ? 'Block C (Standard Stalls)' : 'Block C (Chuồng thường tiêu chuẩn)'}</option>
-                    <option value="Block VIP">{lang === 'en' ? 'Block VIP (Equine Luxury)' : 'Block VIP (Chuồng cao cấp đặc quyền)'}</option>
-                    <option value="Khu Y Tế">{lang === 'en' ? 'Vet Clinic & Quarantine' : 'Khu Y Tế & Cách Ly'}</option>
+                    <option value="Block A">{lang === 'en' ? 'Block A (Main VIP)' : 'Block A (Huấn luyện VIP)'}</option>
+                    <option value="Block B">{lang === 'en' ? 'Block B (Standard VIP)' : 'Block B (Tiêu chuẩn VIP)'}</option>
+                    <option value="Block C">{lang === 'en' ? 'Block C (Standard)' : 'Block C (Chuồng thường)'}</option>
+                    <option value="Block VIP">{lang === 'en' ? 'Block VIP (Suite)' : 'Block VIP (Đặc quyền VIP)'}</option>
+                    <option value="Khu Y Tế">{lang === 'en' ? 'Vet Clinic & Care' : 'Khu Y Tế & Khám bệnh'}</option>
                   </select>
                 </div>
               </div>
 
-              {/* Phân hạng ô chuồng: Thường vs VIP */}
+              {/* Phân hạng ô chuồng: Thường vs VIP (Cân bằng & thẩm mỹ cao) */}
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-                  {lang === 'en' ? 'Stall Tier Classification *' : 'Phân Hạng Ô Chuồng (VIP / Chuồng Thường) *'}
+                <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '6px', fontWeight: 700 }}>
+                  {lang === 'en' ? 'Stall Tier Classification *' : 'Phân Hạng Ô Chuồng (VIP / Tiêu Chuẩn) *'}
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <button
                     type="button"
                     onClick={() => setNewStallData({ ...newStallData, tier: 'STANDARD' })}
                     style={{
-                      padding: '10px 14px',
+                      padding: '11px 12px',
                       borderRadius: '8px',
                       cursor: 'pointer',
-                      border: newStallData.tier === 'STANDARD' ? '2px solid var(--brass)' : '1px solid var(--line)',
-                      background: newStallData.tier === 'STANDARD' ? 'rgba(201, 162, 39, 0.12)' : 'var(--bg-secondary)',
-                      color: newStallData.tier === 'STANDARD' ? 'var(--brass)' : 'var(--paper-dim)',
-                      fontWeight: 700,
-                      fontSize: '13px',
+                      border: newStallData.tier === 'STANDARD'
+                        ? (isDark ? '2px solid #3B82F6' : '2px solid #1D4ED8')
+                        : '1px solid var(--line)',
+                      background: newStallData.tier === 'STANDARD'
+                        ? (isDark ? 'rgba(59, 130, 246, 0.16)' : '#DBEAFE')
+                        : 'var(--bg-secondary)',
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '8px',
-                      transition: 'all 0.2s ease'
+                      gap: '4px',
+                      transition: 'all 0.15s ease',
+                      boxShadow: newStallData.tier === 'STANDARD' ? (isDark ? 'none' : '0 1px 3px rgba(29,78,216,0.15)') : 'none'
                     }}
                   >
-                    <span style={{ fontSize: "11px", fontWeight: 700 }}>[TIÊU CHUẨN]</span>
-                    <span>{lang === 'en' ? 'Standard Stall' : 'Chuồng Thường (Tiêu chuẩn)'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{
+                        fontSize: '9.5px',
+                        fontWeight: 800,
+                        background: isDark ? '#3B82F6' : '#1D4ED8',
+                        color: '#FFFFFF',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
+                      }}>
+                        TIÊU CHUẨN
+                      </span>
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        color: newStallData.tier === 'STANDARD'
+                          ? (isDark ? '#93C5FD' : '#1E3A8A')
+                          : 'var(--paper)'
+                      }}>
+                        {lang === 'en' ? 'Standard' : 'Chuồng Thường'}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                      {lang === 'en' ? 'All horse owners' : 'Tất cả chủ sở hữu'}
+                    </span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setNewStallData({ ...newStallData, tier: 'VIP' })}
                     style={{
-                      padding: '10px 14px',
+                      padding: '11px 12px',
                       borderRadius: '8px',
                       cursor: 'pointer',
-                      border: newStallData.tier === 'VIP' ? '2px solid #F59E0B' : '1px solid var(--line)',
-                      background: newStallData.tier === 'VIP' ? 'rgba(245, 158, 11, 0.18)' : 'var(--bg-secondary)',
-                      color: newStallData.tier === 'VIP' ? '#FBBF24' : 'var(--paper-dim)',
-                      fontWeight: 700,
-                      fontSize: '13px',
+                      border: newStallData.tier === 'VIP'
+                        ? (isDark ? '2px solid #F59E0B' : '2px solid #B45309')
+                        : '1px solid var(--line)',
+                      background: newStallData.tier === 'VIP'
+                        ? (isDark ? 'rgba(245, 158, 11, 0.18)' : '#FEF3C7')
+                        : 'var(--bg-secondary)',
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '8px',
-                      transition: 'all 0.2s ease'
+                      gap: '4px',
+                      transition: 'all 0.15s ease',
+                      boxShadow: newStallData.tier === 'VIP' ? (isDark ? 'none' : '0 1px 3px rgba(180,83,9,0.15)') : 'none'
                     }}
                   >
-                    <span style={{ fontSize: "11px", fontWeight: 700 }}>[VIP]</span>
-                    <span>{lang === 'en' ? 'VIP Stall' : 'Chuồng VIP (Chỉ VIP thấy)'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{
+                        fontSize: '9.5px',
+                        fontWeight: 800,
+                        background: isDark ? '#F59E0B' : '#B45309',
+                        color: '#FFFFFF',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
+                      }}>
+                        VIP
+                      </span>
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        color: newStallData.tier === 'VIP'
+                          ? (isDark ? '#FBBF24' : '#78350F')
+                          : 'var(--paper)'
+                      }}>
+                        {lang === 'en' ? 'VIP Stall' : 'Chuồng VIP'}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                      {lang === 'en' ? 'Exclusive to VIP members' : 'Dành riêng gói VIP'}
+                    </span>
                   </button>
-                </div>
-                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '5px' }}>
-                  {newStallData.tier === 'VIP'
-                    ? 'Chuồng VIP: Chỉ các chủ sở hữu có đăng ký gói VIP mới thấy ô chuồng này khi đăng ký ngựa.'
-                    : 'Chuồng Thường: Hiển thị cho tất cả chủ sở hữu (cả người chưa VIP lẫn người có VIP).'}
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                  <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '5px', fontWeight: 700 }}>
                     {lang === 'en' ? 'Floor Area' : 'Diện tích ô chuồng'}
                   </label>
                   <select
                     value={newStallData.area}
                     onChange={(e) => setNewStallData({ ...newStallData, area: e.target.value })}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box',
+                      fontSize: '13.5px'
+                    }}
                   >
-                    <option value="14 m²">14 m² (Tiêu chuẩn A)</option>
-                    <option value="16 m²">16 m² (Rộng rãi B)</option>
-                    <option value="18 m²">18 m² (Cao cấp C)</option>
-                    <option value="20 m²">20 m² (VIP Suite)</option>
+                    <option value="14 m²">{lang === 'en' ? '14 m² (Standard A)' : '14 m² (Tiêu chuẩn A)'}</option>
+                    <option value="16 m²">{lang === 'en' ? '16 m² (Spacious B)' : '16 m² (Rộng rãi B)'}</option>
+                    <option value="18 m²">{lang === 'en' ? '18 m² (Premium C)' : '18 m² (Cao cấp C)'}</option>
+                    <option value="20 m²">{lang === 'en' ? '20 m² (VIP Suite)' : '20 m² (VIP Suite)'}</option>
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                  <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '5px', fontWeight: 700 }}>
                     {lang === 'en' ? 'Dimensions' : 'Kích thước thiết kế'}
                   </label>
                   <select
                     value={newStallData.dim}
                     onChange={(e) => setNewStallData({ ...newStallData, dim: e.target.value })}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box',
+                      fontSize: '13.5px'
+                    }}
                   >
-                    <option value="3.8 x 3.8m">3.8 x 3.8m</option>
-                    <option value="4.0 x 4.0m">4.0 x 4.0m</option>
-                    <option value="4.2 x 4.2m">4.2 x 4.2m</option>
-                    <option value="4.5 x 4.5m">4.5 x 4.5m</option>
+                    <option value="3.8 x 3.8m">3.8 × 3.8m</option>
+                    <option value="4.0 x 4.0m">4.0 × 4.0m</option>
+                    <option value="4.2 x 4.2m">4.2 × 4.2m</option>
+                    <option value="4.5 x 4.5m">4.5 × 4.5m</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '5px', fontWeight: 700 }}>
                   {lang === 'en' ? 'Initial Status' : 'Trạng thái ban đầu'}
                 </label>
                 <select
                   value={newStallData.status}
                   onChange={(e) => setNewStallData({ ...newStallData, status: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper)',
+                    borderRadius: '8px',
+                    boxSizing: 'border-box',
+                    fontSize: '13.5px'
+                  }}
                 >
                   <option value="AVAILABLE">{lang === 'en' ? 'AVAILABLE (Vacant, clean & ready)' : 'AVAILABLE (Trống, sạch sẽ sẵn sàng phân bổ)'}</option>
                   <option value="OCCUPIED">{lang === 'en' ? 'OCCUPIED (Housing a racehorse)' : 'OCCUPIED (Đang có chiến mã ở)'}</option>
@@ -4706,7 +5758,7 @@ export default function AdminPage() {
               {newStallData.status === 'OCCUPIED' && (
                 <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div>
-                    <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
                       {lang === 'en' ? 'Racehorse Name' : 'Tên chiến mã đang ở'}
                     </label>
                     <input
@@ -4718,7 +5770,7 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '12.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
                       {lang === 'en' ? 'Horse Breed' : 'Giống ngựa'}
                     </label>
                     <select
@@ -4734,26 +5786,108 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* Preview hình ảnh mô phỏng 3D */}
-              <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--line)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600 }}>
-                    {lang === 'en' ? '3D Architectural Simulation Preview' : 'Ảnh mô phỏng 3D kiến trúc tự động'}
-                  </span>
-                  <span style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 700 }}>
-                    {newStallData.status === 'OCCUPIED' ? (lang === 'en' ? 'Occupied Box Stall' : 'Ô có chiến mã') : (lang === 'en' ? 'Standard Vacant Stall' : 'Ô chuồng chuẩn')}
-                  </span>
+              {/* Hình ảnh ô chuồng: Admin tải ảnh thực tế hoặc dùng ảnh 3D mô phỏng */}
+              <div style={{
+                background: 'var(--bg-secondary)',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                border: '1px solid var(--line)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <span style={{ fontSize: '12.5px', color: 'var(--paper)', fontWeight: 700, display: 'block' }}>
+                      {lang === 'en' ? 'Stall Photo / Architectural Image' : 'Hình ảnh ô chuồng'}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                      {newStallData.stall_image
+                        ? (lang === 'en' ? 'Custom uploaded stall photo' : 'Đã tải ảnh thực tế tùy chỉnh')
+                        : (lang === 'en' ? 'Standard 3D simulation preview' : 'Ảnh 3D mô phỏng kiến trúc tự động')}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {newStallData.stall_image && (
+                      <button
+                        type="button"
+                        onClick={() => setNewStallData(prev => ({ ...prev, stall_image: '' }))}
+                        style={{
+                          padding: '5px 9px',
+                          fontSize: '11px',
+                          borderRadius: '5px',
+                          background: 'transparent',
+                          border: '1px solid var(--line)',
+                          color: 'var(--paper-dim)',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        {lang === 'en' ? 'Reset to 3D' : 'Dùng ảnh 3D'}
+                      </button>
+                    )}
+
+                    <label
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        borderRadius: '6px',
+                        background: 'var(--brass)',
+                        color: '#14100A',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title="Chọn ảnh chuồng từ máy tính"
+                    >
+                      <span>{newStallData.stall_image ? (lang === 'en' ? 'Change photo' : 'Đổi ảnh khác') : (lang === 'en' ? '+ Upload Photo' : '+ Tải ảnh chuồng lên')}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={handleUploadNewStallImage}
+                      />
+                    </label>
+                  </div>
                 </div>
-                <div style={{ height: '90px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--line)' }}>
+
+                <div style={{
+                  position: 'relative',
+                  height: '110px',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  border: '1px solid var(--line)',
+                  background: '#0B111A'
+                }}>
                   <img
-                    src={newStallData.status === 'OCCUPIED' ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg'}
-                    alt="Simulation Preview"
+                    src={newStallData.stall_image || (newStallData.status === 'OCCUPIED' ? '/images/stall_simulation_occupied.jpg' : '/images/stall_simulation_vacant.jpg')}
+                    alt="Stall Preview"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '8px',
+                    left: '8px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    background: 'rgba(0,0,0,0.75)',
+                    backdropFilter: 'blur(4px)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    color: newStallData.stall_image ? '#10B981' : 'var(--brass)'
+                  }}>
+                    <span>{newStallData.stall_image ? '✓ Ảnh thực tế tải lên' : 'Mô phỏng 3D chuẩn'}</span>
+                  </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
                 <button
                   type="button"
                   onClick={() => setShowAddStallModal(false)}
@@ -4763,9 +5897,10 @@ export default function AdminPage() {
                     background: 'var(--bg-secondary)',
                     border: '1px solid var(--line)',
                     color: 'var(--paper)',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    fontWeight: 600
+                    fontWeight: 700,
+                    fontSize: '13.5px'
                   }}
                 >
                   {lang === 'en' ? 'Cancel' : 'Hủy bỏ'}
@@ -4773,15 +5908,16 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   style={{
-                    flex: 1.3,
+                    flex: 1.4,
                     padding: '11px',
                     background: 'var(--brass)',
                     border: 'none',
                     color: '#14100A',
-                    fontWeight: 700,
-                    borderRadius: '6px',
+                    fontWeight: 800,
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    fontSize: '14px'
+                    fontSize: '14px',
+                    boxShadow: '0 4px 12px rgba(201, 162, 39, 0.3)'
                   }}
                 >
                   {lang === 'en' ? 'Create Stall' : 'Tạo Ô Chuồng Mới'}
@@ -5054,25 +6190,6 @@ export default function AdminPage() {
                   </div>
                 </div>
               )}
-
-              {/* Preview trạng thái và ảnh 3D sau khi đổi */}
-              <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--line)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--paper-dim)', fontWeight: 600 }}>
-                    {lang === 'en' ? 'Resulting 3D Simulation' : 'Ảnh mô phỏng 3D sau thay đổi'}
-                  </span>
-                  <span style={{ fontSize: '11px', color: selectedHorseOption === 'VACANT' ? '#3B82F6' : 'var(--brass)', fontWeight: 700 }}>
-                    {selectedHorseOption === 'VACANT' ? (lang === 'en' ? 'Vacant Stall Model' : 'Mô hình chuồng trống') : (lang === 'en' ? 'Occupied Stall Model' : 'Mô hình chuồng có chiến mã')}
-                  </span>
-                </div>
-                <div style={{ height: '80px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--line)' }}>
-                  <img
-                    src={selectedHorseOption === 'VACANT' ? '/images/stall_simulation_vacant.jpg' : '/images/stall_simulation_occupied.jpg'}
-                    alt="Simulation"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                </div>
-              </div>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
                 <button

@@ -15,10 +15,13 @@ function HRLogo() {
 }
 
 export default function Navbar({ onOpenAuth }) {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, usersList } = useAuth();
   const { lang, toggleLang, t } = useLanguage();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const currentInList = usersList?.find(u => Number(u.user_id) === Number(currentUser?.user_id) || u.username === currentUser?.username);
+  const isAccountLocked = currentUser && currentUser.username !== 'admin' && ((currentInList?.status && currentInList.status !== 'ACTIVE') || (currentUser.status && currentUser.status !== 'ACTIVE'));
   const [activeMega, setActiveMega] = useState(null);
   const navRef = useRef(null);
   const location = useLocation();
@@ -178,7 +181,24 @@ export default function Navbar({ onOpenAuth }) {
 
           {currentUser ? (
             <>
-              {currentUser.role === 'TRAINER' ? (
+              {isAccountLocked ? (
+                <span
+                  className="btn btn-outline"
+                  style={{
+                    borderColor: 'rgba(239, 68, 68, 0.45)',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    color: '#EF4444',
+                    cursor: 'not-allowed',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    padding: '7px 12px',
+                    borderRadius: '6px'
+                  }}
+                  title="Tài khoản này đang bị Quản trị viên tạm khóa quyền truy cập"
+                >
+                  🔒 Tạm khóa ({currentUser.full_name || currentUser.username})
+                </span>
+              ) : currentUser.role === 'TRAINER' ? (
                 <Link to="/trainer" className="btn btn-solid btn-role-trainer nav-role-btn" onClick={closeMenus}>
                   <span className="nav-btn-text">{t('trainerPortal')} ({currentUser.full_name || currentUser.username})</span>
                 </Link>
@@ -330,7 +350,22 @@ export default function Navbar({ onOpenAuth }) {
               </div>
 
               <div className="mainnav-mobile-buttons">
-                {currentUser.role === 'TRAINER' ? (
+                {isAccountLocked ? (
+                  <div
+                    style={{
+                      padding: '8px 12px',
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      borderRadius: '6px',
+                      color: '#EF4444',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      textAlign: 'center'
+                    }}
+                  >
+                    🔒 Tài khoản đang bị Admin tạm khóa truy cập
+                  </div>
+                ) : currentUser.role === 'TRAINER' ? (
                   <Link to="/trainer" className="btn btn-solid btn-role-trainer" onClick={closeMenus}>
                     {t('trainerPortal')} ({currentUser.full_name || currentUser.username})
                   </Link>
