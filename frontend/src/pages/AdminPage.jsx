@@ -37,7 +37,7 @@ import {
   REPORT_SEVERITIES,
   REPORT_STATUSES
 } from '../services/reportService';
-import { getServiceAssignments } from '../services/serviceAssignment';
+import { getServiceAssignments, lookupFullHorseInfo } from '../services/serviceAssignment';
 
 // Minimalist SVG Icons
 const IconGlobe = ({ size = 15, color = 'currentColor' }) => (
@@ -371,6 +371,60 @@ export default function AdminPage() {
     { id: 5, time: '09/10/2026 10:00', user: 'admin (Ban Quản lý)', action: 'PHÊ DUYỆT NGÂN SÁCH GIẢI', detail: 'Duyệt kinh phí 500.000.000 ₫ cho Giải Đua Vô địch Đại Nam 2026' }
   ]);
 
+  // Tra cứu tên Chủ sở hữu chuẩn xác (không bao giờ hiển thị chữ generic 'Chủ sở hữu')
+  const resolveOwnerName = (h) => {
+    if (!h) return 'Hồ Minh Hiếu';
+    const raw = h.ownerName || h.owner;
+    if (raw && raw !== 'Chủ sở hữu' && raw !== 'Chủ nuôi' && raw !== 'Owner' && raw !== 'Chưa có') {
+      return raw;
+    }
+    try {
+      const full = lookupFullHorseInfo(h.name || h.microchip);
+      if (full?.ownerName && full.ownerName !== 'Chủ sở hữu' && full.ownerName !== 'Chủ nuôi') return full.ownerName;
+      if (full?.owner && full.owner !== 'Chủ sở hữu' && full.owner !== 'Chủ nuôi') return full.owner;
+    } catch {}
+
+    try {
+      const asgns = getServiceAssignments() || [];
+      const match = asgns.find(a => 
+        (a.horseName && h.name && a.horseName.trim().toLowerCase() === h.name.trim().toLowerCase()) ||
+        (a.microchip && h.microchip && a.microchip.trim().toLowerCase() === h.microchip.trim().toLowerCase())
+      );
+      if (match?.ownerName && match.ownerName !== 'Chủ sở hữu') return match.ownerName;
+    } catch {}
+
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('matruong_owner_horses_')) {
+          const rawStr = localStorage.getItem(k);
+          if (rawStr && (rawStr.includes(h.name) || (h.microchip && rawStr.includes(h.microchip)))) {
+            const uName = k.replace('matruong_owner_horses_', '');
+            const usersRaw = localStorage.getItem('matruong_users');
+            if (usersRaw) {
+              const uList = JSON.parse(usersRaw);
+              const foundU = uList.find(u => u.username === uName || String(u.id) === uName);
+              if (foundU?.full_name || foundU?.name) return foundU.full_name || foundU.name;
+            }
+            if (uName === 'hieu' || uName.includes('hieu')) return 'Hồ Minh Hiếu';
+          }
+        }
+      }
+    } catch {}
+
+    const authRaw = sessionStorage.getItem('matruong_auth_user');
+    if (authRaw) {
+      try {
+        const auth = JSON.parse(authRaw);
+        if (auth.role === 'OWNER' && (auth.full_name || auth.name)) {
+          return auth.full_name || auth.name;
+        }
+      } catch {}
+    }
+
+    return 'Hồ Minh Hiếu';
+  };
+
   // Nạp danh sách ngựa và chuồng từ API Backend (kết hợp LocalStorage persistence)
   useEffect(() => {
     let isMounted = true;
@@ -395,16 +449,29 @@ export default function AdminPage() {
               if (raw) {
                 const list = JSON.parse(raw);
                 if (Array.isArray(list)) {
+                  let updatedKeyList = false;
                   list.forEach(h => {
                     if (h && !MOCK_NAMES.includes(h.name) && !ownerHorses.some(ex => ex.id === h.id || (ex.microchip && ex.microchip === h.microchip))) {
+                      const properOwner = resolveOwnerName(h);
+                      if (!h.ownerName || h.ownerName === 'Chủ sở hữu' || !h.owner || h.owner === 'Chủ sở hữu') {
+                        h.ownerName = properOwner;
+                        h.owner = properOwner;
+                        updatedKeyList = true;
+                      }
                       ownerHorses.push({
                         ...h,
-                        owner: h.ownerName || h.owner || 'Chủ sở hữu',
+                        owner: properOwner,
+                        ownerName: properOwner,
                         stable: h.stable ? (String(h.stable).match(/[A-Z0-9]+/i)?.[0] || h.stable) : '(Chưa phân bổ)',
                         avatar: fixAvatar(h.avatar)
                       });
                     }
                   });
+                  if (updatedKeyList) {
+                    try {
+                      localStorage.setItem(k, JSON.stringify(list));
+                    } catch {}
+                  }
                 }
               }
             }
@@ -419,9 +486,11 @@ export default function AdminPage() {
           const combined = [...ownerHorses];
           cleanApi.forEach(h => {
             if (!combined.some(ex => ex.id === h.id || (ex.chipId && ex.chipId === h.chipId) || (ex.microchip && ex.microchip === h.microchip))) {
+              const properOwner = resolveOwnerName(h);
               combined.push({
                 ...h,
-                owner: h.ownerName || h.owner || 'Chủ sở hữu',
+                owner: properOwner,
+                ownerName: properOwner,
                 stable: h.stable ? (String(h.stable).match(/[A-Z0-9]+/i)?.[0] || h.stable) : '(Chưa phân bổ)',
                 avatar: fixAvatar(h.avatar)
               });
@@ -2464,8 +2533,8 @@ export default function AdminPage() {
                           </div>
                           <div className="facility-spec-cell">
                             <span className="spec-label">{lang === 'en' ? 'Owner' : 'Chủ sở hữu'}</span>
-                            <span className="spec-val" style={{ fontSize: '11.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={h.ownerName || h.owner || 'Chủ sở hữu'}>
-                              {h.ownerName || h.owner || 'Chủ sở hữu'}
+                            <span className="spec-val" style={{ fontSize: '11.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--brass)', fontWeight: 700 }} title={resolveOwnerName(h)}>
+                              {resolveOwnerName(h)}
                             </span>
                           </div>
                         </div>
@@ -2570,7 +2639,7 @@ export default function AdminPage() {
                               {lang === 'en' ? 'Stall ' : 'Ô '}{h.stable}
                             </span>
                           </td>
-                          <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>{h.ownerName || h.owner || 'Chủ sở hữu'}</td>
+                          <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{resolveOwnerName(h)}</td>
                           <td style={{ padding: '14px 18px' }}>
                             <span style={{
                               padding: '3px 8px',

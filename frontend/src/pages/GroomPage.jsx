@@ -255,7 +255,7 @@ export default function GroomPage() {
   }, []);
 
   useEffect(() => {
-    setStalls(prev => prev.map(s => {
+    setAssignedStalls(prev => prev.map(s => {
       if (s.ownerName === 'Phạm Tiến Thành' || s.owner === 'Phạm Tiến Thành' || ['Hắc Phong', 'Xích Thố', 'Phi Yến', 'Lôi Chấn', 'Bạch Long'].includes(s.horseName)) {
         return {
           ...s,
@@ -265,7 +265,11 @@ export default function GroomPage() {
           status: 'AVAILABLE',
           occupied: false,
           ownerName: undefined,
-          owner: undefined
+          owner: undefined,
+          bedding: s.bedding || 'Mùn cưa sạch',
+          waterLevel: s.waterLevel || '100%',
+          temp: s.temp || '26.5°C',
+          lastCleaned: s.lastCleaned || 'Sáng nay'
         };
       }
       return s;
@@ -996,123 +1000,175 @@ export default function GroomPage() {
               })()}
 
               <div className="portal-cards-grid" style={{ display: 'grid', gap: '16px' }}>
-                {assignedStalls.map((s) => (
-                  <div key={s.code} className="facility-card" style={{ padding: '18px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          background: 'rgba(212, 175, 55, 0.15)',
-                          color: 'var(--brass)',
-                          fontWeight: 800,
-                          fontSize: '14px',
-                          border: '1px solid var(--line-strong)'
-                        }}>
-                          {s.code}
-                        </span>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <b style={{ fontSize: '15px', color: 'var(--paper)' }}>{s.horseName}</b>
-                            {s.horseName && !s.horseName.includes('trống') && !s.horseName.includes('Trống') && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const full = lookupFullHorseInfo(s.horseName || s.microchip);
-                                  setConfirmedHorseModal(full);
-                                }}
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: 'var(--brass)',
-                                  cursor: 'pointer',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  textDecoration: 'underline'
-                                }}
-                              >
-                                Xem hồ sơ ↗
-                              </button>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>{s.breed} · {s.microchip || 'MC-VN-2026-662'}</div>
-                          <div style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 600, marginTop: '2px' }}>
-                            Chủ sở hữu: <span>{s.ownerName || s.owner || 'Chủ sở hữu'}</span>
+                {assignedStalls.map((s) => {
+                  const isVacant = !s.horseName || s.horseName === '(Trống)' || s.horseName.toLowerCase().includes('trống') || s.status === 'AVAILABLE';
+                  const displayHorseName = isVacant ? '(Ô Trống)' : s.horseName;
+                  const displayBreed = isVacant ? 'Ô tiêu chuẩn 16m² · Block A' : `${s.breed || 'Thoroughbred'} · ${s.microchip || 'MC-VN-2026-662'}`;
+                  const cleanBedding = (s.bedding || 'Mùn cưa sạch').replace(/tiêu chuẩn/i, '').trim();
+
+                  return (
+                    <div key={s.code} className="facility-card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '232px' }}>
+                      {/* Header của thẻ ô chuồng - Chiều cao cố định cân bằng */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', minHeight: '66px' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+                          <span style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '8px',
+                            background: isVacant ? 'rgba(255, 255, 255, 0.05)' : 'rgba(212, 175, 55, 0.15)',
+                            color: isVacant ? '#94A3B8' : 'var(--brass)',
+                            fontWeight: 800,
+                            fontSize: '15px',
+                            border: `1px solid ${isVacant ? 'var(--line)' : 'var(--line-strong)'}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            {s.code}
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <b style={{
+                                fontSize: '15px',
+                                color: isVacant ? '#94A3B8' : 'var(--paper)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                maxWidth: '170px'
+                              }} title={displayHorseName}>
+                                {displayHorseName}
+                              </b>
+                              {!isVacant && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const full = lookupFullHorseInfo(s.horseName || s.microchip);
+                                    setConfirmedHorseModal(full);
+                                  }}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--brass)',
+                                    cursor: 'pointer',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    textDecoration: 'underline',
+                                    padding: 0,
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  Xem hồ sơ ↗
+                                </button>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {displayBreed}
+                            </div>
+                            <div style={{ fontSize: '11.5px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {isVacant ? (
+                                <span style={{ color: '#64748B', fontStyle: 'italic' }}>Chưa có ngựa lưu chuồng</span>
+                              ) : (
+                                <span style={{ color: 'var(--brass)', fontWeight: 600 }}>Chủ sở hữu: <b style={{ color: '#F1F5F9' }}>{s.ownerName || s.owner || 'Chủ sở hữu'}</b></span>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        <span style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          background: isVacant ? 'rgba(255, 255, 255, 0.04)' : (s.status === 'WATCH_HEALTH' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)'),
+                          color: isVacant ? '#64748B' : (s.status === 'WATCH_HEALTH' ? 'var(--brass)' : 'var(--paper-dim)'),
+                          border: `1px solid ${isVacant ? 'var(--line)' : (s.status === 'WATCH_HEALTH' ? 'var(--brass)' : 'var(--line)')}`,
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0
+                        }}>
+                          {isVacant ? 'TRỐNG' : (s.status === 'WATCH_HEALTH' ? 'CẦN CHÚ Ý' : s.status === 'RESTRICTED_CARE' ? 'KHÓA Y TẾ' : 'BÌNH THƯỜNG')}
+                        </span>
                       </div>
-                      <span style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        background: s.status === 'WATCH_HEALTH' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                        color: s.status === 'WATCH_HEALTH' ? 'var(--brass)' : 'var(--paper-dim)',
-                        border: `1px solid ${s.status === 'WATCH_HEALTH' ? 'var(--brass)' : 'var(--line)'}`
+
+                      {/* Khối 4 thông số kỹ thuật - Chiều cao cố định cân đối */}
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, 1fr)',
+                        gap: '8px 12px',
+                        background: 'var(--bg-secondary)',
+                        padding: '10px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        marginBottom: '12px',
+                        minHeight: '74px',
+                        alignContent: 'center'
                       }}>
-                        {s.status === 'WATCH_HEALTH' ? 'CẦN CHÚ Ý' : s.status === 'RESTRICTED_CARE' ? 'KHÓA Y TẾ' : 'BÌNH THƯỜNG'}
-                      </span>
-                    </div>
+                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ color: 'var(--paper-dim)' }}>Đệm lót: </span>
+                          <b style={{ color: 'var(--paper)' }}>{cleanBedding || 'Mùn cưa sạch'}</b>
+                        </div>
+                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ color: 'var(--paper-dim)' }}>Máng nước: </span>
+                          <b style={{ color: 'var(--paper)' }}>{s.waterLevel || 'Đầy (98%)'}</b>
+                        </div>
+                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ color: 'var(--paper-dim)' }}>Nhiệt độ: </span>
+                          <b style={{ color: 'var(--paper)' }}>{s.temp || '26.2°C'}</b>
+                        </div>
+                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ color: 'var(--paper-dim)' }}>Dọn gần nhất: </span>
+                          <b style={{ color: 'var(--paper)' }}>{s.lastCleaned || s.lastMucked || 'Sáng nay'}</b>
+                        </div>
+                      </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '12px' }}>
-                      <div>
-                        <span style={{ color: 'var(--paper-dim)' }}>Đệm lót: </span>
-                        <b style={{ color: 'var(--paper)' }}>{s.bedding}</b>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--paper-dim)' }}>Máng nước: </span>
-                        <b style={{ color: 'var(--paper)' }}>{s.waterLevel}</b>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--paper-dim)' }}>Nhiệt độ: </span>
-                        <b style={{ color: 'var(--paper)' }}>{s.temp}</b>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--paper-dim)' }}>Dọn gần nhất: </span>
-                        <b style={{ color: 'var(--paper)' }}>{s.lastCleaned}</b>
+                      {/* Hàng nút bấm ở chân thẻ - Luôn căn đáy thẳng hàng */}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleCleanBedding(s.code)}
+                          style={{
+                            flex: 1,
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            background: 'var(--bg-secondary)',
+                            color: 'var(--paper)',
+                            border: '1px solid var(--line)',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          ✓ Đã dọn đệm lót
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReportData(prev => ({ ...prev, stallCode: s.code, horseName: isVacant ? null : s.horseName }));
+                            setShowReportModal(true);
+                          }}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: '6px',
+                            background: 'transparent',
+                            color: 'var(--brass)',
+                            border: '1px solid var(--line)',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          Báo sự cố
+                        </button>
                       </div>
                     </div>
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleCleanBedding(s.code)}
-                        style={{
-                          flex: 1,
-                          padding: '7px 12px',
-                          borderRadius: '6px',
-                          background: 'var(--bg-secondary)',
-                          color: 'var(--paper)',
-                          border: '1px solid var(--line)',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ✓ Đã dọn đệm lót
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReportData(prev => ({ ...prev, stallCode: s.code, horseName: s.horseName }));
-                          setShowReportModal(true);
-                        }}
-                        style={{
-                          padding: '7px 12px',
-                          borderRadius: '6px',
-                          background: 'transparent',
-                          color: 'var(--brass)',
-                          border: '1px solid var(--line)',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Báo sự cố
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

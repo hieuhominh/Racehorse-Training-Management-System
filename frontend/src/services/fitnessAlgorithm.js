@@ -29,11 +29,52 @@ import { saveHorseFitnessAssessmentApi } from './api';
 const STORAGE_KEY = 'racehorse_fitness_telemetry';
 export const REQUIRED_WORKOUTS_TO_EVALUATE = 3;
 
-// Đếm số lượng bài tập của chiến mã
+/**
+ * Lọc bỏ triệt để các bài tập trùng lặp do sync hoặc duplicate call
+ */
+export function deduplicateSessions(sessionsList = []) {
+  if (!Array.isArray(sessionsList)) return [];
+  const list = [];
+  const seen = new Set();
+
+  sessionsList.forEach(s => {
+    if (!s) return;
+    const horse = String(s.horseName || s.horse || '').trim().toLowerCase();
+    const title = String(s.programTitle || s.name || s.title || '').trim().toLowerCase();
+    const timeStr = String(s.time || s.completedAt || '').trim();
+    const dist = Number(s.distanceRun || s.distance || 0);
+    const spd = Number(s.avgSpeed || s.speed || 0).toFixed(1);
+    const hr = Number(s.maxHeartRate || s.heartRate || 0);
+
+    // Chuẩn hóa thời gian (bỏ giây nếu có) để chống đúp lệch 1-2 giây
+    const normTime = timeStr.replace(/:\d{2}\s/, ' ');
+    const timeKey = (horse && timeStr) ? `${horse}_${title}_${normTime}` : null;
+    const semanticKey = `${horse}_${title}_${dist}_${spd}_${hr}`;
+    const idKey = s.id ? String(s.id) : null;
+
+    if (idKey && seen.has(idKey)) return;
+    if (timeKey && seen.has(timeKey)) return;
+    if (semanticKey && seen.has(semanticKey)) return;
+
+    if (idKey) seen.add(idKey);
+    if (timeKey) seen.add(timeKey);
+    seen.add(semanticKey);
+
+    list.push(s);
+  });
+
+  return list;
+}
+
+// Đếm số lượng bài tập duy nhất thực tế của chiến mã (chống đếm trùng)
 export function getHorseSessionCount(horseName, sessionsList = []) {
   if (!horseName) return 0;
   const clean = horseName.trim().toLowerCase();
-  return (sessionsList || []).filter(s => (s.horseName || '').trim().toLowerCase() === clean).length;
+  const deduped = deduplicateSessions(sessionsList);
+  return deduped.filter(s => {
+    const sName = (s.horseName || s.horse || '').trim().toLowerCase();
+    return sName === clean || sName.includes(clean) || clean.includes(sName);
+  }).length;
 }
 
 // Kiểm tra xem chiến mã có đang trong giai đoạn chờ thu thập dữ liệu (dưới 3 bài tập) hay không
@@ -681,17 +722,65 @@ export function getHorseFitnessTelemetry(horse, sessionsList = []) {
   const name = horse.name || horse.horseName || 'Chiến mã';
   const key = horse.microchip || horse.id || horse.name;
   const all = getAllHorsesTelemetry();
-  const base = getInitialHorseTelemetry(horse, sessionsList);
 
+  let effectiveSessions = sessionsList;
+  if (!effectiveSessions || effectiveSessions.length === 0) {
+    try {
+      const raw = localStorage.getItem('matruong_training_telemetry');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) effectiveSessions = parsed;
+      }
+    } catch {}
+  }
+
+  const actualWorkoutCount = getHorseSessionCount(name, effectiveSessions);
+  const isActuallyCalibrating = actualWorkoutCount < REQUIRED_WORKOUTS_TO_EVALUATE;
+  const actualRemaining = Math.max(0, REQUIRED_WORKOUTS_TO_EVALUATE - actualWorkoutCount);
+
+  const base = getInitialHorseTelemetry(horse, effectiveSessions);
   let merged = all[key] ? { ...base, ...all[key] } : base;
 
-  // Luôn tái đồng bộ các chỉ số theo thời gian thực chuẩn của ngày hôm nay
-  const weeklyData = calculateWeeklyDistributionAndTotals(name, sessionsList);
+  // Luôn tái đồng bộ các chỉ số theo thời gian thực chuẩn của ngày hôm nay & chống lệch số buổi tập
+  merged.workoutCount = actualWorkoutCount;
+  merged.isCalibrating = isActuallyCalibrating;
+  merged.remainingWorkouts = actualRemaining;
+  if (isActuallyCalibrating) {
+    merged.condition = `Chờ đánh giá (${actualWorkoutCount}/3)`;
+    merged.trend = 'CALIBRATING';
+    merged.trendPercent = `Cần thêm ${actualRemaining} bài tập`;
+  }
+
+  const weeklyData = calculateWeeklyDistributionAndTotals(name, effectiveSessions);
   merged.weeklyDistribution = weeklyData.weeklyDistribution;
   merged.weeklyDistance = weeklyData.weeklyDistance;
   merged.weeklyCompletionRate = weeklyData.weeklyCompletionRate;
 
-  const sprintData = getHorse7DaySprintHistory(name, sessionsList);
+  // Luôn đồng bộ danh sách hoạt động gần đây từ các bài tập thực tế đã hoàn thành của chiến mã
+  const clean = name.trim().toLowerCase();
+  const dedupedSessions = deduplicateSessions(effectiveSessions).filter(s => {
+    const sName = (s.horseName || s.horse || '').trim().toLowerCase();
+    return sName === clean || sName.includes(clean) || clean.includes(sName);
+  });
+  merged.recentActivities = dedupedSessions.slice(0, 8).map(s => {
+    const distM = Number(s.distanceRun) || 1600;
+    const spd = Number(s.avgSpeed) || 60.1;
+    const isComp = s.status === 'COMPLETED';
+    const ld = s.load || `${Math.round((distM / 100) * 1.25 + 20)} TL`;
+    return {
+      id: s.id || Date.now(),
+      icon: isComp ? (spd >= 58 ? '🏇' : '🐎') : '⚠️',
+      day: 'Hôm nay',
+      name: s.programTitle || (isComp ? 'Hoàn thành bài tập' : 'Chưa đạt bài tập'),
+      dist: `${(distM / 1000).toFixed(2)}km`,
+      pace: `${spd.toFixed(1)} km/h`,
+      load: ld,
+      status: s.status || 'COMPLETED',
+      timestamp: Date.now()
+    };
+  });
+
+  const sprintData = getHorse7DaySprintHistory(name, effectiveSessions);
   merged.dayLabels = sprintData.dayLabels;
   merged.performanceHistory7Days = sprintData.history;
   merged.performanceToday = sprintData.performanceToday;
@@ -712,9 +801,9 @@ export function getHorseFitnessTelemetry(horse, sessionsList = []) {
  */
 export function calculateHorseFitnessOnSession(horse, session, existingSessions = []) {
   const name = horse.name || horse.horseName || 'Chiến mã';
-  const current = getHorseFitnessTelemetry(horse, existingSessions);
-  const currentCount = current.workoutCount !== undefined ? current.workoutCount : getHorseSessionCount(name, existingSessions);
-  const newCount = currentCount + 1;
+  const allSessions = deduplicateSessions([session, ...(existingSessions || [])]);
+  const newCount = getHorseSessionCount(name, allSessions);
+  const current = getHorseFitnessTelemetry(horse, allSessions);
   const isCompleted = session.status === 'COMPLETED';
 
   const distMeters = Number(session.distanceRun) || 1000;
@@ -741,8 +830,28 @@ export function calculateHorseFitnessOnSession(horse, session, existingSessions 
     timestamp: Date.now()
   };
 
-  const prevActivities = Array.isArray(current.recentActivities) ? current.recentActivities : [];
-  const updatedActivities = [newActivityItem, ...prevActivities.filter(a => a.id !== newActivityItem.id).slice(0, 8)];
+  const cleanName = name.trim().toLowerCase();
+  const horseSessions = allSessions.filter(s => {
+    const sName = (s.horseName || s.horse || '').trim().toLowerCase();
+    return sName === cleanName || sName.includes(cleanName) || cleanName.includes(sName);
+  });
+  const updatedActivities = horseSessions.slice(0, 8).map(s => {
+    const distM = Number(s.distanceRun) || 1600;
+    const spd = Number(s.avgSpeed) || 60.1;
+    const isComp = s.status === 'COMPLETED';
+    const ld = s.load || `${Math.round((distM / 100) * 1.25 + 20)} TL`;
+    return {
+      id: s.id || Date.now(),
+      icon: isComp ? (spd >= 58 ? '🏇' : '🐎') : '⚠️',
+      day: 'Hôm nay',
+      name: s.programTitle || (isComp ? 'Hoàn thành bài tập' : 'Chưa đạt bài tập'),
+      dist: `${(distM / 1000).toFixed(2)}km`,
+      pace: `${spd.toFixed(1)} km/h`,
+      load: ld,
+      status: s.status || 'COMPLETED',
+      timestamp: Date.now()
+    };
+  });
 
   // 2. Tính toán Hiệu suất bứt tốc 7 ngày (Thời gian thực)
   const sprintData = getHorse7DaySprintHistory(name, existingSessions, session);

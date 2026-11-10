@@ -1717,7 +1717,23 @@ export async function saveTrainingProgramApi(programData) {
 
   const key = 'matruong_trainer_programs';
   const local = getLocalData(key, []);
-  const newProgram = { ...programData, id: programData.id || `PROG-${Date.now()}` };
+  const progId = programData.id;
+
+  // Chống nhân đôi giáo án trong fallback cache
+  const existsIdx = local.findIndex(p => 
+    (progId && String(p.id) === String(progId)) ||
+    ((p.title || '').trim().toLowerCase() === (programData.title || '').trim().toLowerCase() &&
+     (p.horseName || p.horse || '').trim().toLowerCase() === (programData.horseName || programData.horse || '').trim().toLowerCase() &&
+     (p.phase || '').trim().toLowerCase() === (programData.phase || '').trim().toLowerCase())
+  );
+
+  if (existsIdx >= 0) {
+    local[existsIdx] = { ...local[existsIdx], ...programData };
+    setLocalData(key, local);
+    return local[existsIdx];
+  }
+
+  const newProgram = { ...programData, id: progId || `PROG-${Date.now()}` };
   setLocalData(key, [newProgram, ...local]);
   return newProgram;
 }
@@ -1756,7 +1772,21 @@ export async function recordTelemetryApi(telemetryData) {
 
   const key = 'matruong_training_telemetry';
   const local = getLocalData(key, []);
-  const newEntry = { ...telemetryData, id: Date.now() };
+  const teleId = telemetryData.id;
+
+  // Chống nhân bản buổi tập trong fallback cache
+  const exists = local.some(s =>
+    (teleId && String(s.id) === String(teleId)) ||
+    ((s.horseName || '').trim().toLowerCase() === (telemetryData.horseName || '').trim().toLowerCase() &&
+     (s.programTitle || '').trim().toLowerCase() === (telemetryData.programTitle || '').trim().toLowerCase() &&
+     String(s.time || '').trim() === String(telemetryData.time || '').trim())
+  );
+
+  if (exists) {
+    return telemetryData;
+  }
+
+  const newEntry = { ...telemetryData, id: teleId || Date.now() };
   setLocalData(key, [newEntry, ...local]);
   return newEntry;
 }
@@ -2701,11 +2731,10 @@ export async function getGroomStallsApi() {
 
   const key = 'matruong_groom_stalls_state';
   return getLocalData(key, [
-    { code: 'A1', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' },
-    { code: 'A2', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' },
-    { code: 'A3', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' },
-    { code: 'A4', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' },
-    { code: 'A5', horseName: '(Trống)', breed: 'Vacant', microchip: 'N/A', bedding: 'SẠCH SẼ', waterChecked: true, status: 'OK', lastMucked: 'Hôm nay', note: 'Ô chuồng sạch sẽ sẵn sàng' }
+    { code: 'A1', horseName: null, breed: 'Trống', microchip: 'N/A', bedding: 'Mùn cưa sạch', waterLevel: '100%', temp: '26.5°C', lastCleaned: 'Sáng nay', status: 'AVAILABLE', note: 'Ô chuồng sạch sẽ sẵn sàng' },
+    { code: 'A2', horseName: null, breed: 'Trống', microchip: 'N/A', bedding: 'Rơm khô mới', waterLevel: '100%', temp: '26.8°C', lastCleaned: 'Sáng nay', status: 'AVAILABLE', note: 'Ô chuồng sạch sẽ sẵn sàng' },
+    { code: 'A3', horseName: null, breed: 'Trống', microchip: 'N/A', bedding: 'Mùn cưa sạch', waterLevel: '100%', temp: '27.1°C', lastCleaned: 'Sáng nay', status: 'AVAILABLE', note: 'Ô chuồng sạch sẽ sẵn sàng' },
+    { code: 'A4', horseName: null, breed: 'Trống', microchip: 'N/A', bedding: 'Rơm khô sạch', waterLevel: '100%', temp: '26.6°C', lastCleaned: 'Sáng nay', status: 'AVAILABLE', note: 'Ô chuồng sạch sẽ sẵn sàng' }
   ]);
 }
 

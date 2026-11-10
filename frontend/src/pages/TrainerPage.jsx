@@ -37,6 +37,7 @@ import {
   getHorseFitnessTelemetry, 
   getAllHorsesTelemetry,
   getHorseSessionCount, 
+  deduplicateSessions,
   isHorseCalibrating, 
   REQUIRED_WORKOUTS_TO_EVALUATE 
 } from '../services/fitnessAlgorithm';
@@ -47,6 +48,45 @@ const isExcludedTrainerHorse = (nameOrChip) => {
   if (!nameOrChip) return false;
   const n = String(nameOrChip).trim().toLowerCase();
   return EXCLUDED_MOCK_HORSES.some(ex => n.includes(ex));
+};
+
+// Loại bỏ trùng lặp giáo án huấn luyện (Deduplicate)
+export const deduplicatePrograms = (list) => {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list.filter(p => {
+    if (!p) return false;
+    const cleanTitle = (p.title || '').trim().toLowerCase();
+    const cleanHorse = (p.horseName || p.horse || '').trim().toLowerCase();
+    const cleanPhase = (p.phase || '').trim().toLowerCase();
+    const dist = p.targetDistance || '';
+    const surface = (p.surface || '').trim().toLowerCase();
+    const semanticKey = `${cleanTitle}_${cleanHorse}_${cleanPhase}_${dist}_${surface}`;
+    if (seen.has(semanticKey)) return false;
+    seen.add(semanticKey);
+    return true;
+  });
+};
+
+// Tự động xóa các giáo án đã rèn xong sau mốc 00:00 ngày hôm sau
+export const cleanExpiredProgramsAfterMidnight = (programList) => {
+  if (!Array.isArray(programList)) return [];
+  const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  return programList.filter(prog => {
+    // Nếu giáo án vẫn đang ACTIVE thì giữ nguyên
+    if (!prog || prog.status === 'ACTIVE' || !prog.status) return true;
+
+    // Nếu giáo án đã hoàn thành hoặc không hoàn thành:
+    // Kiểm tra ngày hoàn thành
+    const cDate = prog.completedDate;
+    if (!cDate) return true;
+
+    // Nếu ngày hoàn thành nhỏ hơn ngày hôm nay (đã qua 00:00 ngày hôm sau) -> XÓA khỏi giáo án
+    if (cDate < todayStr) {
+      return false;
+    }
+    return true;
+  });
 };
 
 // Kiểm tra xem chiến mã có thuộc phụ trách chính của HLV hiện tại không
@@ -871,7 +911,7 @@ export default function TrainerPage() {
       if (savedProg) {
         const parsed = JSON.parse(savedProg);
         if (Array.isArray(parsed)) {
-          const filtered = parsed.filter(p => !isExcludedTrainerHorse(p.horseName));
+          const filtered = deduplicatePrograms(parsed.filter(p => !isExcludedTrainerHorse(p.horseName)));
           localStorage.setItem('matruong_trainer_programs', JSON.stringify(filtered));
           setPrograms(filtered);
         }
@@ -908,11 +948,35 @@ export default function TrainerPage() {
       const saved = localStorage.getItem('matruong_trainer_programs');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = cleanExpiredProgramsAfterMidnight(deduplicatePrograms(parsed));
+          localStorage.setItem('matruong_trainer_programs', JSON.stringify(cleaned));
+          return cleaned;
+        }
       }
     } catch {}
     return [];
   });
+
+  // Tự động kiểm tra và xóa các giáo án đã hoàn thành sau mốc 00:00 ngày hôm sau
+  useEffect(() => {
+    const checkMidnightCleanup = () => {
+      setPrograms(prev => {
+        const cleaned = cleanExpiredProgramsAfterMidnight(prev);
+        if (cleaned.length !== prev.length) {
+          try {
+            localStorage.setItem('matruong_trainer_programs', JSON.stringify(cleaned));
+          } catch {}
+          return cleaned;
+        }
+        return prev;
+      });
+    };
+
+    checkMidnightCleanup();
+    const interval = setInterval(checkMidnightCleanup, 60000); // Mỗi 1 phút kiểm tra 1 lần
+    return () => clearInterval(interval);
+  }, []);
 
   // Tự động lưu programs vào localStorage khi có thay đổi (kể cả khi mảng rỗng)
   useEffect(() => {
@@ -984,17 +1048,41 @@ export default function TrainerPage() {
       const saved = localStorage.getItem('matruong_training_telemetry');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = deduplicateSessions(parsed);
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem('matruong_training_telemetry', JSON.stringify(cleaned));
+          }
+          return cleaned;
+        }
       }
     } catch {}
     return [];
   });
 
+  // Tự động kiểm tra và dọn dẹp các buổi tập trùng lặp trong localStorage khi mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('matruong_training_telemetry');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = deduplicateSessions(parsed);
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem('matruong_training_telemetry', JSON.stringify(cleaned));
+            setSessions(cleaned);
+          }
+        }
+      }
+    } catch {}
+  }, []);
+
   // Tự động lưu sessions vào localStorage khi có thay đổi
   useEffect(() => {
     if (sessions && sessions.length > 0) {
       try {
-        localStorage.setItem('matruong_training_telemetry', JSON.stringify(sessions));
+        const cleaned = deduplicateSessions(sessions);
+        localStorage.setItem('matruong_training_telemetry', JSON.stringify(cleaned));
       } catch {}
     }
   }, [sessions]);
@@ -1071,6 +1159,7 @@ export default function TrainerPage() {
 
   // Modal lập giáo án mới
   const [showAddProgramModal, setShowAddProgramModal] = useState(false);
+  const [isSubmittingProgram, setIsSubmittingProgram] = useState(false);
   const [newProgramData, setNewProgramData] = useState(() => ({
     title: '',
     horseName: 'Hắc Phong',
@@ -1182,21 +1271,6 @@ export default function TrainerPage() {
         ? 'Dắt thả lỏng 15 phút, chườm lạnh 4 cổ chân 20 phút, bổ sung điện giải và khẩu phần dinh dưỡng giàu yến mạch phục hồi gân cơ.'
         : 'Đưa ngay về chuồng tĩnh dưỡng, theo dõi hạ nhịp tim sau 15-30 phút, kiểm tra nhiệt độ móng & gân khoeo, báo bác sĩ thú y nếu có biểu hiện cứng cơ.';
 
-      try {
-        const previewSess = {
-          id: Date.now(),
-          time: new Date().toLocaleString('vi-VN'),
-          horseName: prev.horse.name,
-          programTitle: prev.program.title,
-          distanceRun: Number(finalDist),
-          avgSpeed: Number(finalSpeed),
-          maxHeartRate: Number(finalHr),
-          status: isCompleted ? 'COMPLETED' : 'INCOMPLETE',
-          score: defaultScore
-        };
-        applyFitnessAlgorithm(prev.horse.name, previewSess, [previewSess, ...sessions]);
-      } catch (err) {}
-
       return {
         ...prev,
         phase: 'EVALUATING', // Giai đoạn 2: Đánh giá và ghi chú
@@ -1217,6 +1291,11 @@ export default function TrainerPage() {
     if (e) e.preventDefault();
     if (!activeRunningSession) return;
 
+    const finishedStatus = activeRunningSession.status; // 'COMPLETED' hoặc 'INCOMPLETE'
+    const targetProg = activeRunningSession.program;
+    const targetHorseName = (activeRunningSession.horse?.name || '').trim().toLowerCase();
+    const targetTitle = (targetProg?.title || '').trim().toLowerCase();
+
     const isOverLimit = Number(activeRunningSession.maxHeartRate) > 210;
     const combinedFeedback = `${activeRunningSession.evaluation}${activeRunningSession.recoveryNotes ? ` | [Dặn dò phục hồi]: ${activeRunningSession.recoveryNotes}` : ''}`;
 
@@ -1229,8 +1308,8 @@ export default function TrainerPage() {
       avgSpeed: Number(activeRunningSession.avgSpeed),
       maxHeartRate: Number(activeRunningSession.maxHeartRate),
       isOverLimit,
-      status: activeRunningSession.status,
-      score: Number(activeRunningSession.score) || (activeRunningSession.status === 'COMPLETED' ? 9.0 : 5.5),
+      status: finishedStatus,
+      score: Number(activeRunningSession.score) || (finishedStatus === 'COMPLETED' ? 9.0 : 5.5),
       feedback: combinedFeedback
     };
 
@@ -1241,12 +1320,41 @@ export default function TrainerPage() {
     } catch {}
     recordTelemetryApi(newSess).catch(() => {});
 
+    // Cập nhật trạng thái của giáo án trong danh sách giáo án huấn luyện (Chuyển sang Hoàn thành / Không hoàn thành bài tập)
+    setPrograms(prev => {
+      const nextProgs = prev.map(p => {
+        const isMatch = (targetProg?.id && String(p.id) === String(targetProg.id)) ||
+          ((p.title || '').trim().toLowerCase() === targetTitle &&
+           (p.horseName || '').trim().toLowerCase() === targetHorseName);
+        if (isMatch) {
+          return {
+            ...p,
+            status: finishedStatus,
+            completedAt: new Date().toLocaleDateString('vi-VN'),
+            completedDate: new Date().toISOString().split('T')[0],
+            completedTimestamp: Date.now(),
+            lastScore: Number(activeRunningSession.score) || (finishedStatus === 'COMPLETED' ? 9.0 : 5.5)
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('matruong_trainer_programs', JSON.stringify(nextProgs));
+      } catch {}
+      return nextProgs;
+    });
+
+    window.dispatchEvent(new CustomEvent('trainer-programs-updated', {
+      detail: { horseName: activeRunningSession.horse?.name, programId: targetProg?.id, status: finishedStatus }
+    }));
+
     // Chạy thuật toán cập nhật viễn trắc thể lực tức thì
     applyFitnessAlgorithm(activeRunningSession.horse.name, newSess, updatedSessions);
 
-    showToast(`Đã lưu đánh giá & cập nhật thể lực cho ${activeRunningSession.horse.name}!`, 'ĐÃ LƯU ĐÁNH GIÁ', 'success');
+    const statusText = finishedStatus === 'COMPLETED' ? 'hoàn thành bài tập' : 'không hoàn thành bài tập';
+    showToast(`Đã ghi nhận ${statusText} & cập nhật thể lực cho ${activeRunningSession.horse.name}!`, 'ĐÃ LƯU ĐÁNH GIÁ', 'success');
     setActiveRunningSession(null);
-    setActiveTab('review');
+    setActiveTab('programs');
   };
 
   // Modal chỉnh sửa nhận xét & chấm điểm bài tập
@@ -1256,9 +1364,19 @@ export default function TrainerPage() {
   // Xử lý tạo giáo án mới
   const handleCreateProgram = (e) => {
     e.preventDefault();
+    if (isSubmittingProgram) return;
+
+    const cleanTitle = (newProgramData.title || '').trim();
+    if (!cleanTitle) {
+      showToast('Vui lòng nhập tên giáo án!', 'THIẾU THÔNG TIN', 'error');
+      return;
+    }
+
+    setIsSubmittingProgram(true);
+
     const newProg = {
       id: Date.now(),
-      title: newProgramData.title,
+      title: cleanTitle,
       horseName: newProgramData.horseName,
       phase: newProgramData.phase,
       targetDistance: Number(newProgramData.targetDistance),
@@ -1267,17 +1385,30 @@ export default function TrainerPage() {
       endDate: newProgramData.endDate || 'Chưa định',
       status: 'ACTIVE'
     };
-    const updatedPrograms = [newProg, ...programs];
-    setPrograms(updatedPrograms);
-    try {
-      localStorage.setItem('matruong_trainer_programs', JSON.stringify(updatedPrograms));
-    } catch {}
+
+    setPrograms(prev => {
+      // Chống thêm trùng lặp giáo án
+      const isAlreadyExisted = prev.some(p =>
+        (p.id && String(p.id) === String(newProg.id)) ||
+        ((p.title || '').trim().toLowerCase() === newProg.title.toLowerCase() &&
+         (p.horseName || '').trim().toLowerCase() === newProg.horseName.toLowerCase() &&
+         (p.phase || '').trim().toLowerCase() === newProg.phase.toLowerCase() &&
+         Number(p.targetDistance) === Number(newProg.targetDistance))
+      );
+      if (isAlreadyExisted) return prev;
+      const updatedPrograms = deduplicatePrograms([newProg, ...prev]);
+      try {
+        localStorage.setItem('matruong_trainer_programs', JSON.stringify(updatedPrograms));
+      } catch {}
+      return updatedPrograms;
+    });
+
     saveTrainingProgramApi(newProg).catch(() => {});
     window.dispatchEvent(new CustomEvent('trainer-programs-updated', { detail: { horseName: newProgramData.horseName, program: newProg } }));
-    window.dispatchEvent(new Event('storage'));
 
     showToast(`Đã tạo giáo án mới cho ${newProgramData.horseName}`);
     setShowAddProgramModal(false);
+    setIsSubmittingProgram(false);
     setNewProgramData({
       title: '',
       horseName: 'Hắc Phong',
@@ -2885,11 +3016,14 @@ setTrainerHorses(prev => {
                     </thead>
                     <tbody>
                       {trainerHorses.map(horse => {
+                        const workoutCount = getHorseSessionCount(horse.name, sessions);
+                        const isCalibrating = workoutCount < REQUIRED_WORKOUTS_TO_EVALUATE;
+                        const remainingWorkouts = Math.max(0, REQUIRED_WORKOUTS_TO_EVALUATE - workoutCount);
                         const fullInfo = lookupFullHorseInfo(horse.name || horse.microchip);
                         const horseAvatar = horse.avatar || fullInfo?.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
                         const condVal = parseFloat(horse.condition) || 88;
-                        const isIncreasing = !horse.isLockedByVet && condVal >= 88;
-                        const isStable = !horse.isLockedByVet && condVal >= 80 && condVal < 88;
+                        const isIncreasing = !isCalibrating && !horse.isLockedByVet && condVal >= 88;
+                        const isStable = !isCalibrating && !horse.isLockedByVet && condVal >= 80 && condVal < 88;
 
                         return (
                           <tr key={horse.id} style={{ borderBottom: '1px solid var(--line)' }}>
@@ -2917,29 +3051,33 @@ setTrainerHorses(prev => {
                               </div>
                             </td>
                             <td style={{ padding: '14px 18px' }}>
-                              {isIncreasing && (
+                              {isCalibrating ? (
+                                <span style={{ color: '#F59E0B', fontWeight: 800, fontSize: '12px', background: 'rgba(245, 158, 11, 0.15)', padding: '3px 8px', borderRadius: '4px' }}>
+                                  ⏳ Cần thêm {remainingWorkouts} bài tập
+                                </span>
+                              ) : isIncreasing ? (
                                 <span style={{ color: '#10B981', fontWeight: 800, fontSize: '12px', background: 'rgba(16, 185, 129, 0.12)', padding: '3px 8px', borderRadius: '4px' }}>
                                   ▲ TĂNG (+4.2%)
                                 </span>
-                              )}
-                              {isStable && (
+                              ) : isStable ? (
                                 <span style={{ color: '#F59E0B', fontWeight: 800, fontSize: '12px', background: 'rgba(245, 158, 11, 0.12)', padding: '3px 8px', borderRadius: '4px' }}>
                                   ● ỔN ĐỊNH (+0.5%)
                                 </span>
-                              )}
-                              {!isIncreasing && !isStable && (
+                              ) : (
                                 <span style={{ color: '#EF4444', fontWeight: 800, fontSize: '12px', background: 'rgba(239, 68, 68, 0.12)', padding: '3px 8px', borderRadius: '4px' }}>
                                   ▼ GIẢM (-2.8%)
                                 </span>
                               )}
                             </td>
                             <td style={{ padding: '14px 18px', fontSize: '12.5px' }}>
-                              <div>Tải: <b style={{ color: 'var(--paper)' }}>107 / 99</b></div>
-                              <div style={{ color: '#10B981', fontSize: '11px', fontWeight: 700 }}>Tỉ lệ: 108% (Tối ưu)</div>
+                              <div>Tải: <b style={{ color: 'var(--paper)' }}>{isCalibrating ? '--' : '107 / 99'}</b></div>
+                              <div style={{ color: isCalibrating ? '#64748B' : '#10B981', fontSize: '11px', fontWeight: 700 }}>Tỉ lệ: {isCalibrating ? '-- %' : '108% (Tối ưu)'}</div>
                             </td>
-                            <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.avgHeartRate} bpm</td>
-                            <td style={{ padding: '14px 18px', color: 'var(--paper)', fontWeight: 600 }}>{horse.maxSpeed} km/h</td>
-                            <td style={{ padding: '14px 18px', color: isIncreasing ? '#10B981' : 'var(--brass)', fontWeight: 700 }}>{horse.condition}</td>
+                            <td style={{ padding: '14px 18px', color: isCalibrating ? '#64748B' : 'var(--paper)', fontWeight: 600 }}>{isCalibrating ? '-- bpm' : `${horse.avgHeartRate} bpm`}</td>
+                            <td style={{ padding: '14px 18px', color: isCalibrating ? '#64748B' : 'var(--paper)', fontWeight: 600 }}>{isCalibrating ? '-- km/h' : `${horse.maxSpeed} km/h`}</td>
+                            <td style={{ padding: '14px 18px', color: isCalibrating ? '#F59E0B' : (isIncreasing ? '#10B981' : 'var(--brass)'), fontWeight: 700 }}>
+                              {isCalibrating ? `Chờ đánh giá (${workoutCount}/3)` : horse.condition}
+                            </td>
                             <td style={{ padding: '14px 18px' }}>
                               <button
                                 type="button"
@@ -3055,37 +3193,84 @@ setTrainerHorses(prev => {
                         </div>
                       </div>
 
-                      <div className="facility-price-box">
-                        <div>
-                          <div className="price-label">{lang === 'en' ? 'Curriculum Status' : 'Trạng thái giáo án'}</div>
-                          <div className="price-value" style={{ fontSize: '15px', color: 'var(--brass)' }}>
-                            {lang === 'en' ? 'Active Progression' : 'Đang thực hiện tích cực'}
+                      {(() => {
+                        const isCompleted = prog.status === 'COMPLETED';
+                        const isIncomplete = prog.status === 'INCOMPLETE';
+                        return (
+                          <div className="facility-price-box">
+                            <div>
+                              <div className="price-label">{lang === 'en' ? 'Curriculum Status' : 'Trạng thái giáo án'}</div>
+                              <div className="price-value" style={{
+                                fontSize: '15px',
+                                fontWeight: 700,
+                                color: isCompleted ? '#10B981' : isIncomplete ? '#EF4444' : 'var(--brass)'
+                              }}>
+                                {isCompleted
+                                  ? (lang === 'en' ? 'Workout Completed' : 'Hoàn thành bài tập')
+                                  : isIncomplete
+                                  ? (lang === 'en' ? 'Workout Incomplete' : 'Không hoàn thành bài tập')
+                                  : (lang === 'en' ? 'Active Progression' : 'Đang thực hiện tích cực')}
+                              </div>
+                            </div>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              background: isCompleted
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : isIncomplete
+                                ? 'rgba(239, 68, 68, 0.15)'
+                                : 'rgba(201, 162, 39, 0.12)',
+                              color: isCompleted ? '#10B981' : isIncomplete ? '#EF4444' : 'var(--brass)',
+                              border: isCompleted
+                                ? '1px solid #10B981'
+                                : isIncomplete
+                                ? '1px solid #EF4444'
+                                : '1px solid var(--brass)'
+                            }}>
+                              {isCompleted
+                                ? (lang === 'en' ? 'COMPLETED' : 'HOÀN THÀNH')
+                                : isIncomplete
+                                ? (lang === 'en' ? 'INCOMPLETE' : 'CHƯA ĐẠT')
+                                : 'ACTIVE'}
+                            </span>
                           </div>
-                        </div>
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          background: 'rgba(201, 162, 39, 0.12)',
-                          color: 'var(--brass)',
-                          border: '1px solid var(--brass)'
-                        }}>
-                          ACTIVE
-                        </span>
-                      </div>
+                        );
+                      })()}
 
                       <div className="facility-card-actions">
                         <div className="actions-left" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button
                             className="facility-btn-action"
                             onClick={() => handleStartWorkout(prog)}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: prog.status === 'COMPLETED'
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : prog.status === 'INCOMPLETE'
+                                ? 'rgba(239, 68, 68, 0.15)'
+                                : undefined,
+                              borderColor: prog.status === 'COMPLETED'
+                                ? '#10B981'
+                                : prog.status === 'INCOMPLETE'
+                                ? '#EF4444'
+                                : undefined,
+                              color: prog.status === 'COMPLETED'
+                                ? '#10B981'
+                                : prog.status === 'INCOMPLETE'
+                                ? '#EF4444'
+                                : undefined
+                            }}
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                               <polygon points="5 3 19 12 5 21 5 3"></polygon>
                             </svg>
-                            {lang === 'en' ? 'Run Workout' : 'Chạy bài này'}
+                            {prog.status === 'COMPLETED' || prog.status === 'INCOMPLETE'
+                              ? (lang === 'en' ? 'Rerun' : '↺ Tập lại')
+                              : (lang === 'en' ? 'Run Workout' : 'Chạy bài này')}
                           </button>
                           <button
                             type="button"
@@ -3157,21 +3342,39 @@ setTrainerHorses(prev => {
                             {prog.startDate} <span style={{ color: 'var(--line-strong)', margin: '0 2px' }}>→</span> {prog.endDate}
                           </td>
                           <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '4px 10px',
-                              borderRadius: '20px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              background: 'rgba(212, 175, 55, 0.12)',
-                              color: 'var(--brass)',
-                              border: '1px solid var(--brass)',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {lang === 'en' ? 'Active' : 'Đang thực hiện'}
-                            </span>
+                            {(() => {
+                              const isCompleted = prog.status === 'COMPLETED';
+                              const isIncomplete = prog.status === 'INCOMPLETE';
+                              return (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  padding: '4px 10px',
+                                  borderRadius: '20px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  background: isCompleted
+                                    ? 'rgba(16, 185, 129, 0.15)'
+                                    : isIncomplete
+                                    ? 'rgba(239, 68, 68, 0.15)'
+                                    : 'rgba(212, 175, 55, 0.12)',
+                                  color: isCompleted ? '#10B981' : isIncomplete ? '#EF4444' : 'var(--brass)',
+                                  border: isCompleted
+                                    ? '1px solid #10B981'
+                                    : isIncomplete
+                                    ? '1px solid #EF4444'
+                                    : '1px solid var(--brass)',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {isCompleted
+                                    ? (lang === 'en' ? 'Completed' : 'Hoàn thành bài tập')
+                                    : isIncomplete
+                                    ? (lang === 'en' ? 'Incomplete' : 'Không hoàn thành bài tập')
+                                    : (lang === 'en' ? 'Active' : 'Đang thực hiện')}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
@@ -4670,9 +4873,19 @@ setTrainerHorses(prev => {
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '10px', background: 'var(--brass)', border: 'none', color: '#14100A', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
+                  disabled={isSubmittingProgram}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: isSubmittingProgram ? '#94A3B8' : 'var(--brass)',
+                    border: 'none',
+                    color: '#14100A',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    cursor: isSubmittingProgram ? 'not-allowed' : 'pointer'
+                  }}
                 >
-                  {lang === 'en' ? 'Save Curriculum' : 'Lưu Giáo Án'}
+                  {isSubmittingProgram ? 'Đang lưu...' : (lang === 'en' ? 'Save Curriculum' : 'Lưu Giáo Án')}
                 </button>
               </div>
             </form>
@@ -6185,7 +6398,7 @@ setTrainerHorses(prev => {
                 >
                   {getAvailableSubstituteTrainers(delegateModalSession.sessionDate, delegateModalSession.sessionTime, currentU).map(tr => (
                     <option key={tr.username} value={tr.username} disabled={!tr.isAvailable}>
-                      {tr.name} ({tr.role}) {tr.isAvailable ? '✓ [Đang Trống Lịch]' : `✕ [Bận: ${tr.conflictReason}]`}
+                      {tr.name}{!tr.isAvailable ? ` (Bận: ${tr.conflictReason || 'Đã kín lịch'})` : ''}
                     </option>
                   ))}
                 </select>

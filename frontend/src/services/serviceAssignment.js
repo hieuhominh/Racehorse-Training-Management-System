@@ -480,7 +480,8 @@ const DEFAULT_HORSE_PEDIGREES = {
   const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
   const horseName = foundOwnerHorse?.name || matchAsgn?.horseName || horseIdentifier;
   const microchip = foundOwnerHorse?.microchip || matchAsgn?.microchip || 'MC-VN-2026-001';
-  const ownerName = foundOwnerHorse?.ownerName || foundOwnerHorse?.owner || matchAsgn?.ownerName || 'Chủ sở hữu';
+  const rawOwner = foundOwnerHorse?.ownerName || foundOwnerHorse?.owner || matchAsgn?.ownerName;
+  const ownerName = (rawOwner && rawOwner !== 'Chủ sở hữu' && rawOwner !== 'Chủ nuôi') ? rawOwner : 'Hồ Minh Hiếu';
   const stable = foundOwnerHorse?.stable || matchAsgn?.stable || 'Ô A1';
   const breed = foundOwnerHorse?.breed || matchAsgn?.breed || 'Thoroughbred';
   const gender = foundOwnerHorse?.gender || matchAsgn?.gender || 'Ngựa đực (Stallion)';

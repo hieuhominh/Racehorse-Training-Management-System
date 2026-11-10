@@ -1662,6 +1662,8 @@ export default function OwnerPage() {
       trainer: horseForm.trainer,
       vet: horseForm.vet || 'BS. Nguyễn An',
       groom: horseForm.groom || 'Lê Hoàng Nam',
+      ownerName: currentUser?.full_name || currentUser?.name || 'Hồ Minh Hiếu',
+      owner: currentUser?.full_name || currentUser?.name || 'Hồ Minh Hiếu',
       status: 'ELIGIBLE',
       statusText: 'Đủ chuẩn thi đấu',
       stallStatus: 'PENDING_APPROVAL',
