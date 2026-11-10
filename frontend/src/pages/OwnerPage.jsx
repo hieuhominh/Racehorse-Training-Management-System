@@ -35,6 +35,8 @@ import {
   getJointTrainingSessions,
   bookJointTrainingSession,
   cancelJointTrainingSession,
+  clearAllJointTrainingSessions,
+  clearAllMyJointTrainingSessions,
   checkHorseVetLockStatus,
   TRAINING_TIME_SLOTS,
   getBookedSlotsForTrainer,
@@ -729,10 +731,21 @@ export default function OwnerPage() {
   };
 
   const handleCancelJointSession = (sessionId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn tập luyện chung này?')) return;
     cancelJointTrainingSession(sessionId);
     setJointSessions(getJointTrainingSessions());
-    showToast('Đã hủy lịch hẹn tập luyện chung.', 'ĐÃ HỦY LỊCH', 'info');
+    showToast('Đã hủy / xóa lịch hẹn tập luyện.', 'ĐÃ XÓA LỊCH', 'info');
+  };
+
+  const handleClearAllMyJointSessions = () => {
+    clearAllMyJointTrainingSessions(ownerKey, currentUser?.full_name);
+    setJointSessions(getJointTrainingSessions());
+    showToast('Đã xóa tất cả yêu cầu đặt lịch của bạn thành công!', 'ĐÃ XÓA TẤT CẢ', 'success');
+  };
+
+  const handleClearAllJointSessions = () => {
+    clearAllJointTrainingSessions();
+    setJointSessions(getJointTrainingSessions());
+    showToast('Đã xóa toàn bộ lịch tập luyện chung trên bãi tập thành công!', 'ĐÃ XÓA TẤT CẢ', 'success');
   };
 
   // State: Quản lý Khiếu nại & Báo cáo Nhân sự (HLV, Bác Sĩ, Chăm Sóc)
@@ -3419,14 +3432,38 @@ export default function OwnerPage() {
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '18px' }}></span>
                           <h3 style={{ margin: 0, fontSize: '14.5px', color: 'var(--paper)', fontWeight: 700 }}>
                             Lịch Tập Luyện Chung Trên Bãi Tập (06:00 — 18:00)
                           </h3>
                         </div>
-                        <span style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 600 }}>
-                          Ưu tiên người đặt trước · Lịch kín được bảo mật
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 600 }}>
+                            Ưu tiên người đặt trước · Lịch kín được bảo mật
+                          </span>
+                          {jointSessions.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleClearAllJointSessions}
+                              style={{
+                                padding: '3px 10px',
+                                borderRadius: '5px',
+                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#EF4444',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                transition: 'all 0.2s'
+                              }}
+                              title="Xóa tất cả lịch trên bãi tập và làm trống lại toàn bộ khung giờ"
+                            >
+                              Xóa tất cả
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -3491,6 +3528,23 @@ export default function OwnerPage() {
                                   }}>
                                     {isConfirmed ? 'ĐÃ DUYỆT' : 'CHỜ DUYỆT'}
                                   </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelJointSession(session.id)}
+                                    style={{
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
+                                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                                      background: 'rgba(239, 68, 68, 0.08)',
+                                      color: '#EF4444',
+                                      fontSize: '10.5px',
+                                      fontWeight: 600,
+                                      cursor: 'pointer'
+                                    }}
+                                    title="Xóa lịch tập này"
+                                  >
+                                    Xóa
+                                  </button>
                                 </div>
                               </div>
                               <div style={{ color: 'var(--paper-dim)', fontSize: '12px' }}>
@@ -3523,45 +3577,46 @@ export default function OwnerPage() {
                 }}>
                   {/* FORM ĐẶT LỊCH TRỰC TIẾP TRÊN TRANG (THIẾT KẾ TINH GỌN, CAO CẤP, CHỐNG TRÙNG LỊCH) */}
                   <div style={{
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid rgba(212, 175, 55, 0.4)',
-                    borderRadius: '10px',
-                    padding: '13px 15px',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+                    background: 'linear-gradient(165deg, #16201D 0%, #0D1412 100%)',
+                    border: '1px solid rgba(212, 175, 55, 0.35)',
+                    borderRadius: '14px',
+                    padding: '18px 20px',
+                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4), 0 0 25px rgba(212, 175, 55, 0.08)'
                   }}>
-                    {/* Header gọn gàng */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '8px', marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <h4 style={{ margin: 0, fontSize: '13.5px', color: 'var(--brass)', fontWeight: 800, letterSpacing: '0.01em' }}>
+                    {/* Header sang trọng */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '18px' }}>🏇</span>
+                        <h4 style={{ margin: 0, fontSize: '15px', color: 'var(--brass)', fontWeight: 800, letterSpacing: '0.02em' }}>
                           Đặt Lịch Tập Cùng HLV
                         </h4>
                       </div>
-                      <span style={{ fontSize: '9.5px', color: '#10B981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                      <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#10B981', background: 'rgba(16, 185, 129, 0.12)', padding: '3px 8px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                         06:00 — 18:00
                       </span>
                     </div>
 
-                    <form onSubmit={handleSubmitJointBooking} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <form onSubmit={handleSubmitJointBooking} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {/* Chọn chiến mã */}
                       <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                          <label style={{ fontSize: '11px', color: 'var(--paper)', fontWeight: 700 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                          <label style={{ fontSize: '11.5px', color: 'var(--paper)', fontWeight: 700 }}>
                             Chiến mã ra sân
                           </label>
-                          <span style={{ fontSize: '10px', color: 'var(--paper-dim)' }}>Chọn từ đàn ngựa</span>
+                          <span style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>Chọn từ đàn ngựa của bạn</span>
                         </div>
                         <select
                           className="portal-input"
                           value={jointBookingForm.horseId}
                           onChange={(e) => setJointBookingForm({ ...jointBookingForm, horseId: e.target.value })}
-                          style={{ width: '100%', boxSizing: 'border-box', fontWeight: 600, padding: '6px 8px', fontSize: '11.5px', borderRadius: '6px' }}
+                          style={{ width: '100%', boxSizing: 'border-box', fontWeight: 600, padding: '9px 12px', fontSize: '12.5px', borderRadius: '8px', background: 'rgba(0, 0, 0, 0.35)', border: '1px solid rgba(255, 255, 255, 0.12)', color: 'var(--paper)' }}
                         >
                           {myHorses.map(h => {
                             const lockStatus = checkHorseVetLockStatus(h.microchip || h.id || h.name);
                             const isLocked = lockStatus.isLocked || h.isLockedByVet;
                             return (
                               <option key={h.id} value={h.id}>
-                                {h.name} ({h.stable || 'Ô A1'}) {isLocked ? '[Khóa Y Tế]' : '[Sẵn sàng]'}
+                                {h.name} ({h.stable || 'Ô A1'}){isLocked ? ' ⛔ [Khóa Y Tế]' : ''}
                               </option>
                             );
                           })}
@@ -3576,15 +3631,15 @@ export default function OwnerPage() {
                         if (lockStatus.isLocked || currHorse.isLockedByVet) {
                           return (
                             <div style={{
-                              padding: '6px 8px',
-                              borderRadius: '6px',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
                               background: 'rgba(239, 68, 68, 0.12)',
                               border: '1px solid rgba(239, 68, 68, 0.45)',
                               color: '#EF4444',
-                              fontSize: '10.5px',
-                              lineHeight: 1.35
+                              fontSize: '11.5px',
+                              lineHeight: 1.4
                             }}>
-                              <b>Khóa y tế:</b> {lockStatus.reason || 'Dấu hiệu chấn thương'}. Phải đợi BS Thú y mở khóa!
+                              ⛔ <b>Cảnh báo Khóa Y Tế:</b> {lockStatus.reason || 'Dấu hiệu chấn thương'}. Phải đợi Bác sĩ Thú y mở khóa an toàn mới được ra sân!
                             </div>
                           );
                         }
@@ -3592,16 +3647,16 @@ export default function OwnerPage() {
                       })()}
 
                       {/* Hàng 2: HLV & Ngày tập */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--paper)', fontWeight: 700, marginBottom: '3px' }}>
+                          <label style={{ display: 'block', fontSize: '11.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '5px' }}>
                             Huấn luyện viên
                           </label>
                           <select
                             className="portal-input"
                             value={jointBookingForm.trainerUsername}
                             onChange={(e) => setJointBookingForm({ ...jointBookingForm, trainerUsername: e.target.value })}
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '6px 7px', fontSize: '11px', borderRadius: '6px' }}
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '9px 10px', fontSize: '12px', borderRadius: '8px', background: 'rgba(0, 0, 0, 0.35)', border: '1px solid rgba(255, 255, 255, 0.12)', color: 'var(--paper)' }}
                           >
                             {FIXED_TRAINERS_LIST.map(t => (
                               <option key={t.username} value={t.username}>
@@ -3611,7 +3666,7 @@ export default function OwnerPage() {
                           </select>
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--paper)', fontWeight: 700, marginBottom: '3px' }}>
+                          <label style={{ display: 'block', fontSize: '11.5px', color: 'var(--paper)', fontWeight: 700, marginBottom: '5px' }}>
                             Ngày tập
                           </label>
                           <input
@@ -3619,108 +3674,55 @@ export default function OwnerPage() {
                             className="portal-input"
                             value={jointBookingForm.sessionDate}
                             onChange={(e) => setJointBookingForm({ ...jointBookingForm, sessionDate: e.target.value })}
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '5.5px 7px', fontSize: '11px', borderRadius: '6px' }}
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '8.5px 10px', fontSize: '12px', borderRadius: '8px', background: 'rgba(0, 0, 0, 0.35)', border: '1px solid rgba(255, 255, 255, 0.12)', color: 'var(--paper)' }}
                           />
                         </div>
                       </div>
 
-                      {/* Hàng 3: Khung giờ & Logic chống trùng lịch (Tô đen lịch đã đặt & giờ nghỉ trưa) */}
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                          <label style={{ fontSize: '11px', color: 'var(--paper)', fontWeight: 700 }}>
-                            Khung giờ (06:00 — 18:00)
-                          </label>
-                          <span style={{ fontSize: '9.5px', color: '#F59E0B' }}>
-                            Nghỉ trưa 11:45 — 13:00 (Khóa)
-                          </span>
-                        </div>
-                        <select
-                          className="portal-input"
-                          value={jointBookingForm.sessionTime}
-                          onChange={(e) => setJointBookingForm({ ...jointBookingForm, sessionTime: e.target.value })}
-                          style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: '11px', borderRadius: '6px' }}
-                        >
-                          {TRAINING_TIME_SLOTS.map(slot => {
-                            const status = getSlotBookingStatus(slot.id, jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
-                            const isLunch = slot.isLunch;
-                            const isBooked = status.isBooked;
-                            const valueStr = `${slot.id} (${slot.desc})`;
-                            return (
-                              <option
-                                key={slot.id}
-                                value={valueStr}
-                                disabled={isLunch || isBooked}
-                                style={{
-                                  background: isLunch || isBooked ? '#000000' : '#141a24',
-                                  color: isLunch ? '#78716c' : isBooked ? '#71717a' : '#F3F4F6'
-                                }}
-                              >
-                                {isLunch
-                                  ? '11:45 - 13:00 [NGHỈ TRƯA & BẢO DƯỠNG SÂN BÃI]'
-                                  : isBooked
-                                  ? `${slot.label} [ĐÃ CÓ NGƯỜI ĐẶT TRƯỚC]`
-                                  : `${slot.label} (${slot.desc.split(' - ')[1] || slot.desc})`}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-
-                      {/* Trực quan hóa ma trận khung giờ: Slot đã đặt hoặc nghỉ trưa bị tô đen, không bấm xem được */}
+                      {/* Trực quan hóa ma trận khung giờ tập luyện (chọn trực tiếp) */}
                       <div style={{
-                        background: 'rgba(0, 0, 0, 0.4)',
-                        border: '1px solid var(--line)',
-                        borderRadius: '6px',
-                        padding: '6px 8px'
+                        background: 'rgba(0, 0, 0, 0.28)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '10px',
+                        padding: '11px 13px'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                          <span style={{ fontSize: '10px', color: 'var(--paper-dim)', fontWeight: 600 }}>
-                            Sơ đồ giờ tập theo ngày:
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--paper)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>⏱️</span> Khung giờ tập luyện:
                           </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <button
-                              type="button"
-                              onClick={handleReset18hSchedule}
-                              title="Tới tầm 18:00 tối hệ thống tự động reset. Bấm nút này để kích hoạt reset toàn bộ slot trống lúc 18h ngay lập tức"
-                              style={{
-                                background: 'rgba(212, 175, 55, 0.16)',
-                                border: '1px solid rgba(212, 175, 55, 0.45)',
-                                color: 'var(--brass)',
-                                borderRadius: '4px',
-                                fontSize: '8.5px',
-                                padding: '1.5px 5px',
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '2px'
-                              }}
-                            >
-                              Reset 18h
-                            </button>
-                            <span style={{ fontSize: '9px', color: '#94a3b8' }}>
-                              ⬛ Bôi đen = Đã đặt
-                            </span>
-                          </div>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: 'var(--brass)',
+                            background: 'rgba(212, 175, 55, 0.15)',
+                            padding: '3px 8px',
+                            borderRadius: '5px',
+                            border: '1px solid rgba(212, 175, 55, 0.35)',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {extractSlotPrefix(jointBookingForm.sessionTime) || '06:00 - 07:00'}
+                          </span>
                         </div>
+
                         <div style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          fontSize: '9px',
+                          fontSize: '10px',
                           color: 'var(--paper-dim)',
-                          marginBottom: '6px',
-                          padding: '2px 6px',
+                          marginBottom: '8px',
+                          padding: '4px 8px',
                           background: 'rgba(255, 255, 255, 0.03)',
-                          borderRadius: '4px'
+                          borderRadius: '5px'
                         }}>
-                          <span>⏰ Tập: 06:00 - 18:00</span>
-                          <span style={{ color: '#10B981' }}>18:00 tự động mở trống</span>
+                          <span>⏰ Hoạt động: 06:00 - 18:00</span>
+                          <span>⬛ Kín lịch · 🟧 Nghỉ trưa</span>
                         </div>
+
                         <div style={{
                           display: 'grid',
                           gridTemplateColumns: 'repeat(4, 1fr)',
-                          gap: '4px'
+                          gap: '6px'
                         }}>
                           {TRAINING_TIME_SLOTS.map(slot => {
                             const status = getSlotBookingStatus(slot.id, jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
@@ -3728,7 +3730,7 @@ export default function OwnerPage() {
                             const isBooked = status.isBooked;
                             const isSelected = extractSlotPrefix(jointBookingForm.sessionTime) === slot.id;
 
-                            // Giờ nghỉ trưa: Tô đen có viền nét đứt vàng nhạt, không bấm được
+                            // Giờ nghỉ trưa
                             if (isLunch) {
                               return (
                                 <div
@@ -3736,17 +3738,16 @@ export default function OwnerPage() {
                                   title="11:45 - 13:00 là thời gian nghỉ trưa & bảo dưỡng bãi tập"
                                   style={{
                                     gridColumn: 'span 2',
-                                    padding: '4px 2px',
-                                    background: '#040608',
+                                    padding: '6px 4px',
+                                    background: '#070A09',
                                     border: '1px dashed rgba(245, 158, 11, 0.3)',
-                                    borderRadius: '4px',
-                                    color: '#78716c',
-                                    fontSize: '9.5px',
+                                    borderRadius: '6px',
+                                    color: '#78716C',
+                                    fontSize: '10px',
                                     textAlign: 'center',
                                     cursor: 'not-allowed',
                                     userSelect: 'none',
-                                    pointerEvents: 'none',
-                                    opacity: 0.65
+                                    opacity: 0.7
                                   }}
                                 >
                                   11:45-13:00 (Nghỉ trưa)
@@ -3754,26 +3755,24 @@ export default function OwnerPage() {
                               );
                             }
 
-                            // Slot đã bị chủ sở hữu khác đặt trước: Tô đen hoàn toàn, không bấm xem được nữa
+                            // Slot đã bị đặt trước
                             if (isBooked) {
                               return (
                                 <div
                                   key={slot.id}
                                   title="Đã có người đặt trước (Ưu tiên người đặt trước) - Đã bôi đen và không thể đặt"
                                   style={{
-                                    padding: '5px 2px',
-                                    background: '#000000',
-                                    border: '1px solid #27272a',
-                                    borderRadius: '4px',
-                                    color: '#52525b',
-                                    fontSize: '9.5px',
+                                    padding: '7px 4px',
+                                    background: '#050706',
+                                    border: '1px solid #1E2724',
+                                    borderRadius: '6px',
+                                    color: '#4B5563',
+                                    fontSize: '11px',
                                     fontWeight: 700,
                                     textAlign: 'center',
                                     cursor: 'not-allowed',
                                     userSelect: 'none',
-                                    pointerEvents: 'none',
-                                    textDecoration: 'line-through',
-                                    boxShadow: 'inset 0 0 8px rgba(0,0,0,0.95)'
+                                    textDecoration: 'line-through'
                                   }}
                                 >
                                   {slot.label.split(' - ')[0]}
@@ -3781,7 +3780,7 @@ export default function OwnerPage() {
                               );
                             }
 
-                            // Slot trống: Cho phép chọn
+                            // Slot trống
                             return (
                               <button
                                 key={slot.id}
@@ -3791,16 +3790,17 @@ export default function OwnerPage() {
                                   sessionTime: `${slot.id} (${slot.desc})`
                                 }))}
                                 style={{
-                                  padding: '4px 2px',
-                                  background: isSelected ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.03)',
-                                  border: isSelected ? '1.5px solid var(--brass)' : '1px solid var(--line)',
-                                  borderRadius: '4px',
+                                  padding: '7px 4px',
+                                  background: isSelected ? 'rgba(212, 175, 55, 0.22)' : 'rgba(255, 255, 255, 0.04)',
+                                  border: isSelected ? '1.5px solid var(--brass)' : '1px solid rgba(255, 255, 255, 0.1)',
+                                  borderRadius: '6px',
                                   color: isSelected ? 'var(--brass)' : 'var(--paper)',
-                                  fontSize: '10px',
-                                  fontWeight: isSelected ? 800 : 500,
+                                  fontSize: '11.5px',
+                                  fontWeight: isSelected ? 800 : 600,
                                   textAlign: 'center',
                                   cursor: 'pointer',
-                                  transition: 'all 0.1s ease'
+                                  transition: 'all 0.15s ease',
+                                  boxShadow: isSelected ? '0 0 10px rgba(212, 175, 55, 0.25)' : 'none'
                                 }}
                               >
                                 {slot.label.split(' - ')[0]}
@@ -3810,28 +3810,9 @@ export default function OwnerPage() {
                         </div>
                       </div>
 
-                      {/* Mục tiêu buổi tập */}
+                      {/* Ghi chú cho HLV (Tùy chọn) */}
                       <div>
-                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--paper)', fontWeight: 700, marginBottom: '3px' }}>
-                          Mục tiêu buổi tập
-                        </label>
-                        <select
-                          className="portal-input"
-                          value={jointBookingForm.goal}
-                          onChange={(e) => setJointBookingForm({ ...jointBookingForm, goal: e.target.value })}
-                          style={{ width: '100%', boxSizing: 'border-box', padding: '6px 6px', fontSize: '10.5px', borderRadius: '6px' }}
-                        >
-                          <option value="Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV">Sải chân & thể lực</option>
-                          <option value="Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa">Phối hợp chủ - ngựa</option>
-                          <option value="Kiểm tra phản xạ xuất phát máy & chạy vòng cua">Phản xạ xuất phát & cua</option>
-                          <option value="Thử sức cự ly dài 2.400m sân cỏ tự nhiên">Cự ly dài 2.400m</option>
-                          <option value="Luyện bứt tốc nước rút 400m cuối sân cát">Nước rút 400m cuối</option>
-                        </select>
-                      </div>
-
-                      {/* Hàng 4: Ghi chú dòng đơn gọn gàng */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '2px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 600, marginBottom: '4px' }}>
                           Ghi chú cho HLV (Tùy chọn)
                         </label>
                         <input
@@ -3839,8 +3820,8 @@ export default function OwnerPage() {
                           className="portal-input"
                           value={jointBookingForm.ownerNotes}
                           onChange={(e) => setJointBookingForm({ ...jointBookingForm, ownerNotes: e.target.value })}
-                          placeholder="Ví dụ: Đo sải chân ở góc cua số 3..."
-                          style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: '11px', borderRadius: '6px' }}
+                          placeholder="Ví dụ: Đo sải chân ở góc cua số 3, kiểm tra nhịp tim..."
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', fontSize: '12px', borderRadius: '8px', background: 'rgba(0, 0, 0, 0.35)', border: '1px solid rgba(255, 255, 255, 0.12)', color: 'var(--paper)' }}
                         />
                       </div>
 
@@ -3856,31 +3837,31 @@ export default function OwnerPage() {
                             type="submit"
                             disabled={isUnavailable}
                             style={{
-                              marginTop: '3px',
+                              marginTop: '4px',
                               width: '100%',
-                              padding: '8px 12px',
-                              borderRadius: '6px',
-                              background: isUnavailable ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, var(--brass) 0%, #B89230 100%)',
+                              padding: '11px 16px',
+                              borderRadius: '9px',
+                              background: isUnavailable ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(135deg, #F3D37A 0%, #D4AF37 50%, #B89230 100%)',
                               color: isUnavailable ? 'var(--paper-dim)' : '#120E04',
                               fontWeight: 800,
-                              fontSize: '12px',
+                              fontSize: '13.5px',
                               border: 'none',
                               cursor: isUnavailable ? 'not-allowed' : 'pointer',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: '5px',
-                              boxShadow: isUnavailable ? 'none' : '0 3px 10px rgba(212, 175, 55, 0.25)',
+                              gap: '6px',
+                              boxShadow: isUnavailable ? 'none' : '0 4px 18px rgba(212, 175, 55, 0.35)',
                               transition: 'all 0.15s ease'
                             }}
                           >
                             {isLocked
-                              ? 'Đang Khóa Y Tế (Cấm Tập)'
+                              ? '⛔ Đang Khóa Y Tế (Cấm Tập)'
                               : slotStatus.isLunch
-                              ? 'Giờ Nghỉ Trưa (Không Nhận Lịch)'
+                              ? '⏱️ Giờ Nghỉ Trưa (Không Nhận Lịch)'
                               : slotStatus.isBooked
-                              ? 'Khung Giờ Đã Kín (Người Đặt Trước)'
-                              : 'Gửi Yêu Cầu Đặt Lịch'}
+                              ? '🔒 Khung Giờ Đã Kín (Người Đặt Trước)'
+                              : '✓ Gửi Yêu Cầu Đặt Lịch'}
                           </button>
                         );
                       })()}
@@ -3894,79 +3875,132 @@ export default function OwnerPage() {
                     borderRadius: '12px',
                     padding: '16px'
                   }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Yêu Cầu Đặt Lịch Của Bạn</span>
-                      <span style={{ fontSize: '11px', color: 'var(--brass)' }}>
-                        {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).length} lịch
-                      </span>
-                    </div>
-
-                    {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).length === 0 ? (
-                      <div style={{ padding: '16px 8px', textAlign: 'center', color: 'var(--paper-dim)', fontSize: '12px' }}>
-                        Chưa có lịch hẹn nào. Hãy gửi yêu cầu ở form phía trên!
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).map(session => {
-                          const isPending = session.status === 'PENDING';
-                          const isConfirmed = session.status === 'CONFIRMED';
-
-                          return (
-                            <div key={session.id} style={{
-                              background: 'var(--bg-primary)',
-                              border: isPending ? '1px solid rgba(245, 158, 11, 0.4)' : isConfirmed ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--line)',
-                              borderRadius: '8px',
-                              padding: '10px 12px',
-                              fontSize: '12px'
-                            }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                <b style={{ color: 'var(--paper)' }}>{session.horseName}</b>
-                                <span style={{
-                                  fontSize: '10px',
-                                  fontWeight: 700,
-                                  padding: '1px 6px',
-                                  borderRadius: '3px',
-                                  background: isPending ? 'rgba(245, 158, 11, 0.15)' : isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                  color: isPending ? '#F59E0B' : isConfirmed ? '#10B981' : '#EF4444'
-                                }}>
-                                  {isPending ? 'Chờ HLV duyệt' : isConfirmed ? 'Đã xác nhận' : 'HLV phản hồi'}
-                                </span>
-                              </div>
-                              <div style={{ color: 'var(--paper-dim)', fontSize: '11.5px' }}>
-                                {session.sessionDate} ({session.sessionTime})
-                              </div>
-                              <div style={{ color: 'var(--brass)', fontSize: '11px', marginTop: '2px' }}>
-                                HLV: {session.trainerName}
-                              </div>
-                              {session.trainerFeedback && (
-                                <div style={{ marginTop: '4px', padding: '4px 6px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '3px', color: 'var(--paper)', fontSize: '11px' }}>
-                                  <b>HLV dặn:</b> {session.trainerFeedback}
-                                </div>
-                              )}
-                              {isPending && (
-                                <div style={{ marginTop: '6px', textAlign: 'right' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCancelJointSession(session.id)}
-                                    style={{
-                                      padding: '2px 6px',
-                                      borderRadius: '3px',
-                                      border: '1px solid var(--line)',
-                                      background: 'transparent',
-                                      color: 'var(--paper-dim)',
-                                      fontSize: '10.5px',
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    Hủy yêu cầu
-                                  </button>
-                                </div>
-                              )}
+                    {(() => {
+                      const myJointSessions = jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name);
+                      return (
+                        <>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>Yêu Cầu Đặt Lịch Của Bạn</span>
+                              <span style={{ fontSize: '11px', color: 'var(--brass)', fontWeight: 600 }}>
+                                ({myJointSessions.length} lịch)
+                              </span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                            {myJointSessions.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleClearAllMyJointSessions}
+                                style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                                  background: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#EF4444',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  transition: 'all 0.2s'
+                                }}
+                                title="Xóa tất cả các yêu cầu đặt lịch của bạn"
+                              >
+                                Xóa tất cả
+                              </button>
+                            )}
+                          </div>
+
+                          {myJointSessions.length === 0 ? (
+                            <div style={{ padding: '16px 8px', textAlign: 'center', color: 'var(--paper-dim)', fontSize: '12px' }}>
+                              Chưa có lịch hẹn nào. Hãy gửi yêu cầu ở form phía trên!
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {myJointSessions.map(session => {
+                                const isPending = session.status === 'PENDING';
+                                const isConfirmed = session.status === 'CONFIRMED';
+
+                                return (
+                                  <div key={session.id} style={{
+                                    background: 'var(--bg-primary)',
+                                    border: isPending ? '1px solid rgba(245, 158, 11, 0.4)' : isConfirmed ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--line)',
+                                    borderRadius: '8px',
+                                    padding: '10px 12px',
+                                    fontSize: '12px'
+                                  }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                      <b style={{ color: 'var(--paper)' }}>{session.horseName}</b>
+                                      <span style={{
+                                        fontSize: '10px',
+                                        fontWeight: 700,
+                                        padding: '1px 6px',
+                                        borderRadius: '3px',
+                                        background: isPending ? 'rgba(245, 158, 11, 0.15)' : isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                        color: isPending ? '#F59E0B' : isConfirmed ? '#10B981' : '#EF4444'
+                                      }}>
+                                        {isPending ? 'Chờ HLV duyệt' : isConfirmed ? 'Đã xác nhận' : 'HLV phản hồi'}
+                                      </span>
+                                    </div>
+                                    <div style={{ color: 'var(--paper-dim)', fontSize: '11.5px' }}>
+                                      {session.sessionDate} ({session.sessionTime})
+                                    </div>
+                                    {session.isSubstitute || session.transferStatus === 'TRANSFERRED' ? (
+                                      <div style={{ fontSize: '11px', marginTop: '2px' }}>
+                                        <span style={{ color: '#38BDF8', fontWeight: 700 }}>
+                                          HLV Thay Thế: {session.substituteTrainerName || session.trainerName}
+                                        </span>
+                                        <span style={{ color: 'var(--paper-dim)', marginLeft: '4px' }}>
+                                          (Thay HLV {session.originalTrainerName})
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div style={{ color: 'var(--brass)', fontSize: '11px', marginTop: '2px' }}>
+                                        HLV: {session.trainerName}
+                                      </div>
+                                    )}
+                                    {session.transferStatus === 'PENDING_TRANSFER' && (
+                                      <div style={{ marginTop: '4px', padding: '3px 6px', background: 'rgba(56, 189, 248, 0.08)', borderRadius: '3px', color: '#38BDF8', fontSize: '10.5px' }}>
+                                        ⏳ HLV bận, đang nhờ HLV {session.delegatedToTrainerName} hỗ trợ tập thay.
+                                      </div>
+                                    )}
+                                    {session.assignedWorkout && (
+                                      <div style={{ marginTop: '4px', padding: '4px 6px', background: 'rgba(56, 189, 248, 0.12)', borderLeft: '2px solid #38BDF8', borderRadius: '3px', color: 'var(--paper)', fontSize: '10.5px' }}>
+                                        <b style={{ color: '#38BDF8' }}>📋 Bài tập do HLV chính ({session.originalTrainerName}) giao:</b>
+                                        <div style={{ marginTop: '2px', whiteSpace: 'pre-line' }}>{session.assignedWorkout}</div>
+                                      </div>
+                                    )}
+                                    {session.trainerFeedback && (
+                                      <div style={{ marginTop: '4px', padding: '4px 6px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '3px', color: 'var(--paper)', fontSize: '11px' }}>
+                                        <b>HLV dặn:</b> {session.trainerFeedback}
+                                      </div>
+                                    )}
+                                    <div style={{ marginTop: '6px', textAlign: 'right' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCancelJointSession(session.id)}
+                                        style={{
+                                          padding: '2px 8px',
+                                          borderRadius: '4px',
+                                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                                          background: 'rgba(239, 68, 68, 0.08)',
+                                          color: '#EF4444',
+                                          fontSize: '10.5px',
+                                          fontWeight: 600,
+                                          cursor: 'pointer'
+                                        }}
+                                      >
+                                        {isPending ? 'Hủy yêu cầu' : 'Xóa'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -4076,9 +4110,20 @@ export default function OwnerPage() {
                                   <h4 style={{ margin: 0, fontSize: '14px', color: 'var(--paper)', fontWeight: 700 }}>
                                     {session.horseName}
                                   </h4>
-                                  <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
-                                    HLV: <b style={{ color: 'var(--brass)' }}>{session.trainerName}</b>
-                                  </span>
+                                  {session.isSubstitute || session.transferStatus === 'TRANSFERRED' ? (
+                                    <div style={{ fontSize: '11.5px', marginTop: '2px' }}>
+                                      <span style={{ color: '#38BDF8', fontWeight: 700 }}>
+                                        HLV Thay Thế: {session.substituteTrainerName || session.trainerName}
+                                      </span>
+                                      <span style={{ color: 'var(--paper-dim)', marginLeft: '4px', fontSize: '11px' }}>
+                                        (Thay HLV chính {session.originalTrainerName})
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                                      HLV: <b style={{ color: 'var(--brass)' }}>{session.trainerName}</b>
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 
@@ -4087,13 +4132,53 @@ export default function OwnerPage() {
                                 fontWeight: 700,
                                 padding: '2px 8px',
                                 borderRadius: '4px',
-                                background: isPending ? 'rgba(245, 158, 11, 0.15)' : isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                color: isPending ? '#F59E0B' : isConfirmed ? '#10B981' : '#EF4444',
-                                border: `1px solid ${isPending ? 'rgba(245, 158, 11, 0.4)' : isConfirmed ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                                background: session.transferStatus === 'TRANSFERRED' ? 'rgba(56, 189, 248, 0.15)' : session.transferStatus === 'PENDING_TRANSFER' ? 'rgba(245, 158, 11, 0.15)' : isPending ? 'rgba(245, 158, 11, 0.15)' : isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                color: session.transferStatus === 'TRANSFERRED' ? '#38BDF8' : session.transferStatus === 'PENDING_TRANSFER' ? '#F59E0B' : isPending ? '#F59E0B' : isConfirmed ? '#10B981' : '#EF4444',
+                                border: `1px solid ${session.transferStatus === 'TRANSFERRED' ? 'rgba(56, 189, 248, 0.4)' : session.transferStatus === 'PENDING_TRANSFER' ? 'rgba(245, 158, 11, 0.4)' : isPending ? 'rgba(245, 158, 11, 0.4)' : isConfirmed ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
                               }}>
-                                {isPending ? 'Chờ HLV duyệt' : isConfirmed ? 'HLV Đã xác nhận' : 'HLV phản hồi'}
+                                {session.transferStatus === 'TRANSFERRED' ? '🤝 Có HLV Tập Thay' : session.transferStatus === 'PENDING_TRANSFER' ? '⏳ Đang Đổi HLV' : isPending ? 'Chờ HLV duyệt' : isConfirmed ? 'HLV Đã xác nhận' : 'HLV phản hồi'}
                               </span>
                             </div>
+
+                            {/* Cảnh báo chuyển giao HLV nếu có */}
+                            {session.transferStatus === 'PENDING_TRANSFER' && (
+                              <div style={{
+                                margin: '6px 0',
+                                padding: '8px 10px',
+                                borderRadius: '6px',
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                border: '1px solid rgba(56, 189, 248, 0.35)',
+                                color: '#38BDF8',
+                                fontSize: '11.5px',
+                                lineHeight: 1.45
+                              }}>
+                                ⏳ <b>Thông báo đổi lịch:</b> HLV chính bận việc đột xuất và đang chuyển giao buổi tập sang HLV <b>{session.delegatedToTrainerName}</b>. Khi HLV này xác nhận, hệ thống sẽ thông báo ngay cho bạn!
+                              </div>
+                            )}
+
+                            {/* Hộp bài tập chỉ định do HLV chính giao để tập theo */}
+                            {session.assignedWorkout && (
+                              <div style={{
+                                margin: '8px 0',
+                                padding: '10px 12px',
+                                borderRadius: '6px',
+                                background: 'rgba(56, 189, 248, 0.12)',
+                                borderLeft: '3px solid #38BDF8',
+                                color: 'var(--paper)',
+                                fontSize: '12px',
+                                lineHeight: 1.5
+                              }}>
+                                <div style={{ fontWeight: 800, color: '#38BDF8', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  📋 BÀI TẬP CHỈ ĐỊNH TỪ HLV CHÍNH ({session.originalTrainerName}) ĐỂ BẠN & CHIẾN MÃ TẬP THEO:
+                                </div>
+                                <div style={{ whiteSpace: 'pre-line' }}>{session.assignedWorkout}</div>
+                                {session.substituteResponseNote && (
+                                  <div style={{ marginTop: '6px', fontSize: '11px', color: '#10B981', fontStyle: 'italic' }}>
+                                    Lời nhắn từ HLV thay thế ({session.substituteTrainerName}): "{session.substituteResponseNote}"
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                             {/* Cảnh báo khóa y tế */}
                             {isLocked && (
@@ -4110,7 +4195,6 @@ export default function OwnerPage() {
                                 alignItems: 'center',
                                 gap: '6px'
                               }}>
-                                
                                 <span>Chiến mã đang bị Thú Y khóa! Phải chờ Thú y mở khóa mới được tập.</span>
                               </div>
                             )}
@@ -9689,15 +9773,24 @@ export default function OwnerPage() {
               >&times;</button>
             </div>
 
-            <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 18px', lineHeight: 1.5 }}>
-              Bạn có toàn quyền lựa chọn hoặc thay đổi HLV, Bác sĩ và Groom phục vụ chiến mã này. Nhân sự được chọn sẽ nhận thông báo và truy cập để xác nhận phục vụ.
-            </p>
+            <div style={{
+              background: 'rgba(212, 175, 55, 0.08)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              fontSize: '12px',
+              lineHeight: 1.5,
+              color: 'var(--paper)'
+            }}>
+              <b>Quy định phân công nghiệp vụ:</b> Mỗi chiến mã chỉ có <b>1 HLV chính</b>, <b>1 Bác sĩ chính</b> và <b>1 Groom chính</b> phụ trách đưa ra kết quả và đánh giá chuyên môn chính thức. Bạn vẫn có thể chọn các HLV khác khi đặt <i>Lịch tập chung</i>, và các HLV đó sẽ tự động gửi báo cáo buổi tập tạm thời về cho đúng HLV chính của chiến mã.
+            </div>
 
             <form onSubmit={handleSaveTeamModal} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* 1. Chọn HLV */}
+              {/* 1. Chọn HLV Chính */}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#60A5FA', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  <span></span> Huấn Luyện Viên Phụ Trách (1 trong 3 HLV chính):
+                  <span></span> Huấn Luyện Viên Phụ Trách Chính (1 trong 3 HLV):
                 </label>
                 <select
                   value={selectedTeamStaff.trainerUsername}
@@ -9859,7 +9952,7 @@ export default function OwnerPage() {
                       const isLocked = lockStatus.isLocked || h.isLockedByVet;
                       return (
                         <option key={h.id} value={h.id}>
-                          {h.name} ({h.stable || 'Ô A1'}) {isLocked ? '[ĐANG KHÓA Y TẾ - CẤM TẬP]' : '[Đủ điều kiện]'}
+                          {h.name} ({h.stable || 'Ô A1'}){isLocked ? ' ⛔ [Khóa Y Tế]' : ''}
                         </option>
                       );
                     })}
@@ -9912,57 +10005,38 @@ export default function OwnerPage() {
                       </option>
                     ))}
                   </select>
+                  {(() => {
+                    const selHorse = myHorses.find(h => String(h.id) === String(jointBookingForm.horseId));
+                    const asgn = serviceAssignments.find(a => 
+                      (selHorse?.microchip && a.microchip === selHorse.microchip) || 
+                      (selHorse?.name && a.horseName?.toLowerCase() === selHorse.name?.toLowerCase())
+                    );
+                    const primaryTrUser = asgn?.trainerUsername || selHorse?.trainerUsername;
+                    const primaryTrName = asgn?.trainerName || selHorse?.trainer;
+                    if (primaryTrUser && primaryTrUser !== jointBookingForm.trainerUsername) {
+                      const actingTr = FIXED_TRAINERS_LIST.find(t => t.username === jointBookingForm.trainerUsername);
+                      return (
+                        <div style={{ marginTop: '6px', fontSize: '11.5px', color: '#60A5FA', background: 'rgba(96, 165, 250, 0.1)', border: '1px solid rgba(96, 165, 250, 0.25)', padding: '6px 10px', borderRadius: '6px' }}>
+                          💡 <b>Tập phối hợp:</b> HLV <b>{actingTr?.name || 'được chọn'}</b> sẽ thực hiện buổi tập này và tự động gửi báo cáo kết quả về cho <b>HLV chính ({primaryTrName || 'HLV chính'})</b> của chiến mã.
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
-                {/* 3. Ngày tập & Khung giờ */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
-                      Ngày tập dự kiến:
-                    </label>
-                    <input
-                      type="date"
-                      className="portal-input"
-                      value={jointBookingForm.sessionDate}
-                      onChange={(e) => setJointBookingForm({ ...jointBookingForm, sessionDate: e.target.value })}
-                      style={{ width: '100%', boxSizing: 'border-box' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
-                      Khung giờ tập:
-                    </label>
-                    <select
-                      className="portal-input"
-                      value={jointBookingForm.sessionTime}
-                      onChange={(e) => setJointBookingForm({ ...jointBookingForm, sessionTime: e.target.value })}
-                      style={{ width: '100%', boxSizing: 'border-box' }}
-                    >
-                      {TRAINING_TIME_SLOTS.map(slot => {
-                        const status = getSlotBookingStatus(slot.id, jointBookingForm.trainerUsername, jointBookingForm.sessionDate);
-                        const isLunch = slot.isLunch;
-                        const isBooked = status.isBooked;
-                        const valueStr = `${slot.id} (${slot.desc})`;
-                        return (
-                          <option
-                            key={slot.id}
-                            value={valueStr}
-                            disabled={isLunch || isBooked}
-                            style={{
-                              background: isLunch || isBooked ? '#000000' : '#141a24',
-                              color: isLunch ? '#78716c' : isBooked ? '#71717a' : '#F3F4F6'
-                            }}
-                          >
-                            {isLunch
-                              ? ' 11:45 - 13:00 [NGHỈ TRƯA & BẢO DƯỠNG BÃI TẬP]'
-                              : isBooked
-                              ? `${slot.label} [ĐÃ CÓ NGƯỜI ĐẶT TRƯỚC]`
-                              : `${slot.label} (${slot.desc.split(' - ')[1] || slot.desc})`}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
+                {/* 3. Ngày tập dự kiến */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
+                    Ngày tập dự kiến:
+                  </label>
+                  <input
+                    type="date"
+                    className="portal-input"
+                    value={jointBookingForm.sessionDate}
+                    onChange={(e) => setJointBookingForm({ ...jointBookingForm, sessionDate: e.target.value })}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
                 </div>
 
                 {/* Sơ đồ khung giờ trực quan trong modal: slot trùng/đặt trước bị bôi đen hoàn toàn */}
@@ -9970,37 +10044,24 @@ export default function OwnerPage() {
                   background: 'rgba(0, 0, 0, 0.45)',
                   border: '1px solid var(--line)',
                   borderRadius: '8px',
-                  padding: '8px 10px'
+                  padding: '10px 12px'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 600 }}>
-                      Sơ đồ khung giờ trong ngày:
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--paper)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span>⏱️</span> Khung giờ tập:
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <button
-                        type="button"
-                        onClick={handleReset18hSchedule}
-                        title="Tới tầm 18:00 tối hệ thống tự động reset. Bấm nút này để kích hoạt reset toàn bộ slot trống lúc 18h ngay lập tức"
-                        style={{
-                          background: 'rgba(212, 175, 55, 0.16)',
-                          border: '1px solid rgba(212, 175, 55, 0.45)',
-                          color: 'var(--brass)',
-                          borderRadius: '4px',
-                          fontSize: '9.5px',
-                          padding: '2px 7px',
-                          cursor: 'pointer',
-                          fontWeight: 700,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px'
-                        }}
-                      >
-                        Reset lịch 18h
-                      </button>
-                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>
-                        ⬛ Bôi đen = Đã đặt trước
-                      </span>
-                    </div>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: 'var(--brass)',
+                      background: 'rgba(212, 175, 55, 0.15)',
+                      padding: '3px 8px',
+                      borderRadius: '5px',
+                      border: '1px solid rgba(212, 175, 55, 0.35)',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {extractSlotPrefix(jointBookingForm.sessionTime) || '06:00 - 07:00'}
+                    </span>
                   </div>
                   <div style={{
                     display: 'flex',
@@ -10009,12 +10070,12 @@ export default function OwnerPage() {
                     fontSize: '10px',
                     color: 'var(--paper-dim)',
                     marginBottom: '8px',
-                    padding: '3px 8px',
+                    padding: '4px 8px',
                     background: 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '4px'
                   }}>
-                    <span>⏰ Khung giờ hoạt động: <b>06:00 - 18:00</b></span>
-                    <span style={{ color: '#10B981', fontWeight: 600 }}>Tới 18:00 tự động reset mở lịch trống mới</span>
+                    <span>⏰ Khung giờ: <b>06:00 - 18:00</b></span>
+                    <span>⬛ Kín lịch · 🟧 Nghỉ trưa</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
                     {TRAINING_TIME_SLOTS.map(slot => {
@@ -10101,26 +10162,7 @@ export default function OwnerPage() {
                   </div>
                 </div>
 
-                {/* 4. Mục tiêu buổi tập */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
-                    Mục tiêu & Nội dung tập chung:
-                  </label>
-                  <select
-                    className="portal-input"
-                    value={jointBookingForm.goal}
-                    onChange={(e) => setJointBookingForm({ ...jointBookingForm, goal: e.target.value })}
-                    style={{ width: '100%', boxSizing: 'border-box' }}
-                  >
-                    <option value="Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV"> Quan sát trực tiếp sải chân & kiểm tra thể lực cùng HLV</option>
-                    <option value="Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa"> Tập luyện kỹ thuật điều khiển phối hợp giữa chủ và ngựa</option>
-                    <option value="Kiểm tra phản xạ xuất phát máy & chạy vòng cua"> Kiểm tra phản xạ xuất phát máy & chạy vòng cua</option>
-                    <option value="Thử sức cự ly dài 2.400m sân cỏ tự nhiên"> Thử sức cự ly dài 2.400m sân cỏ tự nhiên</option>
-                    <option value="Luyện bứt tốc nước rút 400m cuối sân cát"> Luyện bứt tốc nước rút 400m cuối sân cát</option>
-                  </select>
-                </div>
-
-                {/* 5. Ghi chú gửi HLV */}
+                {/* Ghi chú gửi HLV */}
                 <div>
                   <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px', fontWeight: 600 }}>
                     Ghi chú / Yêu cầu gửi Huấn luyện viên:

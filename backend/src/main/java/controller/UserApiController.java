@@ -206,13 +206,11 @@ public class UserApiController extends HttpServlet {
                 return;
             }
 
-            String fullName = SecurityUtil.getString(body, "full_name",
-                SecurityUtil.getString(body, "fullName", ""));
-            String email = SecurityUtil.getString(body, "email", "");
-            String phone = SecurityUtil.getString(body, "phone", "");
-            String roleCode = SecurityUtil.getString(body, "role",
-                SecurityUtil.getString(body, "roleCode", ""));
-            String status = SecurityUtil.getString(body, "status", "ACTIVE");
+            String fullName = body.has("full_name") ? SecurityUtil.getString(body, "full_name", "") : (body.has("fullName") ? SecurityUtil.getString(body, "fullName", "") : null);
+            String email = body.has("email") ? SecurityUtil.getString(body, "email", "") : null;
+            String phone = body.has("phone") ? SecurityUtil.getString(body, "phone", "") : null;
+            String roleCode = body.has("role") ? SecurityUtil.getString(body, "role", "") : (body.has("roleCode") ? SecurityUtil.getString(body, "roleCode", "") : null);
+            String status = body.has("status") ? SecurityUtil.getString(body, "status", "") : null;
 
             if (userId == 1 && "INACTIVE".equalsIgnoreCase(status)) {
                 SecurityUtil.sendJsonError(response, HttpServletResponse.SC_FORBIDDEN,

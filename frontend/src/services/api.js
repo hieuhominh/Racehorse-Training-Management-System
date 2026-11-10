@@ -1736,7 +1736,7 @@ export async function deleteTrainingProgramApi(programId) {
 
   const key = 'matruong_trainer_programs';
   const local = getLocalData(key, []);
-  const updated = local.filter(p => p.id !== programId);
+  const updated = local.filter(p => String(p.id) !== String(programId));
   setLocalData(key, updated);
   return { success: true };
 }

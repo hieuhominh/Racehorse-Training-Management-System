@@ -17,8 +17,9 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
   const username = currentUser?.username || 'user';
   const roleCode = (role || currentUser?.role_code || currentUser?.role || '').toUpperCase();
 
-  // Lọc thông báo dành cho vai trò hiện tại
+  // Lọc thông báo dành cho vai trò & người nhận đích danh
   const myNotifications = notifications.filter(n => {
+    if (n.recipientUsername && n.recipientUsername !== username) return false;
     if (!n.recipientRoles || !Array.isArray(n.recipientRoles)) return true;
     return n.recipientRoles.includes(roleCode) || n.recipientRoles.includes('ALL');
   });
@@ -264,6 +265,11 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
                 const isHorseDeleted = n.type === 'HORSE_DELETED';
                 const isTrainingRequest = n.type === 'TRAINING_REQUEST';
                 const isServiceConfirmed = n.type === 'SERVICE_CONFIRMED';
+                const isSubstituteRequest = n.type === 'SUBSTITUTE_REQUEST';
+                const isTrainerSubstituted = n.type === 'TRAINER_SUBSTITUTED';
+                const isSubstituteAccepted = n.type === 'SUBSTITUTE_ACCEPTED';
+                const isSubstituteRejected = n.type === 'SUBSTITUTE_REJECTED';
+                const isTempTrainingReport = n.type === 'TEMP_TRAINING_REPORT';
 
                 let tagText = '📢 THÔNG BÁO';
                 let tagBg = 'rgba(212, 175, 55, 0.15)';
@@ -285,6 +291,31 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
                   tagBg = 'rgba(16, 185, 129, 0.15)';
                   tagColor = '#10B981';
                   borderLeftColor = '3px solid #10B981';
+                } else if (isSubstituteRequest) {
+                  tagText = '🤝 YÊU CẦU NHỜ TẬP THAY';
+                  tagBg = 'rgba(56, 189, 248, 0.15)';
+                  tagColor = '#38BDF8';
+                  borderLeftColor = '3px solid #38BDF8';
+                } else if (isTrainerSubstituted) {
+                  tagText = '🔄 ĐỔI HLV TẠM THỜI';
+                  tagBg = 'rgba(245, 158, 11, 0.18)';
+                  tagColor = '#F59E0B';
+                  borderLeftColor = '3px solid #F59E0B';
+                } else if (isSubstituteAccepted) {
+                  tagText = '✓ ĐÃ ĐỒNG Ý TẬP THAY';
+                  tagBg = 'rgba(16, 185, 129, 0.15)';
+                  tagColor = '#10B981';
+                  borderLeftColor = '3px solid #10B981';
+                } else if (isSubstituteRejected) {
+                  tagText = '✕ TỪ CHỐI TẬP THAY';
+                  tagBg = 'rgba(239, 68, 68, 0.15)';
+                  tagColor = '#EF4444';
+                  borderLeftColor = '3px solid #EF4444';
+                } else if (isTempTrainingReport) {
+                  tagText = '📋 BÁO CÁO TẬP TẠM THỜI';
+                  tagBg = 'rgba(168, 85, 247, 0.15)';
+                  tagColor = '#A855F7';
+                  borderLeftColor = '3px solid #A855F7';
                 }
 
                 return (

@@ -196,10 +196,37 @@ public class UserDAO extends DBContext {
         if (userId <= 0) return false;
 
         String normalizedRole = roleCode != null && !roleCode.trim().isEmpty() ? roleCode.trim().toUpperCase() : null;
-        int roleId = resolveRoleId(normalizedRole != null ? normalizedRole : "OWNER");
 
         if (hasConnection()) {
+            StringBuilder sql = new StringBuilder("UPDATE dbo.Users SET ");
+            java.util.List<Object> params = new java.util.ArrayList<>();
+
+            boolean hasField = false;
+            if (status != null && !status.trim().isEmpty()) {
+                sql.append("status = ?");
+                params.add(status.trim().toUpperCase());
+                hasField = true;
+            }
+            if (fullName != null && !fullName.trim().isEmpty()) {
+                if (hasField) sql.append(", ");
+                sql.append("full_name = ?");
+                params.add(SecurityUtil.sanitize(fullName));
+                hasField = true;
+            }
+            if (email != null && !email.trim().isEmpty()) {
+                if (hasField) sql.append(", ");
+                sql.append("email = ?");
+                params.add(email.trim());
+                hasField = true;
+            }
+            if (phone != null && !phone.trim().isEmpty()) {
+                if (hasField) sql.append(", ");
+                sql.append("phone = ?");
+                params.add(SecurityUtil.sanitize(phone));
+                hasField = true;
+            }
             if (normalizedRole != null) {
+                int roleId = resolveRoleId(normalizedRole);
                 String roleSql = "SELECT role_id FROM dbo.Roles WHERE role_code = ?";
                 try (PreparedStatement psRole = connection.prepareStatement(roleSql)) {
                     psRole.setString(1, normalizedRole);
@@ -210,16 +237,21 @@ public class UserDAO extends DBContext {
                     }
                 } catch (SQLException ignored) {
                 }
+                if (hasField) sql.append(", ");
+                sql.append("role_id = ?");
+                params.add(roleId);
+                hasField = true;
             }
 
-            String sql = "UPDATE dbo.Users SET full_name = ?, email = ?, phone = ?, role_id = ?, status = ? WHERE user_id = ?";
-            try (PreparedStatement ps = connection.prepareStatement(sql)) {
-                ps.setString(1, SecurityUtil.sanitize(fullName));
-                ps.setString(2, email != null ? email.trim() : "");
-                ps.setString(3, phone != null ? SecurityUtil.sanitize(phone) : "");
-                ps.setInt(4, roleId);
-                ps.setString(5, status != null ? status.trim().toUpperCase() : "ACTIVE");
-                ps.setInt(6, userId);
+            if (!hasField) return true;
+
+            sql.append(" WHERE user_id = ?");
+            params.add(userId);
+
+            try (PreparedStatement ps = connection.prepareStatement(sql.toString())) {
+                for (int i = 0; i < params.size(); i++) {
+                    ps.setObject(i + 1, params.get(i));
+                }
                 return ps.executeUpdate() > 0;
             } catch (SQLException e) {
                 return false;

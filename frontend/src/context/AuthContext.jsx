@@ -603,13 +603,22 @@ export function AuthProvider({ children }) {
   const toggleUserStatus = (userId) => {
     if (Number(userId) === 1) return 'ACTIVE';
 
-    let nextStatusResult = 'ACTIVE';
+    // 1. Tìm thông tin người dùng hiện tại và tính toán nextStatus đồng bộ ngay lập tức
+    let target = usersList.find(u => Number(u.user_id) === Number(userId) || (u.id && Number(u.id) === Number(userId)));
+    if (!target) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('matruong_users_list') || '[]');
+        target = stored.find(u => Number(u.user_id) === Number(userId) || (u.id && Number(u.id) === Number(userId)));
+      } catch {}
+    }
 
+    const currentStatus = target?.status || 'ACTIVE';
+    const nextStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+    // 2. Cập nhật state usersList và lưu ngay vào localStorage
     setUsersList(prev => {
       const nextList = prev.map(u => {
         if (Number(u.user_id) === Number(userId) || (u.id && Number(u.id) === Number(userId))) {
-          const nextStatus = u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-          nextStatusResult = nextStatus;
           return { ...u, status: nextStatus };
         }
         return u;
@@ -622,20 +631,38 @@ export function AuthProvider({ children }) {
       return nextList;
     });
 
-    updateUserApi(userId, { status: nextStatusResult }).catch(() => { });
+    // 3. Đồng bộ với API Backend
+    updateUserApi(userId, {
+      user_id: userId,
+      status: nextStatus,
+      ...(target ? {
+        full_name: target.full_name,
+        email: target.email,
+        phone: target.phone,
+        role: target.role
+      } : {})
+    }).catch(() => { });
 
+    // 4. Nếu người dùng đang đăng nhập chính là tài khoản bị khóa -> đăng xuất ngay lập tức
     if (currentUser && (Number(currentUser.user_id) === Number(userId) || Number(currentUser.id) === Number(userId))) {
-      setCurrentUser(prev => {
-        if (!prev) return null;
-        const updated = { ...prev, status: nextStatusResult };
+      if (nextStatus !== 'ACTIVE') {
+        setCurrentUser(null);
         try {
-          sessionStorage.setItem('matruong_auth_user', JSON.stringify(updated));
-        } catch { }
-        return updated;
-      });
+          sessionStorage.removeItem('matruong_auth_user');
+          localStorage.removeItem('matruong_auth_user');
+        } catch {}
+      } else {
+        setCurrentUser(prev => prev ? { ...prev, status: 'ACTIVE' } : null);
+      }
     }
 
-    return nextStatusResult;
+    // 5. Kích hoạt sự kiện storage và custom event để đồng bộ tức thì các tab
+    try {
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('matruong_user_status_changed', { detail: { userId, status: nextStatus } }));
+    } catch {}
+
+    return nextStatus;
   };
 
   // Xóa vĩnh viễn người dùng khỏi danh sách (dành cho Admin)

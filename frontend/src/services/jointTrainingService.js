@@ -2,6 +2,7 @@
 // Tích hợp kiểm tra nghiêm ngặt Quyền phủ quyết y tế (Medical Safety Veto của Bác sĩ Thú y)
 // Logic chống trùng lịch (Ưu tiên người đặt trước), Khung giờ 06:00 - 18:00 & Nghỉ trưa 11:45 - 13:00
 import { addSystemNotification } from './notificationService';
+import { getServiceAssignments, FIXED_TRAINERS_LIST } from './serviceAssignment';
 import {
   getJointTrainingSessionsApi,
   bookJointTrainingSessionApi,
@@ -137,7 +138,10 @@ export function getBookedSlotsForTrainer(trainerUsername, sessionDate) {
   return allSessions.filter(s => {
     // Cả PENDING (đang chờ duyệt) và CONFIRMED (đã duyệt) đều tính là đã có người đặt trước
     if (s.status !== 'PENDING' && s.status !== 'CONFIRMED') return false;
-    if (s.trainerUsername !== trainerUsername) return false;
+    const effectiveTrainer = s.transferStatus === 'TRANSFERRED' && s.substituteTrainerUsername
+      ? s.substituteTrainerUsername
+      : s.trainerUsername;
+    if (effectiveTrainer !== trainerUsername) return false;
     return normalizeDate(s.sessionDate) === targetDate;
   });
 }
@@ -420,6 +424,32 @@ export function confirmJointTrainingSession(sessionId, feedback = '', trainerUse
       trainerName: trainerName,
       sessionId: target.id
     });
+
+    // Nếu HLV tiếp nhận buổi tập tạm thời không phải HLV chính của chiến mã, gửi báo cáo về đúng HLV chính
+    const asgns = getServiceAssignments() || [];
+    const asgn = asgns.find(a => 
+      (a.microchip && target.microchip && a.microchip.trim().toLowerCase() === target.microchip.trim().toLowerCase()) ||
+      (a.horseName && target.horseName && a.horseName.trim().toLowerCase() === target.horseName.trim().toLowerCase())
+    );
+    const primaryTrainerUser = asgn?.trainerUsername;
+    const primaryTrainerName = asgn?.trainerName;
+    const actingTrainerUser = trainerUser?.username || target.trainerUsername;
+
+    if (primaryTrainerUser && primaryTrainerUser.toLowerCase() !== (actingTrainerUser || '').toLowerCase()) {
+      addSystemNotification({
+        type: 'TEMP_TRAINING_REPORT',
+        title: `BÁO CÁO TẬP LUYỆN TẠM THỜI: ${target.horseName}`,
+        content: `HLV phối hợp ${trainerName} vừa xác nhận và hoàn tất buổi huấn luyện tạm thời cho chiến mã "${target.horseName}" (HLV chính phụ trách: ${primaryTrainerName || 'Bạn'}) vào ngày ${target.sessionDate} (${target.sessionTime}). Nội dung báo cáo / Phản hồi: "${defaultFeedback}".`,
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+        recipientUsername: primaryTrainerUser,
+        recipientRoles: ['TRAINER'],
+        horseName: target.horseName,
+        microchip: target.microchip,
+        actingTrainerName: trainerName,
+        primaryTrainerName: primaryTrainerName,
+        sessionId: target.id
+      });
+    }
   } catch (err) {
     console.error('Error notifying joint training confirmed:', err);
   }
@@ -486,6 +516,28 @@ export function cancelJointTrainingSession(sessionId) {
   });
 
   return nextList;
+}
+
+/**
+ * Xóa tất cả các buổi hẹn tập luyện chung trên toàn hệ thống (Làm trống bãi tập)
+ */
+export function clearAllJointTrainingSessions() {
+  saveJointTrainingSessions([]);
+  return { success: true };
+}
+
+/**
+ * Xóa tất cả các buổi hẹn tập luyện của một chủ sở hữu cụ thể
+ */
+export function clearAllMyJointTrainingSessions(ownerKey = null, ownerName = null) {
+  const list = getJointTrainingSessions();
+  const filtered = list.filter(s => {
+    if (ownerKey && String(s.ownerKey) === String(ownerKey)) return false;
+    if (ownerName && s.ownerName === ownerName) return false;
+    return true;
+  });
+  saveJointTrainingSessions(filtered);
+  return { success: true, count: list.length - filtered.length };
 }
 
 /**
@@ -600,4 +652,228 @@ export function manualResetSchedule1800(targetDate = null, trainerUsername = nul
   } catch {}
 
   return { success: true, resetCount };
+}
+
+/**
+ * =========================================================================
+ * LOGIC BUỔI TẬP TẠM THỜI / CHUYỂN GIAO CHO HUẤN LUYỆN VIÊN KHÁC KHI HLV CHÍNH BẬN
+ * =========================================================================
+ */
+
+/**
+ * Lấy danh sách các HLV có thể hỗ trợ tập thay vào ngày & giờ cụ thể (Kiểm tra trống lịch)
+ */
+export function getAvailableSubstituteTrainers(sessionDate, sessionTime, currentTrainerUsername = '') {
+  const normDate = normalizeDate(sessionDate);
+  const slotPrefix = extractSlotPrefix(sessionTime);
+  const cleanCurrent = (currentTrainerUsername || '').trim().toLowerCase();
+
+  return (FIXED_TRAINERS_LIST || [])
+    .filter(t => t.username.toLowerCase() !== cleanCurrent)
+    .map(trainer => {
+      const bookedList = getBookedSlotsForTrainer(trainer.username, normDate);
+      const isBooked = bookedList.some(s => extractSlotPrefix(s.sessionTime) === slotPrefix);
+      return {
+        ...trainer,
+        isAvailable: !isBooked,
+        reason: isBooked ? `Đã có buổi tập vào khung ${slotPrefix}` : 'Đang trống lịch'
+      };
+    });
+}
+
+/**
+ * HLV chính bận việc -> Chuyển giao / Nhờ HLV khác hỗ trợ buổi tập
+ * Bắt buộc đưa ra bài tập / giáo án chỉ định để Chủ sở hữu và HLV thay thế tập theo
+ */
+export function delegateJointTrainingSession({
+  sessionId,
+  substituteTrainerUsername,
+  assignedWorkout,
+  transferReason = '',
+  currentTrainerUser = null
+}) {
+  const list = getJointTrainingSessions();
+  const index = list.findIndex(s => String(s.id) === String(sessionId));
+  if (index === -1) {
+    return { success: false, error: 'Không tìm thấy buổi tập cần chuyển giao.' };
+  }
+
+  const target = list[index];
+  if (!assignedWorkout || !assignedWorkout.trim()) {
+    return { success: false, error: 'Vui lòng đưa ra nội dung bài tập chỉ định để Chủ sở hữu và HLV thay thế tập theo.' };
+  }
+
+  const subTrainer = (FIXED_TRAINERS_LIST || []).find(t => t.username === substituteTrainerUsername);
+  if (!subTrainer) {
+    return { success: false, error: 'Không tìm thấy Huấn luyện viên thay thế được chọn.' };
+  }
+
+  // Kiểm tra HLV thay thế có trống lịch không
+  const availableList = getAvailableSubstituteTrainers(target.sessionDate, target.sessionTime, target.trainerUsername);
+  const targetAvail = availableList.find(t => t.username === substituteTrainerUsername);
+  if (targetAvail && !targetAvail.isAvailable) {
+    return { success: false, error: `HLV ${subTrainer.name} đã bận lịch trong khung giờ này (${target.sessionTime}). Vui lòng chọn HLV khác đang trống lịch.` };
+  }
+
+  const currentTrainerName = currentTrainerUser?.full_name || target.trainerName;
+  const currentTrainerUserStr = currentTrainerUser?.username || target.trainerUsername;
+  const nowStr = new Date().toLocaleString('vi-VN');
+  const cleanWorkout = assignedWorkout.trim();
+  const cleanReason = transferReason.trim() || 'HLV chính bận lịch công tác đột xuất, nhờ đồng nghiệp hỗ trợ.';
+
+  const updatedSession = {
+    ...target,
+    transferStatus: 'PENDING_TRANSFER',
+    originalTrainerUsername: currentTrainerUserStr,
+    originalTrainerName: currentTrainerName,
+    delegatedToTrainerUsername: subTrainer.username,
+    delegatedToTrainerName: subTrainer.name,
+    assignedWorkout: cleanWorkout,
+    transferReason: cleanReason,
+    transferRequestedAt: nowStr
+  };
+
+  list[index] = updatedSession;
+  saveJointTrainingSessions(list);
+
+  // Gửi thông báo trực tiếp đến HLV được nhờ hỗ trợ
+  try {
+    addSystemNotification({
+      type: 'SUBSTITUTE_REQUEST',
+      title: `YÊU CẦU HỖ TRỢ BUỔI TẬP TẠM THỜI: ${target.horseName}`,
+      content: `HLV chính ${currentTrainerName} bận việc và nhờ bạn hỗ trợ buổi tập cho chiến mã "${target.horseName}" (Chủ sở hữu: ${target.ownerName}) vào ngày ${target.sessionDate} (${target.sessionTime}).\nLý do: "${cleanReason}".\nBài tập do HLV chính chỉ định: "${cleanWorkout}".\nVui lòng vào mục Lịch hẹn để xác nhận hỗ trợ!`,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+      recipientUsername: subTrainer.username,
+      recipientRoles: ['TRAINER'],
+      horseName: target.horseName,
+      microchip: target.microchip,
+      ownerName: target.ownerName,
+      ownerKey: target.ownerKey,
+      sessionId: target.id,
+      assignedWorkout: cleanWorkout,
+      originalTrainerName: currentTrainerName,
+      delegatedToTrainerName: subTrainer.name
+    });
+  } catch (err) {
+    console.error('Error sending substitute request notification:', err);
+  }
+
+  return { success: true, session: updatedSession, substituteTrainer: subTrainer };
+}
+
+/**
+ * HLV được nhờ tự xác nhận tiếp nhận buổi tập tạm thời
+ * Hệ thống sẽ tự động thông báo đến Chủ sở hữu ngựa để đổi sang HLV thay thế và tập theo bài tập do HLV chính giao
+ */
+export function confirmSubstituteJointSession(sessionId, substituteTrainerUser, responseNote = '') {
+  const list = getJointTrainingSessions();
+  const index = list.findIndex(s => String(s.id) === String(sessionId));
+  if (index === -1) {
+    return { success: false, error: 'Không tìm thấy buổi tập cần xác nhận.' };
+  }
+
+  const target = list[index];
+  const subTrainerName = substituteTrainerUser?.full_name || substituteTrainerUser?.name || target.delegatedToTrainerName || 'HLV Hỗ Trợ';
+  const subTrainerUser = substituteTrainerUser?.username || target.delegatedToTrainerUsername;
+  const nowStr = new Date().toLocaleString('vi-VN');
+  const defaultNote = responseNote.trim() || `HLV ${subTrainerName} đã sẵn sàng tiếp nhận buổi tập và sẽ hướng dẫn theo đúng bài tập của HLV chính.`;
+
+  const updatedSession = {
+    ...target,
+    status: 'CONFIRMED',
+    transferStatus: 'TRANSFERRED',
+    isSubstitute: true,
+    substituteTrainerUsername: subTrainerUser,
+    substituteTrainerName: subTrainerName,
+    substituteConfirmedAt: nowStr,
+    substituteNote: defaultNote,
+    // Cập nhật người phụ trách trực tiếp để khóa lịch trên sân
+    actingTrainerUsername: subTrainerUser,
+    actingTrainerName: subTrainerName
+  };
+
+  list[index] = updatedSession;
+  saveJointTrainingSessions(list);
+
+  try {
+    // 1. Thông báo đến CHỦ SỞ HỮU NGỰA: Đổi sang HLV thay thế và đưa ra bài tập do HLV chính giao để tập theo
+    addSystemNotification({
+      type: 'TRAINER_SUBSTITUTED',
+      title: `THÔNG BÁO ĐỔI HLV TẠM THỜI: ${target.horseName}`,
+      content: `Do HLV chính ${target.originalTrainerName || target.trainerName} bận việc, buổi tập ngày ${target.sessionDate} (${target.sessionTime}) của chiến mã "${target.horseName}" sẽ do HLV ${subTrainerName} hỗ trợ thay thế tạm thời. HLV chính đã bàn giao bài tập: "${target.assignedWorkout || 'Bài tập rèn thể lực chuyên môn'}". Bạn và chiến mã sẽ tập theo bài tập này dưới sự hướng dẫn của HLV ${subTrainerName}.`,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+      recipientRoles: ['OWNER'],
+      recipientUsername: target.ownerUsername || target.ownerKey,
+      ownerKey: target.ownerKey,
+      horseName: target.horseName,
+      microchip: target.microchip,
+      sessionId: target.id,
+      originalTrainerName: target.originalTrainerName || target.trainerName,
+      substituteTrainerName: subTrainerName,
+      assignedWorkout: target.assignedWorkout
+    });
+
+    // 2. Thông báo ngược lại cho HLV CHÍNH để an tâm
+    if (target.originalTrainerUsername) {
+      addSystemNotification({
+        type: 'SUBSTITUTE_ACCEPTED',
+        title: `HLV ${subTrainerName} ĐÃ ĐỒNG Ý HỖ TRỢ TẬP THAY: ${target.horseName}`,
+        content: `HLV ${subTrainerName} đã xác nhận tiếp nhận buổi tập ngày ${target.sessionDate} (${target.sessionTime}) cho chiến mã "${target.horseName}". Chủ sở hữu đã nhận thông báo để tập theo đúng bài tập bạn đã bàn giao: "${target.assignedWorkout}".`,
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+        recipientRoles: ['TRAINER'],
+        recipientUsername: target.originalTrainerUsername,
+        horseName: target.horseName,
+        microchip: target.microchip,
+        sessionId: target.id,
+        substituteTrainerName: subTrainerName,
+        assignedWorkout: target.assignedWorkout
+      });
+    }
+  } catch (err) {
+    console.error('Error sending substitute confirmed notification:', err);
+  }
+
+  return { success: true, session: updatedSession };
+}
+
+/**
+ * HLV được nhờ từ chối yêu cầu hỗ trợ tập thay
+ */
+export function rejectSubstituteJointSession(sessionId, substituteTrainerUser, reason = '') {
+  const list = getJointTrainingSessions();
+  const index = list.findIndex(s => String(s.id) === String(sessionId));
+  if (index === -1) {
+    return { success: false, error: 'Không tìm thấy buổi tập.' };
+  }
+
+  const target = list[index];
+  const subTrainerName = substituteTrainerUser?.full_name || substituteTrainerUser?.name || 'HLV';
+  const cleanReason = reason.trim() || 'HLV bận lịch chuyên môn khác không thể hỗ trợ.';
+
+  const updatedSession = {
+    ...target,
+    transferStatus: 'TRANSFER_REJECTED',
+    transferRejectReason: cleanReason
+  };
+
+  list[index] = updatedSession;
+  saveJointTrainingSessions(list);
+
+  try {
+    if (target.originalTrainerUsername) {
+      addSystemNotification({
+        type: 'SUBSTITUTE_REJECTED',
+        title: `HLV ${subTrainerName} TỪ CHỐI TẬP THAY: ${target.horseName}`,
+        content: `HLV ${subTrainerName} không thể tiếp nhận buổi tập ngày ${target.sessionDate} (${target.sessionTime}) cho chiến mã "${target.horseName}". Lý do: "${cleanReason}". Vui lòng chọn HLV khác hoặc sắp xếp lại lịch.`,
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN'),
+        recipientRoles: ['TRAINER'],
+        recipientUsername: target.originalTrainerUsername,
+        sessionId: target.id
+      });
+    }
+  } catch (err) {
+    console.error('Error sending substitute rejected notification:', err);
+  }
+
+  return { success: true, session: updatedSession };
 }

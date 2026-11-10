@@ -14,7 +14,7 @@ import {
   trainerReviewNominationApi,
   trainerAssignHorseNominationApi
 } from '../services/api';
-import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
+import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo, FIXED_TRAINERS_LIST } from '../services/serviceAssignment';
 import NotificationBell from '../components/NotificationBell';
 import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
 import HorsePedigreeViewModal from '../components/HorsePedigreeViewModal';
@@ -26,7 +26,11 @@ import {
   rejectJointTrainingSession,
   checkHorseVetLockStatus,
   checkAndAutoResetScheduleAt1800,
-  manualResetSchedule1800
+  manualResetSchedule1800,
+  getAvailableSubstituteTrainers,
+  delegateJointTrainingSession,
+  confirmSubstituteJointSession,
+  rejectSubstituteJointSession
 } from '../services/jointTrainingService';
 import { 
   calculateHorseFitnessOnSession, 
@@ -36,6 +40,72 @@ import {
   isHorseCalibrating, 
   REQUIRED_WORKOUTS_TO_EVALUATE 
 } from '../services/fitnessAlgorithm';
+
+// Danh sách chiến mã mock cũ bị loại bỏ hoàn toàn khỏi bộ nhớ HLV
+const EXCLUDED_MOCK_HORSES = ['hắc phong', 'xích thố', 'phi yến', 'lôi chấn', 'bạch long'];
+const isExcludedTrainerHorse = (nameOrChip) => {
+  if (!nameOrChip) return false;
+  const n = String(nameOrChip).trim().toLowerCase();
+  return EXCLUDED_MOCK_HORSES.some(ex => n.includes(ex));
+};
+
+// Kiểm tra xem chiến mã có thuộc phụ trách chính của HLV hiện tại không
+const isHorseOfCurrentTrainer = (item, uName, fName, assignmentsList) => {
+  if (!uName) return false;
+  const cleanU = (uName || '').trim().toLowerCase();
+  const cleanF = (fName || '').trim().toLowerCase();
+
+  const horseKey = (item.name || item.horseName || '').trim().toLowerCase();
+  const chipKey = (item.microchip || item.chipId || '').trim().toLowerCase();
+
+  // 1. Tra cứu trước trong bảng phân công chính thức serviceAssignments
+  const matchedAsgn = (assignmentsList || []).find(a =>
+    (chipKey && a.microchip && a.microchip.trim().toLowerCase() === chipKey) ||
+    (horseKey && a.horseName && a.horseName.trim().toLowerCase() === horseKey)
+  );
+
+  if (matchedAsgn) {
+    const asgnUser = (matchedAsgn.trainerUsername || '').trim().toLowerCase();
+    const asgnName = (matchedAsgn.trainerName || '').trim().toLowerCase();
+    if (asgnUser) return asgnUser === cleanU;
+    if (asgnName) return asgnName === cleanF;
+    return false;
+  }
+
+  // 2. Tra cứu trong kho của Chủ sở hữu
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('matruong_owner_horses_')) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const h = list.find(x =>
+              (chipKey && x.microchip && x.microchip.trim().toLowerCase() === chipKey) ||
+              (horseKey && x.name && x.name.trim().toLowerCase() === horseKey)
+            );
+            if (h) {
+              const trU = (h.trainerUsername || '').trim().toLowerCase();
+              const trN = (h.trainer || h.trainerName || '').trim().toLowerCase();
+              if (trU) return trU === cleanU;
+              if (trN) return trN === cleanF;
+              return false;
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 3. Kiểm tra trực tiếp trên đối tượng (nếu có gắn trainerUsername)
+  const itemTrUser = (item.trainerUsername || '').trim().toLowerCase();
+  const itemTrName = (item.trainerName || item.trainer || '').trim().toLowerCase();
+  if (itemTrUser) return itemTrUser === cleanU;
+  if (itemTrName) return itemTrName === cleanF;
+
+  return false;
+};
 
 // Minimalist, high-end SVG icons (0 emojis, strict professional aesthetic)
 const IconCalendar = ({ size = 18, color = 'currentColor' }) => (
@@ -548,15 +618,114 @@ export default function TrainerPage() {
   // Quản lý & Lọc lịch tập luyện chung cho Huấn luyện viên
   const [selectedTrainerFilter, setSelectedTrainerFilter] = useState('ALL');
 
+  // State: Chuyển giao buổi tập tạm thời cho HLV khác khi HLV chính bận
+  const [delegateModalSession, setDelegateModalSession] = useState(null);
+  const [delegateTargetTrainer, setDelegateTargetTrainer] = useState('');
+  const [delegateAssignedWorkout, setDelegateAssignedWorkout] = useState('');
+  const [delegateReason, setDelegateReason] = useState('');
+
+  // State: HLV được nhờ xác nhận tiếp nhận buổi tập tạm thời
+  const [substituteConfirmModalSession, setSubstituteConfirmModalSession] = useState(null);
+  const [substituteResponseNote, setSubstituteResponseNote] = useState('');
+
   // Mặc định hiển thị TẤT CẢ các lịch đặt từ Chủ sở hữu để HLV không bao giờ bị bỏ sót
   const myJointSessions = jointSessions.filter(s => {
     if (selectedTrainerFilter === 'ALL') return true;
-    return s.trainerUsername === selectedTrainerFilter || (s.trainerName || '').toLowerCase().includes(selectedTrainerFilter.toLowerCase());
+    return (
+      s.trainerUsername === selectedTrainerFilter ||
+      (s.trainerName || '').toLowerCase().includes(selectedTrainerFilter.toLowerCase()) ||
+      s.delegatedToTrainerUsername === selectedTrainerFilter ||
+      s.substituteTrainerUsername === selectedTrainerFilter
+    );
   });
+
+  const currentU = (currentUser?.username || '').trim().toLowerCase();
+  const substituteRequestsCount = jointSessions.filter(s =>
+    s.transferStatus === 'PENDING_TRANSFER' &&
+    (s.delegatedToTrainerUsername || '').toLowerCase() === currentU
+  ).length;
 
   const pendingJointCount = jointSessions.filter(s => s.status === 'PENDING').length;
   const confirmedJointCount = jointSessions.filter(s => s.status === 'CONFIRMED').length;
   const rejectedJointCount = jointSessions.filter(s => s.status === 'REJECTED').length;
+
+  const handleOpenDelegateModal = (session) => {
+    setDelegateModalSession(session);
+    const availList = getAvailableSubstituteTrainers(session.sessionDate, session.sessionTime, currentU);
+    const firstFree = availList.find(t => t.isAvailable) || availList[0];
+    setDelegateTargetTrainer(firstFree?.username || 'trainer_truong');
+    setDelegateAssignedWorkout(
+      session.goal
+        ? `Khởi động 10 phút -> Thực hiện bài tập chuyên môn: "${session.goal}". Duy trì tốc độ ổn định, theo dõi nhịp tim dưới 120 bpm -> Hạ nhiệt 15 phút.`
+        : 'Khởi động đi bộ 10 phút -> Chạy cự ly 1.200m tốc độ 45km/h -> Hạ nhiệt thả lỏng 15 phút trên sân cỏ.'
+    );
+    setDelegateReason('HLV chính bận lịch đột xuất, nhờ đồng nghiệp hỗ trợ buổi tập này cho chủ ngựa.');
+  };
+
+  const handleSubmitDelegate = (e) => {
+    e.preventDefault();
+    if (!delegateModalSession) return;
+    if (!delegateAssignedWorkout.trim()) {
+      showToast('Vui lòng đưa ra bài tập chỉ định để Chủ sở hữu và HLV thay thế tập theo!', 'THIẾU BÀI TẬP', 'warning');
+      return;
+    }
+
+    const res = delegateJointTrainingSession({
+      sessionId: delegateModalSession.id,
+      substituteTrainerUsername: delegateTargetTrainer,
+      assignedWorkout: delegateAssignedWorkout,
+      transferReason: delegateReason,
+      currentTrainerUser: currentUser
+    });
+
+    if (!res.success) {
+      showToast(res.error, 'LỖI CHUYỂN GIAO', 'error');
+      return;
+    }
+
+    setJointSessions(getJointTrainingSessions());
+    setDelegateModalSession(null);
+    showToast(`Đã gửi yêu cầu nhờ HLV ${res.substituteTrainer?.name} hỗ trợ buổi tập thành công! Hệ thống đã gửi thông báo đến HLV được nhờ.`, 'ĐÃ GỬI YÊU CẦU', 'success');
+  };
+
+  const handleOpenSubstituteConfirmModal = (session) => {
+    setSubstituteConfirmModalSession(session);
+    setSubstituteResponseNote(`HLV ${currentUser?.full_name || 'Huấn luyện viên'} đã sẵn sàng tiếp nhận buổi tập và sẽ hướng dẫn chủ sở hữu theo đúng bài tập do HLV chính bàn giao.`);
+  };
+
+  const handleSubmitSubstituteConfirm = (e) => {
+    e.preventDefault();
+    if (!substituteConfirmModalSession) return;
+
+    const res = confirmSubstituteJointSession(
+      substituteConfirmModalSession.id,
+      currentUser,
+      substituteResponseNote
+    );
+
+    if (!res.success) {
+      showToast(res.error, 'LỖI TIẾP NHẬN', 'error');
+      return;
+    }
+
+    setJointSessions(getJointTrainingSessions());
+    setSubstituteConfirmModalSession(null);
+    showToast(`Đã xác nhận hỗ trợ buổi tập thành công! Chủ sở hữu và HLV chính đã nhận được thông báo để tập theo đúng bài tập chỉ định.`, 'TIẾP NHẬN THÀNH CÔNG', 'success');
+  };
+
+  const handleRejectSubstitute = (session) => {
+    const reason = prompt('Nhập lý do bạn không thể hỗ trợ buổi tập này:', 'HLV bận lịch chuyên môn khác');
+    if (reason === null) return;
+
+    const res = rejectSubstituteJointSession(session.id, currentUser, reason);
+    if (!res.success) {
+      showToast(res.error, 'LỖI', 'error');
+      return;
+    }
+
+    setJointSessions(getJointTrainingSessions());
+    showToast('Đã gửi phản hồi từ chối hỗ trợ về cho HLV chính.', 'ĐÃ TỪ CHỐI', 'info');
+  };
 
   const handleQuickConfirmJointSession = (session) => {
     const feedback = `HLV ${currentUser?.full_name || session.trainerName} đã xác nhận tiếp nhận buổi tập và CHÍNH THỨC GIỮ CHỖ. Chuẩn bị bãi tập và thiết bị đo IoT sẵn sàng.`;
@@ -570,176 +739,168 @@ export default function TrainerPage() {
   };
 
   const [trainerHorses, setTrainerHorses] = useState(() => {
-    const defaultList = [];
-
     try {
-      const saved = localStorage.getItem('matruong_trainer_horses_managed');
-      const allTel = getAllHorsesTelemetry();
-      const map = new Map();
+      let uName = '';
+      let fName = '';
+      const authRaw = sessionStorage.getItem('matruong_auth_user');
+      if (authRaw) {
+        const parsedAuth = JSON.parse(authRaw);
+        uName = (parsedAuth.username || '').trim().toLowerCase();
+        fName = (parsedAuth.full_name || '').trim().toLowerCase();
+      }
+      if (!uName) return [];
 
-      // Chỉ lấy các chiến mã không thuộc owner_thanh / Phạm Tiến Thành
+      const asgns = getServiceAssignments() || [];
+      const userKey = `matruong_trainer_horses_managed_${uName}`;
+      const saved = localStorage.getItem(userKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          parsed
-            .filter(h => h.owner !== 'Phạm Tiến Thành' && h.ownerName !== 'Phạm Tiến Thành')
-            .forEach(h => {
-              if (h && (h.name || h.microchip)) {
-                map.set((h.name || h.microchip).toLowerCase(), h);
-              }
-            });
+          return parsed.filter(h =>
+            !isExcludedTrainerHorse(h.name) &&
+            !isExcludedTrainerHorse(h.horseName) &&
+            !isExcludedTrainerHorse(h.microchip) &&
+            isHorseOfCurrentTrainer(h, uName, fName, asgns)
+          );
         }
       }
-      defaultList.forEach(h => {
-        const k = (h.name || '').toLowerCase();
-        const tel = allTel[h.microchip] || allTel[h.id] || allTel[h.name];
-        if (tel && !tel.isCalibrating) {
-          map.set(k, {
-            ...h,
-            condition: tel.condition !== undefined ? (String(tel.condition).includes('%') ? tel.condition : `${tel.condition}%`) : h.condition,
-            trend: tel.trend || h.trend,
-            trendPercent: tel.trendPercent || h.trendPercent,
-            shortTermLoad: tel.shortTermLoad || h.shortTermLoad,
-            longTermLoad: tel.longTermLoad || h.longTermLoad,
-            loadRatio: tel.loadRatio || h.loadRatio,
-            recoveryPercent: tel.recoveryPercent || h.recoveryPercent,
-            performanceToday: tel.performanceToday || h.performanceToday,
-            maxSpeed: tel.maxSpeed || h.maxSpeed,
-            status: tel.status === 'READY' ? 'READY' : (parseFloat(tel.condition) < 80 ? 'WATCH' : h.status)
-          });
-        } else {
-          map.set(k, h);
-        }
-      });
-
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          parsed.forEach(h => {
-            const k = (h.name || '').toLowerCase();
-            const tel = allTel[h.microchip] || allTel[h.id] || allTel[h.name];
-            const existing = map.get(k) || {};
-            const mergedItem = { ...existing, ...h };
-            if (tel && !tel.isCalibrating) {
-              mergedItem.condition = tel.condition !== undefined ? (String(tel.condition).includes('%') ? tel.condition : `${tel.condition}%`) : mergedItem.condition;
-              mergedItem.trend = tel.trend || mergedItem.trend;
-              mergedItem.trendPercent = tel.trendPercent || mergedItem.trendPercent;
-              mergedItem.shortTermLoad = tel.shortTermLoad || mergedItem.shortTermLoad;
-              mergedItem.longTermLoad = tel.longTermLoad || mergedItem.longTermLoad;
-              mergedItem.loadRatio = tel.loadRatio || mergedItem.loadRatio;
-              mergedItem.recoveryPercent = tel.recoveryPercent || mergedItem.recoveryPercent;
-              mergedItem.performanceToday = tel.performanceToday || mergedItem.performanceToday;
-              if (tel.maxSpeed) mergedItem.maxSpeed = tel.maxSpeed;
-            }
-            map.set(k, mergedItem);
-          });
-          return Array.from(map.values());
-        }
-      }
-      return Array.from(map.values());
     } catch {}
-
-    return defaultList;
+    return [];
   });
 
-  // Tự động đồng bộ các chiến mã đã xác nhận huấn luyện vào Thể lực tàu ngựa
+  // Tự động đồng bộ các chiến mã đã xác nhận huấn luyện vào Thể lực tàu ngựa của ĐÚNG HLV phụ trách chính
   useEffect(() => {
     const uName = (currentUser?.username || '').trim().toLowerCase();
     const fName = (currentUser?.full_name || '').trim().toLowerCase();
+    if (!uName) return;
+
     const isMyHorse = (a) => (
       (a.trainerUsername && a.trainerUsername.trim().toLowerCase() === uName) ||
       (!a.trainerUsername && a.trainerName && a.trainerName.trim().toLowerCase() === fName)
     );
-    const myConfirmedAssignments = serviceAssignments.filter(a =>
-      isMyHorse(a) && a.trainerStatus === 'CONFIRMED'
+    const myConfirmedAssignments = (serviceAssignments || []).filter(a =>
+      isMyHorse(a) && a.trainerStatus === 'CONFIRMED' && !isExcludedTrainerHorse(a.horseName)
     );
 
-    if (myConfirmedAssignments.length === 0) return;
+    // Nếu HLV này không có chiến mã nào được phân công chính thức, danh sách phải TRỐNG (0 con)
+    if (myConfirmedAssignments.length === 0) {
+      setTrainerHorses([]);
+      try {
+        localStorage.setItem(`matruong_trainer_horses_managed_${uName}`, JSON.stringify([]));
+      } catch {}
+      return;
+    }
 
-    setTrainerHorses(prev => {
-      let changed = false;
-      let next = [...prev];
+    const allTel = getAllHorsesTelemetry();
+    const cleanFleet = myConfirmedAssignments.map(asgn => {
+      const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+      const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
+      const tel = allTel[asgn.microchip] || allTel[asgn.id] || allTel[asgn.horseName];
 
-      myConfirmedAssignments.forEach(asgn => {
-        const targetName = (asgn.horseName || '').toLowerCase();
-        const targetChip = (asgn.microchip || '').toLowerCase();
-        const foundIndex = next.findIndex(h =>
-          (h.name && h.name.toLowerCase() === targetName) ||
-          (targetChip && h.microchip && h.microchip.toLowerCase() === targetChip)
-        );
+      const baseHorse = {
+        id: full?.id || asgn.id || Date.now(),
+        name: asgn.horseName,
+        microchip: asgn.microchip || 'MC-VN-2026-001',
+        stall: stallCode,
+        breed: full?.breed || 'Thoroughbred',
+        age: full?.age || '3 tuổi',
+        owner: asgn.ownerName || 'Chủ sở hữu',
+        ownerName: asgn.ownerName || 'Chủ sở hữu',
+        status: 'READY',
+        statusText: 'Sẵn sàng thi đấu',
+        isLockedByVet: false,
+        avgHeartRate: 112,
+        maxSpeed: 58.5,
+        totalDistanceKm: 120,
+        condition: '98%',
+        trainingProgram: 'Nâng cao thể lực & Tốc độ',
+        desc: `Chiến mã của chủ sở hữu ${asgn.ownerName || 'Chủ sở hữu'}`,
+        avatar: full?.avatar,
+        trainerUsername: uName,
+        trainerName: fName
+      };
 
-        const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
-        const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
-
-        if (foundIndex === -1) {
-          changed = true;
-          next.unshift({
-            id: full?.id || asgn.id || Date.now(),
-            name: asgn.horseName,
-            microchip: asgn.microchip || 'MC-VN-2026-001',
-            stall: stallCode,
-            breed: full?.breed || 'Thoroughbred',
-            age: full?.age || '3 tuổi',
-            owner: asgn.ownerName || 'Chủ sở hữu',
-            ownerName: asgn.ownerName || 'Chủ sở hữu',
-            status: 'READY',
-            statusText: 'Sẵn sàng thi đấu',
-            isLockedByVet: false,
-            avgHeartRate: 112,
-            maxSpeed: 58.5,
-            totalDistanceKm: 120,
-            condition: '98%',
-            trainingProgram: 'Nâng cao thể lực & Tốc độ',
-            desc: `Chiến mã của chủ sở hữu ${asgn.ownerName || 'Chủ sở hữu'}`,
-            avatar: full?.avatar
-          });
-        } else {
-          const current = next[foundIndex];
-          if (!current.owner || current.owner !== asgn.ownerName || !current.stall) {
-            changed = true;
-            next[foundIndex] = {
-              ...current,
-              owner: asgn.ownerName,
-              ownerName: asgn.ownerName,
-              stall: stallCode,
-              avatar: full?.avatar || current.avatar
-            };
-          }
-        }
-      });
-
-      if (changed) {
-        try {
-          localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(next));
-        } catch {}
-        return next;
+      if (tel && !tel.isCalibrating) {
+        baseHorse.condition = tel.condition !== undefined ? (String(tel.condition).includes('%') ? tel.condition : `${tel.condition}%`) : baseHorse.condition;
+        baseHorse.trend = tel.trend || baseHorse.trend;
+        baseHorse.trendPercent = tel.trendPercent || baseHorse.trendPercent;
+        baseHorse.shortTermLoad = tel.shortTermLoad || baseHorse.shortTermLoad;
+        baseHorse.longTermLoad = tel.longTermLoad || baseHorse.longTermLoad;
+        baseHorse.loadRatio = tel.loadRatio || baseHorse.loadRatio;
+        baseHorse.recoveryPercent = tel.recoveryPercent || baseHorse.recoveryPercent;
+        baseHorse.performanceToday = tel.performanceToday || baseHorse.performanceToday;
+        if (tel.maxSpeed) baseHorse.maxSpeed = tel.maxSpeed;
+        baseHorse.status = tel.status === 'READY' ? 'READY' : (parseFloat(tel.condition) < 80 ? 'WATCH' : baseHorse.status);
       }
-      return prev;
+      return baseHorse;
     });
+
+    setTrainerHorses(cleanFleet);
+    try {
+      localStorage.setItem(`matruong_trainer_horses_managed_${uName}`, JSON.stringify(cleanFleet));
+    } catch {}
   }, [serviceAssignments, currentUser]);
 
   useEffect(() => {
-    setTrainerHorses(prev => prev.filter(h => h.owner !== 'Phạm Tiến Thành' && h.ownerName !== 'Phạm Tiến Thành'));
+    const uName = (currentUser?.username || '').trim().toLowerCase();
+    const fName = (currentUser?.full_name || '').trim().toLowerCase();
+    if (!uName) return;
+
+    // Dọn dẹp triệt để key dùng chung cũ và lọc key per-user
     try {
-      const managed = localStorage.getItem('matruong_trainer_horses_managed');
-      if (managed) {
-        const parsed = JSON.parse(managed);
+      localStorage.removeItem('matruong_trainer_horses_managed');
+      const userKey = `matruong_trainer_horses_managed_${uName}`;
+      const savedUserFleet = localStorage.getItem(userKey);
+      if (savedUserFleet) {
+        const parsed = JSON.parse(savedUserFleet);
         if (Array.isArray(parsed)) {
-          const filtered = parsed.filter(h => h.owner !== 'Phạm Tiến Thành' && h.ownerName !== 'Phạm Tiến Thành');
-          localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(filtered));
+          const cleanUserFleet = parsed.filter(h =>
+            !isExcludedTrainerHorse(h.name) &&
+            !isExcludedTrainerHorse(h.horseName) &&
+            !isExcludedTrainerHorse(h.microchip) &&
+            h.owner !== 'Phạm Tiến Thành' &&
+            h.ownerName !== 'Phạm Tiến Thành' &&
+            isHorseOfCurrentTrainer(h, uName, fName, serviceAssignments)
+          );
+          localStorage.setItem(userKey, JSON.stringify(cleanUserFleet));
+          setTrainerHorses(cleanUserFleet);
+        }
+      }
+
+      const savedProg = localStorage.getItem('matruong_trainer_programs');
+      if (savedProg) {
+        const parsed = JSON.parse(savedProg);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(p => !isExcludedTrainerHorse(p.horseName));
+          localStorage.setItem('matruong_trainer_programs', JSON.stringify(filtered));
+          setPrograms(filtered);
+        }
+      }
+      const savedSess = localStorage.getItem('matruong_training_telemetry');
+      if (savedSess) {
+        const parsed = JSON.parse(savedSess);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(s => !isExcludedTrainerHorse(s.horseName));
+          localStorage.setItem('matruong_training_telemetry', JSON.stringify(filtered));
+          setSessions(filtered);
         }
       }
     } catch {}
-  }, []);
+  }, [currentUser]);
 
-  // Tự động lưu trainerHorses vào localStorage khi có thay đổi
+  // Tự động lưu trainerHorses vào localStorage theo từng HLV
   useEffect(() => {
-    if (trainerHorses && trainerHorses.length > 0) {
-      try {
-        localStorage.setItem('matruong_trainer_horses_managed', JSON.stringify(trainerHorses));
-      } catch {}
-    }
-  }, [trainerHorses]);
+    const uName = (currentUser?.username || '').trim().toLowerCase();
+    if (!uName) return;
+    try {
+      const cleanToSave = trainerHorses.filter(h =>
+        !isExcludedTrainerHorse(h.name) &&
+        !isExcludedTrainerHorse(h.horseName) &&
+        !isExcludedTrainerHorse(h.microchip)
+      );
+      localStorage.setItem(`matruong_trainer_horses_managed_${uName}`, JSON.stringify(cleanToSave));
+    } catch {}
+  }, [trainerHorses, currentUser]);
 
   // 2. Danh sách giáo án huấn luyện (Training Programs)
   const [programs, setPrograms] = useState(() => {
@@ -753,9 +914,9 @@ export default function TrainerPage() {
     return [];
   });
 
-  // Tự động lưu programs vào localStorage khi có thay đổi
+  // Tự động lưu programs vào localStorage khi có thay đổi (kể cả khi mảng rỗng)
   useEffect(() => {
-    if (programs && programs.length > 0) {
+    if (programs !== null && programs !== undefined) {
       try {
         localStorage.setItem('matruong_trainer_programs', JSON.stringify(programs));
       } catch {}
@@ -1131,23 +1292,69 @@ export default function TrainerPage() {
   // State & Handler xóa giáo án bài tập
   const [deleteTargetProgram, setDeleteTargetProgram] = useState(null);
 
-  const handleConfirmDeleteProgram = () => {
-    if (!deleteTargetProgram) return;
-    const progId = deleteTargetProgram.id;
-    const progTitle = deleteTargetProgram.title || 'Bài tập';
-    const progHorse = deleteTargetProgram.horseName || 'chiến mã';
+  const executeDeleteProgram = (progToDelete, progIndex = null) => {
+    if (!progToDelete) return;
+    const progId = progToDelete.id;
+    const progTitle = progToDelete.title || 'Bài tập';
+    const progHorse = progToDelete.horseName || 'chiến mã';
 
-    const updated = programs.filter(p => p.id !== progId);
-    setPrograms(updated);
+    setPrograms(prev => {
+      let updated;
+      if (typeof progIndex === 'number' && progIndex >= 0) {
+        // Xóa chính xác theo vị trí đang click
+        updated = prev.filter((_, idx) => idx !== progIndex);
+      } else if (progId !== undefined && progId !== null && String(progId).trim() !== '') {
+        // So sánh an toàn ép kiểu chuỗi
+        updated = prev.filter(p => String(p.id) !== String(progId));
+      } else {
+        // Fallback theo title, horseName và phase
+        updated = prev.filter(p => !(p.title === progTitle && p.horseName === progHorse && p.phase === progToDelete.phase));
+      }
+
+      try {
+        localStorage.setItem('matruong_trainer_programs', JSON.stringify(updated));
+      } catch {}
+
+      return updated;
+    });
+
+    // Cập nhật ngay lập tức vào localStorage để chống desync giữa các tab/reload
     try {
-      localStorage.setItem('matruong_trainer_programs', JSON.stringify(updated));
+      const saved = localStorage.getItem('matruong_trainer_programs');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          let updatedLocal;
+          if (typeof progIndex === 'number' && progIndex >= 0) {
+            updatedLocal = parsed.filter((_, idx) => idx !== progIndex);
+          } else if (progId !== undefined && progId !== null && String(progId).trim() !== '') {
+            updatedLocal = parsed.filter(p => String(p.id) !== String(progId));
+          } else {
+            updatedLocal = parsed.filter(p => !(p.title === progTitle && p.horseName === progHorse && p.phase === progToDelete.phase));
+          }
+          localStorage.setItem('matruong_trainer_programs', JSON.stringify(updatedLocal));
+        }
+      }
     } catch {}
-    deleteTrainingProgramApi(progId).catch(() => {});
+
+    if (progId) {
+      deleteTrainingProgramApi(progId).catch(() => {});
+    }
+
     window.dispatchEvent(new CustomEvent('trainer-programs-updated', { detail: { horseName: progHorse, deletedId: progId } }));
     window.dispatchEvent(new Event('storage'));
 
     showToast(`Đã xóa bài tập "${progTitle}" của chiến mã ${progHorse}!`, 'ĐÃ XÓA BÀI TẬP', 'info');
     setDeleteTargetProgram(null);
+  };
+
+  const handleDeleteProgramDirect = (prog, index) => {
+    setDeleteTargetProgram({ ...prog, _index: index });
+  };
+
+  const handleConfirmDeleteProgram = () => {
+    if (!deleteTargetProgram) return;
+    executeDeleteProgram(deleteTargetProgram, deleteTargetProgram._index);
   };
 
   // Thuật toán cập nhật thể lực viễn trắc chiến mã tức thì khi xong/không xong bài tập
@@ -2800,8 +3007,8 @@ setTrainerHorses(prev => {
 
               {viewMode === 'cards' ? (
                 <div className="portal-cards-grid">
-                  {programs.map(prog => (
-                    <div key={prog.id} className="facility-card">
+                  {programs.map((prog, progIdx) => (
+                    <div key={prog.id || `prog-${progIdx}`} className="facility-card">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                         <span className="facility-card-badge badge-gold" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                           <IconClipboard size={14} color="var(--brass)" />
@@ -2882,7 +3089,7 @@ setTrainerHorses(prev => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setDeleteTargetProgram(prog)}
+                            onClick={() => handleDeleteProgramDirect(prog, progIdx)}
                             style={{
                               background: 'rgba(239, 68, 68, 0.12)',
                               color: '#EF4444',
@@ -2929,8 +3136,8 @@ setTrainerHorses(prev => {
                       </tr>
                     </thead>
                     <tbody>
-                      {programs.map(prog => (
-                        <tr key={prog.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                      {programs.map((prog, progIdx) => (
+                        <tr key={prog.id || `prog-row-${progIdx}`} style={{ borderBottom: '1px solid var(--line)' }}>
                           <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                             {prog.horseName}
                           </td>
@@ -2994,7 +3201,7 @@ setTrainerHorses(prev => {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setDeleteTargetProgram(prog)}
+                                onClick={() => handleDeleteProgramDirect(prog, progIdx)}
                                 style={{
                                   background: 'rgba(239, 68, 68, 0.12)',
                                   color: '#EF4444',
@@ -3031,6 +3238,51 @@ setTrainerHorses(prev => {
           {/* ===================== TAB: LỊCH HẸN TẬP LUYỆN CHUNG TỪ CHỦ SỞ HỮU ===================== */}
           {activeTab === 'joint_training' && (
             <div>
+              {/* BANNER THÔNG BÁO CÓ YÊU CẦU NHỜ TẬP THAY */}
+              {substituteRequestsCount > 0 && jointFilter !== 'SUBSTITUTE_REQUESTS' && (
+                <div style={{
+                  background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.16) 0%, rgba(212, 175, 55, 0.1) 100%)',
+                  border: '1.5px solid #38BDF8',
+                  borderRadius: '10px',
+                  padding: '12px 18px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  boxShadow: '0 4px 16px rgba(56, 189, 248, 0.15)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '24px' }}>🤝</span>
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#38BDF8' }}>
+                        BẠN CÓ {substituteRequestsCount} YÊU CẦU NHỜ HỖ TRỢ TẬP THAY TỪ ĐỒNG NGHIỆP!
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                        HLV chính bận việc và đã bàn giao bài tập cho bạn. Hãy bấm để tiếp nhận buổi tập và hướng dẫn Chủ sở hữu.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setJointFilter('SUBSTITUTE_REQUESTS')}
+                    style={{
+                      padding: '7px 16px',
+                      background: '#38BDF8',
+                      color: '#0A0D14',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 800,
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Xem Yêu Cầu ({substituteRequestsCount}) →
+                  </button>
+                </div>
+              )}
+
               {/* THỐNG KÊ TỔNG QUAN */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '22px' }}>
                 <div className="facility-card" style={{ padding: '18px 20px' }}>
@@ -3104,6 +3356,13 @@ setTrainerHorses(prev => {
                     ✓ Đã giữ chỗ <span className="pill-count">{confirmedJointCount}</span>
                   </button>
                   <button
+                    className={`portal-pill-btn ${jointFilter === 'SUBSTITUTE_REQUESTS' ? 'active' : ''}`}
+                    onClick={() => setJointFilter('SUBSTITUTE_REQUESTS')}
+                    style={substituteRequestsCount > 0 ? { borderColor: '#38BDF8', color: '#38BDF8', fontWeight: 800 } : {}}
+                  >
+                    🤝 Nhờ tập thay <span className="pill-count" style={substituteRequestsCount > 0 ? { background: '#38BDF8', color: '#fff' } : {}}>{substituteRequestsCount}</span>
+                  </button>
+                  <button
                     className={`portal-pill-btn ${jointFilter === 'REJECTED' ? 'active' : ''}`}
                     onClick={() => setJointFilter('REJECTED')}
                   >
@@ -3157,6 +3416,9 @@ setTrainerHorses(prev => {
               {/* DANH SÁCH CÁC YÊU CẦU ĐẶT LỊCH */}
               {(() => {
                 const filtered = myJointSessions.filter(s => {
+                  if (jointFilter === 'SUBSTITUTE_REQUESTS') {
+                    return s.transferStatus === 'PENDING_TRANSFER' && (s.delegatedToTrainerUsername || '').toLowerCase() === currentU;
+                  }
                   if (jointFilter !== 'ALL' && s.status !== jointFilter) return false;
                   if (jointSearch) {
                     const q = jointSearch.toLowerCase();
@@ -3198,6 +3460,12 @@ setTrainerHorses(prev => {
                       const lockStatus = checkHorseVetLockStatus(session.microchip || session.horseId || session.horseName);
                       const isVetLocked = lockStatus.isLocked;
 
+                      const isDelegatedToMe = (session.delegatedToTrainerUsername || '').toLowerCase() === currentU && session.transferStatus === 'PENDING_TRANSFER';
+                      const isSubstitutedByMe = (session.substituteTrainerUsername || '').toLowerCase() === currentU && session.transferStatus === 'TRANSFERRED';
+                      const isMyAssignedSession = (session.trainerUsername || '').toLowerCase() === currentU;
+                      const isMyDelegatedOut = isMyAssignedSession && session.transferStatus === 'PENDING_TRANSFER';
+                      const isMySessionTransferred = isMyAssignedSession && session.transferStatus === 'TRANSFERRED';
+
                       return (
                         <div
                           key={session.id}
@@ -3237,8 +3505,34 @@ setTrainerHorses(prev => {
                             </div>
 
                             {/* BADGE TRẠNG THÁI */}
-                            <div style={{ textAlign: 'right' }}>
-                              {isPending && (
+                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                              {session.transferStatus === 'PENDING_TRANSFER' ? (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(56, 189, 248, 0.15)',
+                                  color: '#38BDF8',
+                                  border: '1px solid rgba(56, 189, 248, 0.4)'
+                                }}>
+                                  {(session.delegatedToTrainerUsername || '').toLowerCase() === currentU
+                                    ? '📩 YÊU CẦU NHỜ TẬP THAY'
+                                    : `⏳ ĐANG NHỜ HLV ${session.delegatedToTrainerName}`}
+                                </span>
+                              ) : session.transferStatus === 'TRANSFERRED' ? (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10B981',
+                                  border: '1px solid rgba(16, 185, 129, 0.4)'
+                                }}>
+                                  🤝 HLV THAY THẾ TẠM THỜI
+                                </span>
+                              ) : isPending ? (
                                 <span style={{
                                   fontSize: '11.5px',
                                   fontWeight: 800,
@@ -3250,8 +3544,7 @@ setTrainerHorses(prev => {
                                 }}>
                                   ⏳ CẦN HLV DUYỆT ĐỂ GIỮ CHỖ
                                 </span>
-                              )}
-                              {isConfirmed && (
+                              ) : isConfirmed ? (
                                 <span style={{
                                   fontSize: '11.5px',
                                   fontWeight: 800,
@@ -3263,8 +3556,7 @@ setTrainerHorses(prev => {
                                 }}>
                                   ✓ ĐÃ XÁC NHẬN & GIỮ CHỖ
                                 </span>
-                              )}
-                              {isRejected && (
+                              ) : isRejected ? (
                                 <span style={{
                                   fontSize: '11.5px',
                                   fontWeight: 800,
@@ -3276,8 +3568,8 @@ setTrainerHorses(prev => {
                                 }}>
                                   ✕ ĐÃ TỪ CHỐI / ĐỔI GIỜ
                                 </span>
-                              )}
-                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                              ) : null}
+                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
                                 Yêu cầu gửi: {session.createdAt || 'Gần đây'}
                               </div>
                             </div>
@@ -3354,6 +3646,66 @@ setTrainerHorses(prev => {
                             </div>
                           )}
 
+                          {/* LỜI NHỜ HỖ TRỢ DÀNH CHO HLV ĐƯỢC NHỜ */}
+                          {isDelegatedToMe && (
+                            <div style={{
+                              padding: '12px 14px',
+                              borderRadius: '8px',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              border: '1.5px solid #38BDF8',
+                              color: 'var(--paper)',
+                              fontSize: '12.5px',
+                              marginBottom: '12px'
+                            }}>
+                              <div style={{ fontWeight: 800, color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                                📩 LỜI NHỜ TẬP THAY TỪ HLV CHÍNH ({session.originalTrainerName || session.trainerName}):
+                              </div>
+                              <div>
+                                HLV chính bận việc đột xuất và nhờ bạn phụ trách buổi tập tạm thời này cùng Chủ sở hữu <b>{session.ownerName}</b>.
+                              </div>
+                              {session.transferReason && (
+                                <div style={{ marginTop: '4px', fontStyle: 'italic', color: 'var(--paper-dim)' }}>
+                                  Lý do: "{session.transferReason}"
+                                </div>
+                              )}
+                              {session.assignedWorkout && (
+                                <div style={{
+                                  marginTop: '8px',
+                                  padding: '8px 10px',
+                                  background: 'rgba(0, 0, 0, 0.25)',
+                                  borderRadius: '6px',
+                                  borderLeft: '3px solid #38BDF8'
+                                }}>
+                                  <div style={{ fontWeight: 700, color: '#38BDF8', fontSize: '11.5px', marginBottom: '2px' }}>
+                                    📋 BÀI TẬP / GIÁO ÁN CHỈ ĐỊNH ĐỂ TẬP THEO:
+                                  </div>
+                                  <div style={{ whiteSpace: 'pre-line' }}>{session.assignedWorkout}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* BÀI TẬP CHỈ ĐỊNH (KHI ĐÃ BÀN GIAO THAY THẾ) */}
+                          {session.transferStatus === 'TRANSFERRED' && session.assignedWorkout && (
+                            <div style={{
+                              padding: '10px 14px',
+                              borderRadius: '8px',
+                              background: 'rgba(16, 185, 129, 0.08)',
+                              borderLeft: '3px solid #10B981',
+                              color: 'var(--paper)',
+                              fontSize: '12px',
+                              marginBottom: '12px'
+                            }}>
+                              <div style={{ fontWeight: 800, color: '#10B981', marginBottom: '4px' }}>
+                                📋 Bài tập chỉ định từ HLV chính ({session.originalTrainerName}):
+                              </div>
+                              <div style={{ whiteSpace: 'pre-line' }}>{session.assignedWorkout}</div>
+                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                                HLV thay thế: <b>{session.substituteTrainerName}</b> ({session.substituteResponseNote || 'Đã sẵn sàng hướng dẫn'})
+                              </div>
+                            </div>
+                          )}
+
                           {/* LỜI DẶN CỦA HLV (NẾU ĐÃ PHẢN HỒI HOẶC DUYỆT) */}
                           {session.trainerFeedback && (
                             <div style={{
@@ -3375,61 +3727,160 @@ setTrainerHorses(prev => {
                           )}
 
                           {/* CÁC NÚT THAO TÁC CHO HLV */}
-                          {isPending && (
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenJointRejectModal(session)}
-                                className="portal-view-btn"
-                                style={{
-                                  padding: '8px 16px',
-                                  fontSize: '12.5px',
-                                  color: '#EF4444',
-                                  borderColor: 'rgba(239, 68, 68, 0.3)'
-                                }}
-                              >
-                                ✕ Từ Chối / Đổi Giờ
-                              </button>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+                            {/* NẾU LÀ YÊU CẦU NHỜ TẬP THAY GỬI ĐẾN MÌNH */}
+                            {isDelegatedToMe && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectSubstitute(session)}
+                                  className="portal-view-btn"
+                                  style={{
+                                    padding: '8px 16px',
+                                    fontSize: '12.5px',
+                                    color: '#EF4444',
+                                    borderColor: 'rgba(239, 68, 68, 0.3)'
+                                  }}
+                                >
+                                  ✕ Từ Chối Hỗ Trợ
+                                </button>
 
-                              <button
-                                type="button"
-                                disabled={isVetLocked}
-                                onClick={() => handleQuickConfirmJointSession(session)}
-                                style={{
-                                  padding: '8px 16px',
-                                  borderRadius: '6px',
-                                  background: isVetLocked ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                                  color: isVetLocked ? 'var(--paper-dim)' : '#FFFFFF',
-                                  fontWeight: 800,
-                                  fontSize: '12.5px',
-                                  border: 'none',
-                                  cursor: isVetLocked ? 'not-allowed' : 'pointer',
-                                  boxShadow: isVetLocked ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.3)'
-                                }}
-                              >
-                                {isVetLocked ? '⛔ Bị Khóa Y Tế' : '✓ Giữ Chỗ Ngay'}
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenSubstituteConfirmModal(session)}
+                                  style={{
+                                    padding: '8px 18px',
+                                    borderRadius: '6px',
+                                    background: 'linear-gradient(135deg, #38BDF8 0%, #0284C7 100%)',
+                                    color: '#FFFFFF',
+                                    fontWeight: 800,
+                                    fontSize: '12.5px',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 14px rgba(56, 189, 248, 0.3)'
+                                  }}
+                                >
+                                  🤝 Nhận Tập Thay Theo Bài Tập
+                                </button>
+                              </>
+                            )}
 
+                            {/* NẾU LÀ BUỔI TẬP MỚI ĐẶT CẦN DUYỆT */}
+                            {isPending && !isDelegatedToMe && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenJointRejectModal(session)}
+                                  className="portal-view-btn"
+                                  style={{
+                                    padding: '8px 16px',
+                                    fontSize: '12.5px',
+                                    color: '#EF4444',
+                                    borderColor: 'rgba(239, 68, 68, 0.3)'
+                                  }}
+                                >
+                                  ✕ Từ Chối / Đổi Giờ
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={isVetLocked}
+                                  onClick={() => handleQuickConfirmJointSession(session)}
+                                  style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    background: isVetLocked ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                                    color: isVetLocked ? 'var(--paper-dim)' : '#FFFFFF',
+                                    fontWeight: 800,
+                                    fontSize: '12.5px',
+                                    border: 'none',
+                                    cursor: isVetLocked ? 'not-allowed' : 'pointer',
+                                    boxShadow: isVetLocked ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.3)'
+                                  }}
+                                >
+                                  {isVetLocked ? '⛔ Bị Khóa Y Tế' : '✓ Giữ Chỗ Ngay'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={isVetLocked}
+                                  onClick={() => handleOpenJointConfirmModal(session)}
+                                  style={{
+                                    padding: '8px 18px',
+                                    borderRadius: '6px',
+                                    background: isVetLocked ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, var(--brass) 0%, #B89230 100%)',
+                                    color: isVetLocked ? 'var(--paper-dim)' : '#120E04',
+                                    fontWeight: 800,
+                                    fontSize: '12.5px',
+                                    border: 'none',
+                                    cursor: isVetLocked ? 'not-allowed' : 'pointer',
+                                    boxShadow: isVetLocked ? 'none' : '0 4px 14px rgba(212, 175, 55, 0.3)'
+                                  }}
+                                >
+                                  {isVetLocked ? '⛔ Bị Khóa Y Tế' : '✍️ Dặn Dò & Giữ Chỗ'}
+                                </button>
+                              </>
+                            )}
+
+                            {/* NẾU ĐÃ CONFIRMED VÀ LÀ HLV CHÍNH -> CÓ NÚT CHUYỂN GIAO CHO HLV KHÁC NẾU BẬN */}
+                            {isConfirmed && isMyAssignedSession && (!session.transferStatus || session.transferStatus === 'NONE') && (
                               <button
                                 type="button"
-                                disabled={isVetLocked}
-                                onClick={() => handleOpenJointConfirmModal(session)}
+                                onClick={() => handleOpenDelegateModal(session)}
                                 style={{
-                                  padding: '8px 18px',
+                                  padding: '7px 16px',
                                   borderRadius: '6px',
-                                  background: isVetLocked ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, var(--brass) 0%, #B89230 100%)',
-                                  color: isVetLocked ? 'var(--paper-dim)' : '#120E04',
-                                  fontWeight: 800,
-                                  fontSize: '12.5px',
-                                  border: 'none',
-                                  cursor: isVetLocked ? 'not-allowed' : 'pointer',
-                                  boxShadow: isVetLocked ? 'none' : '0 4px 14px rgba(212, 175, 55, 0.3)'
+                                  background: 'rgba(56, 189, 248, 0.12)',
+                                  color: '#38BDF8',
+                                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                                  fontWeight: 700,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
                                 }}
                               >
-                                {isVetLocked ? '⛔ Bị Khóa Y Tế' : '✍️ Dặn Dò & Giữ Chỗ'}
+                                🔄 Nhờ HLV Khác Tập Thay (Nếu Bận Việc)
                               </button>
-                            </div>
-                          )}
+                            )}
+
+                            {/* NẾU HLV CHÍNH ĐÃ GỬI LỜI NHỜ VÀ ĐANG CHỜ PHẢN HỒI */}
+                            {isMyDelegatedOut && (
+                              <span style={{ fontSize: '12px', color: '#38BDF8', fontStyle: 'italic' }}>
+                                ⏳ Đang chờ HLV {session.delegatedToTrainerName} xác nhận tiếp nhận...
+                              </span>
+                            )}
+
+                            {/* NẾU ĐÃ CHUYỂN GIAO THÀNH CÔNG */}
+                            {isMySessionTransferred && (
+                              <span style={{ fontSize: '12px', color: '#10B981', fontWeight: 600 }}>
+                                ✓ Đã bàn giao cho HLV {session.substituteTrainerName} phụ trách buổi tập này
+                              </span>
+                            )}
+
+                            {/* NẾU HLV HIỆN TẠI LÀ HLV THAY THẾ ĐÃ XÁC NHẬN */}
+                            {isSubstitutedByMe && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  showToast(`Buổi tập đã được bạn ghi nhận hướng dẫn theo bài tập của HLV chính (${session.originalTrainerName}). Báo cáo đã đồng bộ về hồ sơ chiến mã!`, 'ĐÃ HOÀN TẤT', 'success');
+                                }}
+                                style={{
+                                  padding: '7px 16px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10B981',
+                                  border: '1px solid rgba(16, 185, 129, 0.4)',
+                                  fontWeight: 700,
+                                  fontSize: '12px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✓ Báo Cáo Buổi Tập Về HLV Chính
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -5267,7 +5718,7 @@ setTrainerHorses(prev => {
         />
       )}
 
-      {/* Modal Xác Nhận Xóa Giáo Án Huấn Luyện */}
+      {/* Modal Xác Nhận Xóa Giáo Án Huấn Luyện (Thiết Kế Tinh Gọn) */}
       {deleteTargetProgram && (
         <div
           onClick={() => setDeleteTargetProgram(null)}
@@ -5277,69 +5728,89 @@ setTrainerHorses(prev => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.82)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(0, 0, 0, 0.72)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 999999,
-            padding: '20px'
+            padding: '16px'
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: 'var(--bg-card)',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
+              background: '#161F1D',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
               borderRadius: '12px',
-              padding: '24px',
+              padding: '20px 22px',
               width: '100%',
-              maxWidth: '460px',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.85)'
+              maxWidth: '390px',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.65)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-              <span style={{ fontSize: '24px' }}>🗑️</span>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--paper)' }}>
-                Xác Nhận Xóa Bài Tập Huấn Luyện
-              </h3>
-            </div>
-            <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--paper-dim)', lineHeight: 1.5 }}>
-              Bạn có chắc chắn muốn xóa bài tập <b style={{ color: 'var(--brass)' }}>"{deleteTargetProgram.title}"</b> của chiến mã <b style={{ color: 'var(--paper)' }}>{deleteTargetProgram.horseName}</b> khỏi giáo án huấn luyện? Thao tác này không thể hoàn tác.
-            </p>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🗑️</span>
+                <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: 800, color: 'var(--paper)' }}>
+                  Xóa bài tập?
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setDeleteTargetProgram(null)}
                 style={{
-                  padding: '9px 18px',
-                  background: 'var(--bg-secondary)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--paper-dim)',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  lineHeight: 1
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ margin: '0 0 20px', fontSize: '13.5px', color: 'var(--paper-dim)', lineHeight: 1.5 }}>
+              Bạn có chắc chắn muốn xóa bài tập <b style={{ color: 'var(--brass)' }}>"{deleteTargetProgram.title}"</b> của chiến mã <b style={{ color: 'var(--paper)' }}>{deleteTargetProgram.horseName}</b> khỏi giáo án huấn luyện?
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setDeleteTargetProgram(null)}
+                style={{
+                  padding: '8px 16px',
+                  background: 'rgba(255, 255, 255, 0.05)',
                   border: '1px solid var(--line)',
-                  color: 'var(--paper)',
+                  color: 'var(--paper-dim)',
                   borderRadius: '6px',
-                  fontWeight: 700,
-                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  fontSize: '13px',
                   cursor: 'pointer'
                 }}
               >
-                Hủy bỏ
+                Hủy
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDeleteProgram}
                 style={{
-                  padding: '9px 18px',
+                  padding: '8px 18px',
                   background: '#EF4444',
                   border: 'none',
                   color: '#FFFFFF',
                   borderRadius: '6px',
-                  fontWeight: 800,
-                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  fontSize: '13px',
                   cursor: 'pointer',
-                  boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)'
+                  boxShadow: '0 2px 10px rgba(239, 68, 68, 0.35)'
                 }}
               >
-                Xác Nhận Xóa
+                Xác nhận xóa
               </button>
             </div>
           </div>
@@ -5641,6 +6112,284 @@ setTrainerHorses(prev => {
                     ✕ Gửi Phản Hồi Cho Chủ Sở Hữu
                   </button>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: CHUYỂN GIAO BUỔI TẬP TẠM THỜI (HLV CHÍNH BẬN VIỆC) */}
+      {delegateModalSession && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--line)',
+            borderRadius: '12px',
+            maxWidth: '560px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--brass)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🔄 Chuyển Giao Buổi Tập Tạm Thời
+              </h3>
+              <button
+                type="button"
+                onClick={() => setDelegateModalSession(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: 'var(--paper-dim)', marginTop: 0, marginBottom: '16px', lineHeight: 1.5 }}>
+              Khi bạn bận việc đột xuất, hãy chọn Huấn luyện viên đang <b>trống lịch</b> trong khung giờ này và giao <b>bài tập chỉ định</b> để Chủ sở hữu và HLV thay thế tập theo.
+            </p>
+
+            <form onSubmit={handleSubmitDelegate}>
+              <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '12.5px' }}>
+                <div>🏇 <b>Chiến mã:</b> {delegateModalSession.horseName} (Chủ sở hữu: <b>{delegateModalSession.ownerName}</b>)</div>
+                <div style={{ marginTop: '4px' }}>📅 <b>Khung giờ:</b> {delegateModalSession.sessionDate} · {delegateModalSession.sessionTime}</div>
+                <div style={{ marginTop: '4px' }}>🎯 <b>Mục tiêu ban đầu:</b> {delegateModalSession.goal}</div>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper)', marginBottom: '6px' }}>
+                  Chọn Huấn Luyện Viên Thay Thế (Kiểm tra theo lịch trống):
+                </label>
+                <select
+                  value={delegateTargetTrainer}
+                  onChange={(e) => setDelegateTargetTrainer(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--line)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--paper)',
+                    fontSize: '13px'
+                  }}
+                >
+                  {getAvailableSubstituteTrainers(delegateModalSession.sessionDate, delegateModalSession.sessionTime, currentU).map(tr => (
+                    <option key={tr.username} value={tr.username} disabled={!tr.isAvailable}>
+                      {tr.name} ({tr.role}) {tr.isAvailable ? '✓ [Đang Trống Lịch]' : `✕ [Bận: ${tr.conflictReason}]`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper)', marginBottom: '6px' }}>
+                  Lý do bận việc / chuyển giao:
+                </label>
+                <input
+                  type="text"
+                  value={delegateReason}
+                  onChange={(e) => setDelegateReason(e.target.value)}
+                  placeholder="Ví dụ: Bận họp chuyên môn đột xuất / Tập huấn trọng tài..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--line)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--paper)',
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#38BDF8', marginBottom: '6px' }}>
+                  📋 Bài tập & Giáo án chỉ định (Bắt buộc - HLV thay thế và Chủ sở hữu sẽ tập theo bài này):
+                </label>
+                <textarea
+                  rows={4}
+                  value={delegateAssignedWorkout}
+                  onChange={(e) => setDelegateAssignedWorkout(e.target.value)}
+                  placeholder="Ví dụ: Khởi động đi bộ thả lỏng 15 phút, sau đó phi nước kiệu (Trot) 800m nhịp tim dưới 140 bpm, kết thúc hạ nhiệt chải lông..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--paper)',
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setDelegateModalSession(null)}
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--line)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--paper)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 22px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #38BDF8 0%, #0284C7 100%)',
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📤 Gửi Lời Nhờ HLV & Giao Bài Tập
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: HLV ĐƯỢC NHỜ XÁC NHẬN TIẾP NHẬN BUỔI TẬP */}
+      {substituteConfirmModalSession && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--line)',
+            borderRadius: '12px',
+            maxWidth: '560px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#38BDF8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🤝 Xác Nhận Hỗ Trợ Buổi Tập Thay
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSubstituteConfirmModalSession(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '12.5px' }}>
+              <div>🏇 <b>Chiến mã:</b> {substituteConfirmModalSession.horseName} (Chủ sở hữu: <b>{substituteConfirmModalSession.ownerName}</b>)</div>
+              <div style={{ marginTop: '4px' }}>📅 <b>Khung giờ:</b> {substituteConfirmModalSession.sessionDate} · {substituteConfirmModalSession.sessionTime}</div>
+              <div style={{ marginTop: '4px' }}>👨‍🏫 <b>HLV chính giao việc:</b> {substituteConfirmModalSession.originalTrainerName || substituteConfirmModalSession.trainerName}</div>
+              {substituteConfirmModalSession.transferReason && (
+                <div style={{ marginTop: '4px', fontStyle: 'italic', color: 'var(--paper-dim)' }}>
+                  Lý do nhờ: "{substituteConfirmModalSession.transferReason}"
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              padding: '12px',
+              borderRadius: '8px',
+              background: 'rgba(56, 189, 248, 0.1)',
+              borderLeft: '3px solid #38BDF8',
+              marginBottom: '16px'
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: '#38BDF8', marginBottom: '4px' }}>
+                📋 BÀI TẬP CHỈ ĐỊNH TỪ HLV CHÍNH (BẮT BUỘC TẬP THEO):
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--paper)', whiteSpace: 'pre-line', lineHeight: 1.5 }}>
+                {substituteConfirmModalSession.assignedWorkout || 'Tập kỹ thuật theo thể trạng chiến mã.'}
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmitSubstituteConfirm}>
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper)', marginBottom: '6px' }}>
+                  Lời nhắn / Phản hồi gửi đến Chủ sở hữu & HLV chính:
+                </label>
+                <textarea
+                  rows={3}
+                  value={substituteResponseNote}
+                  onChange={(e) => setSubstituteResponseNote(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--line)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--paper)',
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ fontSize: '11.5px', color: '#10B981', marginBottom: '16px', background: 'rgba(16, 185, 129, 0.08)', padding: '8px 12px', borderRadius: '6px' }}>
+                📢 Ngay khi bạn bấm xác nhận, hệ thống sẽ tự động gửi thông báo đến <b>Chủ sở hữu {substituteConfirmModalSession.ownerName}</b> để thông báo buổi tập sẽ do bạn ({currentUser?.full_name}) hướng dẫn theo đúng bài tập trên!
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSubstituteConfirmModalSession(null)}
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--line)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--paper)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 22px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✓ Tiếp Nhận Buổi Tập
+                </button>
               </div>
             </form>
           </div>

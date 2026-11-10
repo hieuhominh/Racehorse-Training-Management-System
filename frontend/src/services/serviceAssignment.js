@@ -72,13 +72,21 @@ export const FIXED_GROOMS_LIST = [
 ];
 
 const INITIAL_ASSIGNMENTS = [];
+const EXCLUDED_MOCK_NAMES = ['hắc phong', 'xích thố', 'phi yến', 'lôi chấn', 'bạch long'];
 
 export function getServiceAssignments() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed.filter(item => item.ownerKey !== 'owner_thanh' && item.ownerName !== 'Phạm Tiến Thành' && item.ownerName !== 'Trần Đình Thanh');
+      if (Array.isArray(parsed)) {
+        return parsed.filter(item => 
+          item.ownerKey !== 'owner_thanh' && 
+          item.ownerName !== 'Phạm Tiến Thành' && 
+          item.ownerName !== 'Trần Đình Thanh' &&
+          !EXCLUDED_MOCK_NAMES.some(ex => (item.horseName || '').toLowerCase().includes(ex))
+        );
+      }
     }
   } catch {}
   localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ASSIGNMENTS));
@@ -87,7 +95,10 @@ export function getServiceAssignments() {
 
 export function saveServiceAssignments(list) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    const cleanList = Array.isArray(list)
+      ? list.filter(item => !EXCLUDED_MOCK_NAMES.some(ex => (item.horseName || '').toLowerCase().includes(ex)))
+      : list;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanList));
     window.dispatchEvent(new Event(EVENT_NAME));
     window.dispatchEvent(new Event('storage'));
   } catch (err) {
