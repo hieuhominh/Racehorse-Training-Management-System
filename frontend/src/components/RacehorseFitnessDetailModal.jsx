@@ -5,6 +5,7 @@ import {
   REQUIRED_WORKOUTS_TO_EVALUATE,
   computeCurrentDecayedRecovery 
 } from '../services/fitnessAlgorithm';
+import { getHorseFitnessApi, getTrainingProgramsApi } from '../services/api';
 import EquineRecoveryIcon from './EquineRecoveryIcon';
 
 export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHorse, sessions = [], isTrainer: isTrainerProp }) {
@@ -21,6 +22,25 @@ export default function RacehorseFitnessDetailModal({ horse, onClose, onUpdateHo
       return [];
     }
   });
+
+  // Tự động đồng bộ thể lực & giáo án từ API Server khi mở modal
+  useEffect(() => {
+    let isMounted = true;
+    if (horse) {
+      const key = horse.microchip || horse.id || horse.name;
+      getHorseFitnessApi(key).then(remoteData => {
+        if (isMounted && remoteData) {
+          setTelemetry(prev => ({ ...(prev || {}), ...remoteData }));
+        }
+      }).catch(() => {});
+    }
+    getTrainingProgramsApi().then(progs => {
+      if (isMounted && Array.isArray(progs) && progs.length > 0) {
+        setTrainerPrograms(progs);
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, [horse]);
 
   const [showAddWorkoutModal, setShowAddWorkoutModal] = useState(false);
   const [newWorkoutData, setNewWorkoutData] = useState({

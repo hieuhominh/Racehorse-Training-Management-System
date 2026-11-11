@@ -142,7 +142,7 @@ const TOURNAMENT_REVENUE_DATA = [
   },
   {
     id: 'TOURN-03',
-    name: 'Cúp Chiến Mã Trẻ Mùa Mới (Group 3)',
+    name: 'Cúp Tranh Tài Mùa Thu Phú Thọ (Group 3)',
     track: 'Trường đua Quốc tế Phú Thọ (1.600m Turf)',
     date: '08/12/2026',
     status: 'SETTLING',

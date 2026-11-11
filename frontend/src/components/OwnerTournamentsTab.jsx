@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getTournamentTimeStatus } from '../services/api';
 
 export default function OwnerTournamentsTab({
   OPEN_TOURNAMENTS = [],
@@ -135,97 +136,265 @@ export default function OwnerTournamentsTab({
             <b style={{ color: 'var(--brass)' }}>🏆 Thể lệ & Quy tắc Doanh thu Giải Nền Tảng:</b> Giải đấu do Ban Điều Hành Nền Tảng trực tiếp tổ chức. Hoa hồng giải đấu trích nộp từ <b>5% – 8%</b> trên tổng tiền thưởng đoạt giải được công khai theo từng giải và thông báo trước khi Chủ ngựa chấp thuận ghi danh. Đơn đăng ký được Admin & Huấn luyện viên trưởng thẩm định điều kiện trước khi xếp lịch xuất phát.
           </div>
 
-          <div className="portal-cards-grid" style={{ display: 'grid', gap: '14px' }}>
-            {internalTournaments.map(tourn => (
-              <div key={tourn.id} className="facility-card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
-                    <b style={{ fontSize: '15px', color: 'var(--paper)', lineHeight: 1.3 }}>{tourn.name}</b>
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      fontSize: '10.5px',
-                      fontWeight: 700,
-                      background: 'rgba(212, 175, 55, 0.15)',
-                      color: 'var(--brass)',
-                      border: '1px solid var(--brass)',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {tourn.distance}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '8px' }}>
-                    {tourn.track} · {tourn.surface} · Đơn vị tổ chức: <b>{tourn.organizerName || 'Ban Quản Trị Nền Tảng'}</b>
-                  </div>
-
-                  <p style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.4, margin: '0 0 12px' }}>
-                    {tourn.description}
-                  </p>
-
-                  <div style={{
-                    background: 'var(--bg-secondary)',
-                    padding: '10px 12px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                    gap: '8px',
-                    marginBottom: '10px'
-                  }}>
-                    <div>Ngày thi đấu: <b style={{ color: 'var(--paper)', display: 'block' }}>{tourn.date}</b></div>
-                    <div>Tổng giải thưởng: <b style={{ color: 'var(--brass)', display: 'block', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatVND(tourn.totalPurse)}</b></div>
-                    <div>Hoa hồng nền tảng: <b style={{ color: '#F59E0B', display: 'block' }}>{Math.round((tourn.commissionRate || 0.05) * 100)}% (Chủ nhận {100 - Math.round((tourn.commissionRate || 0.05) * 100)}%)</b></div>
-                    <div>Lệ phí đăng ký: <b style={{ color: 'var(--paper)', display: 'block', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatVND(tourn.entryFee || 5000000)}</b></div>
-                  </div>
-
-                  {/* QUYỀN LỢI KHÁN ĐÀI */}
-                  <div style={{
-                    marginBottom: '14px',
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    background: membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.1)' : 'var(--bg-secondary)',
-                    border: `1px solid ${membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.3)' : 'var(--line)'}`,
+          <div className="portal-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
+            {internalTournaments.map(tourn => {
+              const timeStatus = getTournamentTimeStatus(tourn.date);
+              return (
+                <div
+                  key={tourn.id}
+                  className="facility-card"
+                  style={{
+                    padding: '18px',
                     display: 'flex',
+                    flexDirection: 'column',
                     justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '11.5px',
-                    flexWrap: 'wrap',
-                    gap: '6px'
-                  }}>
-                    <span style={{ color: 'var(--paper-dim)' }}>Quyền lợi khán đài:</span>
-                    {membershipTier === 'PREMIUM' ? (
-                      <span style={{ color: 'var(--brass)', fontWeight: 700 }}>VIP Lounge & Paddock Pass</span>
+                    height: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', minHeight: '46px', marginBottom: '8px' }}>
+                      <b style={{
+                        fontSize: '15px',
+                        color: 'var(--paper)',
+                        lineHeight: 1.3,
+                        flex: 1,
+                        minHeight: '40px',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
+                        {tourn.name}
+                      </b>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                        <span style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          background: timeStatus.isRegNotOpenYet
+                            ? 'rgba(245, 158, 11, 0.15)'
+                            : timeStatus.isRegClosed && !timeStatus.isRaceStarted
+                              ? 'rgba(239, 68, 68, 0.15)'
+                              : timeStatus.isRaceStarted
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : 'rgba(16, 185, 129, 0.15)',
+                          color: timeStatus.isRegNotOpenYet
+                            ? '#F59E0B'
+                            : timeStatus.isRegClosed && !timeStatus.isRaceStarted
+                              ? '#EF4444'
+                              : '#10B981',
+                          border: `1px solid ${
+                            timeStatus.isRegNotOpenYet
+                              ? '#F59E0B'
+                              : timeStatus.isRegClosed && !timeStatus.isRaceStarted
+                                ? '#EF4444'
+                                : '#10B981'
+                          }`,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {timeStatus.isRegNotOpenYet
+                            ? '⏳ CHƯA MỞ ĐĂNG KÝ'
+                            : timeStatus.isRegClosed && !timeStatus.isRaceStarted
+                              ? '🔒 ĐÃ ĐÓNG ĐĂNG KÝ'
+                              : timeStatus.isRaceStarted
+                                ? '🏁 ĐANG DIỄN RA / HOÀN THÀNH'
+                                : '🟢 ĐANG MỞ ĐĂNG KÝ'}
+                        </span>
+                        <span style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          background: 'rgba(212, 175, 55, 0.15)',
+                          color: 'var(--brass)',
+                          border: '1px solid var(--brass)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {tourn.distance}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      fontSize: '12px',
+                      color: 'var(--paper-dim)',
+                      minHeight: '34px',
+                      lineHeight: 1.4,
+                      marginBottom: '8px',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {tourn.track} · {tourn.surface} · Đơn vị tổ chức: <b>{tourn.organizerName || 'Ban Quản Trị Nền Tảng'}</b>
+                    </div>
+
+                    <p style={{
+                      fontSize: '12px',
+                      color: 'var(--paper-dim)',
+                      lineHeight: 1.4,
+                      margin: '0 0 12px',
+                      minHeight: '36px',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {tourn.description}
+                    </p>
+
+                    <div style={{
+                      background: 'var(--bg-secondary)',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: '8px',
+                      minHeight: '84px',
+                      marginBottom: '10px',
+                      boxSizing: 'border-box'
+                    }}>
+                      <div>Ngày thi đấu: <b style={{ color: 'var(--paper)', display: 'block' }}>{tourn.date}</b></div>
+                      <div>
+                        Hạn chót đăng ký: 
+                        <b style={{ color: timeStatus.isRegClosed ? '#EF4444' : '#10B981', display: 'block' }}>
+                          {timeStatus.regDeadlineFormatted} {timeStatus.isRegClosed ? '(Hết hạn)' : '(Đang mở)'}
+                        </b>
+                      </div>
+                      <div>Tổng giải thưởng: <b style={{ color: 'var(--brass)', display: 'block', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatVND(tourn.totalPurse)}</b></div>
+                      <div>Hoa hồng nền tảng: <b style={{ color: '#F59E0B', display: 'block' }}>{Math.round((tourn.commissionRate || 0.05) * 100)}% (Chủ nhận {100 - Math.round((tourn.commissionRate || 0.05) * 100)}%)</b></div>
+                    </div>
+
+                    {/* QUYỀN LỢI KHÁN ĐÀI */}
+                    <div style={{
+                      marginBottom: '14px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      background: membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.1)' : 'var(--bg-secondary)',
+                      border: `1px solid ${membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.3)' : 'var(--line)'}`,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '11.5px',
+                      minHeight: '34px',
+                      boxSizing: 'border-box'
+                    }}>
+                      <span style={{ color: 'var(--paper-dim)' }}>Quyền lợi khán đài:</span>
+                      {membershipTier === 'PREMIUM' ? (
+                        <span style={{ color: 'var(--brass)', fontWeight: 700 }}>VIP Lounge & Paddock Pass</span>
+                      ) : (
+                        <span style={{ color: 'var(--paper)', fontWeight: 600 }}>Khán đài tiêu chuẩn</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 'auto' }}>
+                    {timeStatus.isRegNotOpenYet ? (
+                      <button
+                        type="button"
+                        disabled={true}
+                        title={`Giải đấu sẽ mở cổng đăng ký từ ngày ${timeStatus.regOpenDeadlineFormatted} (mở trước 1 tháng, đóng trước 1 tuần trước ngày thi đấu).`}
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          color: 'var(--paper-dim)',
+                          fontWeight: 600,
+                          border: '1px solid var(--line)',
+                          fontSize: '12px',
+                          cursor: 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>⏳</span>
+                        <span>Chưa Mở Đăng Ký (Mở từ {timeStatus.regOpenDeadlineFormatted})</span>
+                      </button>
+                    ) : timeStatus.isRaceStarted ? (
+                      <button
+                        type="button"
+                        disabled={true}
+                        title="Giải đấu nội bộ do Ban Quản Trị / Admin cập nhật kết quả và chuyển thưởng cho Chủ sở hữu."
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(16, 185, 129, 0.1)',
+                          color: '#10B981',
+                          fontWeight: 600,
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          fontSize: '12px',
+                          cursor: 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>🏁</span>
+                        <span>Đang Diễn Ra / Chờ Admin Cập Nhật</span>
+                      </button>
+                    ) : timeStatus.isRegClosed ? (
+                      <button
+                        type="button"
+                        disabled={true}
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          color: 'var(--paper-dim)',
+                          fontWeight: 600,
+                          border: '1px solid var(--line)',
+                          fontSize: '12px',
+                          cursor: 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>🔒</span>
+                        <span>Đã Đóng Đăng Ký (Chờ ngày đua: {tourn.date})</span>
+                      </button>
                     ) : (
-                      <span style={{ color: 'var(--paper)', fontWeight: 600 }}>Khán đài tiêu chuẩn</span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRaceRegister && handleOpenRaceRegister(tourn)}
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          background: 'var(--brass)',
+                          color: '#0A0D14',
+                          fontWeight: 700,
+                          border: 'none',
+                          fontSize: '12.5px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>🏆</span>
+                        <span>Đăng Ký Tham Gia Giải Này</span>
+                      </button>
                     )}
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleOpenRaceRegister && handleOpenRaceRegister(tourn)}
-                  style={{
-                    width: '100%',
-                    padding: '9px',
-                    borderRadius: '6px',
-                    background: 'var(--brass)',
-                    color: '#0A0D14',
-                    fontWeight: 700,
-                    border: 'none',
-                    fontSize: '12.5px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <span>🏆</span>
-                  <span>Đăng Ký Tham Gia Giải Này</span>
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -291,114 +460,385 @@ export default function OwnerTournamentsTab({
             </button>
           </div>
 
-          <div className="portal-cards-grid" style={{ display: 'grid', gap: '14px' }}>
-            {externalTournaments.map(tourn => (
-              <div key={tourn.id} className="facility-card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
-                    <b style={{ fontSize: '15px', color: 'var(--paper)', lineHeight: 1.3 }}>{tourn.name}</b>
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      fontSize: '10.5px',
-                      fontWeight: 700,
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      color: '#10B981',
-                      border: '1px solid #10B981',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      GIẢI ĐẤU NGOÀI ĐỘC LẬP
-                    </span>
-                  </div>
+          <div className="portal-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
+            {externalTournaments.map(tourn => {
+              const timeStatus = getTournamentTimeStatus(tourn.date);
+              const existingExtRecord = (raceNominations || []).find(r => 
+                (r.tournamentType === 'EXTERNAL' || r.isExternal) && 
+                r.raceName === tourn.name
+              );
 
-                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '8px' }}>
-                    {tourn.track} · {tourn.surface} · Đơn vị tổ chức ngoài: <b>{tourn.organizerName}</b>
-                  </div>
-
-                  <p style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.4, margin: '0 0 12px' }}>
-                    {tourn.description}
-                  </p>
-
-                  <div style={{
-                    background: 'var(--bg-secondary)',
-                    padding: '10px 12px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                    gap: '8px',
-                    marginBottom: '10px'
-                  }}>
-                    <div>Cự ly: <b style={{ color: 'var(--paper)', display: 'block' }}>{tourn.distance}</b></div>
-                    <div>Ngày thi đấu: <b style={{ color: 'var(--paper)', display: 'block' }}>{tourn.date}</b></div>
-                    <div>Tổng giải thưởng: <b style={{ color: '#10B981', display: 'block', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatVND(tourn.totalPurse)}</b></div>
-                    <div>Tỷ lệ hoa hồng: <b style={{ color: '#10B981', display: 'block' }}>0% (Chủ nhận 100%)</b></div>
-                  </div>
-
-                  {/* CƠ CẤU GIẢI THƯỞNG CHI TIẾT THEO THỨ HẠNG */}
-                  <div style={{
-                    background: 'rgba(16, 185, 129, 0.05)',
-                    border: '1px solid rgba(16, 185, 129, 0.2)',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    marginBottom: '12px'
-                  }}>
-                    <div style={{ fontWeight: 700, color: '#10B981', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                      🏆 Cơ cấu giải thưởng phân bổ theo thứ hạng:
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 10px', color: 'var(--paper-dim)' }}>
-                      <div>• Giải Nhất (50%): <b style={{ color: '#10B981', whiteSpace: 'nowrap' }}>{formatVND(Math.round(tourn.totalPurse * 0.5))}</b></div>
-                      <div>• Giải Nhì (25%): <b style={{ color: '#10B981', whiteSpace: 'nowrap' }}>{formatVND(Math.round(tourn.totalPurse * 0.25))}</b></div>
-                      <div>• Giải Ba (15%): <b style={{ color: '#10B981', whiteSpace: 'nowrap' }}>{formatVND(Math.round(tourn.totalPurse * 0.15))}</b></div>
-                      <div>• Top 5 (5%): <b style={{ color: '#10B981', whiteSpace: 'nowrap' }}>{formatVND(Math.round(tourn.totalPurse * 0.05))}</b></div>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const firstHorse = myHorses[0];
-                    if (setExternalRecordForm) {
-                      setExternalRecordForm({
-                        raceName: tourn.name,
-                        organizerName: tourn.organizerName,
-                        horseId: firstHorse ? String(firstHorse.id) : '',
-                        track: tourn.track,
-                        surface: tourn.surface,
-                        distance: tourn.distance,
-                        date: tourn.date,
-                        jockey: '',
-                        rank: 'Hạng 1 (Giải Nhất - 50% Quỹ)',
-                        basePurse: tourn.totalPurse,
-                        grossPrize: tourn.totalPurse ? Math.round(tourn.totalPurse * 0.5) : 150000000,
-                        notes: 'Tham gia giải ngoài độc lập'
-                      });
-                    }
-                    if (setShowExternalRecordModal) setShowExternalRecordModal(true);
-                  }}
+              return (
+                <div
+                  key={tourn.id}
+                  className="facility-card"
                   style={{
-                    width: '100%',
-                    padding: '9px',
-                    borderRadius: '6px',
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    color: '#10B981',
-                    fontWeight: 700,
-                    border: '1px solid #10B981',
-                    fontSize: '12.5px',
-                    cursor: 'pointer',
+                    padding: '18px',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    height: '100%',
+                    boxSizing: 'border-box',
+                    border: existingExtRecord
+                      ? '1px solid rgba(245, 158, 11, 0.4)'
+                      : timeStatus.isRegNotOpenYet
+                        ? '1px solid rgba(245, 158, 11, 0.25)'
+                        : timeStatus.isRegClosed && !timeStatus.isRaceStarted
+                          ? '1px solid rgba(239, 68, 68, 0.25)'
+                          : '1px solid rgba(16, 185, 129, 0.3)',
+                    background: existingExtRecord ? 'rgba(245, 158, 11, 0.02)' : undefined
                   }}
                 >
-                  <span>🌐</span>
-                  <span>+ Ghi Nhận Thành Tích Giải Này</span>
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', minHeight: '46px', marginBottom: '8px' }}>
+                      <b style={{
+                        fontSize: '15px',
+                        color: 'var(--paper)',
+                        lineHeight: 1.3,
+                        flex: 1,
+                        minHeight: '40px',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
+                        {tourn.name}
+                      </b>
+                      {existingExtRecord ? (
+                        <span style={{
+                          flexShrink: 0,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          color: '#F59E0B',
+                          border: '1px solid #F59E0B',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {existingExtRecord.rank?.includes('Đăng Ký') ? '✓ ĐÃ ĐĂNG KÝ THAM GIA' : `✓ ĐÃ GHI NHẬN: ${existingExtRecord.rank?.split('(')[0]?.trim() || 'Thành tích'}`}
+                        </span>
+                      ) : timeStatus.isRegNotOpenYet ? (
+                        <span style={{
+                          flexShrink: 0,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          color: '#F59E0B',
+                          border: '1px solid #F59E0B',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          ⏳ CHƯA MỞ ĐĂNG KÝ
+                        </span>
+                      ) : timeStatus.isRegClosed && !timeStatus.isRaceStarted ? (
+                        <span style={{
+                          flexShrink: 0,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          color: '#EF4444',
+                          border: '1px solid #EF4444',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          🔒 ĐÃ ĐÓNG ĐĂNG KÝ
+                        </span>
+                      ) : timeStatus.isRegOpen ? (
+                        <span style={{
+                          flexShrink: 0,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10B981',
+                          border: '1px solid #10B981',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          🟢 ĐANG MỞ ĐĂNG KÝ
+                        </span>
+                      ) : (
+                        <span style={{
+                          flexShrink: 0,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10B981',
+                          border: '1px solid #10B981',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          🏁 ĐANG DIỄN RA / HOÀN THÀNH
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{
+                      fontSize: '12px',
+                      color: 'var(--paper-dim)',
+                      minHeight: '34px',
+                      lineHeight: 1.4,
+                      marginBottom: '8px',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {tourn.track} · {tourn.surface} · Đơn vị tổ chức ngoài: <b>{tourn.organizerName}</b>
+                    </div>
+
+                    <p style={{
+                      fontSize: '12px',
+                      color: 'var(--paper-dim)',
+                      lineHeight: 1.4,
+                      margin: '0 0 12px',
+                      minHeight: '36px',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {tourn.description}
+                    </p>
+
+                    <div style={{
+                      background: 'var(--bg-secondary)',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: '8px',
+                      minHeight: '84px',
+                      marginBottom: '10px',
+                      boxSizing: 'border-box'
+                    }}>
+                      <div>Cự ly: <b style={{ color: 'var(--paper)', display: 'block' }}>{tourn.distance}</b></div>
+                      <div>Ngày thi đấu: <b style={{ color: 'var(--paper)', display: 'block' }}>{tourn.date}</b></div>
+                      <div>Tổng giải thưởng: <b style={{ color: '#10B981', display: 'block', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatVND(tourn.totalPurse)}</b></div>
+                      <div>Tỷ lệ hoa hồng: <b style={{ color: '#10B981', display: 'block' }}>0% (Chủ nhận 100%)</b></div>
+                    </div>
+
+                    {/* CƠ CẤU GIẢI THƯỞNG CHI TIẾT THEO THỨ HẠNG */}
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.05)',
+                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      minHeight: '84px',
+                      marginBottom: '14px',
+                      boxSizing: 'border-box'
+                    }}>
+                      <div style={{ fontWeight: 700, color: '#10B981', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                        🏆 Cơ cấu giải thưởng phân bổ theo thứ hạng:
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 10px', color: 'var(--paper-dim)' }}>
+                        <div>• Giải Nhất (50%): <b style={{ color: '#10B981', whiteSpace: 'nowrap' }}>{formatVND(Math.round(tourn.totalPurse * 0.5))}</b></div>
+                        <div>• Giải Nhì (25%): <b style={{ color: '#10B981', whiteSpace: 'nowrap' }}>{formatVND(Math.round(tourn.totalPurse * 0.25))}</b></div>
+                        <div>• Giải Ba (15%): <b style={{ color: '#10B981', whiteSpace: 'nowrap' }}>{formatVND(Math.round(tourn.totalPurse * 0.15))}</b></div>
+                        <div>• Top 5 (5%): <b style={{ color: '#10B981', whiteSpace: 'nowrap' }}>{formatVND(Math.round(tourn.totalPurse * 0.05))}</b></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 'auto' }}>
+                    {existingExtRecord ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const matchedHorse = myHorses.find(h => h.name === existingExtRecord.horseName || String(h.id) === String(existingExtRecord.horseId)) || myHorses[0];
+                          if (setExternalRecordForm) {
+                            setExternalRecordForm({
+                              recordId: existingExtRecord.id,
+                              isEditing: true,
+                              raceName: tourn.name,
+                              organizerName: tourn.organizerName || existingExtRecord.organizerName,
+                              horseId: matchedHorse ? String(matchedHorse.id) : '',
+                              track: tourn.track || existingExtRecord.track,
+                              surface: tourn.surface || existingExtRecord.surface,
+                              distance: tourn.distance || existingExtRecord.distance,
+                              date: tourn.date || existingExtRecord.date,
+                              jockey: existingExtRecord.jockey || '',
+                              rank: existingExtRecord.rank || (timeStatus.isRaceStarted ? 'Hạng 1 (Giải Nhất - 50% Quỹ)' : 'Đăng Ký Tham Gia (Chờ Thi Đấu)'),
+                              basePurse: tourn.totalPurse || existingExtRecord.basePurse,
+                              grossPrize: existingExtRecord.grossPrize !== undefined ? existingExtRecord.grossPrize : (timeStatus.isRaceStarted ? Math.round((tourn.totalPurse || 0) * 0.5) : 0),
+                              notes: existingExtRecord.notes || ''
+                            });
+                          }
+                          if (setShowExternalRecordModal) setShowExternalRecordModal(true);
+                        }}
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          color: '#F59E0B',
+                          fontWeight: 700,
+                          border: '1px solid #F59E0B',
+                          fontSize: '12.5px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>✏️</span>
+                        <span>{timeStatus.isRaceStarted ? 'Thay Đổi Ghi Nhận Thành Tích' : 'Thay Đổi Đăng Ký Tham Gia'}</span>
+                      </button>
+                    ) : timeStatus.isRegNotOpenYet ? (
+                      <button
+                        type="button"
+                        disabled={true}
+                        title={`Giải đấu sẽ mở cổng đăng ký từ ngày ${timeStatus.regOpenDeadlineFormatted} (mở trước 1 tháng, đóng trước 1 tuần trước ngày thi đấu).`}
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          color: 'var(--paper-dim)',
+                          fontWeight: 600,
+                          border: '1px solid var(--line)',
+                          fontSize: '12px',
+                          cursor: 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          opacity: 0.6
+                        }}
+                      >
+                        <span>⏳</span>
+                        <span>Chưa Mở Đăng Ký (Mở từ {timeStatus.regOpenDeadlineFormatted})</span>
+                      </button>
+                    ) : timeStatus.isRegClosed && !timeStatus.isRaceStarted ? (
+                      <button
+                        type="button"
+                        disabled={true}
+                        title={`Giải đấu đã đóng đăng ký tham gia (đóng trước 1 tuần). Ngày thi đấu: ${tourn.date}.`}
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          color: 'var(--paper-dim)',
+                          fontWeight: 600,
+                          border: '1px solid var(--line)',
+                          fontSize: '12px',
+                          cursor: 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          opacity: 0.6
+                        }}
+                      >
+                        <span>🔒</span>
+                        <span>Đã Đóng Đăng Ký (Chờ ngày đua: {tourn.date})</span>
+                      </button>
+                    ) : timeStatus.isRegOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const firstHorse = myHorses[0];
+                          if (setExternalRecordForm) {
+                            setExternalRecordForm({
+                              recordId: '',
+                              isEditing: false,
+                              raceName: tourn.name,
+                              organizerName: tourn.organizerName,
+                              horseId: firstHorse ? String(firstHorse.id) : '',
+                              track: tourn.track,
+                              surface: tourn.surface,
+                              distance: tourn.distance,
+                              date: tourn.date,
+                              jockey: '',
+                              rank: 'Đăng Ký Tham Gia (Chờ Thi Đấu)',
+                              basePurse: tourn.totalPurse,
+                              grossPrize: 0,
+                              notes: 'Chủ sở hữu đăng ký tham gia giải đấu bên ngoài.'
+                            });
+                          }
+                          if (setShowExternalRecordModal) setShowExternalRecordModal(true);
+                        }}
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10B981',
+                          fontWeight: 700,
+                          border: '1px solid #10B981',
+                          fontSize: '12.5px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>🌐</span>
+                        <span>+ Đăng Ký Tham Gia Giải Này</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const firstHorse = myHorses[0];
+                          if (setExternalRecordForm) {
+                            setExternalRecordForm({
+                              recordId: '',
+                              isEditing: false,
+                              raceName: tourn.name,
+                              organizerName: tourn.organizerName,
+                              horseId: firstHorse ? String(firstHorse.id) : '',
+                              track: tourn.track,
+                              surface: tourn.surface,
+                              distance: tourn.distance,
+                              date: tourn.date,
+                              jockey: '',
+                              rank: 'Hạng 1 (Giải Nhất - 50% Quỹ)',
+                              basePurse: tourn.totalPurse,
+                              grossPrize: tourn.totalPurse ? Math.round(tourn.totalPurse * 0.5) : 150000000,
+                              notes: 'Ghi nhận thành tích giải ngoài độc lập'
+                            });
+                          }
+                          if (setShowExternalRecordModal) setShowExternalRecordModal(true);
+                        }}
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10B981',
+                          fontWeight: 700,
+                          border: '1px solid #10B981',
+                          fontSize: '12.5px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>🌐</span>
+                        <span>+ Ghi Nhận Thành Tích Giải Này</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -458,6 +898,7 @@ export default function OwnerTournamentsTab({
                 const isDelegatedPending = r.delegatedToTrainer && !r.trainerAssigned && (r.nominationStatus === 'PENDING_TRAINER_SELECTION' || r.nominationStatus === 'PENDING_TRAINER');
                 const isPending = !isApproved && !isWithdrawn && !isRejected && !isDelegatedPending;
                 const isExternal = r.tournamentType === 'EXTERNAL' || r.isExternal;
+                const rTimeStatus = getTournamentTimeStatus(r.date);
 
                 // 4 chỉ số tài chính chuẩn mực
                 const grossPrize = Number(r.grossPrize || r.estimatedPurse) || 0;
@@ -502,7 +943,7 @@ export default function OwnerTournamentsTab({
                         <div style={{ fontSize: '12.5px', marginTop: '2px' }}>
                           {isDelegatedPending ? (
                             <span style={{ color: 'var(--brass)', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
-                              <span>⏳</span> Chiến mã: <i>Đang nhờ HLV {r.targetTrainer || 'Trần Văn Hùng'} tuyển chọn</i>
+                              <span>⏳</span> Chiến mã: <i>Đang nhờ {r.targetTrainer || 'HLV chính'} tuyển chọn</i>
                             </span>
                           ) : r.trainerAssigned ? (
                             <span style={{ color: '#10B981', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
@@ -584,6 +1025,30 @@ export default function OwnerTournamentsTab({
                             {formatVND(netPayout)}
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* THÔNG BÁO TIẾN ĐỘ THI ĐẤU & PHÂN QUYỀN GIẢI NỘI BỘ (KHI CHƯA QUYẾT TOÁN) */}
+                    {grossPrize <= 0 && isApproved && !isExternal && (
+                      <div style={{
+                        background: rTimeStatus.isUpcoming ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                        border: `1px solid ${rTimeStatus.isUpcoming ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
+                        borderRadius: '6px',
+                        padding: '10px 14px',
+                        fontSize: '12px',
+                        lineHeight: 1.5,
+                        marginBottom: '12px',
+                        color: 'var(--paper)'
+                      }}>
+                        {rTimeStatus.isUpcoming ? (
+                          <div>
+                            <b style={{ color: '#F59E0B' }}>⏳ Chưa tới ngày thi đấu ({r.date}):</b> Giải đấu nội bộ chưa diễn ra. Khi giải bắt đầu và hoàn thành, <b>Ban Quản Trị (Admin) sẽ là người trực tiếp cập nhật kết quả, tự động trích {Math.round(commRate * 100)}% hoa hồng và chuyển toàn bộ tiền thưởng thực nhận vào tài khoản của bạn</b>. Chủ sở hữu không có quyền tự ý cập nhật số tiền ở giải nội bộ.
+                          </div>
+                        ) : (
+                          <div>
+                            <b style={{ color: '#10B981' }}>🏁 Đang diễn ra / Chờ Admin quyết toán thưởng:</b> Giải đấu đã khởi tranh. Đang chờ Ban Quản Trị (Admin) tổng kết bảng thành tích chính thức, khấu trừ hoa hồng {Math.round(commRate * 100)}% và giải ngân tiền thưởng trực tiếp cho bạn.
+                          </div>
+                        )}
                       </div>
                     )}
 

@@ -145,6 +145,21 @@ public class OwnerApiController extends HttpServlet {
                 return;
             }
 
+            if (path != null && path.startsWith("/api/owner/horses") && path.endsWith("/pedigree")) {
+                String sub = path.replace("/api/owner/horses/", "").replace("/pedigree", "").trim();
+                List<Map<String, Object>> horses = ownerHorsesStore.getOrDefault(resolvedKey, Collections.emptyList());
+                Map<String, Object> found = null;
+                for (Map<String, Object> h : horses) {
+                    if (sub.equals(String.valueOf(h.get("id"))) || sub.equalsIgnoreCase(String.valueOf(h.get("microchip")))) {
+                        found = h;
+                        break;
+                    }
+                }
+                out.print(gson.toJson(found != null ? found.get("pedigree") : null));
+                out.flush();
+                return;
+            }
+
             if ("/api/owner/horses".equals(path)) {
                 List<Map<String, Object>> horses = ownerHorsesStore.getOrDefault(resolvedKey, Collections.emptyList());
                 out.print(gson.toJson(horses));
@@ -259,33 +274,48 @@ public class OwnerApiController extends HttpServlet {
                     return;
                 }
 
+                String tournType = SecurityUtil.getString(body, "tournamentType", "INTERNAL");
+                boolean isExternal = "EXTERNAL".equalsIgnoreCase(tournType);
+                String recordId = SecurityUtil.getString(body, "id", (isExternal ? "RN-EXT-" : "RN-REG-") + (System.currentTimeMillis() % 100000));
+
                 Map<String, Object> newNomination = new HashMap<>();
-                newNomination.put("id", SecurityUtil.getString(body, "id", "RN-REG-" + (System.currentTimeMillis() % 10000)));
+                newNomination.put("id", recordId);
+                newNomination.put("tournamentType", isExternal ? "EXTERNAL" : "INTERNAL");
                 newNomination.put("raceName", SecurityUtil.sanitize(raceName));
                 newNomination.put("track", SecurityUtil.sanitize(SecurityUtil.getString(body, "track", "Trường đua Quốc tế Phú Thọ")));
+                newNomination.put("surface", SecurityUtil.sanitize(SecurityUtil.getString(body, "surface", isExternal ? "Sân cát tự nhiên" : "Sân cỏ")));
                 newNomination.put("horseName", SecurityUtil.sanitize(horseName));
                 newNomination.put("ownerName", authUser.getFullName());
                 newNomination.put("ownerKey", resolvedKey);
                 newNomination.put("distance", SecurityUtil.sanitize(SecurityUtil.getString(body, "distance", "1.600m")));
                 newNomination.put("date", SecurityUtil.sanitize(SecurityUtil.getString(body, "date", "15/11/2026")));
-                newNomination.put("nominationStatus", "PENDING_TRAINER");
-                newNomination.put("status", "PENDING");
-                newNomination.put("jockey", SecurityUtil.sanitize(SecurityUtil.getString(body, "jockey", "Chưa chỉ định")));
+                newNomination.put("nominationStatus", isExternal ? "CONFIRMED" : "PENDING_TRAINER");
+                newNomination.put("status", isExternal ? "CONFIRMED" : "PENDING");
+                newNomination.put("paymentStatus", isExternal ? "EXEMPT" : "UNPAID");
+                newNomination.put("grossPrize", SecurityUtil.getLong(body, "grossPrize", 0L));
+                newNomination.put("rank", SecurityUtil.sanitize(SecurityUtil.getString(body, "rank", isExternal ? "Đã xác nhận" : "")));
+                newNomination.put("jockey", SecurityUtil.sanitize(SecurityUtil.getString(body, "jockey", "Chủ sở hữu tự bố trí")));
                 newNomination.put("notes", SecurityUtil.sanitize(SecurityUtil.getString(body, "notes", "")));
 
                 List<Map<String, Object>> list = ownerRacesStore.computeIfAbsent(
                     resolvedKey, k -> Collections.synchronizedList(new ArrayList<>())
                 );
-                list.add(0, newNomination);
+                synchronized (list) {
+                    list.removeIf(r -> recordId.equals(r.get("id")) || (isExternal && raceName.equalsIgnoreCase(String.valueOf(r.get("raceName")))));
+                    list.add(0, newNomination);
+                }
 
-                // Đồng bộ sang danh sách chờ duyệt của Huấn luyện viên trưởng
-                TrainingApiController.getSharedNominations().add(0, newNomination);
+                // Nếu là giải nội bộ thì đồng bộ sang danh sách chờ duyệt của Huấn luyện viên
+                if (!isExternal) {
+                    TrainingApiController.getSharedNominations().add(0, newNomination);
+                }
 
                 response.setStatus(HttpServletResponse.SC_CREATED);
                 try (PrintWriter out = response.getWriter()) {
                     out.print(gson.toJson(newNomination));
                     out.flush();
                 }
+                return;
             }
         } catch (Exception e) {
             SecurityUtil.sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
