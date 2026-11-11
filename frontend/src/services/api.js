@@ -2261,9 +2261,118 @@ export async function getOwnerTelemetryApi(ownerKey) {
   return getLocalData(key, []);
 }
 
-export async function getOpenTournamentsApi() {
+const SYSTEM_TOURNAMENTS_KEY = 'matruong_system_tournaments';
+
+const DEFAULT_TOURNAMENTS_SEED = [
+  // 1. MÔ HÌNH B: GIẢI NỘI BỘ DO ADMIN / NỀN TẢNG TỔ CHỨC (HOA HỒNG 5% - 8%)
+  {
+    id: 'TOURN-2026-01',
+    name: 'Giải Vô Địch Cúp Derby Mùa Thu 2026 (Group 1)',
+    tournamentType: 'INTERNAL',
+    organizerName: 'Ban Quản Trị Mã Trường Phú Thọ',
+    track: 'Trường đua Quốc tế Phú Thọ',
+    surface: 'Sân cỏ Tự nhiên (Turf)',
+    distance: '2.400m',
+    date: '15/11/2026',
+    entryDeadline: '08/11/2026',
+    regOpenDate: '01/10/2026',
+    regCloseDate: '08/11/2026',
+    totalPurse: 1500000000,
+    entryFee: 10000000,
+    commissionRate: 0.05, // HOA HỒNG 5%
+    description: 'Giải đấu danh giá nhất năm. Nền tảng áp dụng trích 5% hoa hồng trên tổng tiền thưởng thực nhận của Chủ ngựa.',
+    rulesAndTerms: 'Giải đấu nội bộ quy mô toàn quốc. Nền tảng áp dụng trích 5% hoa hồng trên tổng tiền thưởng thực tế của Chủ ngựa để phục vụ công tác tổ chức, bảo hiểm thi đấu và duy tu đường đua.',
+    isActiveOnPlatform: true,
+    status: 'OPEN'
+  },
+  {
+    id: 'TOURN-2026-02',
+    name: 'Cúp Nước Rút Tốc Độ Sprint Cup 2026 (Group 2)',
+    tournamentType: 'INTERNAL',
+    organizerName: 'Ban Quản Trị Mã Trường Phú Thọ',
+    track: 'Trường đua Cát Thể Thao',
+    surface: 'Sân cát Nén (Dirt)',
+    distance: '1.200m',
+    date: '28/11/2026',
+    entryDeadline: '20/11/2026',
+    regOpenDate: '05/10/2026',
+    regCloseDate: '20/11/2026',
+    totalPurse: 800000000,
+    entryFee: 5000000,
+    commissionRate: 0.08, // HOA HỒNG 8%
+    description: 'Thử thách guồng chân tốc độ cực đại. Nền tảng trích 8% hoa hồng trên giải thưởng để bảo trì viễn trắc camera hồng ngoại.',
+    rulesAndTerms: 'Giải đấu bứt tốc nước rút. Nền tảng áp dụng trích 8% hoa hồng trên giải thưởng nhận được để chi trả đội ngũ giám sát viễn trắc camera hồng ngoại và hội đồng trọng tài quốc tế.',
+    isActiveOnPlatform: true,
+    status: 'OPEN'
+  },
+  {
+    id: 'TOURN-2026-03',
+    name: 'Giải Tranh Cúp Chiến Mã Trẻ Mùa Mới (Group 3)',
+    tournamentType: 'INTERNAL',
+    organizerName: 'Ban Quản Trị Mã Trường Phú Thọ',
+    track: 'Trường đua Quốc tế Phú Thọ',
+    surface: 'Sân cỏ Tự nhiên (Turf)',
+    distance: '1.600m',
+    date: '08/12/2026',
+    entryDeadline: '01/12/2026',
+    regOpenDate: '10/10/2026',
+    regCloseDate: '01/12/2026',
+    totalPurse: 500000000,
+    entryFee: 3000000,
+    commissionRate: 0.05, // HOA HỒNG 5%
+    description: 'Dành riêng cho ngựa đua 3 tuổi mới gia nhập chuồng trại. Hoa hồng nền tảng 5%.',
+    rulesAndTerms: 'Giải đấu trẻ tìm kiếm tài năng. Áp dụng trích 5% hoa hồng trên tiền thưởng thực tế.',
+    isActiveOnPlatform: true,
+    status: 'OPEN'
+  },
+
+  // 2. MÔ HÌNH A: GIẢI ĐẤU BÊN NGOÀI ĐỘC LẬP (HOA HỒNG 0%)
+  {
+    id: 'TOURN-2026-EXT-01',
+    name: 'Giải Đua Ngựa Truyền Thống Bắc Hà 2026',
+    tournamentType: 'EXTERNAL',
+    organizerName: 'Sở Văn Hóa Thể Thao & Du Lịch Lào Cai',
+    track: 'Sân Vận Động Huyện Bắc Hà, Lào Cai',
+    surface: 'Sân cát tự nhiên (Sand)',
+    distance: '1.600m',
+    date: '10/12/2026',
+    entryDeadline: '25/11/2026',
+    regOpenDate: '15/10/2026',
+    regCloseDate: '25/11/2026',
+    totalPurse: 300000000,
+    entryFee: 2000000,
+    commissionRate: 0.00, // HOA HỒNG 0%
+    description: 'Giải đấu độc lập bên ngoài. Chủ ngựa tự túc đăng ký và thanh toán trực tiếp với BTC. Hệ thống KHÔNG thu hoa hồng (0%).',
+    rulesAndTerms: 'Chủ ngựa tự do liên hệ ban tổ chức giải đấu bên ngoài. Toàn bộ tiền thưởng thuộc về Chủ ngựa 100%.',
+    isActiveOnPlatform: true,
+    status: 'OPEN'
+  },
+  {
+    id: 'TOURN-2026-EXT-02',
+    name: 'Cúp Quốc Tế Bangkok Turf Club Open 2026',
+    tournamentType: 'EXTERNAL',
+    organizerName: 'Royal Bangkok Sports Club (Thái Lan)',
+    track: 'Trường đua Bangkok RBSC, Thái Lan',
+    surface: 'Sân cỏ Quốc tế (Turf)',
+    distance: '2.000m',
+    date: '20/12/2026',
+    entryDeadline: '30/11/2026',
+    regOpenDate: '20/10/2026',
+    regCloseDate: '30/11/2026',
+    totalPurse: 1200000000,
+    entryFee: 15000000,
+    commissionRate: 0.00, // HOA HỒNG 0%
+    description: 'Giải đấu quốc tế ngoài lãnh thổ. Chủ ngựa tự liên hệ và nộp cho BTC Bangkok. Hoa hồng nền tảng: 0%.',
+    rulesAndTerms: 'Giải đấu đối tác quốc tế. Nền tảng chỉ đóng vai trò hỗ trợ hiển thị lịch thi đấu, không thu bất kỳ khoản hoa hồng giải thưởng nào.',
+    isActiveOnPlatform: true,
+    status: 'OPEN'
+  }
+];
+
+export async function getOpenTournamentsApi(typeFilter = 'ALL') {
   try {
-    const res = await fetch('/api/owner/tournaments', {
+    const url = typeFilter && typeFilter !== 'ALL' ? `/api/races?type=${typeFilter}` : '/api/races';
+    const res = await fetch(url, {
       headers: getAuthHeaders(),
       credentials: 'include'
     });
@@ -2275,56 +2384,48 @@ export async function getOpenTournamentsApi() {
     // Fallback
   }
 
-  return [
-    {
-      id: 'TOURN-2026-01',
-      name: 'Giải Vô Địch Cúp Derby Mùa Thu 2026 (Group 1)',
-      track: 'Trường đua Quốc tế Phú Thọ',
-      surface: 'Sân cỏ Tự nhiên (Turf)',
-      distance: '2.400m',
-      date: '15/11/2026',
-      entryDeadline: '01/11/2026',
-      totalPurse: 1500000000,
-      entryFee: 10000000,
-      description: 'Giải đấu danh giá nhất năm dành cho các chiến mã 3-5 tuổi.'
-    },
-    {
-      id: 'TOURN-2026-02',
-      name: 'Cúp Nước Rút Tốc Độ Sprint Cup 2026 (Group 2)',
-      track: 'Trường đua Cát Thể Thao',
-      surface: 'Sân cát Nén (Dirt)',
-      distance: '1.200m',
-      date: '28/11/2026',
-      entryDeadline: '10/11/2026',
-      totalPurse: 800000000,
-      entryFee: 5000000,
-      description: 'Thử thách guồng chân tốc độ cực đại, yêu cầu bứt phá 60 km/h.'
-    },
-    {
-      id: 'TOURN-2026-03',
-      name: 'Giải Tranh Cúp Chiến Mã Trẻ Mùa Mới (Group 3)',
-      track: 'Trường đua Quốc tế Phú Thọ',
-      surface: 'Sân cỏ Tự nhiên (Turf)',
-      distance: '1.600m',
-      date: '08/12/2026',
-      entryDeadline: '20/11/2026',
-      totalPurse: 500000000,
-      entryFee: 3000000,
-      description: 'Dành riêng cho ngựa đua 3 tuổi mới gia nhập chuồng trại.'
-    },
-    {
-      id: 'TOURN-2026-04',
-      name: 'Cúp Mùa Đông Toàn Quốc Listed Cup',
-      track: 'Trường đua Cao nguyên',
-      surface: 'Sân cát Nén (Dirt)',
-      distance: '1.800m',
-      date: '24/12/2026',
-      entryDeadline: '05/12/2026',
-      totalPurse: 400000000,
-      entryFee: 2500000,
-      description: 'Giải đấu thử nghiệm sức bền thể lực cuối năm.'
-    }
-  ];
+  const stored = getLocalData(SYSTEM_TOURNAMENTS_KEY, DEFAULT_TOURNAMENTS_SEED);
+  if (!typeFilter || typeFilter === 'ALL') return stored;
+  return stored.filter(t => t.tournamentType === typeFilter);
+}
+
+export async function createTournamentApi(tournData) {
+  try {
+    const res = await fetch('/api/races', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(tournData)
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const current = getLocalData(SYSTEM_TOURNAMENTS_KEY, DEFAULT_TOURNAMENTS_SEED);
+  const newTourn = {
+    ...tournData,
+    id: tournData.id || `TOURN-${Date.now().toString().slice(-6)}`,
+    isActiveOnPlatform: true,
+    status: 'OPEN'
+  };
+  setLocalData(SYSTEM_TOURNAMENTS_KEY, [newTourn, ...current]);
+  return newTourn;
+}
+
+export async function updateTournamentApi(tournId, updates) {
+  try {
+    const res = await fetch(`/api/races/${tournId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(updates)
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const current = getLocalData(SYSTEM_TOURNAMENTS_KEY, DEFAULT_TOURNAMENTS_SEED);
+  const updated = current.map(t => t.id === tournId ? { ...t, ...updates } : t);
+  setLocalData(SYSTEM_TOURNAMENTS_KEY, updated);
+  return true;
 }
 
 export async function getOwnerRacesApi(ownerKey) {
@@ -2347,9 +2448,85 @@ export async function getOwnerRacesApi(ownerKey) {
 
 const SYSTEM_NOMINATIONS_KEY = 'matruong_tournament_nominations_system';
 
+const DEFAULT_NOMINATIONS_SEED = [
+  // Mẫu 1: Mô hình B (Hoa hồng 5%) - Gross 500tr -> Hoa hồng 25tr -> Thực nhận 475tr (Đúng chuẩn ví dụ)
+  {
+    id: 'RN-2026-01',
+    raceId: 'TOURN-2026-01',
+    raceName: 'Giải Vô Địch Cúp Derby Mùa Thu 2026 (Group 1)',
+    tournamentType: 'INTERNAL',
+    horseName: 'Xích Thố',
+    ownerName: 'Phạm Tiến Thành',
+    ownerKey: 'owner_thanh',
+    jockey: 'Nguyễn Văn Hùng (Nài chính)',
+    distance: '2.400m (Sân cỏ)',
+    date: '15/11/2026',
+    entryFee: 10000000,
+    status: 'CONFIRMED',
+    nominationStatus: 'CONFIRMED',
+    paymentStatus: 'PAID',
+    ownerAgreedTerms: true,
+    finalRank: 1,
+    grossPrize: 500000000,
+    commissionRate: 0.05,
+    commissionAmount: 25000000,
+    netPayout: 475000000,
+    settledAt: '10/11/2026 14:00:00'
+  },
+  // Mẫu 2: Mô hình B (Hoa hồng 8%) - Gross 500tr -> Hoa hồng 40tr -> Thực nhận 460tr (Đúng chuẩn ví dụ)
+  {
+    id: 'RN-2026-02',
+    raceId: 'TOURN-2026-02',
+    raceName: 'Cúp Nước Rút Tốc Độ Sprint Cup 2026 (Group 2)',
+    tournamentType: 'INTERNAL',
+    horseName: 'Hắc Phong',
+    ownerName: 'Phạm Tiến Thành',
+    ownerKey: 'owner_thanh',
+    jockey: 'Trần Quốc Bảo (Nài tốc độ)',
+    distance: '1.200m (Sân cát)',
+    date: '28/11/2026',
+    entryFee: 5000000,
+    status: 'CONFIRMED',
+    nominationStatus: 'CONFIRMED',
+    paymentStatus: 'PAID',
+    ownerAgreedTerms: true,
+    finalRank: 2,
+    grossPrize: 500000000,
+    commissionRate: 0.08,
+    commissionAmount: 40000000,
+    netPayout: 460000000,
+    settledAt: '09/11/2026 16:30:00'
+  },
+  // Mẫu 3: Mô hình A (Giải ngoài) - Gross 150tr -> Hoa hồng 0% -> Thực nhận 150tr (Đúng quy tắc không thu phí)
+  {
+    id: 'RN-2026-EXT-01',
+    raceId: 'TOURN-2026-EXT-01',
+    raceName: 'Giải Đua Ngựa Truyền Thống Bắc Hà 2026',
+    tournamentType: 'EXTERNAL',
+    horseName: 'Xích Thố',
+    ownerName: 'Phạm Tiến Thành',
+    ownerKey: 'owner_thanh',
+    jockey: 'Vàng A Lử',
+    distance: '1.600m (Sân cát)',
+    date: '10/12/2026',
+    entryFee: 2000000,
+    status: 'CONFIRMED',
+    nominationStatus: 'CONFIRMED',
+    paymentStatus: 'EXEMPT',
+    ownerAgreedTerms: true,
+    finalRank: 1,
+    grossPrize: 150000000,
+    commissionRate: 0.00,
+    commissionAmount: 0,
+    netPayout: 150000000,
+    externalNotes: 'Owner tự đăng ký trực tiếp và nhận tiền mặt tại văn phòng BTC Bắc Hà.',
+    settledAt: '05/11/2026 11:20:00'
+  }
+];
+
 export async function getSystemTournamentNominationsApi() {
   try {
-    const res = await fetch('/api/trainer/nominations', {
+    const res = await fetch('/api/races/nominations', {
       headers: getAuthHeaders(),
       credentials: 'include'
     });
@@ -2361,22 +2538,7 @@ export async function getSystemTournamentNominationsApi() {
     // Fallback
   }
 
-  const defaultSeed = [];
-
-  let rawData = getLocalData(SYSTEM_NOMINATIONS_KEY, defaultSeed);
-  if (Array.isArray(rawData)) {
-    let changed = false;
-    rawData = rawData.map(item => {
-      if ((item.id === 'RN-2026-01' || item.id === 'RN-2026-02') && (item.ownerKey === 'owner_tuan' || item.ownerKey === 'owner_vu')) {
-        changed = true;
-        return { ...item, ownerKey: '6', ownerName: 'Chủ sở hữu' };
-      }
-      return item;
-    });
-    if (changed) {
-      setLocalData(SYSTEM_NOMINATIONS_KEY, rawData);
-    }
-  }
+  let rawData = getLocalData(SYSTEM_NOMINATIONS_KEY, DEFAULT_NOMINATIONS_SEED);
   return rawData;
 }
 
@@ -2532,6 +2694,267 @@ export async function updateRaceNominationStatusApi(ownerKey, nominationId, newS
   }
 
   return true;
+}
+
+// -----------------------------------------------------------------------------
+// CÁC HÀM XÉT DUYỆT & QUYẾT TOÁN GIẢI ĐẤU (2 MÔ HÌNH NGHIỆP VỤ)
+// -----------------------------------------------------------------------------
+
+/**
+ * Admin Phê Duyệt đơn đăng ký giải đấu (Mô hình B)
+ */
+export async function approveTournamentNominationApi(nominationId) {
+  try {
+    const res = await fetch(`/api/races/nominations/${nominationId}/approve`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include'
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const systemList = await getSystemTournamentNominationsApi();
+  const updated = systemList.map(item => {
+    if (item.id === nominationId) {
+      return {
+        ...item,
+        status: 'APPROVED',
+        nominationStatus: 'APPROVED',
+        approvedAt: new Date().toLocaleString('vi-VN')
+      };
+    }
+    return item;
+  });
+  setLocalData(SYSTEM_NOMINATIONS_KEY, updated);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+      detail: { nominationId, status: 'APPROVED' }
+    }));
+  }
+  return true;
+}
+
+/**
+ * Admin Từ Chối đơn đăng ký giải đấu (Mô hình B)
+ */
+export async function rejectTournamentNominationApi(nominationId, reason = 'Không đủ điều kiện tiêu chuẩn giải.') {
+  try {
+    const res = await fetch(`/api/races/nominations/${nominationId}/reject`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ reason })
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const systemList = await getSystemTournamentNominationsApi();
+  const updated = systemList.map(item => {
+    if (item.id === nominationId) {
+      return {
+        ...item,
+        status: 'REJECTED',
+        nominationStatus: 'REJECTED',
+        rejectionReason: reason,
+        rejectedAt: new Date().toLocaleString('vi-VN')
+      };
+    }
+    return item;
+  });
+  setLocalData(SYSTEM_NOMINATIONS_KEY, updated);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+      detail: { nominationId, status: 'REJECTED', reason }
+    }));
+  }
+  return true;
+}
+
+/**
+ * Quyết toán kết quả thi đấu & Tiền thưởng (Tách bạch 4 trường tài chính)
+ * Mô hình A: commissionRate = 0%, commissionAmount = 0
+ * Mô hình B: commissionRate = 5% hoặc 8%, commissionAmount = grossPrize * commissionRate
+ */
+export async function settleTournamentPrizeApi(nominationId, { finalRank = 1, grossPrize = 0 }) {
+  try {
+    const res = await fetch(`/api/races/nominations/${nominationId}/settle`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ finalRank, grossPrize })
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+
+  const systemList = await getSystemTournamentNominationsApi();
+  let settledItem = null;
+
+  const updated = systemList.map(item => {
+    if (item.id === nominationId) {
+      const isExternal = item.tournamentType === 'EXTERNAL';
+      // Quy tắc hoa hồng: Giải ngoài = 0%, Giải nội bộ = rate cấu hình (0.05 hoặc 0.08)
+      const commissionRate = isExternal ? 0.00 : (Number(item.commissionRate) || 0.05);
+      const commissionAmount = Math.round(grossPrize * commissionRate);
+      const netPayout = grossPrize - commissionAmount;
+
+      settledItem = {
+        ...item,
+        finalRank: Number(finalRank),
+        grossPrize: Number(grossPrize),
+        commissionRate,
+        commissionAmount,
+        netPayout,
+        status: 'CONFIRMED',
+        nominationStatus: 'CONFIRMED',
+        settledAt: new Date().toLocaleString('vi-VN')
+      };
+      return settledItem;
+    }
+    return item;
+  });
+
+  setLocalData(SYSTEM_NOMINATIONS_KEY, updated);
+
+  // ĐỒNG BỘ TRỰC TIẾP VÀO TÀI KHOẢN CHỦ SỞ HỮU (NẾU ĐOẠT GIẢI THÌ CỘNG TIỀN VÀO LỊCH SỬ, NẾU KHÔNG CÓ THÌ KHÔNG CỘNG)
+  if (settledItem && settledItem.ownerKey) {
+    const ownerKey = String(settledItem.ownerKey);
+    const ownerRacesKey = `matruong_owner_races_${ownerKey}`;
+    const ownerRaces = getLocalData(ownerRacesKey, []);
+    const updatedOwnerRaces = ownerRaces.map(r => {
+      if (r.id === settledItem.id || (r.horseName === settledItem.horseName && r.raceName === settledItem.raceName)) {
+        return { ...r, ...settledItem };
+      }
+      return r;
+    });
+    setLocalData(ownerRacesKey, updatedOwnerRaces);
+
+    // NẾU CÓ TIỀN THƯỞNG (> 0): Cập nhật tiền cho chiến mã và lịch sử giao dịch tài chính
+    if (settledItem.netPayout > 0) {
+      // 1. Cập nhật tiền thưởng chiến mã
+      const ownerHorsesKey = `matruong_owner_horses_${ownerKey}`;
+      const ownerHorses = getLocalData(ownerHorsesKey, []);
+      const updatedHorses = ownerHorses.map(h => {
+        if (h.name === settledItem.horseName || String(h.id) === String(settledItem.assignedHorseId)) {
+          return {
+            ...h,
+            totalPrizeEarned: (Number(h.totalPrizeEarned) || 0) + settledItem.netPayout,
+            winCount: (Number(h.winCount) || 0) + (settledItem.finalRank === 1 ? 1 : 0),
+            totalStarts: (Number(h.totalStarts) || 0) + 1
+          };
+        }
+        return h;
+      });
+      setLocalData(ownerHorsesKey, updatedHorses);
+
+      // 2. Cập nhật lịch sử giao dịch & đối soát tài chính
+      const ownerPaymentsKey = `matruong_owner_payments_${ownerKey}`;
+      const ownerPayments = getLocalData(ownerPaymentsKey, []);
+      const isInternal = settledItem.tournamentType === 'INTERNAL';
+      const commRatePct = isInternal ? Math.round((settledItem.commissionRate || 0.05) * 100) : 0;
+      const rankText = settledItem.finalRank === 1 ? 'Giải Nhất (Vô Địch)' : settledItem.finalRank === 2 ? 'Giải Nhì' : settledItem.finalRank === 3 ? 'Giải Ba' : `Hạng ${settledItem.finalRank}`;
+
+      const prizeTransaction = {
+        transactionId: `TXN-PRIZE-${Date.now().toString().slice(-6)}`,
+        packageName: `Tiền thưởng: ${settledItem.raceName} (${rankText})`,
+        billingCycle: isInternal ? `Đã khấu trừ hoa hồng nền tảng ${commRatePct}% (-${settledItem.commissionAmount.toLocaleString('vi-VN')} ₫)` : 'Giải ngoài độc lập (0% hoa hồng)',
+        amount: settledItem.netPayout,
+        amountFormatted: `+${settledItem.netPayout.toLocaleString('vi-VN')} ₫`,
+        type: 'PRIZE',
+        method: isInternal ? 'Nền tảng thanh toán 24/7' : 'BTC Giải chuyển khoản',
+        paidAt: new Date().toLocaleString('vi-VN'),
+        ownerName: settledItem.ownerName || 'Chủ sở hữu',
+        status: 'THÀNH CÔNG (PAID)'
+      };
+      setLocalData(ownerPaymentsKey, [prizeTransaction, ...ownerPayments]);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+      detail: { nominationId, settled: settledItem }
+    }));
+  }
+  return settledItem;
+}
+
+/**
+ * Chủ ngựa tự khai báo / Ghi nhận kết quả giải ngoài (Mô hình A - 0% Hoa hồng)
+ */
+export async function recordExternalTournamentResultApi(ownerKey, entryData) {
+  const prize = Number(entryData.grossPrize) || 0;
+  const newNom = {
+    ...entryData,
+    id: entryData.id || `RN-EXT-${Date.now().toString().slice(-6)}`,
+    tournamentType: 'EXTERNAL',
+    ownerKey: String(ownerKey),
+    status: 'CONFIRMED',
+    nominationStatus: 'CONFIRMED',
+    paymentStatus: 'EXEMPT',
+    ownerAgreedTerms: true,
+    commissionRate: 0.00, // 0% hoa hồng nền tảng
+    commissionAmount: 0,
+    grossPrize: prize,
+    netPayout: prize,
+    settledAt: new Date().toLocaleString('vi-VN')
+  };
+
+  const key = `matruong_owner_races_${ownerKey}`;
+  const ownerList = getLocalData(key, []);
+  const alreadyInRaces = ownerList.some(r => r.id === newNom.id || (r.raceName === newNom.raceName && r.horseName === newNom.horseName && r.rank === newNom.rank));
+  if (!alreadyInRaces) {
+    setLocalData(key, [newNom, ...ownerList]);
+  }
+
+  // NẾU CÓ TIỀN THƯỞNG (> 0): Cập nhật tiền cho chiến mã và lịch sử giao dịch tài chính
+  if (prize > 0) {
+    if (!alreadyInRaces) {
+      const ownerHorsesKey = `matruong_owner_horses_${ownerKey}`;
+      const ownerHorses = getLocalData(ownerHorsesKey, []);
+      const updatedHorses = ownerHorses.map(h => {
+        if (h.name === newNom.horseName || String(h.id) === String(newNom.horseId)) {
+          return {
+            ...h,
+            totalPrizeEarned: (Number(h.totalPrizeEarned) || 0) + prize,
+            winCount: (Number(h.winCount) || 0) + (newNom.rank?.includes('1') ? 1 : 0),
+            totalStarts: (Number(h.totalStarts) || 0) + 1
+          };
+        }
+        return h;
+      });
+      setLocalData(ownerHorsesKey, updatedHorses);
+    }
+
+    const ownerPaymentsKey = `matruong_owner_payments_${ownerKey}`;
+    const ownerPayments = getLocalData(ownerPaymentsKey, []);
+    const alreadyInPayments = ownerPayments.some(p => p.type === 'PRIZE' && p.packageName?.includes(newNom.raceName) && Number(p.amount) === prize);
+    if (!alreadyInPayments) {
+      const prizeTransaction = {
+        transactionId: `TXN-PRIZE-${Date.now().toString().slice(-6)}`,
+        packageName: `Tiền thưởng: ${newNom.raceName} (${newNom.rank || 'Đoạt giải'})`,
+        billingCycle: 'Giải ngoài độc lập (0% hoa hồng)',
+        amount: prize,
+        amountFormatted: `+${prize.toLocaleString('vi-VN')} ₫`,
+        type: 'PRIZE',
+        method: 'BTC Giải ngoài chuyển khoản (0% phí)',
+        paidAt: new Date().toLocaleString('vi-VN'),
+        ownerName: newNom.ownerName || 'Chủ sở hữu',
+        status: 'THÀNH CÔNG (PAID)'
+      };
+      setLocalData(ownerPaymentsKey, [prizeTransaction, ...ownerPayments]);
+    }
+  }
+
+  const systemList = await getSystemTournamentNominationsApi();
+  setLocalData(SYSTEM_NOMINATIONS_KEY, [newNom, ...systemList]);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+      detail: { nominationId: newNom.id, nomination: newNom }
+    }));
+  }
+  return newNom;
 }
 
 export async function getOwnerFinancialStatementsApi(ownerKey) {

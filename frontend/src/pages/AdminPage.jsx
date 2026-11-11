@@ -39,6 +39,7 @@ import {
 } from '../services/reportService';
 import { getServiceAssignments, lookupFullHorseInfo } from '../services/serviceAssignment';
 import FacilityFinancialReport from '../components/FacilityFinancialReport';
+import AdminTournamentsTab from '../components/AdminTournamentsTab';
 
 // Minimalist SVG Icons
 const IconGlobe = ({ size = 15, color = 'currentColor' }) => (
@@ -101,6 +102,16 @@ const IconReport = ({ size = 16, color = 'currentColor' }) => (
     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
     <line x1="12" y1="9" x2="12" y2="13" />
     <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const IconTrophy = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+    <path d="M4 22h16" />
+    <path d="M10 14.66V17c0 .55-.45 1-1 1H8c-.55 0-1 .45-1 1v1h10v-1c0-.55-.45-1-1-1h-1c-.55 0-1-.45-1-1v-2.34" />
+    <path d="M6 4h12a2 2 0 0 1 2 2v3a8 8 0 0 1-16 0V6a2 2 0 0 1 2-2z" />
   </svg>
 );
 
@@ -2146,6 +2157,18 @@ export default function AdminPage() {
               <span className="portal-nav-badge">{personnelReports.length}</span>
             )}
           </button>
+
+          <button
+            className={`portal-nav-item ${activeTab === 'tournaments' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('tournaments'); setSidebarOpen(false); }}
+            title="Quản Lý Giải Đua & Xét Duyệt (Mô hình A & B)"
+          >
+            <span className="portal-nav-icon"><IconTrophy color="var(--brass)" /></span>
+            <span className="portal-nav-label">Quản Lý Giải Đấu</span>
+            <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14', fontWeight: 800 }}>
+              2 Mô Hình
+            </span>
+          </button>
         </nav>
       </aside>
 
@@ -2169,6 +2192,7 @@ export default function AdminPage() {
                 {activeTab === 'stables' && t('adminTitleStables')}
                 {activeTab === 'users' && t('adminTitleUsers')}
                 {activeTab === 'reports' && 'Quản Lý Báo Cáo & Khiếu Nại Nhân Sự'}
+                {activeTab === 'tournaments' && 'Quản Lý Giải Đấu & Xét Duyệt (2 Mô Hình Song Song)'}
               </h2>
               <div className="portal-page-subtitle">
                 {activeTab === 'overview' && t('adminSubOverview')}
@@ -2176,6 +2200,7 @@ export default function AdminPage() {
                 {activeTab === 'stables' && t('adminSubStables')}
                 {activeTab === 'users' && t('adminSubUsers')}
                 {activeTab === 'reports' && 'Tiếp nhận, thẩm tra và xử lý phản ánh của Chủ sở hữu về Huấn luyện viên, Bác sĩ Thú y & Nhân viên chăm sóc'}
+                {activeTab === 'tournaments' && 'Tổ chức giải nội bộ (Mô hình B - Hoa hồng 5%-8%), Xét duyệt đơn đăng ký & Quản lý giải ngoài (Mô hình A)'}
               </div>
             </div>
           </div>
@@ -4644,6 +4669,11 @@ export default function AdminPage() {
                 );
               })()}
             </div>
+          )}
+
+          {/* ===================== TAB 7: QUẢN LÝ GIẢI ĐẤU (2 MÔ HÌNH: MÔ HÌNH A & MÔ HÌNH B) ===================== */}
+          {activeTab === 'tournaments' && (
+            <AdminTournamentsTab lang={lang} showToast={showToast} />
           )}
 
         </main>

@@ -13,12 +13,14 @@ import {
   getSystemTournamentNominationsApi,
   registerRaceTournamentApi,
   updateRaceNominationStatusApi,
+  recordExternalTournamentResultApi,
   updateHorsePedigreeApi,
   getStablesApi,
   reassignStallHorseApi,
   getStallRequestsApi,
   createStallRequestApi
 } from '../services/api';
+import OwnerTournamentsTab from '../components/OwnerTournamentsTab';
 import {
   getServiceAssignments,
   assignOrUpdateServiceTeam,
@@ -161,11 +163,14 @@ const IconPlus = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 );
 
-// Danh mục các giải đấu đua ngựa mở đăng ký (Open Official Tournaments)
+// Danh mục các giải đấu đua ngựa mở đăng ký (Open Official Tournaments - 2 Mô Hình)
 const OPEN_TOURNAMENTS = [
   {
     id: 'TOURN-2026-01',
     name: 'Giải Vô Địch Cúp Derby Mùa Thu 2026 (Group 1)',
+    tournamentType: 'INTERNAL',
+    organizerName: 'Ban Quản Trị Mã Trường Phú Thọ',
+    commissionRate: 0.05,
     track: 'Trường đua Quốc tế Phú Thọ',
     surface: 'Sân cỏ Tự nhiên (Turf)',
     distance: '2.400m',
@@ -173,11 +178,14 @@ const OPEN_TOURNAMENTS = [
     entryDeadline: '01/11/2026',
     totalPurse: 1500000000,
     entryFee: 10000000,
-    description: 'Giải đấu danh giá nhất năm dành cho các chiến mã 3-5 tuổi. Thể thức chạy nước rút cự ly dài 2.400m.'
+    description: 'Giải đấu nội bộ danh giá nhất năm do Nền tảng tổ chức. Hoa hồng trích nộp 5% khi Chủ ngựa đoạt giải.'
   },
   {
     id: 'TOURN-2026-02',
     name: 'Cúp Nước Rút Tốc Độ Sprint Cup 2026 (Group 2)',
+    tournamentType: 'INTERNAL',
+    organizerName: 'Ban Quản Trị Mã Trường Phú Thọ',
+    commissionRate: 0.08,
     track: 'Trường đua Cát Thể Thao',
     surface: 'Sân cát Nén (Dirt)',
     distance: '1.200m',
@@ -185,11 +193,14 @@ const OPEN_TOURNAMENTS = [
     entryDeadline: '10/11/2026',
     totalPurse: 800000000,
     entryFee: 5000000,
-    description: 'Thử thách guồng chân tốc độ cực đại, yêu cầu chiến mã bứt phá tối thiểu 60 km/h ngay sau cửa xuất phát.'
+    description: 'Giải đấu nội bộ bứt phá tốc độ cự ly ngắn. Hoa hồng trích nộp 8% trên giải thưởng theo thể lệ.'
   },
   {
     id: 'TOURN-2026-03',
     name: 'Giải Tranh Cúp Chiến Mã Trẻ Mùa Mới (Group 3)',
+    tournamentType: 'INTERNAL',
+    organizerName: 'Ban Quản Trị Mã Trường Phú Thọ',
+    commissionRate: 0.05,
     track: 'Trường đua Quốc tế Phú Thọ',
     surface: 'Sân cỏ Tự nhiên (Turf)',
     distance: '1.600m',
@@ -197,11 +208,14 @@ const OPEN_TOURNAMENTS = [
     entryDeadline: '20/11/2026',
     totalPurse: 500000000,
     entryFee: 3000000,
-    description: 'Dành riêng cho ngựa đua 3 tuổi mới đăng ký gia nhập chuồng, cơ hội cọ xát và ghi điểm bảng xếp hạng.'
+    description: 'Dành riêng cho ngựa đua 3 tuổi mới gia nhập chuồng trại. Hoa hồng nền tảng 5%.'
   },
   {
     id: 'TOURN-2026-04',
     name: 'Cúp Mùa Đông Toàn Quốc Listed Cup',
+    tournamentType: 'INTERNAL',
+    organizerName: 'Ban Quản Trị Mã Trường Phú Thọ',
+    commissionRate: 0.05,
     track: 'Trường đua Cao nguyên',
     surface: 'Sân cát Nén (Dirt)',
     distance: '1.800m',
@@ -209,7 +223,37 @@ const OPEN_TOURNAMENTS = [
     entryDeadline: '05/12/2026',
     totalPurse: 400000000,
     entryFee: 2500000,
-    description: 'Giải đấu thử nghiệm sức bền thể lực trong điều kiện thời tiết se lạnh cuối năm.'
+    description: 'Giải đấu thử nghiệm sức bền thể lực cuối năm. Hoa hồng nền tảng 5%.'
+  },
+  {
+    id: 'TOURN-2026-EXT-01',
+    name: 'Giải Đua Ngựa Truyền Thống Bắc Hà 2026',
+    tournamentType: 'EXTERNAL',
+    organizerName: 'Sở Văn Hóa Thể Thao & Du Lịch Lào Cai',
+    commissionRate: 0.00,
+    track: 'Sân Vận Động Huyện Bắc Hà, Lào Cai',
+    surface: 'Sân cát tự nhiên (Sand)',
+    distance: '1.600m',
+    date: '10/12/2026',
+    entryDeadline: '25/11/2026',
+    totalPurse: 300000000,
+    entryFee: 2000000,
+    description: 'Giải đua ngựa truyền thống độc lập bên ngoài. Chủ ngựa tự do đăng ký, nhận trọn 100% tiền thưởng (0% hoa hồng nền tảng).'
+  },
+  {
+    id: 'TOURN-2026-EXT-02',
+    name: 'Cúp Quốc Tế Bangkok Turf Club Open 2026',
+    tournamentType: 'EXTERNAL',
+    organizerName: 'Royal Bangkok Sports Club (Thái Lan)',
+    commissionRate: 0.00,
+    track: 'Trường đua Bangkok RBSC, Thái Lan',
+    surface: 'Sân cỏ Quốc tế (Turf)',
+    distance: '2.000m',
+    date: '18/01/2027',
+    entryDeadline: '20/12/2026',
+    totalPurse: 2500000000,
+    entryFee: 25000000,
+    description: 'Giải đấu quốc tế đối ngoại. Chủ ngựa thanh toán và quyết toán trực tiếp với BTC Bangkok (0% hoa hồng).'
   }
 ];
 
@@ -239,6 +283,48 @@ export function deduplicateHorses(list) {
     if (idKey) seenIds.add(idKey);
     if (chipKey) seenChips.add(chipKey);
     if (nameKey) seenNames.add(nameKey);
+    return true;
+  });
+}
+
+// Hàm khử trùng lặp giao dịch tài chính & thanh toán
+export function deduplicatePayments(list) {
+  if (!Array.isArray(list)) return [];
+  const seenIds = new Set();
+  const seenPrizeKeys = new Set();
+
+  return list.filter(item => {
+    if (!item) return false;
+    const id = item.transactionId ? String(item.transactionId).trim() : null;
+    if (id && seenIds.has(id)) return false;
+    if (id) seenIds.add(id);
+
+    // Nếu là giao dịch tiền thưởng giải đấu (type === 'PRIZE' hoặc packageName có chứa tiền thưởng)
+    if (item.type === 'PRIZE' || item.packageName?.includes('Tiền thưởng')) {
+      // Khóa phân biệt: Tên giải đấu + Số tiền
+      const prizeKey = `${item.packageName}_${item.amount}`.toLowerCase().replace(/\s+/g, '');
+      if (seenPrizeKeys.has(prizeKey)) return false;
+      seenPrizeKeys.add(prizeKey);
+    }
+    return true;
+  });
+}
+
+// Hàm khử trùng lặp danh sách đề cử / kết quả giải đua
+export function deduplicateNominations(list) {
+  if (!Array.isArray(list)) return [];
+  const seenIds = new Set();
+  const seenRaceKeys = new Set();
+
+  return list.filter(item => {
+    if (!item) return false;
+    const id = item.id ? String(item.id).trim() : null;
+    if (id && seenIds.has(id)) return false;
+    if (id) seenIds.add(id);
+
+    const raceKey = `${item.raceName}_${item.horseName}_${item.rank || ''}`.toLowerCase().replace(/\s+/g, '');
+    if (seenRaceKeys.has(raceKey)) return false;
+    seenRaceKeys.add(raceKey);
     return true;
   });
 }
@@ -374,7 +460,24 @@ export default function OwnerPage() {
       const stored = localStorage.getItem(key);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          let hasChange = false;
+          const cleanList = deduplicatePayments(parsed);
+          if (cleanList.length !== parsed.length) {
+            hasChange = true;
+          }
+          const mapped = cleanList.map(p => {
+            if ((p.transactionId?.startsWith('TXN-VIP') || p.packageName?.includes('VIP') || p.packageName?.includes('Horse Premium')) && (p.amount === 35000000 || p.amountFormatted?.includes('35.000.000'))) {
+              hasChange = true;
+              return { ...p, amount: 75000000, amountFormatted: '75.000.000 ₫' };
+            }
+            return p;
+          });
+          if (hasChange) {
+            try { localStorage.setItem(key, JSON.stringify(mapped)); } catch {}
+          }
+          return mapped;
+        }
       }
       if (isDemoVip) {
         return [
@@ -382,8 +485,8 @@ export default function OwnerPage() {
             transactionId: 'TXN-VIP-889922',
             packageName: 'HORSE PREMIUM VIP (Gói 1 Năm)',
             billingCycle: '1 Năm (365 Ngày)',
-            amount: 35000000,
-            amountFormatted: '35.000.000 ₫',
+            amount: 75000000,
+            amountFormatted: '75.000.000 ₫',
             method: 'Ngân hàng Vietcombank (VietQR 24/7)',
             paidAt: '24/10/2026 14:32:10',
             ownerName: currentUser?.full_name || 'Trần Quang Thành',
@@ -841,7 +944,7 @@ export default function OwnerPage() {
       const stored = localStorage.getItem(`matruong_owner_races_${ownerKey}`);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) currentList = parsed;
+        if (Array.isArray(parsed)) currentList = deduplicateNominations(parsed);
       }
       if (isDemoVip) {
         if (currentList.length === 0) {
@@ -879,7 +982,7 @@ export default function OwnerPage() {
         }
       }
 
-      return currentList;
+      return deduplicateNominations(currentList);
     } catch {
       return isDemoVip ? DEMO_RACES_VIP : [];
     }
@@ -1317,6 +1420,21 @@ export default function OwnerPage() {
   const [showRaceRegisterModal, setShowRaceRegisterModal] = useState(false);
   const [selectedTournamentToRegister, setSelectedTournamentToRegister] = useState(null);
   const [upgradePromptModal, setUpgradePromptModal] = useState(null); // Modal gợi ý nâng cấp VIP khi chạm giới hạn
+  const [showExternalRecordModal, setShowExternalRecordModal] = useState(false);
+  const [externalRecordForm, setExternalRecordForm] = useState({
+    raceName: '',
+    organizerName: '',
+    horseId: '',
+    track: '',
+    surface: 'Sân cát tự nhiên',
+    distance: '1.600m',
+    date: '',
+    jockey: '',
+    rank: 'Hạng 1 (Giải Nhất - 50% Quỹ)',
+    grossPrize: 150000000,
+    basePurse: 300000000,
+    notes: ''
+  });
 
   // Quản lý danh sách ô chuồng thực tế đồng bộ từ Backend/Admin
   const [allStables, setAllStables] = useState([]);
@@ -2093,12 +2211,98 @@ export default function OwnerPage() {
     setActiveTab('races');
   };
 
+  // Khai báo / Ghi nhận kết quả giải đấu bên ngoài (0% Hoa hồng)
+  const handleExternalRecordSubmit = async (e) => {
+    e.preventDefault();
+    if (!externalRecordForm.raceName.trim()) {
+      showToast('Vui lòng nhập tên giải đấu bên ngoài!', 'THIẾU TÊN GIẢI', 'warning');
+      return;
+    }
+    const selectedHorse = myHorses.find(h => String(h.id) === String(externalRecordForm.horseId)) || myHorses[0];
+    if (!selectedHorse) {
+      showToast('Vui lòng chọn chiến mã đã tham gia giải đấu!', 'CHƯA CHỌN CHIẾN MÃ', 'warning');
+      return;
+    }
+
+    const prize = Number(externalRecordForm.grossPrize) || 0;
+    const now = new Date();
+    const timeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    const newExtRecord = {
+      id: `RN-EXT-${Date.now().toString().slice(-4)}`,
+      tournamentType: 'EXTERNAL',
+      organizerName: externalRecordForm.organizerName || 'Đơn vị tổ chức bên ngoài',
+      raceName: externalRecordForm.raceName,
+      track: externalRecordForm.track || 'Trường đua bên ngoài',
+      surface: externalRecordForm.surface || 'Sân cát tự nhiên',
+      distance: externalRecordForm.distance || '1.600m',
+      date: externalRecordForm.date || timeStr.split(' ')[0],
+      horseName: selectedHorse.name,
+      ownerName: currentUser?.full_name || 'Chủ sở hữu',
+      ownerKey: String(ownerKey),
+      jockey: externalRecordForm.jockey || 'Chủ sở hữu tự bố trí',
+      rank: externalRecordForm.rank || 'Hạng 1 (Giải Nhất - 50% Quỹ)',
+      grossPrize: prize,
+      commissionRate: 0.00,
+      commissionAmount: 0,
+      netPayout: prize,
+      nominationStatus: 'CONFIRMED',
+      status: 'CONFIRMED',
+      paymentStatus: 'EXEMPT',
+      ownerAgreedTerms: true,
+      notes: externalRecordForm.notes || 'Chủ ngựa tự đăng ký & nhận 100% tiền thưởng từ BTC bên ngoài.',
+      registeredAt: timeStr,
+      settledAt: timeStr
+    };
+
+    try {
+      await recordExternalTournamentResultApi(ownerKey, newExtRecord);
+    } catch {}
+
+    // Đồng bộ lại từ API/localStorage sạch và duy nhất (tránh duplicate bản ghi)
+    const storedRaces = localStorage.getItem(`matruong_owner_races_${ownerKey}`);
+    if (storedRaces) {
+      try {
+        const parsed = JSON.parse(storedRaces);
+        setRaceNominations(deduplicateNominations(parsed));
+      } catch {
+        setRaceNominations(prev => deduplicateNominations([newExtRecord, ...prev]));
+      }
+    } else {
+      setRaceNominations(prev => deduplicateNominations([newExtRecord, ...prev]));
+    }
+
+    if (prize > 0) {
+      const storedPayments = localStorage.getItem(`matruong_owner_payments_${ownerKey}`);
+      if (storedPayments) {
+        try {
+          const parsed = JSON.parse(storedPayments);
+          setPaymentHistory(deduplicatePayments(parsed));
+        } catch {}
+      }
+
+      const storedHorses = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
+      if (storedHorses) {
+        try {
+          const parsed = JSON.parse(storedHorses);
+          setMyHorses(deduplicateHorses(parsed));
+        } catch {}
+      }
+
+      showToast(`🎉 Chiến mã "${selectedHorse.name}" đoạt ${newExtRecord.rank}! Tiền thưởng +${formatVND(prize)} đã được cộng vào tài khoản và cập nhật vào lịch sử giao dịch.`, 'ĐOẠT GIẢI THÀNH CÔNG', 'success');
+    } else {
+      showToast(`Đã ghi nhận kết quả thi đấu cho "${selectedHorse.name}". Không đạt giải nên số dư tiền thưởng giữ nguyên.`, 'GHI NHẬN THÀNH TÍCH', 'info');
+    }
+
+    setShowExternalRecordModal(false);
+  };
+
   // Duyệt hoặc rút lui giải đấu
   const handleToggleNomination = (id, newStatus) => {
     // Gọi API cập nhật trạng thái giải đua của Chủ sở hữu
     updateRaceNominationStatusApi(ownerKey, id, newStatus).catch(() => {});
 
-    setRaceNominations(prev => prev.map(r => {
+    setRaceNominations(prev => deduplicateNominations(prev.map(r => {
       if (r.id === id) {
         return {
           ...r,
@@ -2106,36 +2310,83 @@ export default function OwnerPage() {
         };
       }
       return r;
-    }));
+    })));
     const label = newStatus === 'APPROVED' ? 'Phê duyệt tham gia' : 'Rút lui giải đấu';
     showToast(`Đã cập nhật: ${label}!`, 'QUYẾT ĐỊNH CHỦ NGỰA', 'info');
   };
 
-  // Tính tổng số tiền thưởng & số dư quỹ
+  // Tự động điều chỉnh chuẩn hóa totalPrizeEarned của chiến mã theo đúng các giải đua thực tế đã xác nhận (chống duplicate tiền thưởng)
+  useEffect(() => {
+    if (!Array.isArray(myHorses) || myHorses.length === 0) return;
+    const cleanRaces = deduplicateNominations(Array.isArray(raceNominations) ? raceNominations : []);
+    const horsePrizeMap = {};
+    cleanRaces.forEach(r => {
+      const isConfirmed = r.nominationStatus === 'APPROVED' || r.nominationStatus === 'CONFIRMED' || r.status === 'APPROVED' || r.status === 'CONFIRMED';
+      if (!isConfirmed) return;
+      const net = Number(r.netPayout !== undefined ? r.netPayout : (r.grossPrize || 0));
+      if (net > 0 && r.horseName) {
+        horsePrizeMap[r.horseName] = (horsePrizeMap[r.horseName] || 0) + net;
+      }
+    });
+
+    let needUpdate = false;
+    const adjustedHorses = myHorses.map(h => {
+      const correctPrize = horsePrizeMap[h.name];
+      if (correctPrize !== undefined && Number(h.totalPrizeEarned) > correctPrize) {
+        needUpdate = true;
+        return { ...h, totalPrizeEarned: correctPrize };
+      }
+      return h;
+    });
+
+    if (needUpdate) {
+      setMyHorses(adjustedHorses);
+      try {
+        localStorage.setItem(`matruong_owner_horses_${ownerKey}`, JSON.stringify(adjustedHorses));
+      } catch {}
+    }
+  }, [raceNominations, ownerKey]);
+
+  // Tính tổng số tiền thưởng & số dư quỹ (tính chính xác từ các giải đua đã đoạt giải và lịch sử nhận tiền thưởng - khử trùng lặp)
   const totalPrizeAll = useMemo(() => {
-    const list = Array.isArray(myHorses) ? myHorses : [];
-    return list.reduce((sum, h) => sum + (Number(h?.totalPrizeEarned) || 0), 0);
-  }, [myHorses]);
+    // 1. Tổng tiền thưởng thực nhận từ các giải đua đã quyết toán/xác nhận (đã khử trùng lặp)
+    const cleanRaces = deduplicateNominations(Array.isArray(raceNominations) ? raceNominations : []);
+    const prizeFromRaces = cleanRaces.reduce((sum, r) => {
+      const isConfirmed = r.nominationStatus === 'APPROVED' || r.nominationStatus === 'CONFIRMED' || r.status === 'APPROVED' || r.status === 'CONFIRMED';
+      if (!isConfirmed) return sum;
+      const net = Number(r.netPayout !== undefined ? r.netPayout : (r.grossPrize || 0));
+      return sum + (net > 0 ? net : 0);
+    }, 0);
+
+    // 2. Tổng từ các giao dịch nhận tiền thưởng trong nhật ký tài chính (đã khử trùng lặp)
+    const cleanPayments = deduplicatePayments(Array.isArray(paymentHistory) ? paymentHistory : []);
+    const prizeFromPayments = cleanPayments.reduce((sum, p) => {
+      if (p.type === 'PRIZE') {
+        return sum + (Number(p.amount) || 0);
+      }
+      return sum;
+    }, 0);
+
+    if (prizeFromPayments > 0) return prizeFromPayments;
+    return prizeFromRaces;
+  }, [raceNominations, paymentHistory]);
 
   const netFundBalance = useMemo(() => {
-    const list = Array.isArray(myHorses) ? myHorses : [];
-    if (list.length === 0) return 0;
-    const prize = totalPrizeAll;
-    const costs = list.length * 35000000; // Phí cơ bản
-    return prize > costs ? prize - costs : 0;
-  }, [totalPrizeAll, myHorses]);
+    return totalPrizeAll;
+  }, [totalPrizeAll]);
 
-  // Tính tổng số tiền chủ sở hữu đã thanh toán
+  // Tính tổng số tiền chủ sở hữu đã thanh toán (chỉ tính chi phí / thanh toán, loại trừ các khoản thưởng PRIZE)
   const totalPaidAmount = useMemo(() => {
-    const list = Array.isArray(paymentHistory) ? paymentHistory : [];
-    return list.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0);
+    const cleanPayments = deduplicatePayments(Array.isArray(paymentHistory) ? paymentHistory : []);
+    return cleanPayments.filter(item => item?.type !== 'PRIZE').reduce((sum, item) => sum + (Number(item?.amount) || 0), 0);
   }, [paymentHistory]);
 
   // Tìm kiếm nhật ký thanh toán
   const filteredPayments = useMemo(() => {
-    if (!paymentSearch.trim()) return paymentHistory;
+    const cleanList = deduplicatePayments(paymentHistory);
+    if (!paymentSearch.trim()) return cleanList;
     const q = paymentSearch.toLowerCase().trim();
-    return paymentHistory.filter(p =>
+    return cleanList.filter(p =>
       (p.transactionId && p.transactionId.toLowerCase().includes(q)) ||
       (p.packageName && p.packageName.toLowerCase().includes(q)) ||
       (p.method && p.method.toLowerCase().includes(q)) ||
@@ -4583,384 +4834,20 @@ export default function OwnerPage() {
           {/* TAB 3: GIẢI ĐUA & ĐĂNG KÝ THI ĐẤU (RACES & NOMINATIONS) */}
           {/* ========================================================================= */}
           {activeTab === 'races' && (
-            <div className="tab-pane">
-              <div className="pane-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-                <div>
-                  <h2 className="pane-title">Giải Đua Ngựa & Đăng Ký Thi Đấu (Race Entries & Tournaments)</h2>
-                  <p className="pane-desc">Đăng ký chiến mã vào các giải đấu mở và phê duyệt hoặc rút lui đề cử tham gia giải đua.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleOpenRaceRegister(OPEN_TOURNAMENTS[0])}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    background: 'var(--brass)',
-                    color: '#0A0D14',
-                    fontWeight: 700,
-                    border: 'none',
-                    fontSize: '12.5px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <IconTrophy size={16} color="#0A0D14" />
-                  <span>+ Đăng ký giải đấu mới</span>
-                </button>
-              </div>
-
-              {/* Phần 1: Các giải đấu đang mở ghi danh */}
-              <div style={{ marginBottom: '28px' }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--brass)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>� CÁC GIẢI ĐẤU ĐANG MỞ ĐĂNG KÝ THI ĐẤU (OPEN OFFICIAL TOURNAMENTS)</span>
-                </div>
-
-                <div className="portal-cards-grid" style={{ display: 'grid', gap: '14px' }}>
-                  {OPEN_TOURNAMENTS.map(tourn => (
-                    <div key={tourn.id} className="facility-card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
-                          <b style={{ fontSize: '15px', color: 'var(--paper)', lineHeight: 1.3 }}>{tourn.name}</b>
-                          <span style={{
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            fontSize: '10.5px',
-                            fontWeight: 700,
-                            background: 'rgba(212, 175, 55, 0.15)',
-                            color: 'var(--brass)',
-                            border: '1px solid var(--brass)',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {tourn.distance}
-                          </span>
-                        </div>
-
-                        <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '10px' }}>
-                          {tourn.track} · {tourn.surface}
-                        </div>
-
-                        <p style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.4, margin: '0 0 12px' }}>
-                          {tourn.description}
-                        </p>
-
-                        <div style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '6px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                          <div>Ngày đua: <b style={{ color: 'var(--paper)' }}>{tourn.date}</b></div>
-                          <div>Tổng thưởng: <b style={{ color: 'var(--brass)' }}>{formatVND(tourn.totalPurse)}</b></div>
-                        </div>
-
-                        {/* QUYỀN LỢI KHÁN ĐÀI: TIÊU CHUẨN vs VIP LOUNGE */}
-                        <div style={{
-                          marginBottom: '14px',
-                          padding: '6px 10px',
-                          borderRadius: '6px',
-                          background: membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.1)' : 'var(--bg-secondary)',
-                          border: `1px solid ${membershipTier === 'PREMIUM' ? 'rgba(212, 175, 55, 0.3)' : 'var(--line)'}`,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          fontSize: '11.5px',
-                          flexWrap: 'wrap',
-                          gap: '6px'
-                        }}>
-                          <span style={{ color: 'var(--paper-dim)' }}>Quyền lợi khán đài:</span>
-                          {membershipTier === 'PREMIUM' ? (
-                            <span style={{ color: 'var(--brass)', fontWeight: 700 }}>
-                              VIP Lounge & Paddock Pass
-                            </span>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ color: 'var(--paper)', fontWeight: 600 }}>� Khán đài tiêu chuẩn</span>
-                              <button
-                                type="button"
-                                onClick={() => setUpgradePromptModal({
-                                  title: 'Đặc Quyền VIP Lounge & Khu Paddock',
-                                  badge: 'ĐẶC QUYỀN VIP',
-                                  message: 'Gói 0 Đồng trang bị Vé khán đài tiêu chuẩn. Nâng cấp lên gói HORSE PREMIUM VIP để nhận Thẻ VIP Lounge cao cấp có điều hòa và lối đi riêng vào khu cách ly Paddock đồng hành cùng chiến mã trước giờ xuất phát.',
-                                  benefit: '✨ Không gian xem đua chuẩn thượng lưu, tiệc teabreak và tiếp cận trực tiếp khu chuẩn bị thi đấu cùng Huấn luyện viên trưởng.',
-                                  actionText: 'Nâng Cấp Gói VIP Ngay'
-                                })}
-                                style={{
-                                  background: 'rgba(212, 175, 55, 0.15)',
-                                  border: '1px solid var(--brass)',
-                                  color: 'var(--brass)',
-                                  borderRadius: '4px',
-                                  padding: '2px 6px',
-                                  fontSize: '10.5px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Nâng VIP
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleOpenRaceRegister(tourn)}
-                        style={{
-                          width: '100%',
-                          padding: '8px',
-                          borderRadius: '6px',
-                          background: 'var(--brass)',
-                          color: '#0A0D14',
-                          fontWeight: 700,
-                          border: 'none',
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <IconTrophy size={14} color="#0A0D14" />
-                        <span>Đăng Ký Tham Gia Giải Này</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Phần 2: Danh sách các giải mà chủ sở hữu đã đăng ký / đề cử */}
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '12px' }}>
-                  DANH SÁCH GIẢI ĐẤU CỦA BẠN ({raceNominations.length})
-                </div>
-
-                {raceNominations.length === 0 ? (
-                  <div className="facility-card" style={{ padding: '32px 20px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '13px', color: 'var(--paper-dim)', margin: 0 }}>
-                      Bạn chưa đăng ký giải đấu nào cho chiến mã. Hãy chọn một giải đấu mở ở trên và bấm <b>"Đăng Ký Tham Gia Giải Này"</b>.
-                    </p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {raceNominations.map((r) => {
-                      const isApproved = r.nominationStatus === 'APPROVED' || r.nominationStatus === 'CONFIRMED';
-                      const isWithdrawn = r.nominationStatus === 'WITHDRAWN';
-                      const isRejected = r.nominationStatus === 'REJECTED' || r.nominationStatus === 'DECLINED';
-                      const isDelegatedPending = r.delegatedToTrainer && !r.trainerAssigned && (r.nominationStatus === 'PENDING_TRAINER_SELECTION' || r.nominationStatus === 'PENDING_TRAINER');
-                      const isPendingTrainer = !isDelegatedPending && (r.nominationStatus === 'PENDING_TRAINER' || r.nominationStatus === 'PENDING' || (!isApproved && !isWithdrawn && !isRejected));
-
-                      return (
-                        <div key={r.id} className="facility-card" style={{ padding: '22px', border: isApproved ? '1px solid rgba(16, 185, 129, 0.4)' : isRejected ? '1px solid rgba(239, 68, 68, 0.4)' : isDelegatedPending ? '1.5px dashed var(--brass)' : '1px solid var(--line)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                            <div>
-                              <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{r.raceName}</b>
-                              <div style={{ fontSize: '12.5px', marginTop: '2px' }}>
-                                {isDelegatedPending ? (
-                                  <span style={{ color: 'var(--brass)', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
-                                    <span></span> Chiến mã: <i>Đang nhờ HLV {r.targetTrainer || 'Trần Văn Hùng'} tuyển chọn</i>
-                                  </span>
-                                ) : r.trainerAssigned ? (
-                                  <span style={{ color: '#10B981', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
-                                    <span></span> Chiến mã (HLV chỉ định): <b style={{ color: 'var(--brass)', fontSize: '13.5px' }}>{r.horseName}</b>
-                                  </span>
-                                ) : (
-                                  <span style={{ color: 'var(--brass)', fontWeight: 600 }}>Chiến mã: {r.horseName}</span>
-                                )} · <span style={{ color: 'var(--paper-dim)' }}>{r.distance} ({r.track})</span>
-                              </div>
-                            </div>
-                            <span style={{
-                              padding: '4px 12px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              letterSpacing: '0.03em',
-                              background: isApproved 
-                                ? 'rgba(16, 185, 129, 0.15)' 
-                                : isRejected
-                                ? 'rgba(239, 68, 68, 0.15)'
-                                : isWithdrawn
-                                ? 'var(--bg-secondary)'
-                                : isDelegatedPending
-                                ? 'rgba(212, 175, 55, 0.2)'
-                                : 'rgba(212, 175, 55, 0.15)',
-                              color: isApproved 
-                                ? '#10B981' 
-                                : isRejected
-                                ? '#EF4444'
-                                : isWithdrawn
-                                ? 'var(--paper-dim)'
-                                : 'var(--brass)',
-                              border: `1px solid ${isApproved ? '#10B981' : isRejected ? '#EF4444' : isWithdrawn ? 'var(--line)' : 'var(--brass)'}`
-                            }}>
-                              {isApproved 
-                                ? (r.trainerAssigned ? 'HLV ĐÃ CHỈ ĐỊNH NGỰA & PHÊ DUYỆT' : ' HLV TRƯỞNG ĐÃ PHÊ DUYỆT')
-                                : isRejected
-                                ? '✗ HLV YÊU CẦU RÈN THÊM'
-                                : isWithdrawn 
-                                ? 'ĐÃ RÚT LUI' 
-                                : isDelegatedPending
-                                ? ' ĐANG CHỜ HLV CHỈ ĐỊNH NGỰA'
-                                : 'CHỜ HLV TRƯỞNG PHÊ DUYỆT'}
-                            </span>
-                          </div>
-
-                          {/* KHỐI ỦY THÁC CHỜ HLV CHỈ ĐỊNH NGỰA */}
-                          {isDelegatedPending && (
-                            <div style={{
-                              background: 'rgba(212, 175, 55, 0.08)',
-                              border: '1px solid rgba(212, 175, 55, 0.3)',
-                              borderRadius: '6px',
-                              padding: '10px 14px',
-                              fontSize: '12.5px',
-                              color: 'var(--paper)',
-                              marginBottom: '12px',
-                              lineHeight: 1.5
-                            }}>
-                              <b style={{ color: 'var(--brass)' }}> Ủy thác chuyên môn:</b> Bạn đã chọn chế độ nhờ Huấn luyện viên trưởng ({r.targetTrainer || 'Trần Văn Hùng'}) đối soát phong độ thể lực và chỉ định chiến mã phù hợp nhất cho cự ly <b>{r.distance}</b> tại <b>{r.track}</b>. Ngay sau khi HLV xác nhận chỉ định, tên chiến mã và lời phê chiến thuật sẽ lập tức hiển thị tại đây.
-                            </div>
-                          )}
-
-                          {/* KHỐI THÔNG BÁO TIẾN ĐỘ DUYỆT CỦA HUẤN LUYỆN VIÊN TRƯỞNG */}
-                          {isPendingTrainer && (
-                            <div style={{
-                              background: 'rgba(212, 175, 55, 0.08)',
-                              border: '1px solid rgba(212, 175, 55, 0.25)',
-                              borderRadius: '6px',
-                              padding: '10px 14px',
-                              fontSize: '12.5px',
-                              color: 'var(--paper)',
-                              marginBottom: '12px',
-                              lineHeight: 1.5
-                            }}>
-                              <b style={{ color: 'var(--brass)' }}>Đang thẩm định thể lực:</b> Hồ sơ đăng ký đã chuyển đến Huấn luyện viên trưởng. HLV sẽ kiểm tra chỉ số sinh trắc (nhịp tim, vận tốc tập luyện gần nhất) trước khi phê duyệt quyền xuất phát chính thức.
-                            </div>
-                          )}
-
-                          {isApproved && (
-                            <div style={{
-                              background: 'rgba(16, 185, 129, 0.08)',
-                              border: '1px solid rgba(16, 185, 129, 0.25)',
-                              borderRadius: '6px',
-                              padding: '10px 14px',
-                              fontSize: '12.5px',
-                              color: 'var(--paper)',
-                              marginBottom: '12px',
-                              lineHeight: 1.5
-                            }}>
-                              <b style={{ color: '#10B981' }}>
-                                {r.trainerAssigned ? ' HLV Trưởng Đã Tuyển Chọn & Phê Duyệt' : `HLV Trưởng (${r.reviewedBy || 'Trần Văn Hùng'}):`}
-                              </b>{' '}
-                              {r.trainerFeedback || `Chiến mã "${r.horseName}" đạt 100% phong độ thể lực, chỉ số viễn trắc ổn định. Đã chỉ định cấp phép xuất phát chính thức.`}
-                            </div>
-                          )}
-
-                          {isRejected && (
-                            <div style={{
-                              background: 'rgba(239, 68, 68, 0.08)',
-                              border: '1px solid rgba(239, 68, 68, 0.25)',
-                              borderRadius: '6px',
-                              padding: '10px 14px',
-                              fontSize: '12.5px',
-                              color: 'var(--paper)',
-                              marginBottom: '12px',
-                              lineHeight: 1.5
-                            }}>
-                              <b style={{ color: '#EF4444' }}>Ý kiến HLV Trưởng ({r.reviewedBy || 'Trần Văn Hùng'}):</b> {r.trainerFeedback || 'Chiến mã cần rèn luyện thêm bài tập thể lực trên sân cát và theo dõi nhịp tim phục hồi trước khi thi đấu.'}
-                            </div>
-                          )}
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                            <div>Ngày thi đấu: <b style={{ color: 'var(--paper)' }}>{r.date}</b></div>
-                            <div>Kỵ mã: <b style={{ color: 'var(--paper)' }}>{r.jockey || 'Chưa chỉ định'}</b></div>
-                            <div>Tổng giải thưởng: <b style={{ color: 'var(--brass)' }}>{formatVND(r.estimatedPurse)}</b></div>
-                          </div>
-
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '14px' }}>
-                            Ghi chú: {r.notes}
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                            {isPendingTrainer && (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleNomination(r.id, 'WITHDRAWN')}
-                                style={{
-                                  padding: '7px 14px',
-                                  borderRadius: '6px',
-                                  background: 'transparent',
-                                  color: 'var(--paper-dim)',
-                                  border: '1px solid var(--line)',
-                                  fontSize: '12px',
-                                  fontWeight: 600,
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Rút đơn đăng ký
-                              </button>
-                            )}
-
-                            {isRejected && (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleNomination(r.id, 'PENDING_TRAINER')}
-                                style={{
-                                  padding: '7px 16px',
-                                  borderRadius: '6px',
-                                  background: 'var(--brass)',
-                                  color: '#0A0D14',
-                                  fontWeight: 700,
-                                  border: 'none',
-                                  fontSize: '12px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                 Yêu cầu HLV thẩm định lại
-                              </button>
-                            )}
-
-                            {isApproved && (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleNomination(r.id, 'WITHDRAWN')}
-                                style={{
-                                  padding: '6px 14px',
-                                  borderRadius: '6px',
-                                  background: 'var(--bg-secondary)',
-                                  color: 'var(--paper)',
-                                  border: '1px solid var(--line)',
-                                  fontSize: '12px',
-                                  fontWeight: 600,
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Hủy / Rút lui giải đấu
-                              </button>
-                            )}
-
-                            {isWithdrawn && (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleNomination(r.id, 'PENDING_TRAINER')}
-                                style={{
-                                  padding: '6px 14px',
-                                  borderRadius: '6px',
-                                  background: 'var(--brass)',
-                                  color: '#0A0D14',
-                                  fontWeight: 700,
-                                  border: 'none',
-                                  fontSize: '12px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Gửi đăng ký lại cho HLV
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
+            <OwnerTournamentsTab
+              OPEN_TOURNAMENTS={OPEN_TOURNAMENTS}
+              raceNominations={raceNominations}
+              myHorses={myHorses}
+              ownerKey={ownerKey}
+              currentUser={currentUser}
+              membershipTier={membershipTier}
+              formatVND={formatVND}
+              handleOpenRaceRegister={handleOpenRaceRegister}
+              handleToggleNomination={handleToggleNomination}
+              showToast={showToast}
+              setShowExternalRecordModal={setShowExternalRecordModal}
+              setExternalRecordForm={setExternalRecordForm}
+            />
           )}
 
           {/* ========================================================================= */}
@@ -5013,7 +4900,7 @@ export default function OwnerPage() {
                     {formatVND(totalPaidAmount)}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                    {paymentHistory.length} giao dịch thành công
+                    {paymentHistory.filter(item => item?.type !== 'PRIZE').length} giao dịch thành công
                   </div>
                 </div>
 
@@ -5069,7 +4956,7 @@ export default function OwnerPage() {
                   }}
                 >
                   <IconReceipt size={16} />
-                  <span>Nhật Ký Giao Dịch & Thanh Toán ({paymentHistory.length})</span>
+                  <span>Nhật Ký Giao Dịch & Thanh Toán ({deduplicatePayments(paymentHistory).length})</span>
                 </button>
 
                 <button
@@ -5117,7 +5004,7 @@ export default function OwnerPage() {
                       />
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                      Hiển thị <b>{filteredPayments.length}</b> / {paymentHistory.length} giao dịch
+                      Hiển thị <b>{filteredPayments.length}</b> / {deduplicatePayments(paymentHistory).length} giao dịch
                     </div>
                   </div>
 
@@ -5155,66 +5042,77 @@ export default function OwnerPage() {
                     </div>
                   ) : (
                     <div className="facility-card" style={{ padding: 0, overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '700px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '1050px' }}>
                         <thead>
-                          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                            <th style={{ padding: '14px 18px' }}>Mã giao dịch</th>
-                            <th style={{ padding: '14px 18px' }}>Khoản thanh toán</th>
-                            <th style={{ padding: '14px 18px' }}>Phương thức</th>
-                            <th style={{ padding: '14px 18px' }}>Thời gian</th>
-                            <th style={{ padding: '14px 18px' }}>Số tiền</th>
-                            <th style={{ padding: '14px 18px' }}>Trạng thái</th>
-                            <th style={{ padding: '14px 18px', textAlign: 'right' }}>Hành động</th>
+                          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.03em', verticalAlign: 'middle' }}>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'center' }}>Mã giao dịch</th>
+                            <th style={{ padding: '12px 16px', minWidth: '320px', whiteSpace: 'nowrap' }}>Khoản thanh toán</th>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Phương thức</th>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'center' }}>Thời gian</th>
+                            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', textAlign: 'right' }}>Số tiền</th>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'center' }}>Trạng thái</th>
+                            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>Hành động</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filteredPayments.map((p, idx) => (
-                            <tr key={idx} style={{ borderBottom: '1px solid var(--line)' }}>
-                              <td style={{ padding: '14px 18px' }}>
+                            <tr key={idx} style={{ borderBottom: '1px solid var(--line)', verticalAlign: 'middle' }}>
+                              <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                                 <span style={{
                                   fontFamily: 'monospace',
                                   fontWeight: 700,
                                   color: 'var(--brass)',
                                   background: 'rgba(212, 175, 55, 0.1)',
-                                  padding: '2px 6px',
+                                  padding: '4px 8px',
                                   borderRadius: '4px',
-                                  fontSize: '12px'
+                                  fontSize: '12px',
+                                  whiteSpace: 'nowrap',
+                                  display: 'inline-block'
                                 }}>
                                   {p.transactionId}
                                 </span>
                               </td>
-                              <td style={{ padding: '14px 18px' }}>
-                                <b style={{ color: 'var(--paper)', display: 'block' }}>{p.packageName}</b>
-                                <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>{p.billingCycle}</span>
+                              <td style={{ padding: '12px 16px', minWidth: '320px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '2px' }}>
+                                  {p.type === 'PRIZE' && (
+                                    <span style={{ fontSize: '10.5px', padding: '2px 7px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontWeight: 800, border: '1px solid #10B981', whiteSpace: 'nowrap' }}>
+                                      🏆 TIỀN THƯỞNG
+                                    </span>
+                                  )}
+                                  <b style={{ color: p.type === 'PRIZE' ? '#10B981' : 'var(--paper)', fontSize: '13.5px' }}>{p.packageName}</b>
+                                </div>
+                                <span style={{ fontSize: '12px', color: 'var(--paper-dim)', display: 'block', whiteSpace: 'nowrap' }}>{p.billingCycle}</span>
                               </td>
-                              <td style={{ padding: '14px 18px', color: 'var(--paper)' }}>
+                              <td style={{ padding: '12px 14px', color: 'var(--paper)', whiteSpace: 'nowrap', fontSize: '12.5px' }}>
                                 {p.method}
                               </td>
-                              <td style={{ padding: '14px 18px', color: 'var(--paper-dim)', fontSize: '12px' }}>
+                              <td style={{ padding: '12px 14px', color: 'var(--paper-dim)', fontSize: '12px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                                 {p.paidAt}
                               </td>
-                              <td style={{ padding: '14px 18px', fontWeight: 800, color: '#10B981', fontSize: '14px' }}>
-                                {p.amountFormatted}
+                              <td style={{ padding: '12px 16px', fontWeight: 800, color: p.type === 'PRIZE' ? '#10B981' : 'var(--paper)', fontSize: '14px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                                {p.type === 'PRIZE' || String(p.amountFormatted).startsWith('+') ? `+${String(p.amountFormatted).replace('+', '')}` : p.amountFormatted}
                               </td>
-                              <td style={{ padding: '14px 18px' }}>
+                              <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                                 <span style={{
-                                  padding: '3px 8px',
+                                  padding: '4px 10px',
                                   borderRadius: '4px',
                                   fontSize: '11px',
                                   fontWeight: 700,
-                                  background: 'rgba(16, 185, 129, 0.15)',
-                                  color: '#10B981',
-                                  border: '1px solid rgba(16, 185, 129, 0.4)'
+                                  whiteSpace: 'nowrap',
+                                  display: 'inline-block',
+                                  background: p.type === 'PRIZE' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(212, 175, 55, 0.15)',
+                                  color: p.type === 'PRIZE' ? '#10B981' : 'var(--brass)',
+                                  border: `1px solid ${p.type === 'PRIZE' ? '#10B981' : 'var(--brass)'}`
                                 }}>
-                                   {p.status || 'THÀNH CÔNG'}
+                                  {p.status || 'THÀNH CÔNG (PAID)'}
                                 </span>
                               </td>
-                              <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                              <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                 <button
                                   type="button"
                                   onClick={() => setSelectedPaymentReceiptModal(p)}
                                   style={{
-                                    padding: '5px 12px',
+                                    padding: '6px 14px',
                                     borderRadius: '5px',
                                     background: 'var(--bg-secondary)',
                                     color: 'var(--paper)',
@@ -5224,10 +5122,12 @@ export default function OwnerPage() {
                                     cursor: 'pointer',
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: '5px'
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    whiteSpace: 'nowrap'
                                   }}
                                 >
-                                  <span>�</span>
+                                  <span>🧾</span>
                                   <span>Xem biên lai</span>
                                 </button>
                               </td>
@@ -5255,56 +5155,59 @@ export default function OwnerPage() {
                     </div>
                   ) : (
                     <div className="facility-card" style={{ padding: 0, overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '700px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '1050px' }}>
                         <thead>
-                          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase' }}>
-                            <th style={{ padding: '14px 18px' }}>Kỳ quyết toán</th>
-                            <th style={{ padding: '14px 18px' }}>Chiến mã</th>
-                            <th style={{ padding: '14px 18px' }}>Thưởng giải đua</th>
-                            <th style={{ padding: '14px 18px' }}>Phí nuôi dưỡng</th>
-                            <th style={{ padding: '14px 18px' }}>Phí thú y</th>
-                            <th style={{ padding: '14px 18px' }}>Thực nhận ròng</th>
-                            <th style={{ padding: '14px 18px' }}>Trạng thái</th>
-                            <th style={{ padding: '14px 18px', textAlign: 'right' }}>Chi tiết</th>
+                          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase', verticalAlign: 'middle', letterSpacing: '0.03em' }}>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Kỳ quyết toán</th>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Chiến mã</th>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>Thưởng giải đua</th>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>Phí nuôi dưỡng</th>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>Phí thú y</th>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>Thực nhận ròng</th>
+                            <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'center' }}>Trạng thái</th>
+                            <th style={{ padding: '12px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>Chi tiết</th>
                           </tr>
                         </thead>
                         <tbody>
                           {statements.map((s) => (
-                            <tr key={s.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                              <td style={{ padding: '14px 18px', fontWeight: 700, color: 'var(--paper)' }}>{s.period}</td>
-                              <td style={{ padding: '14px 18px', color: 'var(--brass)' }}>{s.horseName}</td>
-                              <td style={{ padding: '14px 18px', color: 'var(--brass)', fontWeight: 600 }}>+{formatVND(s.totalPrizeEarned)}</td>
-                              <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>-{formatVND(s.boardingCost)}</td>
-                              <td style={{ padding: '14px 18px', color: 'var(--paper-dim)' }}>-{formatVND(s.vetCost)}</td>
-                              <td style={{ padding: '14px 18px', fontWeight: 800, color: s.netPayable >= 0 ? 'var(--brass)' : 'var(--paper)' }}>
+                            <tr key={s.id} style={{ borderBottom: '1px solid var(--line)', verticalAlign: 'middle' }}>
+                              <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--paper)', whiteSpace: 'nowrap' }}>{s.period}</td>
+                              <td style={{ padding: '12px 14px', color: 'var(--brass)', whiteSpace: 'nowrap' }}>{s.horseName}</td>
+                              <td style={{ padding: '12px 14px', color: '#10B981', fontWeight: 700, whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>+{formatVND(s.totalPrizeEarned)}</td>
+                              <td style={{ padding: '12px 14px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>-{formatVND(s.boardingCost)}</td>
+                              <td style={{ padding: '12px 14px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>-{formatVND(s.vetCost)}</td>
+                              <td style={{ padding: '12px 14px', fontWeight: 800, color: s.netPayable >= 0 ? '#10B981' : 'var(--paper)', whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                                 {formatVND(s.netPayable)}
                               </td>
-                              <td style={{ padding: '14px 18px' }}>
+                              <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                                 <span style={{
-                                  padding: '3px 8px',
+                                  padding: '4px 10px',
                                   borderRadius: '4px',
                                   fontSize: '11px',
                                   fontWeight: 700,
-                                  background: s.status === 'PAID' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                                  color: s.status === 'PAID' ? 'var(--brass)' : 'var(--paper-dim)',
-                                  border: `1px solid ${s.status === 'PAID' ? 'var(--brass)' : 'var(--line)'}`
+                                  whiteSpace: 'nowrap',
+                                  display: 'inline-block',
+                                  background: s.status === 'PAID' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-secondary)',
+                                  color: s.status === 'PAID' ? '#10B981' : 'var(--paper-dim)',
+                                  border: `1px solid ${s.status === 'PAID' ? '#10B981' : 'var(--line)'}`
                                 }}>
                                   {s.statusText}
                                 </span>
                               </td>
-                              <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                              <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                 <button
                                   type="button"
                                   onClick={() => setSelectedStatementModal(s)}
                                   style={{
-                                    padding: '5px 12px',
-                                    borderRadius: '4px',
+                                    padding: '6px 14px',
+                                    borderRadius: '5px',
                                     background: 'var(--bg-secondary)',
                                     color: 'var(--paper)',
                                     border: '1px solid var(--line)',
                                     fontSize: '12px',
                                     fontWeight: 600,
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap'
                                   }}
                                 >
                                   Xem sao kê
@@ -7918,6 +7821,354 @@ export default function OwnerPage() {
       )}
 
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* MODAL 2B: KHAI BÁO THÀNH TÍCH GIẢI ĐẤU NGOÀI (MÔ HÌNH A - 0% HOA HỒNG) */}
+      {/* ========================================================================= */}
+      {showExternalRecordModal && (
+        <div className="modal-overlay" onClick={() => setShowExternalRecordModal(false)}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              maxWidth: '560px',
+              width: '90%',
+              padding: '24px',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🌐</span>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: '#10B981' }}>
+                  Khai Báo Thành Tích Giải Ngoài (0% Hoa Hồng)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExternalRecordModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+              >&times;</button>
+            </div>
+
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              borderRadius: '6px',
+              padding: '10px 12px',
+              fontSize: '12px',
+              color: 'var(--paper)',
+              marginBottom: '14px',
+              lineHeight: 1.45
+            }}>
+              <b>Chính sách Doanh thu Giải Ngoài:</b> Chủ sở hữu tự do đăng ký và nhận giải thưởng từ BTC bên ngoài. Nền tảng <b>không thu bất kỳ khoản hoa hồng nào (0% hoa hồng)</b>. Số tiền thưởng bạn khai báo sẽ được bảo lưu 100% vào hồ sơ thành tích.
+            </div>
+
+            <form onSubmit={handleExternalRecordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                  Chọn giải đấu ngoài hoặc tự nhập
+                </label>
+                <select
+                  value={OPEN_TOURNAMENTS.find(t => t.name === externalRecordForm.raceName)?.id || 'CUSTOM'}
+                  onChange={(e) => {
+                    const selId = e.target.value;
+                    const found = OPEN_TOURNAMENTS.find(t => t.id === selId);
+                    if (found) {
+                      const basePurse = Number(found.totalPurse) || 300000000;
+                      let initialGross = Math.round(basePurse * 0.5);
+                      if (externalRecordForm.rank?.includes('2')) initialGross = Math.round(basePurse * 0.25);
+                      else if (externalRecordForm.rank?.includes('3')) initialGross = Math.round(basePurse * 0.15);
+                      else if (externalRecordForm.rank?.includes('5')) initialGross = Math.round(basePurse * 0.05);
+                      else if (externalRecordForm.rank?.includes('Không')) initialGross = 0;
+
+                      setExternalRecordForm(prev => ({
+                        ...prev,
+                        raceName: found.name,
+                        organizerName: found.organizerName,
+                        track: found.track,
+                        distance: found.distance,
+                        grossPrize: initialGross,
+                        basePurse
+                      }));
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '6px',
+                    color: 'var(--brass)',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    marginBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {OPEN_TOURNAMENTS.filter(t => t.tournamentType === 'EXTERNAL').map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} (Quỹ: {formatVND(t.totalPurse)})
+                    </option>
+                  ))}
+                  <option value="CUSTOM">-- Tự nhập tên giải đấu bên ngoài khác --</option>
+                </select>
+
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                  Tên giải đấu bên ngoài <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={externalRecordForm.raceName}
+                  onChange={e => setExternalRecordForm({ ...externalRecordForm, raceName: e.target.value })}
+                  placeholder="VD: Giải Đua Ngựa Truyền Thống Bắc Hà 2026..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '6px',
+                    color: 'var(--paper)',
+                    fontSize: '13px'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Đơn vị tổ chức bên ngoài
+                  </label>
+                  <input
+                    type="text"
+                    value={externalRecordForm.organizerName}
+                    onChange={e => setExternalRecordForm({ ...externalRecordForm, organizerName: e.target.value })}
+                    placeholder="VD: Sở VHTTDL Lào Cai"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Chọn chiến mã tham gia <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <select
+                    value={externalRecordForm.horseId}
+                    onChange={e => setExternalRecordForm({ ...externalRecordForm, horseId: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {myHorses.map(h => (
+                      <option key={h.id} value={h.id}>{h.name} ({h.breed})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Cự ly thi đấu
+                  </label>
+                  <input
+                    type="text"
+                    value={externalRecordForm.distance}
+                    onChange={e => setExternalRecordForm({ ...externalRecordForm, distance: e.target.value })}
+                    placeholder="VD: 1.600m"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: 'var(--paper)',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Thứ hạng đạt được
+                  </label>
+                  <select
+                    value={externalRecordForm.rank}
+                    onChange={e => {
+                      const newRank = e.target.value;
+                      const matchedTourn = OPEN_TOURNAMENTS.find(t => t.name === externalRecordForm.raceName);
+                      const basePurse = Number(externalRecordForm.basePurse || matchedTourn?.totalPurse || 300000000);
+                      let computed = 0;
+                      if (newRank.includes('1')) computed = Math.round(basePurse * 0.5); // Giải nhất: 50%
+                      else if (newRank.includes('2')) computed = Math.round(basePurse * 0.25); // Giải nhì: 25%
+                      else if (newRank.includes('3')) computed = Math.round(basePurse * 0.15); // Giải ba: 15%
+                      else if (newRank.includes('5')) computed = Math.round(basePurse * 0.05); // Top 5: 5%
+                      else computed = 0; // Không đạt giải
+
+                      setExternalRecordForm({
+                        ...externalRecordForm,
+                        rank: newRank,
+                        grossPrize: computed
+                      });
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: externalRecordForm.rank?.includes('Không') ? 'var(--paper-dim)' : '#10B981',
+                      fontWeight: 700,
+                      fontSize: '12.5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="Hạng 1 (Giải Nhất - 50% Quỹ)">Hạng 1 (Giải Nhất - 50% Quỹ)</option>
+                    <option value="Hạng 2 (Giải Nhì - 25% Quỹ)">Hạng 2 (Giải Nhì - 25% Quỹ)</option>
+                    <option value="Hạng 3 (Giải Ba - 15% Quỹ)">Hạng 3 (Giải Ba - 15% Quỹ)</option>
+                    <option value="Top 5 Chung Cuộc (5% Quỹ)">Top 5 Chung Cuộc (5% Quỹ)</option>
+                    <option value="Không Đoạt Giải (Hoàn Thành Chặng Đua)">Không Đoạt Giải (Hoàn Thành Chặng Đua)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                    Tiền thưởng nhận (VNĐ)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000000"
+                    value={externalRecordForm.grossPrize}
+                    onChange={e => setExternalRecordForm({ ...externalRecordForm, grossPrize: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '6px',
+                      color: Number(externalRecordForm.grossPrize) > 0 ? '#10B981' : 'var(--paper-dim)',
+                      fontWeight: 800,
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* BẢNG TÍNH THỰC NHẬN CỦA CHỦ NGỰA */}
+              <div style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--line)',
+                borderRadius: '6px',
+                padding: '10px 12px',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: '8px',
+                textAlign: 'center'
+              }}>
+                <div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>Tổng Thưởng Khai Báo</div>
+                  <b style={{ color: 'var(--paper)', fontSize: '13px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                    {formatVND(Number(externalRecordForm.grossPrize) || 0)}
+                  </b>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>Hoa Hồng Nền Tảng (0%)</div>
+                  <b style={{ color: '#10B981', fontSize: '13px' }}>0 ₫ (Miễn thu)</b>
+                </div>
+                <div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>Chủ Ngựa Thực Nhận (100%)</div>
+                  <b style={{ color: '#10B981', fontSize: '14px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                    {formatVND(Number(externalRecordForm.grossPrize) || 0)}
+                  </b>
+                </div>
+              </div>
+
+              <div style={{
+                fontSize: '11.5px',
+                color: Number(externalRecordForm.grossPrize) > 0 ? '#10B981' : 'var(--paper-dim)',
+                background: Number(externalRecordForm.grossPrize) > 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                padding: '6px 10px',
+                borderRadius: '4px'
+              }}>
+                {Number(externalRecordForm.grossPrize) > 0
+                  ? `✨ Tiền thưởng thực nhận +${formatVND(Number(externalRecordForm.grossPrize) || 0)} sẽ được cộng vào quỹ tích lũy và cập nhật vào lịch sử giao dịch tài chính.`
+                  : 'ℹ️ Không đạt giải (0 ₫): Hệ thống chỉ lưu lịch sử tham gia thi đấu, số dư tiền thưởng và lịch sử giao dịch sẽ giữ nguyên.'}
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                  Ghi chú / Minh chứng kết quả
+                </label>
+                <input
+                  type="text"
+                  value={externalRecordForm.notes}
+                  onChange={e => setExternalRecordForm({ ...externalRecordForm, notes: e.target.value })}
+                  placeholder="Ghi chú về nài ngựa, thời gian xuất phát hoặc đường dẫn chứng nhận..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '6px',
+                    color: 'var(--paper)',
+                    fontSize: '13px'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowExternalRecordModal(false)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: 'transparent',
+                    color: 'var(--paper-dim)',
+                    border: '1px solid var(--line)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '6px',
+                    background: '#10B981',
+                    color: '#fff',
+                    fontWeight: 700,
+                    border: 'none',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Xác Nhận Lưu Thành Tích
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 3: CHI TIẾT SAO KÊ TÀI CHÍNH */}
       {/* ========================================================================= */}
       {selectedStatementModal && (

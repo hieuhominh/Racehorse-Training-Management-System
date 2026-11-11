@@ -13,7 +13,7 @@ const RECEIVING_BANK = {
 export default function PaymentModal({
   isOpen,
   onClose,
-  packageData = { id: 'PREMIUM', name: 'Horse Premium VIP', cycle: 'year', amount: 35000000 },
+  packageData = { id: 'PREMIUM', name: 'Horse Premium VIP', cycle: 'year', amount: 75000000 },
   ownerInfo = { name: 'Chủ sở hữu', ownerKey: 'owner' },
   onPaymentSuccess
 }) {
@@ -45,7 +45,7 @@ export default function PaymentModal({
 
   if (!isOpen) return null;
 
-  const currentAmount = packageData.amount || (packageData.cycle === 'year' ? 35000000 : 3500000);
+  const currentAmount = packageData.amount || (packageData.cycle === 'year' ? 75000000 : 7500000);
   const formattedVND = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(currentAmount);
   const usdAmount = (currentAmount / 25400).toFixed(2);
   const transferMemo = `VIP ${String(ownerInfo.ownerKey).toUpperCase()} ${packageData.cycle === 'year' ? '1NAM' : '1THANG'}`;
@@ -287,7 +287,7 @@ export default function PaymentModal({
                     {packageData.cycle === 'year' ? '89.000.000 đ' : '9.900.000 đ'}
                   </span>
                   <span style={{ fontSize: '10.5px', color: '#10B981', background: 'rgba(16, 185, 129, 0.15)', padding: '1px 6px', borderRadius: '3px', fontWeight: 700 }}>
-                    {packageData.cycle === 'year' ? 'Ưu đãi -60%' : 'Ưu đãi -65%'}
+                    {packageData.cycle === 'year' ? 'Ưu đãi -16%' : 'Ưu đãi -24%'}
                   </span>
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>

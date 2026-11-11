@@ -8,6 +8,7 @@ CREATE SCHEMA IF NOT EXISTS dbo;
 SET search_path TO dbo, public;
 
 -- Xóa các bảng cũ theo thứ tự quan hệ ngược để tránh lỗi Khóa ngoại (Foreign Key)
+DROP TABLE IF EXISTS dbo.AuditLogs CASCADE;
 DROP TABLE IF EXISTS dbo.RaceEntries CASCADE;
 DROP TABLE IF EXISTS dbo.Races CASCADE;
 DROP TABLE IF EXISTS dbo.DailyCareTasks CASCADE;
@@ -125,28 +126,62 @@ CREATE TABLE dbo.DailyCareTasks (
     completed_at TIMESTAMP
 );
 
--- 9. BẢNG GIẢI ĐUA & THÀNH TÍCH (Races & Results)
+-- 9. BẢNG GIẢI ĐUA (Races - Hỗ trợ cả Mô hình A: Giải ngoài & Mô hình B: Nền tảng tổ chức)
 CREATE TABLE dbo.Races (
     race_id SERIAL PRIMARY KEY,
     race_name VARCHAR(150) NOT NULL,
+    tournament_type VARCHAR(20) NOT NULL DEFAULT 'INTERNAL', -- 'INTERNAL' (Mô hình B: Admin tổ chức), 'EXTERNAL' (Mô hình A: Bên ngoài tổ chức)
+    organizer_name VARCHAR(150) NOT NULL DEFAULT 'Ban Quản Trị Mã Trường', -- Tên đơn vị tổ chức
     location VARCHAR(150) DEFAULT 'Trường đua Đại Nam',
-    race_date TIMESTAMP NOT NULL,
-    distance_m INT NOT NULL,
-    total_prize_vnd DECIMAL(15,2),
-    registration_deadline TIMESTAMP,
-    status VARCHAR(20) DEFAULT 'OPEN'         -- OPEN, CLOSED, FINISHED
+    surface_type VARCHAR(30) DEFAULT 'TURF',                  -- TURF (cỏ), DIRT (cát nén), SAND (cát)
+    distance_m INT NOT NULL,                                  -- Cự ly đua (mét)
+    race_date TIMESTAMP NOT NULL,                             -- Ngày diễn ra thi đấu
+    reg_open_date TIMESTAMP,                                  -- Thời điểm mở đăng ký
+    reg_close_date TIMESTAMP,                                 -- Thời điểm đóng đăng ký (deadline)
+    entry_fee_vnd DECIMAL(15,2) DEFAULT 0,                    -- Lệ phí đăng ký thi đấu
+    total_prize_vnd DECIMAL(15,2) DEFAULT 0,                  -- Tổng quỹ tiền thưởng giải đấu
+    commission_rate DECIMAL(5,2) DEFAULT 0.05,                -- Tỷ lệ hoa hồng nền tảng (0.05 = 5%, 0.08 = 8%, Giải ngoài = 0.00)
+    terms_and_rules TEXT,                                     -- Thể lệ thi đấu & cam kết hoa hồng
+    is_active_on_platform BOOLEAN DEFAULT TRUE,               -- Admin kiểm duyệt và cho phép hiển thị
+    status VARCHAR(20) DEFAULT 'OPEN',                        -- UPCOMING, OPEN, CLOSED, IN_PROGRESS, FINISHED
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 10. BẢNG ĐĂNG KÝ THAM GIA ĐUA (Race Entries)
+-- 10. BẢNG ĐĂNG KÝ THAM GIA ĐUA & QUYẾT TOÁN GIẢI THƯỞNG (Race Entries & Prize Settlements)
 CREATE TABLE dbo.RaceEntries (
     entry_id SERIAL PRIMARY KEY,
     race_id INT NOT NULL REFERENCES dbo.Races(race_id),
     horse_id INT NOT NULL REFERENCES dbo.Horses(horse_id),
+    owner_id INT NOT NULL REFERENCES dbo.Users(user_id),
     jockey_name VARCHAR(100),
     bib_number INT,
-    final_rank INT NULL,
-    prize_awarded_vnd DECIMAL(15,2) DEFAULT 0,
-    vet_cleared BOOLEAN DEFAULT FALSE         -- Xác nhận đủ điều kiện từ thú y
+    status VARCHAR(20) DEFAULT 'PENDING',                     -- PENDING (Chờ duyệt), APPROVED (Đã duyệt), REJECTED (Từ chối), CONFIRMED (Đã thanh toán lệ phí & sẵn sàng thi đấu)
+    rejection_reason VARCHAR(255),                            -- Lý do Admin từ chối phê duyệt đơn
+    payment_status VARCHAR(20) DEFAULT 'UNPAID',              -- UNPAID (Chưa đóng lệ phí), PAID (Đã đóng), EXEMPT (Miễn phí)
+    final_rank INT NULL,                                      -- Thứ hạng chung cuộc (1 = Vô địch, 2 = Á quân...)
+    -- 4 TRƯỜNG TÀI CHÍNH AN TOÀN LƯU RIÊNG THEO QUY TẮC NGHIỆP VỤ:
+    gross_prize_vnd DECIMAL(15,2) DEFAULT 0,                  -- 1. Tiền thưởng trước khấu trừ (Tổng giải thưởng đạt được)
+    commission_rate DECIMAL(5,2) DEFAULT 0.00,                -- 2. Tỷ lệ hoa hồng nền tảng (0.05 = 5%, 0.08 = 8%, Giải ngoài = 0.00)
+    commission_amount_vnd DECIMAL(15,2) DEFAULT 0,            -- 3. Số tiền hoa hồng nền tảng nhận (= gross_prize * commission_rate)
+    net_payout_vnd DECIMAL(15,2) DEFAULT 0,                   -- 4. Số tiền thực nhận của Chủ ngựa (= gross_prize - commission_amount)
+    owner_agreed_terms BOOLEAN DEFAULT FALSE,                 -- Chủ ngựa đã xác nhận đồng ý thể lệ & trích hoa hồng trước khi nộp đơn
+    is_external BOOLEAN DEFAULT FALSE,                        -- TRUE nếu là giải ngoài (Mô hình A)
+    vet_cleared BOOLEAN DEFAULT FALSE,                        -- Xác nhận đủ điều kiện thể lực từ Thú y
+    external_notes TEXT,                                      -- Ghi chú bổ sung / Minh chứng giải ngoài
+    registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    settled_at TIMESTAMP NULL                                 -- Thời điểm quyết toán giải thưởng
+);
+
+-- 11. BẢNG NHẬT KÝ KIỂM TOÁN HỆ THỐNG (Audit Logs - Bắt buộc theo nguyên tắc nghiệp vụ)
+CREATE TABLE dbo.AuditLogs (
+    log_id SERIAL PRIMARY KEY,
+    user_id INT NULL REFERENCES dbo.Users(user_id),
+    action VARCHAR(50) NOT NULL,                              -- CREATE_TOURNAMENT, APPROVE_ENTRY, REJECT_ENTRY, SETTLE_PRIZE, UPDATE_COMMISSION
+    entity_type VARCHAR(30) NOT NULL,                         -- RACES, RACE_ENTRIES, FINANCIAL_SETTLEMENT
+    entity_id VARCHAR(50) NOT NULL,
+    details TEXT,                                             -- Nội dung chi tiết thay đổi (JSON hoặc Text)
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =========================================================================
@@ -192,6 +227,128 @@ INSERT INTO dbo.Horses (microchip_id, name, breed, gender, dob, weight_kg, sire_
 ('MC-VN-2023-009', 'Phi Yến', 'Thoroughbred', 'MARE', '2023-01-10', 460.0, 'Bão Táp', 'Yến Nhi', 4, 5, 'INJURED', TRUE),
 ('MC-VN-2022-088', 'Lôi Chấn', 'Quarter Horse', 'STALLION', '2022-08-04', 525.0, 'Sấm Sét', 'Ngân Hà', 4, 8, 'QUARANTINE', TRUE);
 
--- Chèn Giải đua
-INSERT INTO dbo.Races (race_name, location, race_date, distance_m, total_prize_vnd, registration_deadline) VALUES
-('Vòng loại Giải Vô địch Đại Nam 2026', 'Trường đua Đại Nam, Bình Dương', CURRENT_TIMESTAMP + INTERVAL '12 days', 1600, 500000000, CURRENT_TIMESTAMP + INTERVAL '5 days');
+-- =========================================================================
+-- CHÈN DỮ LIỆU GIẢI ĐẤU (2 MÔ HÌNH: MÔ HÌNH A & MÔ HÌNH B)
+-- =========================================================================
+
+-- 1. GIẢI NỘI BỘ NỀN TẢNG (MÔ HÌNH B - ÁP DỤNG HOA HỒNG 5% HOẶC 8%)
+INSERT INTO dbo.Races (
+    race_name, tournament_type, organizer_name, location, surface_type,
+    distance_m, race_date, reg_open_date, reg_close_date,
+    entry_fee_vnd, total_prize_vnd, commission_rate, terms_and_rules, status
+) VALUES
+(
+    'Cúp Derby Mùa Thu 2026 (Group 1)',
+    'INTERNAL',
+    'Ban Quản Trị Mã Trường Phú Thọ',
+    'Trường đua Quốc tế Phú Thọ (TP.HCM)',
+    'TURF',
+    2400,
+    CURRENT_TIMESTAMP + INTERVAL '14 days',
+    CURRENT_TIMESTAMP - INTERVAL '5 days',
+    CURRENT_TIMESTAMP + INTERVAL '7 days',
+    10000000,
+    1500000000,
+    0.05, -- Hoa hồng 5%
+    'Giải đấu nội bộ chính thức. Nền tảng áp dụng trích 5% hoa hồng trên tổng tiền thưởng thực tế của Chủ ngựa để phục vụ công tác tổ chức, bảo hiểm thi đấu và duy tu đường đua.',
+    'OPEN'
+),
+(
+    'Cúp Nước Rút Tốc Độ Sprint Cup 2026 (Group 2)',
+    'INTERNAL',
+    'Ban Quản Trị Mã Trường Phú Thọ',
+    'Trường đua Cát Thể Thao Đại Nam',
+    'DIRT',
+    1200,
+    CURRENT_TIMESTAMP + INTERVAL '25 days',
+    CURRENT_TIMESTAMP - INTERVAL '2 days',
+    CURRENT_TIMESTAMP + INTERVAL '15 days',
+    5000000,
+    800000000,
+    0.08, -- Hoa hồng 8%
+    'Giải đấu bứt tốc nước rút. Nền tảng áp dụng trích 8% hoa hồng trên giải thưởng nhận được để chi trả đội ngũ giám sát viễn trắc camera hồng ngoại và hội đồng trọng tài quốc tế.',
+    'OPEN'
+);
+
+-- 2. GIẢI ĐẤU BÊN NGOÀI (MÔ HÌNH A - OWNER TỰ ĐĂNG KÝ, HOA HỒNG 0%)
+INSERT INTO dbo.Races (
+    race_name, tournament_type, organizer_name, location, surface_type,
+    distance_m, race_date, reg_open_date, reg_close_date,
+    entry_fee_vnd, total_prize_vnd, commission_rate, terms_and_rules, status
+) VALUES
+(
+    'Giải Đua Ngựa Truyền Thống Bắc Hà 2026',
+    'EXTERNAL',
+    'Sở Văn Hóa Thể Thao & Du Lịch Lào Cai',
+    'Sân Vận Động Huyện Bắc Hà, Lào Cai',
+    'SAND',
+    1600,
+    CURRENT_TIMESTAMP + INTERVAL '30 days',
+    CURRENT_TIMESTAMP - INTERVAL '10 days',
+    CURRENT_TIMESTAMP + INTERVAL '12 days',
+    2000000,
+    300000000,
+    0.00, -- Hoa hồng 0%
+    'Giải đấu ngoài do đơn vị thứ ba tổ chức. Chủ ngựa tự do liên hệ, nộp lệ phí trực tiếp cho BTC. Hệ thống KHÔNG thu bất kỳ khoản hoa hồng giải thưởng nào (0%).',
+    'OPEN'
+),
+(
+    'Cúp Quốc Tế Bangkok Turf Club Open 2026',
+    'EXTERNAL',
+    'Royal Bangkok Sports Club (Thái Lan)',
+    'Trường đua Bangkok RBSC, Thái Lan',
+    'TURF',
+    2000,
+    CURRENT_TIMESTAMP + INTERVAL '45 days',
+    CURRENT_TIMESTAMP - INTERVAL '15 days',
+    CURRENT_TIMESTAMP + INTERVAL '20 days',
+    15000000,
+    1200000000,
+    0.00, -- Hoa hồng 0%
+    'Giải đấu quốc tế ngoài. Chủ ngựa tự túc thủ tục xuất cảnh, kiểm dịch thú y và thanh toán trực tiếp cho BTC giải đấu tại Bangkok.',
+    'OPEN'
+);
+
+-- =========================================================================
+-- CHÈN LỊCH SỬ THI ĐẤU & QUYẾT TOÁN MẪU MINH CHỨNG CẢ 2 MÔ HÌNH
+-- =========================================================================
+
+-- Mẫu 1 (Mô hình B - Hoa hồng 5% theo đúng ví dụ nghiệp vụ):
+-- Xích Thố đạt Hạng Nhất Giải Derby: Gross = 500.000.000đ -> Hoa hồng 5% = 25.000.000đ -> Owner nhận = 475.000.000đ
+INSERT INTO dbo.RaceEntries (
+    race_id, horse_id, owner_id, jockey_name, bib_number, status, payment_status,
+    final_rank, gross_prize_vnd, commission_rate, commission_amount_vnd, net_payout_vnd,
+    owner_agreed_terms, is_external, vet_cleared, settled_at
+) VALUES (
+    1, 2, 4, 'Nguyễn Văn Hùng (Nài chính)', 7, 'CONFIRMED', 'PAID',
+    1, 500000000, 0.05, 25000000, 475000000,
+    TRUE, FALSE, TRUE, CURRENT_TIMESTAMP - INTERVAL '3 days'
+);
+
+-- Mẫu 2 (Mô hình B - Hoa hồng 8% theo đúng ví dụ nghiệp vụ):
+-- Hắc Phong đạt Hạng Nhì Giải Sprint: Gross = 500.000.000đ -> Hoa hồng 8% = 40.000.000đ -> Owner nhận = 460.000.000đ
+INSERT INTO dbo.RaceEntries (
+    race_id, horse_id, owner_id, jockey_name, bib_number, status, payment_status,
+    final_rank, gross_prize_vnd, commission_rate, commission_amount_vnd, net_payout_vnd,
+    owner_agreed_terms, is_external, vet_cleared, settled_at
+) VALUES (
+    2, 1, 4, 'Trần Quốc Bảo (Nài tốc độ)', 3, 'CONFIRMED', 'PAID',
+    2, 500000000, 0.08, 40000000, 460000000,
+    TRUE, FALSE, TRUE, CURRENT_TIMESTAMP - INTERVAL '1 days'
+);
+
+-- Mẫu 3 (Mô hình A - Giải ngoài độc lập):
+-- Xích Thố tham gia Giải Bắc Hà: Gross = 150.000.000đ -> Hoa hồng 0% = 0đ -> Owner nhận trọn vẹn = 150.000.000đ
+INSERT INTO dbo.RaceEntries (
+    race_id, horse_id, owner_id, jockey_name, bib_number, status, payment_status,
+    final_rank, gross_prize_vnd, commission_rate, commission_amount_vnd, net_payout_vnd,
+    owner_agreed_terms, is_external, vet_cleared, external_notes, settled_at
+) VALUES (
+    3, 2, 4, 'Vàng A Lử (Nài địa phương)', 12, 'CONFIRMED', 'EXEMPT',
+    1, 150000000, 0.00, 0, 150000000,
+    TRUE, TRUE, TRUE, 'Owner tự đăng ký trực tiếp và nhận tiền mặt tại văn phòng BTC Bắc Hà.', CURRENT_TIMESTAMP - INTERVAL '10 days'
+);
+
+-- Chèn nhật ký kiểm toán khởi tạo
+INSERT INTO dbo.AuditLogs (user_id, action, entity_type, entity_id, details) VALUES
+(1, 'SYSTEM_INIT', 'RACES', 'ALL', 'Khởi tạo schema 2 mô hình giải đấu song song (Mô hình A: External, Mô hình B: Internal hoa hồng 5%-8%).');
