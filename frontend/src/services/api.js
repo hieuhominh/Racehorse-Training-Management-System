@@ -2301,13 +2301,10 @@ export async function getOwnerTelemetryApi(ownerKey) {
 const SYSTEM_TOURNAMENTS_KEY = 'matruong_system_tournaments';
 
 // Helper tính toán trạng thái thời gian giải đấu theo quy tắc nghiệp vụ:
-// 1. Tất cả các giải đóng đăng ký trước 1 tuần (7 ngày) trước khi giải đấu bắt đầu.
-// 2. Những giải chưa tới ngày thi đấu sẽ chưa cho Chủ sở hữu vào để thi đấu / ghi nhận thành tích (cả giải nội bộ và ngoài).
-// 3. Khi bắt đầu giải đấu và cho tới lúc hoàn thành hoặc top chung cuộc:
-//    - Giải ngoài: Chủ sở hữu tự do cập nhật thành tích để nhận thưởng (0% hoa hồng).
-//    - Giải nội bộ: Chủ sở hữu không có quyền cập nhật; Admin cập nhật và tự trừ hoa hồng (5% hoặc 8%), chuyển tiền thực nhận sang tài khoản Chủ sở hữu.
-export function getTournamentTimeStatus(dateStr) {
-  if (!dateStr) {
+// - Giải nội bộ (INTERNAL): Bỏ quy tắc mở 1 tháng và đóng 1 tuần. Hoàn toàn tuân theo cấu hình thời gian thực tế của Admin.
+// - Giải ngoài (EXTERNAL): Giữ quy tắc thời gian đối tác bên ngoài nếu có.
+export function getTournamentTimeStatus(dateInput, customDeadlineInput = null, tournamentObj = null) {
+  if (!dateInput) {
     return {
       raceDate: null,
       regCloseDate: null,
@@ -2323,31 +2320,122 @@ export function getTournamentTimeStatus(dateStr) {
     };
   }
 
-  let raceDate = null;
-  const str = String(dateStr).trim();
-  if (str.includes('/')) {
-    const parts = str.split('/');
-    if (parts.length === 3) {
-      raceDate = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10), 0, 0, 0);
+  let raceDateStr = '';
+  let customDeadlineStr = '';
+  let isInternal = false;
+
+  if (typeof dateInput === 'object' && dateInput !== null) {
+    raceDateStr = dateInput.date || '';
+    customDeadlineStr = dateInput.regCloseDate || dateInput.entryDeadline || '';
+    isInternal = dateInput.tournamentType === 'INTERNAL' || dateInput.isInternal === true;
+  } else {
+    raceDateStr = String(dateInput).trim();
+    if (typeof customDeadlineInput === 'object' && customDeadlineInput !== null) {
+      customDeadlineStr = customDeadlineInput.regCloseDate || customDeadlineInput.entryDeadline || '';
+      isInternal = customDeadlineInput.tournamentType === 'INTERNAL' || customDeadlineInput.isInternal === true;
+    } else if (typeof customDeadlineInput === 'string') {
+      customDeadlineStr = customDeadlineInput.trim();
     }
-  } else if (str.includes('-')) {
-    const parts = str.split('-');
-    if (parts.length === 3) {
-      if (parts[0].length === 4) {
-        raceDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 0, 0, 0);
-      } else {
-        raceDate = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10), 0, 0, 0);
+    if (tournamentObj && typeof tournamentObj === 'object') {
+      isInternal = tournamentObj.tournamentType === 'INTERNAL' || tournamentObj.isInternal === true;
+      if (!customDeadlineStr) {
+        customDeadlineStr = tournamentObj.regCloseDate || tournamentObj.entryDeadline || '';
       }
     }
   }
 
-  if (!raceDate || isNaN(raceDate.getTime())) {
-    raceDate = new Date(str);
-    raceDate.setHours(0, 0, 0, 0);
-  }
+  const parseDateHelper = (str) => {
+    if (!str) return null;
+    const s = String(str).trim();
+    let d = null;
+    if (s.includes('/')) {
+      const parts = s.split('/');
+      if (parts.length === 3) {
+        d = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10), 0, 0, 0);
+      }
+    } else if (s.includes('-')) {
+      const parts = s.split('-');
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 0, 0, 0);
+        } else {
+          d = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10), 0, 0, 0);
+        }
+      }
+    }
+    if (!d || isNaN(d.getTime())) {
+      d = new Date(s);
+    }
+    if (d && !isNaN(d.getTime())) {
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    return null;
+  };
 
+  const raceDate = parseDateHelper(raceDateStr);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+
+  // ĐỐI VỚI GIẢI ĐẤU NỘI BỘ (INTERNAL):
+  // Hoàn toàn tuân theo cấu hình Admin, bỏ mở 1 tháng và bỏ đóng trước 1 tuần
+  if (isInternal) {
+    let regCloseDate = null;
+    if (customDeadlineStr) {
+      regCloseDate = parseDateHelper(customDeadlineStr);
+    }
+    if (!regCloseDate && raceDate) {
+      regCloseDate = new Date(raceDate);
+    }
+    if (regCloseDate) {
+      regCloseDate.setHours(23, 59, 59, 999);
+    }
+
+    const isRegNotOpenYet = false; // Luôn mở cổng đăng ký
+    const isRegClosed = regCloseDate ? (now.getTime() > regCloseDate.getTime()) : false;
+    const isRaceStarted = raceDate ? (today.getTime() >= raceDate.getTime()) : false;
+    const isUpcoming = raceDate ? (today.getTime() < raceDate.getTime()) : true;
+    const isRegOpen = !isRegClosed && !isRaceStarted;
+
+    const regDeadlineFormatted = regCloseDate
+      ? `${regCloseDate.getDate().toString().padStart(2, '0')}/${(regCloseDate.getMonth() + 1).toString().padStart(2, '0')}/${regCloseDate.getFullYear()}`
+      : (customDeadlineStr || raceDateStr);
+
+    const raceDateFormatted = raceDate
+      ? `${raceDate.getDate().toString().padStart(2, '0')}/${(raceDate.getMonth() + 1).toString().padStart(2, '0')}/${raceDate.getFullYear()}`
+      : raceDateStr;
+
+    return {
+      raceDate,
+      regCloseDate,
+      regOpenDate: null,
+      isRegNotOpenYet,
+      isRegClosed,
+      isRegOpen,
+      isRaceStarted,
+      isUpcoming,
+      regDeadlineFormatted,
+      regOpenDeadlineFormatted: '',
+      raceDateFormatted
+    };
+  }
+
+  // ĐỐI VỚI GIẢI ĐẤU NGOÀI (EXTERNAL)
+  if (!raceDate) {
+    return {
+      raceDate: null,
+      regCloseDate: null,
+      regOpenDate: null,
+      isRegNotOpenYet: false,
+      isRegClosed: false,
+      isRegOpen: true,
+      isRaceStarted: false,
+      isUpcoming: true,
+      regDeadlineFormatted: '',
+      regOpenDeadlineFormatted: '',
+      raceDateFormatted: ''
+    };
+  }
 
   // Đóng đăng ký trước 1 tuần (7 ngày) tính từ ngày thi đấu
   const regCloseDate = new Date(raceDate.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -2358,17 +2446,9 @@ export function getTournamentTimeStatus(dateStr) {
   regOpenDate.setMonth(regOpenDate.getMonth() - 1);
   regOpenDate.setHours(0, 0, 0, 0);
 
-  // Trạng thái cửa sổ đăng ký:
-  // 1. Chưa tới ngày mở đăng ký: now < regOpenDate
   const isRegNotOpenYet = today.getTime() < new Date(regOpenDate.getFullYear(), regOpenDate.getMonth(), regOpenDate.getDate()).getTime();
-
-  // 2. Đã đóng đăng ký: now > regCloseDate
   const isRegClosed = now.getTime() > regCloseDate.getTime();
-
-  // 3. Đang trong thời gian mở đăng ký:
   const isRegOpen = !isRegNotOpenYet && !isRegClosed;
-
-  // 4. Ngày thi đấu đã bắt đầu / hoàn thành:
   const isRaceStarted = today.getTime() >= raceDate.getTime();
   const isUpcoming = today.getTime() < raceDate.getTime();
 
@@ -2402,9 +2482,9 @@ const DEFAULT_TOURNAMENTS_SEED = [
     surface: 'Sân cỏ Tự nhiên (Turf)',
     distance: '2.400m',
     date: '15/11/2026',
-    entryDeadline: '08/11/2026',
+    entryDeadline: '15/11/2026',
     regOpenDate: '01/10/2026',
-    regCloseDate: '08/11/2026',
+    regCloseDate: '15/11/2026',
     totalPurse: 1500000000,
     entryFee: 10000000,
     commissionRate: 0.05, // HOA HỒNG 5%
@@ -2422,9 +2502,9 @@ const DEFAULT_TOURNAMENTS_SEED = [
     surface: 'Sân cát Nén (Dirt)',
     distance: '1.200m',
     date: '28/11/2026',
-    entryDeadline: '21/11/2026',
+    entryDeadline: '28/11/2026',
     regOpenDate: '05/10/2026',
-    regCloseDate: '21/11/2026',
+    regCloseDate: '28/11/2026',
     totalPurse: 800000000,
     entryFee: 5000000,
     commissionRate: 0.08, // HOA HỒNG 8%
@@ -2513,12 +2593,22 @@ export async function getOpenTournamentsApi(typeFilter = 'ALL') {
   }
 
   const stored = getLocalData(SYSTEM_TOURNAMENTS_KEY, DEFAULT_TOURNAMENTS_SEED);
-  const cleanStored = Array.isArray(stored) ? stored.filter(t => t && t.id !== 'TOURN-2026-03' && !t.name?.includes('Chiến Mã Trẻ')) : [];
+  let cleanStored = Array.isArray(stored) ? stored.filter(t => t && t.id !== 'TOURN-2026-03' && !t.name?.includes('Chiến Mã Trẻ')) : [];
+  // Đối với giải nội bộ, nếu còn lưu hạn chót 08/11/2026 cũ thì tự động đồng bộ theo ngày thi đấu để mở đăng ký bình thường
+  cleanStored = cleanStored.map(t => {
+    if (t && t.tournamentType === 'INTERNAL') {
+      if (t.id === 'TOURN-2026-01' && (t.regCloseDate === '08/11/2026' || t.entryDeadline === '08/11/2026')) {
+        return { ...t, regCloseDate: t.date || '15/11/2026', entryDeadline: t.date || '15/11/2026' };
+      }
+    }
+    return t;
+  });
   if (!typeFilter || typeFilter === 'ALL') return cleanStored;
   return cleanStored.filter(t => t.tournamentType === typeFilter);
 }
 
 export async function createTournamentApi(tournData) {
+  let created = null;
   try {
     const res = await fetch('/api/races', {
       method: 'POST',
@@ -2526,21 +2616,29 @@ export async function createTournamentApi(tournData) {
       credentials: 'include',
       body: JSON.stringify(tournData)
     });
-    if (res.ok) return await res.json();
+    if (res.ok) created = await res.json();
   } catch {}
 
   const current = getLocalData(SYSTEM_TOURNAMENTS_KEY, DEFAULT_TOURNAMENTS_SEED);
-  const newTourn = {
+  const newTourn = created || {
     ...tournData,
     id: tournData.id || `TOURN-${Date.now().toString().slice(-6)}`,
     isActiveOnPlatform: true,
     status: 'OPEN'
   };
-  setLocalData(SYSTEM_TOURNAMENTS_KEY, [newTourn, ...current]);
+  setLocalData(SYSTEM_TOURNAMENTS_KEY, [newTourn, ...current.filter(t => t.id !== newTourn.id)]);
+
+  // Phát tín hiệu đồng bộ thời gian thực cho Owner và Admin
+  try {
+    window.dispatchEvent(new CustomEvent('matruong_tournament_updated', { detail: newTourn }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
   return newTourn;
 }
 
 export async function updateTournamentApi(tournId, updates) {
+  let updatedObj = null;
   try {
     const res = await fetch(`/api/races/${tournId}`, {
       method: 'PUT',
@@ -2548,13 +2646,29 @@ export async function updateTournamentApi(tournId, updates) {
       credentials: 'include',
       body: JSON.stringify(updates)
     });
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      updatedObj = await res.json();
+    }
   } catch {}
 
   const current = getLocalData(SYSTEM_TOURNAMENTS_KEY, DEFAULT_TOURNAMENTS_SEED);
-  const updated = current.map(t => t.id === tournId ? { ...t, ...updates } : t);
+  const updated = current.map(t => {
+    if (String(t.id) === String(tournId)) {
+      const merged = { ...t, ...updates, ...(updatedObj || {}) };
+      updatedObj = merged;
+      return merged;
+    }
+    return t;
+  });
   setLocalData(SYSTEM_TOURNAMENTS_KEY, updated);
-  return true;
+
+  // Phát tín hiệu đồng bộ thời gian thực cho Owner và Admin
+  try {
+    window.dispatchEvent(new CustomEvent('matruong_tournament_updated', { detail: updatedObj || { id: tournId, ...updates } }));
+    window.dispatchEvent(new Event('storage'));
+  } catch {}
+
+  return updatedObj || true;
 }
 
 export async function getOwnerRacesApi(ownerKey) {

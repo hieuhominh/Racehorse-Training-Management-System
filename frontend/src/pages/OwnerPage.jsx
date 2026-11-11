@@ -1877,17 +1877,30 @@ export default function OwnerPage() {
     return 'Lê Trọng Nghĩa';
   };
 
-  // Danh sách giải đấu mở công khai (Đồng bộ qua API Server getOpenTournamentsApi)
+  // Danh sách giải đấu mở công khai (Đồng bộ qua API Server getOpenTournamentsApi & Real-time Broadcast)
   const [tournamentsList, setTournamentsList] = useState(OPEN_TOURNAMENTS);
 
-  useEffect(() => {
-    let isMounted = true;
+  const reloadTournamentsList = () => {
     getOpenTournamentsApi('ALL').then(tourns => {
-      if (isMounted && Array.isArray(tourns) && tourns.length > 0) {
+      if (Array.isArray(tourns) && tourns.length > 0) {
         setTournamentsList(tourns);
+        setSelectedTournamentToRegister(prev => {
+          if (!prev) return tourns[0];
+          const matched = tourns.find(t => t.id === prev.id);
+          return matched || prev;
+        });
       }
     }).catch(() => {});
-    return () => { isMounted = false; };
+  };
+
+  useEffect(() => {
+    reloadTournamentsList();
+    window.addEventListener('matruong_tournament_updated', reloadTournamentsList);
+    window.addEventListener('storage', reloadTournamentsList);
+    return () => {
+      window.removeEventListener('matruong_tournament_updated', reloadTournamentsList);
+      window.removeEventListener('storage', reloadTournamentsList);
+    };
   }, []);
 
   // Form State: Đăng ký giải đấu
@@ -1904,9 +1917,9 @@ export default function OwnerPage() {
   // Mở modal đăng ký giải đấu
   const handleOpenRaceRegister = (tournament) => {
     const t = tournament || tournamentsList.find(item => item.tournamentType === 'INTERNAL') || tournamentsList[0] || OPEN_TOURNAMENTS[0];
-    const timeStatus = getTournamentTimeStatus(t?.date);
+    const timeStatus = getTournamentTimeStatus(t);
     if (timeStatus.isRegClosed) {
-      showToast(`Giải đấu "${t.name}" đã đóng đăng ký tham gia vì chỉ còn dưới 7 ngày trước ngày khởi tranh (Hạn chót: ${timeStatus.regDeadlineFormatted})!`, 'ĐÃ ĐÓNG ĐĂNG KÝ', 'warning');
+      showToast(`Giải đấu "${t.name}" đã hết hạn đăng ký tham gia (Hạn chót: ${timeStatus.regDeadlineFormatted})!`, 'ĐÃ ĐÓNG ĐĂNG KÝ', 'warning');
       return;
     }
     const defaultHorse = myHorses.length > 0 ? myHorses[0] : null;
@@ -2347,13 +2360,13 @@ export default function OwnerPage() {
 
     const isDelegated = raceRegForm.selectionMode === 'DELEGATE_TRAINER';
     const selectedHorse = isDelegated ? null : (myHorses.find(h => String(h.id) === String(raceRegForm.horseId)) || myHorses[0]);
-    const tournament = OPEN_TOURNAMENTS.find(t => t.id === raceRegForm.tournamentId) || selectedTournamentToRegister || OPEN_TOURNAMENTS[0];
+    const tournament = (tournamentsList || OPEN_TOURNAMENTS).find(t => t.id === raceRegForm.tournamentId) || selectedTournamentToRegister || tournamentsList[0] || OPEN_TOURNAMENTS[0];
 
-    // Kiểm tra quy tắc thời hạn: Đóng đăng ký trước 1 tuần trước ngày thi đấu
-    const tournTimeStatus = getTournamentTimeStatus(tournament?.date);
+    // Kiểm tra quy tắc thời hạn đăng ký
+    const tournTimeStatus = getTournamentTimeStatus(tournament);
     if (tournTimeStatus.isRegClosed) {
       showToast(
-        `Giải đấu "${tournament.name}" đã đóng đăng ký tham gia vì chỉ còn dưới 7 ngày trước ngày khởi tranh (Hạn chót: ${tournTimeStatus.regDeadlineFormatted})!`,
+        `Giải đấu "${tournament.name}" đã hết hạn đăng ký tham gia (Hạn chót: ${tournTimeStatus.regDeadlineFormatted})!`,
         'ĐÃ ĐÓNG ĐĂNG KÝ',
         'error'
       );
@@ -7897,9 +7910,9 @@ export default function OwnerPage() {
                     Chọn giải đấu muốn tham gia
                   </label>
                   <select
-                    value={raceRegForm.tournamentId || (selectedTournamentToRegister?.id || OPEN_TOURNAMENTS[0].id)}
+                    value={raceRegForm.tournamentId || (selectedTournamentToRegister?.id || (tournamentsList[0] || OPEN_TOURNAMENTS[0]).id)}
                     onChange={(e) => {
-                      const found = OPEN_TOURNAMENTS.find(t => t.id === e.target.value);
+                      const found = (tournamentsList || OPEN_TOURNAMENTS).find(t => t.id === e.target.value);
                       setSelectedTournamentToRegister(found);
                       setRaceRegForm({ ...raceRegForm, tournamentId: e.target.value });
                     }}
@@ -7915,8 +7928,8 @@ export default function OwnerPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    {OPEN_TOURNAMENTS.filter(t => t.tournamentType === 'INTERNAL').map(t => {
-                      const tStatus = getTournamentTimeStatus(t.date);
+                    {(tournamentsList.length > 0 ? tournamentsList : OPEN_TOURNAMENTS).filter(t => t.tournamentType === 'INTERNAL').map(t => {
+                      const tStatus = getTournamentTimeStatus(t);
                       return (
                         <option key={t.id} value={t.id}>
                           {t.name} ({t.distance} - {formatVND(t.totalPurse)}) {tStatus.isRegClosed ? '[ĐÃ ĐÓNG ĐĂNG KÝ]' : '[ĐANG MỞ]'}
@@ -7925,8 +7938,8 @@ export default function OwnerPage() {
                     })}
                   </select>
                   {(() => {
-                    const selTourn = OPEN_TOURNAMENTS.find(t => t.id === raceRegForm.tournamentId) || selectedTournamentToRegister;
-                    const tStatus = getTournamentTimeStatus(selTourn?.date);
+                    const selTourn = (tournamentsList || OPEN_TOURNAMENTS).find(t => t.id === raceRegForm.tournamentId) || selectedTournamentToRegister;
+                    const tStatus = getTournamentTimeStatus(selTourn);
                     if (tStatus.isRegClosed) {
                       return (
                         <div style={{
@@ -7939,7 +7952,7 @@ export default function OwnerPage() {
                           fontSize: '11.5px',
                           lineHeight: 1.45
                         }}>
-                          <b>🔒 Đã đóng đăng ký tham gia:</b> Giải đấu này diễn ra ngày <b>{selTourn?.date}</b> và đã đóng cổng đăng ký từ ngày <b>{tStatus.regDeadlineFormatted}</b> (quy định đóng trước ngày thi đấu 1 tuần).
+                          <b>🔒 Đã đóng đăng ký tham gia:</b> Giải đấu này đã kết thúc thời gian đăng ký vào ngày <b>{tStatus.regDeadlineFormatted}</b> (Ngày thi đấu: <b>{selTourn?.date}</b>).
                         </div>
                       );
                     }
@@ -8013,21 +8026,28 @@ export default function OwnerPage() {
 
                 {raceRegForm.selectionMode === 'DELEGATE_TRAINER' ? (
                   <div style={{
-                    background: 'rgba(212, 175, 55, 0.08)',
-                    border: '1.5px dashed var(--brass)',
-                    borderRadius: '8px',
-                    padding: '12px 14px',
-                    marginBottom: '4px'
+                    background: 'rgba(212, 175, 55, 0.06)',
+                    border: '1px solid var(--brass)',
+                    borderRadius: '6px',
+                    padding: '9px 12px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--brass)', fontWeight: 700, fontSize: '13px' }}>
-                      <span>🎯</span> Chế độ ủy thác chuyên môn cho HLV chính
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '15px' }}>🎯</span>
+                      <div>
+                        <div style={{ color: 'var(--brass)', fontWeight: 700, fontSize: '12.5px' }}>
+                          Ủy thác HLV: <b>HLV {getOwnerMainTrainer()}</b>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '1px' }}>
+                          HLV chính sẽ thẩm định phong độ để chọn chiến mã & kỵ mã tối ưu nhất.
+                        </div>
+                      </div>
                     </div>
-                    <p style={{ fontSize: '12px', color: 'var(--paper-dim)', margin: '4px 0 8px', lineHeight: 1.45 }}>
-                      HLV chính sẽ dựa vào cự ly <b>{selectedTournamentToRegister?.distance || '2.400m'}</b>, mặt sân <b>{selectedTournamentToRegister?.track || 'Trường đua Phú Thọ'}</b> và viễn trắc nhịp tim/vận tốc tập luyện của tất cả <b>{myHorses.length} chiến mã</b> của bạn để chọn chiến mã tối ưu nhất.
-                    </p>
-                    <div style={{ fontSize: '11.5px', color: 'var(--paper)' }}>
-                      HLV chính nhận ủy thác: <b>HLV {getOwnerMainTrainer()}</b> (Chỉ HLV chính của bạn mới có thẩm quyền chỉ định)
-                    </div>
+                    <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 600, background: 'rgba(16, 185, 129, 0.1)', padding: '3px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                      {myHorses.length} chiến mã
+                    </span>
                   </div>
                 ) : (
                   <div>
@@ -8116,31 +8136,24 @@ export default function OwnerPage() {
                   </div>
                 </div>
 
-                {raceRegForm.selectionMode === 'DELEGATE_TRAINER' ? (() => {
+                {raceRegForm.selectionMode === 'DELEGATE_TRAINER' && (() => {
                   const selHorse = myHorses[0] || null;
                   const activeMainTrainer = selHorse ? getHorsePrimaryTrainer(selHorse) : getOwnerMainTrainer();
-                  const trainerOptionValue = `HLV chính (${activeMainTrainer}) chỉ định kỵ mã phù hợp nhất`;
 
                   return (
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block' }}>
-                          Chỉ định Kỵ mã (Jockey)
-                        </label>
-                        <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 600 }}>
-                          🛡️ HLV chính: <b>HLV {activeMainTrainer}</b>
-                        </span>
-                      </div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                        Kỵ mã điều khiển (Jockey)
+                      </label>
                       <div
                         style={{
                           width: '100%',
-                          padding: '9px 12px',
+                          padding: '8px 12px',
                           background: 'var(--bg-secondary)',
                           border: '1px solid var(--line)',
                           borderRadius: '6px',
                           color: 'var(--paper)',
-                          fontSize: '13px',
-                          fontWeight: 600,
+                          fontSize: '12.5px',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
@@ -8148,38 +8161,11 @@ export default function OwnerPage() {
                         }}
                       >
                         <span style={{ color: '#10B981', fontSize: '14px' }}>🛡️</span>
-                        <span>{trainerOptionValue}</span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                        * Quyền nhờ chỉ định kỵ mã thuộc về HLV chính (<b>HLV {activeMainTrainer}</b>) của chiến mã. Các HLV khác không có quyền can thiệp.
+                        <span>HLV chính ({activeMainTrainer}) chỉ định kỵ mã phù hợp nhất</span>
                       </div>
                     </div>
                   );
-                })() : (
-                  <div>
-                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                      Kỵ mã điều khiển (Nài ngựa)
-                    </label>
-                    <input
-                      type="text"
-                      value={raceRegForm.jockey?.includes('HLV') ? 'Chủ sở hữu tự bố trí kỵ mã' : (raceRegForm.jockey || 'Chủ sở hữu tự bố trí kỵ mã')}
-                      onChange={(e) => setRaceRegForm({ ...raceRegForm, jockey: e.target.value })}
-                      placeholder="Chủ sở hữu tự bố trí kỵ mã (hoặc nhập tên nài riêng)..."
-                      style={{
-                        width: '100%',
-                        padding: '8px 10px',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--line)',
-                        borderRadius: '6px',
-                        color: 'var(--paper)',
-                        fontSize: '13px'
-                      }}
-                    />
-                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                      * Chủ ngựa tự chọn kỵ mã hoặc tự bố trí nài riêng thi đấu độc lập, không thông qua Huấn luyện viên.
-                    </div>
-                  </div>
-                )}
+                })()}
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
@@ -8223,8 +8209,8 @@ export default function OwnerPage() {
                     const isDelegated = raceRegForm.selectionMode === 'DELEGATE_TRAINER';
                     const selHorse = isDelegated ? null : (myHorses.find(h => String(h.id) === String(raceRegForm.horseId)) || myHorses[0]);
                     const isLocked = !isDelegated && selHorse ? (checkHorseVetLockStatus(selHorse.microchip || selHorse.id || selHorse.name).isLocked || selHorse.isLockedByVet) : false;
-                    const selTourn = OPEN_TOURNAMENTS.find(t => t.id === raceRegForm.tournamentId) || selectedTournamentToRegister;
-                    const isRegClosed = getTournamentTimeStatus(selTourn?.date).isRegClosed;
+                    const selTourn = (tournamentsList || OPEN_TOURNAMENTS).find(t => t.id === raceRegForm.tournamentId) || selectedTournamentToRegister;
+                    const isRegClosed = getTournamentTimeStatus(selTourn).isRegClosed;
 
                     return (
                       <button

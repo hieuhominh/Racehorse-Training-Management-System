@@ -12,6 +12,42 @@ import {
 
 const formatVND = (num) => (Number(num) || 0).toLocaleString('vi-VN') + ' ₫';
 
+// Helper chuyển đổi định dạng ngày giữa DD/MM/YYYY và YYYY-MM-DD cho input date picker
+const parseDateToYMD = (dateStr) => {
+  if (!dateStr) return '';
+  if (dateStr.includes('-')) return dateStr;
+  const parts = dateStr.trim().split('/');
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    return `${year}-${month}-${day}`;
+  }
+  return '';
+};
+
+const formatYMDToDMY = (ymdStr) => {
+  if (!ymdStr) return '';
+  const parts = ymdStr.trim().split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return ymdStr;
+};
+
+// Tính ngày hạn chót đăng ký mặc định (trước ngày thi đấu 7 ngày)
+const calculateDefaultDeadline = (raceDateDMY) => {
+  const ymd = parseDateToYMD(raceDateDMY);
+  if (!ymd) return '';
+  const d = new Date(ymd);
+  if (isNaN(d.getTime())) return '';
+  d.setDate(d.getDate() - 7);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
   const [adminTournaments, setAdminTournaments] = useState([]);
   const [adminNominations, setAdminNominations] = useState([]);
@@ -36,6 +72,23 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
     rulesAndTerms: 'Giải đấu nội bộ chính thức. Nền tảng áp dụng trích hoa hồng trên tiền thưởng thực tế của Chủ ngựa.'
   });
 
+  // State chỉnh sửa giải đấu nội bộ
+  const [showEditTournModal, setShowEditTournModal] = useState(false);
+  const [editTournForm, setEditTournForm] = useState(null);
+
+  // State xem xét kết quả đua & quyết toán người chiến thắng chung cuộc theo giải
+  const [reviewTournModal, setReviewTournModal] = useState({
+    isOpen: false,
+    tournament: null
+  });
+
+  const handleOpenReviewRace = (tourn) => {
+    setReviewTournModal({
+      isOpen: true,
+      tournament: tourn
+    });
+  };
+
   const [rejectModalData, setRejectModalData] = useState({ isOpen: false, nomination: null, reason: '' });
   const [settleModalData, setSettleModalData] = useState({ isOpen: false, nomination: null, finalRank: 1, grossPrize: 500000000 });
 
@@ -48,9 +101,11 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
   useEffect(() => {
     loadData();
     window.addEventListener('matruong_nomination_updated', loadData);
+    window.addEventListener('matruong_tournament_updated', loadData);
     window.addEventListener('storage', loadData);
     return () => {
       window.removeEventListener('matruong_nomination_updated', loadData);
+      window.removeEventListener('matruong_tournament_updated', loadData);
       window.removeEventListener('storage', loadData);
     };
   }, []);
@@ -79,6 +134,51 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
     setAdminTournaments(prev => [created, ...prev.filter(t => t.id !== created.id)]);
     setShowCreateTournModal(false);
     if (showToast) showToast(`Đã tạo thành công giải: ${created.name}`, 'TẠO GIẢI THÀNH CÔNG', 'success');
+  };
+
+  // Handler mở modal chỉnh sửa giải đấu nội bộ
+  const handleOpenEditTournament = (tourn) => {
+    setEditTournForm({
+      id: tourn.id,
+      name: tourn.name || '',
+      tournamentType: tourn.tournamentType || 'INTERNAL',
+      organizerName: tourn.organizerName || 'Ban Quản Trị Mã Trường Phú Thọ',
+      track: tourn.track || 'Trường đua Quốc tế Phú Thọ',
+      surface: tourn.surface || 'Sân cỏ Tự nhiên (Turf)',
+      distance: tourn.distance || '1.600m',
+      date: tourn.date || '15/12/2026',
+      regCloseDate: tourn.regCloseDate || tourn.entryDeadline || '05/12/2026',
+      totalPurse: tourn.totalPurse || 500000000,
+      entryFee: tourn.entryFee || 5000000,
+      commissionRate: tourn.commissionRate ?? 0.05,
+      rulesAndTerms: tourn.rulesAndTerms || tourn.description || 'Giải đấu nội bộ chính thức.'
+    });
+    setShowEditTournModal(true);
+  };
+
+  // Handler lưu cập nhật giải đấu nội bộ
+  const handleUpdateTournament = async (e) => {
+    if (e) e.preventDefault();
+    if (!editTournForm || !editTournForm.id) return;
+    if (!editTournForm.name.trim()) {
+      if (showToast) showToast('Vui lòng nhập tên giải đấu.', 'THIẾU THÔNG TIN', 'warning');
+      return;
+    }
+
+    const updates = {
+      ...editTournForm,
+      totalPurse: Number(editTournForm.totalPurse) || 0,
+      entryFee: Number(editTournForm.entryFee) || 0,
+      commissionRate: Number(editTournForm.commissionRate) || 0.05,
+      entryDeadline: editTournForm.regCloseDate
+    };
+
+    await updateTournamentApi(editTournForm.id, updates);
+    setAdminTournaments(prev => prev.map(t => t.id === editTournForm.id ? { ...t, ...updates } : t));
+    setShowEditTournModal(false);
+    if (showToast) {
+      showToast(`Đã cập nhật thành công giải: "${updates.name}"! Giao diện Chủ sở hữu đã tự động đồng bộ.`, 'CẬP NHẬT THÀNH CÔNG', 'success');
+    }
   };
 
   // Handler duyệt đơn
@@ -296,11 +396,11 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
             <thead>
               <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                <th style={{ padding: '12px 16px', width: '32%', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Tên Giải Đấu & Địa Điểm</th>
-                <th style={{ padding: '12px 14px', width: '18%', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Thời Hạn Đăng Ký</th>
-                <th style={{ padding: '12px 14px', width: '18%', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Quỹ Thưởng & Lệ Phí</th>
-                <th style={{ padding: '12px 14px', width: '17%', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Tỷ Lệ Hoa Hồng</th>
-                <th style={{ padding: '12px 16px', width: '15%', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Trạng Thái</th>
+                <th style={{ padding: '12px 16px', width: '28%', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Tên Giải Đấu & Địa Điểm</th>
+                <th style={{ padding: '12px 14px', width: '17%', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Thời Hạn Đăng Ký</th>
+                <th style={{ padding: '12px 14px', width: '17%', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Quỹ Thưởng & Lệ Phí</th>
+                <th style={{ padding: '12px 14px', width: '15%', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Tỷ Lệ Hoa Hồng</th>
+                <th style={{ padding: '12px 16px', width: '23%', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>Trạng Thái & Thao Tác</th>
               </tr>
             </thead>
             <tbody>
@@ -338,19 +438,73 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                       Trích {((Number(tourn.commissionRate) || 0.05) * 100).toFixed(0)}% Thưởng
                     </span>
                   </td>
-                  <td style={{ padding: '12px 16px', textAlign: 'center', verticalAlign: 'middle' }}>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '3px 8px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      color: '#10B981',
-                      border: '1px solid rgba(16, 185, 129, 0.3)'
-                    }}>
-                      Đang Mở Đăng Ký
-                    </span>
+                  <td style={{ padding: '10px 14px', textAlign: 'center', verticalAlign: 'middle' }}>
+                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '170px',
+                        height: '24px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        background: 'rgba(16, 185, 129, 0.12)',
+                        color: '#10B981',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        boxSizing: 'border-box'
+                      }}>
+                        Đang Mở Đăng Ký
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReviewRace(tourn)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '82px',
+                            height: '25px',
+                            borderRadius: '4px',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            border: '1px solid #10B981',
+                            color: '#10B981',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxSizing: 'border-box',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Xem xét danh sách chiến mã đã đăng ký & Quyết toán cho người chiến thắng chung cuộc"
+                        >
+                          Quyết Toán
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditTournament(tourn)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '82px',
+                            height: '25px',
+                            borderRadius: '4px',
+                            background: 'rgba(212, 175, 55, 0.1)',
+                            border: '1px solid var(--brass)',
+                            color: 'var(--brass)',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxSizing: 'border-box',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Chỉnh sửa thông tin giải đấu nội bộ"
+                        >
+                          Cập Nhật
+                        </button>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -921,25 +1075,99 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
                     Ngày Diễn Ra
                   </label>
-                  <input
-                    type="text"
-                    value={newTournForm.date}
-                    onChange={(e) => setNewTournForm({ ...newTournForm, date: e.target.value })}
-                    placeholder="15/12/2026"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
-                  />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={newTournForm.date}
+                      onChange={(e) => setNewTournForm({ ...newTournForm, date: e.target.value })}
+                      placeholder="DD/MM/YYYY"
+                      style={{ width: '100%', padding: '9px 34px 9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                    <input
+                      type="date"
+                      value={parseDateToYMD(newTournForm.date)}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const dmy = formatYMDToDMY(e.target.value);
+                          setNewTournForm(prev => ({
+                            ...prev,
+                            date: dmy,
+                            regCloseDate: prev.regCloseDate || dmy
+                          }));
+                        }
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '4px',
+                        width: '28px',
+                        height: '28px',
+                        opacity: 0,
+                        cursor: 'pointer',
+                        zIndex: 2
+                      }}
+                      title="Bấm để chọn ngày từ lịch"
+                    />
+                    <span
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        pointerEvents: 'none',
+                        fontSize: '14px',
+                        zIndex: 1,
+                        opacity: 0.85
+                      }}
+                    >
+                      📅
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
                     Hạn Chót Đăng Ký
                   </label>
-                  <input
-                    type="text"
-                    value={newTournForm.regCloseDate}
-                    onChange={(e) => setNewTournForm({ ...newTournForm, regCloseDate: e.target.value })}
-                    placeholder="05/12/2026"
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
-                  />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={newTournForm.regCloseDate}
+                      onChange={(e) => setNewTournForm({ ...newTournForm, regCloseDate: e.target.value })}
+                      placeholder="DD/MM/YYYY"
+                      style={{ width: '100%', padding: '9px 34px 9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                    <input
+                      type="date"
+                      value={parseDateToYMD(newTournForm.regCloseDate)}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setNewTournForm(prev => ({
+                            ...prev,
+                            regCloseDate: formatYMDToDMY(e.target.value)
+                          }));
+                        }
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '4px',
+                        width: '28px',
+                        height: '28px',
+                        opacity: 0,
+                        cursor: 'pointer',
+                        zIndex: 2
+                      }}
+                      title="Bấm để chọn ngày từ lịch"
+                    />
+                    <span
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        pointerEvents: 'none',
+                        fontSize: '14px',
+                        zIndex: 1,
+                        opacity: 0.85
+                      }}
+                    >
+                      📅
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1025,6 +1253,293 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                   style={{ padding: '8px 20px', borderRadius: '6px', background: 'var(--brass)', color: '#0A0D14', fontWeight: 800, border: 'none', cursor: 'pointer' }}
                 >
                   Tạo Giải Đấu
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== MODAL 1B: CHỈNH SỬA / CẬP NHẬT GIẢI ĐẤU NỘI BỘ ===================== */}
+      {showEditTournModal && editTournForm && (
+        <div
+          onClick={() => setShowEditTournModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 9999999
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--line)',
+              borderRadius: '14px',
+              width: '100%',
+              maxWidth: '600px',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '17px', color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>✏️</span> Cập Nhật Giải Đấu Nội Bộ Nền Tảng
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowEditTournModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateTournament}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                  Tên Giải Đấu *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTournForm.name}
+                  onChange={(e) => setEditTournForm({ ...editTournForm, name: e.target.value })}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                    Địa Điểm & Trường Đua
+                  </label>
+                  <input
+                    type="text"
+                    value={editTournForm.track}
+                    onChange={(e) => setEditTournForm({ ...editTournForm, track: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                    Mặt Sân Thi Đấu
+                  </label>
+                  <select
+                    value={editTournForm.surface}
+                    onChange={(e) => setEditTournForm({ ...editTournForm, surface: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                  >
+                    <option value="Sân cỏ Tự nhiên (Turf)">Sân cỏ Tự nhiên (Turf)</option>
+                    <option value="Sân cát Nén (Dirt)">Sân cát Nén (Dirt)</option>
+                    <option value="Sân cát Tự nhiên (Sand)">Sân cát Tự nhiên (Sand)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                    Cự Ly Đua
+                  </label>
+                  <input
+                    type="text"
+                    value={editTournForm.distance}
+                    onChange={(e) => setEditTournForm({ ...editTournForm, distance: e.target.value })}
+                    placeholder="2.400m"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                    Ngày Diễn Ra
+                  </label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={editTournForm.date}
+                      onChange={(e) => setEditTournForm({ ...editTournForm, date: e.target.value })}
+                      placeholder="DD/MM/YYYY"
+                      style={{ width: '100%', padding: '9px 34px 9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                    <input
+                      type="date"
+                      value={parseDateToYMD(editTournForm.date)}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const dmy = formatYMDToDMY(e.target.value);
+                          setEditTournForm(prev => ({
+                            ...prev,
+                            date: dmy,
+                            regCloseDate: prev.regCloseDate || dmy
+                          }));
+                        }
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '4px',
+                        width: '28px',
+                        height: '28px',
+                        opacity: 0,
+                        cursor: 'pointer',
+                        zIndex: 2
+                      }}
+                      title="Bấm để chọn ngày từ lịch"
+                    />
+                    <span
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        pointerEvents: 'none',
+                        fontSize: '14px',
+                        zIndex: 1,
+                        opacity: 0.85
+                      }}
+                    >
+                      📅
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                    Hạn Chót Đăng Ký
+                  </label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={editTournForm.regCloseDate}
+                      onChange={(e) => setEditTournForm({ ...editTournForm, regCloseDate: e.target.value })}
+                      placeholder="DD/MM/YYYY"
+                      style={{ width: '100%', padding: '9px 34px 9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                    <input
+                      type="date"
+                      value={parseDateToYMD(editTournForm.regCloseDate)}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setEditTournForm(prev => ({
+                            ...prev,
+                            regCloseDate: formatYMDToDMY(e.target.value)
+                          }));
+                        }
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '4px',
+                        width: '28px',
+                        height: '28px',
+                        opacity: 0,
+                        cursor: 'pointer',
+                        zIndex: 2
+                      }}
+                      title="Bấm để chọn ngày từ lịch"
+                    />
+                    <span
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        pointerEvents: 'none',
+                        fontSize: '14px',
+                        zIndex: 1,
+                        opacity: 0.85
+                      }}
+                    >
+                      📅
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                    Tổng Quỹ Tiền Thưởng (VND)
+                  </label>
+                  <input
+                    type="number"
+                    value={editTournForm.totalPurse}
+                    onChange={(e) => setEditTournForm({ ...editTournForm, totalPurse: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                    Lệ Phí Tham Gia (VND)
+                  </label>
+                  <input
+                    type="number"
+                    value={editTournForm.entryFee}
+                    onChange={(e) => setEditTournForm({ ...editTournForm, entryFee: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '13px', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              {/* CẤU HÌNH TỶ LỆ HOA HỒNG (5% HOẶC 8%) */}
+              <div style={{ background: 'rgba(212, 175, 55, 0.08)', border: '1px solid var(--brass)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--brass)', marginBottom: '6px' }}>
+                  ⚙️ CẤU HÌNH TỶ LỆ HOA HỒNG NỀN TẢNG (5% – 8%)
+                </label>
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--paper)' }}>
+                    <input
+                      type="radio"
+                      name="editCommissionRate"
+                      value="0.05"
+                      checked={Number(editTournForm.commissionRate) === 0.05}
+                      onChange={() => setEditTournForm({ ...editTournForm, commissionRate: 0.05 })}
+                    />
+                    <span><b>5%</b> (Ví dụ thưởng 500tr: Nền tảng 25tr, Chủ ngựa 475tr)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--paper)' }}>
+                    <input
+                      type="radio"
+                      name="editCommissionRate"
+                      value="0.08"
+                      checked={Number(editTournForm.commissionRate) === 0.08}
+                      onChange={() => setEditTournForm({ ...editTournForm, commissionRate: 0.08 })}
+                    />
+                    <span><b>8%</b> (Ví dụ thưởng 500tr: Nền tảng 40tr, Chủ ngựa 460tr)</span>
+                  </label>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontStyle: 'italic' }}>
+                  * Khi cập nhật, thông tin giải đấu và tỷ lệ hoa hồng sẽ lập tức đồng bộ sang giao diện Chủ sở hữu theo thời gian thực.
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--paper-dim)', marginBottom: '5px' }}>
+                  Thể Lệ Giải & Điều Khoản Cam Kết
+                </label>
+                <textarea
+                  rows={3}
+                  value={editTournForm.rulesAndTerms}
+                  onChange={(e) => setEditTournForm({ ...editTournForm, rulesAndTerms: e.target.value })}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '12px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEditTournModal(false)}
+                  style={{ padding: '8px 16px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper-dim)', cursor: 'pointer' }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '8px 20px', borderRadius: '6px', background: 'var(--brass)', color: '#0A0D14', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                >
+                  ✓ Lưu Cập Nhật Giải Đấu
                 </button>
               </div>
             </form>
@@ -1262,6 +1777,316 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
           </div>
         </div>
       )}
+
+      {/* ===================== MODAL 4: XEM XÉT KẾT QUẢ ĐUA & QUYẾT TOÁN CHO NGƯỜI CHIẾN THẮNG ===================== */}
+      {reviewTournModal.isOpen && reviewTournModal.tournament && (() => {
+        const targetTourn = reviewTournModal.tournament;
+        const registeredHorses = adminNominations.filter(n =>
+          (n.raceName && targetTourn && (n.raceName.trim().toLowerCase() === targetTourn.name.trim().toLowerCase() || targetTourn.name.trim().toLowerCase().includes(n.raceName.trim().toLowerCase()))) ||
+          (n.raceId && targetTourn && String(n.raceId) === String(targetTourn.id))
+        );
+
+        return (
+          <div
+            onClick={() => setReviewTournModal({ isOpen: false, tournament: null })}
+            style={{
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(5px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+              zIndex: 9999999
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--line)',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '860px',
+                padding: '24px',
+                boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)',
+                maxHeight: '90vh',
+                overflowY: 'auto'
+              }}
+            >
+              {/* HEADER */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', borderBottom: '1px solid var(--line)', paddingBottom: '14px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '20px' }}>🏆</span>
+                    <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--brass)', fontWeight: 800 }}>
+                      Xem Xét Kết Quả & Quyết Toán Thưởng Giải Nội Bộ
+                    </h3>
+                  </div>
+                  <div style={{ fontSize: '14px', color: 'var(--paper)', fontWeight: 700, marginTop: '4px' }}>
+                    {targetTourn.name}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                    {targetTourn.track} · {targetTourn.distance} ({targetTourn.surface}) · Ngày thi đấu: <b>{targetTourn.date}</b>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReviewTournModal({ isOpen: false, tournament: null })}
+                  style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* TỔNG QUAN QUỸ THƯỞNG & HOA HỒNG */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Tổng Quỹ Tiền Thưởng</div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--brass)', marginTop: '4px', fontVariantNumeric: 'tabular-nums' }}>
+                    {formatVND(targetTourn.totalPurse)}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>Hạng 1 (50% Quỹ): <b>{formatVND(targetTourn.totalPurse * 0.5)}</b></div>
+                </div>
+
+                <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Tỷ Lệ Hoa Hồng Nền Tảng</div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#F59E0B', marginTop: '4px' }}>
+                    Trích {((Number(targetTourn.commissionRate) || 0.05) * 100).toFixed(0)}% Thưởng
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#10B981', marginTop: '2px' }}>Chủ ngựa nhận <b>{(100 - (Number(targetTourn.commissionRate) || 0.05) * 100).toFixed(0)}%</b> tiền thưởng</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', fontWeight: 600 }}>Chiến Mã Tham Dự</div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--paper)', marginTop: '4px' }}>
+                    {registeredHorses.length} chiến mã
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>Đã đăng ký tranh tài</div>
+                </div>
+              </div>
+
+              {/* DANH SÁCH CHIẾN MÃ ĐÃ ĐĂNG KÝ TRONG GIẢI */}
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Danh Sách Chiến Mã Đăng Ký Tranh Tài</span>
+                  <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)', fontWeight: 400 }}>
+                    * Admin xem xét kết quả sau đua, chọn Người chiến thắng chung cuộc và thao tác chuyển tiền thưởng
+                  </span>
+                </div>
+
+                {registeredHorses.length === 0 ? (
+                  <div style={{ background: 'var(--bg-secondary)', border: '1px dashed var(--line)', borderRadius: '10px', padding: '36px 20px', textAlign: 'center', color: 'var(--paper-dim)' }}>
+                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>🏁</div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>Chưa có chiến mã nào đăng ký giải này</div>
+                    <div style={{ fontSize: '12px', marginTop: '4px', maxWidth: '460px', margin: '4px auto 0', lineHeight: 1.5 }}>
+                      Khi các Chủ sở hữu nộp hồ sơ ghi danh (hoặc nhờ Huấn luyện viên chỉ định chiến mã tham gia), danh sách các ngựa sẽ tự động xuất hiện tại đây để Admin thẩm định và trao giải.
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ border: '1px solid var(--line)', borderRadius: '10px', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                          <th style={{ padding: '10px 14px', width: '28%' }}>Chiến Mã & Kỵ Mã</th>
+                          <th style={{ padding: '10px 14px', width: '20%' }}>Chủ Sở Hữu</th>
+                          <th style={{ padding: '10px 14px', width: '24%', textAlign: 'center' }}>Thứ Hạng Chung Cuộc</th>
+                          <th style={{ padding: '10px 14px', width: '28%', textAlign: 'center' }}>Quyết Toán & Thao Tác Tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {registeredHorses.map(nom => {
+                          const isWinner = nom.finalRank === 1 || nom.rank?.includes('1');
+                          const isSettled = nom.grossPrize && nom.grossPrize > 0;
+
+                          return (
+                            <tr
+                              key={nom.id}
+                              style={{
+                                borderBottom: '1px solid var(--line)',
+                                background: isWinner ? 'rgba(212, 175, 55, 0.06)' : 'transparent'
+                              }}
+                            >
+                              <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '18px' }}>{isWinner ? '🏆' : '🏇'}</span>
+                                  <div>
+                                    <div style={{ fontWeight: 700, color: isWinner ? 'var(--brass)' : 'var(--paper)', fontSize: '13.5px' }}>
+                                      {nom.horseName}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                      Nài: {nom.jockey?.replace('Chủ sở hữu tự bố trí', 'Tự bố trí') || 'Tự bố trí'}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                                <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{nom.ownerName}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Chủ sở hữu chiến mã</div>
+                              </td>
+
+                              <td style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                {isWinner ? (
+                                  <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                    <span style={{
+                                      display: 'inline-block',
+                                      padding: '3px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '11.5px',
+                                      fontWeight: 800,
+                                      background: 'rgba(212, 175, 55, 0.2)',
+                                      color: 'var(--brass)',
+                                      border: '1px solid var(--brass)'
+                                    }}>
+                                      🏆 VÔ ĐỊCH (HẠNG 1)
+                                    </span>
+                                    <span style={{ fontSize: '10.5px', color: '#10B981', fontWeight: 600 }}>
+                                      Người chiến thắng chung cuộc
+                                    </span>
+                                  </div>
+                                ) : isSettled ? (
+                                  <span style={{
+                                    display: 'inline-block',
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11.5px',
+                                    fontWeight: 700,
+                                    background: 'rgba(255, 255, 255, 0.06)',
+                                    color: 'var(--paper)',
+                                    border: '1px solid var(--line)'
+                                  }}>
+                                    {nom.rank || `Hạng ${nom.finalRank}`}
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                                    Chờ cập nhật kết quả đua
+                                  </span>
+                                )}
+                              </td>
+
+                              <td style={{ padding: '12px 14px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                {isSettled ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#10B981', fontVariantNumeric: 'tabular-nums' }}>
+                                      Đã chuyển: +{formatVND(nom.netPayout || nom.grossPrize)}
+                                    </div>
+                                    <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>
+                                      (Tổng {formatVND(nom.grossPrize)} - {((nom.commissionRate || 0.05)*100).toFixed(0)}% hoa hồng)
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSettleModalData({
+                                          isOpen: true,
+                                          nomination: nom,
+                                          finalRank: nom.finalRank || 1,
+                                          grossPrize: nom.grossPrize || Math.round(targetTourn.totalPurse * 0.5)
+                                        });
+                                      }}
+                                      style={{
+                                        marginTop: '2px',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        background: 'transparent',
+                                        border: '1px solid var(--line)',
+                                        color: 'var(--paper-dim)',
+                                        fontSize: '10.5px',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      ✏️ Điều Chỉnh
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const winnerPrize = Math.round(targetTourn.totalPurse * 0.5); // 50% quỹ thưởng cho Hạng 1
+                                        setSettleModalData({
+                                          isOpen: true,
+                                          nomination: nom,
+                                          finalRank: 1,
+                                          grossPrize: winnerPrize
+                                        });
+                                      }}
+                                      style={{
+                                        padding: '5px 12px',
+                                        borderRadius: '6px',
+                                        background: 'var(--brass)',
+                                        color: '#0A0D14',
+                                        fontSize: '11.5px',
+                                        fontWeight: 800,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
+                                      }}
+                                      title="Chọn làm Người Chiến Thắng Chung Cuộc và quyết toán chuyển tiền"
+                                    >
+                                      <span>🏆</span> Chọn Vô Địch & Chuyển Tiền
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSettleModalData({
+                                          isOpen: true,
+                                          nomination: nom,
+                                          finalRank: 2,
+                                          grossPrize: Math.round(targetTourn.totalPurse * 0.25)
+                                        });
+                                      }}
+                                      style={{
+                                        padding: '3px 8px',
+                                        borderRadius: '4px',
+                                        background: 'transparent',
+                                        border: '1px solid var(--line)',
+                                        color: 'var(--paper-dim)',
+                                        fontSize: '10.5px',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Xếp thứ hạng khác...
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* FOOTER */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', borderTop: '1px solid var(--line)', paddingTop: '14px' }}>
+                <button
+                  type="button"
+                  onClick={() => setReviewTournModal({ isOpen: false, tournament: null })}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -138,7 +138,7 @@ export default function OwnerTournamentsTab({
 
           <div className="portal-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
             {internalTournaments.map(tourn => {
-              const timeStatus = getTournamentTimeStatus(tourn.date);
+              const timeStatus = getTournamentTimeStatus(tourn);
               return (
                 <div
                   key={tourn.id}
@@ -173,34 +173,30 @@ export default function OwnerTournamentsTab({
                           borderRadius: '4px',
                           fontSize: '10.5px',
                           fontWeight: 700,
-                          background: timeStatus.isRegNotOpenYet
-                            ? 'rgba(245, 158, 11, 0.15)'
-                            : timeStatus.isRegClosed && !timeStatus.isRaceStarted
+                          background: timeStatus.isRaceStarted
+                            ? 'rgba(16, 185, 129, 0.15)'
+                            : timeStatus.isRegClosed
                               ? 'rgba(239, 68, 68, 0.15)'
-                              : timeStatus.isRaceStarted
-                                ? 'rgba(16, 185, 129, 0.15)'
-                                : 'rgba(16, 185, 129, 0.15)',
-                          color: timeStatus.isRegNotOpenYet
-                            ? '#F59E0B'
-                            : timeStatus.isRegClosed && !timeStatus.isRaceStarted
+                              : 'rgba(16, 185, 129, 0.15)',
+                          color: timeStatus.isRaceStarted
+                            ? '#10B981'
+                            : timeStatus.isRegClosed
                               ? '#EF4444'
                               : '#10B981',
                           border: `1px solid ${
-                            timeStatus.isRegNotOpenYet
-                              ? '#F59E0B'
-                              : timeStatus.isRegClosed && !timeStatus.isRaceStarted
+                            timeStatus.isRaceStarted
+                              ? '#10B981'
+                              : timeStatus.isRegClosed
                                 ? '#EF4444'
                                 : '#10B981'
                           }`,
                           whiteSpace: 'nowrap'
                         }}>
-                          {timeStatus.isRegNotOpenYet
-                            ? '⏳ CHƯA MỞ ĐĂNG KÝ'
-                            : timeStatus.isRegClosed && !timeStatus.isRaceStarted
+                          {timeStatus.isRaceStarted
+                            ? '🏁 ĐANG DIỄN RA / HOÀN THÀNH'
+                            : timeStatus.isRegClosed
                               ? '🔒 ĐÃ ĐÓNG ĐĂNG KÝ'
-                              : timeStatus.isRaceStarted
-                                ? '🏁 ĐANG DIỄN RA / HOÀN THÀNH'
-                                : '🟢 ĐANG MỞ ĐĂNG KÝ'}
+                              : '🟢 ĐANG MỞ ĐĂNG KÝ'}
                         </span>
                         <span style={{
                           padding: '3px 8px',
@@ -261,7 +257,7 @@ export default function OwnerTournamentsTab({
                       <div>
                         Hạn chót đăng ký: 
                         <b style={{ color: timeStatus.isRegClosed ? '#EF4444' : '#10B981', display: 'block' }}>
-                          {timeStatus.regDeadlineFormatted} {timeStatus.isRegClosed ? '(Hết hạn)' : '(Đang mở)'}
+                          {tourn.regCloseDate || tourn.entryDeadline || timeStatus.regDeadlineFormatted} {timeStatus.isRegClosed ? '(Hết hạn)' : '(Đang mở)'}
                         </b>
                       </div>
                       <div>Tổng giải thưởng: <b style={{ color: 'var(--brass)', display: 'block', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatVND(tourn.totalPurse)}</b></div>
@@ -292,32 +288,7 @@ export default function OwnerTournamentsTab({
                   </div>
 
                   <div style={{ marginTop: 'auto' }}>
-                    {timeStatus.isRegNotOpenYet ? (
-                      <button
-                        type="button"
-                        disabled={true}
-                        title={`Giải đấu sẽ mở cổng đăng ký từ ngày ${timeStatus.regOpenDeadlineFormatted} (mở trước 1 tháng, đóng trước 1 tuần trước ngày thi đấu).`}
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          color: 'var(--paper-dim)',
-                          fontWeight: 600,
-                          border: '1px solid var(--line)',
-                          fontSize: '12px',
-                          cursor: 'not-allowed',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <span>⏳</span>
-                        <span>Chưa Mở Đăng Ký (Mở từ {timeStatus.regOpenDeadlineFormatted})</span>
-                      </button>
-                    ) : timeStatus.isRaceStarted ? (
+                    {timeStatus.isRaceStarted ? (
                       <button
                         type="button"
                         disabled={true}
@@ -364,7 +335,7 @@ export default function OwnerTournamentsTab({
                         }}
                       >
                         <span>🔒</span>
-                        <span>Đã Đóng Đăng Ký (Chờ ngày đua: {tourn.date})</span>
+                        <span>Đã Đóng Đăng Ký (Hạn chót: {tourn.regCloseDate || tourn.entryDeadline || timeStatus.regDeadlineFormatted})</span>
                       </button>
                     ) : (
                       <button

@@ -532,6 +532,19 @@ public class RaceApiController extends HttpServlet {
                 synchronized (memoryTournaments) {
                     for (Map<String, Object> t : memoryTournaments) {
                         if (tournId.equalsIgnoreCase(String.valueOf(t.get("id")))) {
+                            if (body.has("name")) t.put("name", SecurityUtil.getString(body, "name", String.valueOf(t.get("name"))).trim());
+                            if (body.has("organizerName")) t.put("organizerName", SecurityUtil.getString(body, "organizerName", String.valueOf(t.get("organizerName"))));
+                            if (body.has("track")) t.put("track", SecurityUtil.getString(body, "track", String.valueOf(t.get("track"))));
+                            if (body.has("surface")) t.put("surface", SecurityUtil.getString(body, "surface", String.valueOf(t.get("surface"))));
+                            if (body.has("distance")) t.put("distance", SecurityUtil.getString(body, "distance", String.valueOf(t.get("distance"))));
+                            if (body.has("date")) t.put("date", SecurityUtil.getString(body, "date", String.valueOf(t.get("date"))));
+                            if (body.has("regCloseDate")) t.put("regCloseDate", SecurityUtil.getString(body, "regCloseDate", String.valueOf(t.get("regCloseDate"))));
+                            if (body.has("entryDeadline")) t.put("entryDeadline", SecurityUtil.getString(body, "entryDeadline", String.valueOf(t.get("entryDeadline"))));
+                            if (body.has("totalPurse")) t.put("totalPurse", (long) SecurityUtil.getDouble(body, "totalPurse", ((Number) t.getOrDefault("totalPurse", 0L)).doubleValue()));
+                            if (body.has("entryFee")) t.put("entryFee", (long) SecurityUtil.getDouble(body, "entryFee", ((Number) t.getOrDefault("entryFee", 0L)).doubleValue()));
+                            if (body.has("commissionRate")) t.put("commissionRate", SecurityUtil.getDouble(body, "commissionRate", ((Number) t.getOrDefault("commissionRate", 0.05)).doubleValue()));
+                            if (body.has("rulesAndTerms")) t.put("rulesAndTerms", SecurityUtil.getString(body, "rulesAndTerms", String.valueOf(t.get("rulesAndTerms"))));
+                            if (body.has("description")) t.put("description", SecurityUtil.getString(body, "description", String.valueOf(t.get("description"))));
                             if (body.has("status")) t.put("status", body.get("status").getAsString());
                             if (body.has("isActiveOnPlatform")) t.put("isActiveOnPlatform", body.get("isActiveOnPlatform").getAsBoolean());
                             found = t;
