@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { GROOM_TEAM_MEMBERS } from '../../services/groomService';
 
 export default function GroomDashboardTab({
   horses = [],
@@ -7,37 +8,55 @@ export default function GroomDashboardTab({
   onUpdateTaskStatus,
   onOpenReportModal,
   onOpenHorseModal,
-  onNavigateTab
+  onNavigateTab,
+  onOpenScheduleModal,
+  onDeleteTask,
+  currentGroomUser = GROOM_TEAM_MEMBERS[0]
 }) {
+  const isLead = currentGroomUser?.isLead !== false;
+
   // Bộ lọc xem tiến độ theo ngày và theo nhân viên
-  const [selectedDate, setSelectedDate] = useState('TODAY'); // 'TODAY' | 'YESTERDAY' | 'TOMORROW' | 'CUSTOM'
-  const [selectedStaff, setSelectedStaff] = useState('ALL'); // 'ALL' | 'nam' | 'dung' | 'thao'
+  const [selectedDate, setSelectedDate] = useState('TODAY'); // 'TODAY' | 'YESTERDAY' | 'TOMORROW'
+  const [selectedStaff, setSelectedStaff] = useState(isLead ? 'ALL' : currentGroomUser.id);
   const [horseViewMode, setHorseViewMode] = useState('CARD'); // 'CARD' | 'TABLE'
   const [taskFilter, setTaskFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE'
 
-  // 4.1. Thống kê số liệu
+  // Nếu là Nhân viên Groom thì bắt buộc chỉ xem công việc của riêng mình
+  const effectiveStaff = isLead ? selectedStaff : currentGroomUser.id;
+
+  // Lọc tasks theo Ngày và theo Nhân viên để tính toán tiến độ thời gian thực
+  const dateSpecificTasks = tasks.filter(t => {
+    const taskDate = t.dateKey || 'TODAY';
+    if (taskDate !== selectedDate) return false;
+
+    if (effectiveStaff !== 'ALL') {
+      const matchId = t.groomId === effectiveStaff;
+      const matchName = t.groom?.toLowerCase().includes(
+        GROOM_TEAM_MEMBERS.find(g => g.id === effectiveStaff)?.name.toLowerCase() || ''
+      );
+      if (!matchId && !matchName) return false;
+    }
+    return true;
+  });
+
+  // 4.1. Thống kê số liệu tiến độ theo thời gian thực
   const totalHorses = horses.length;
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.status === 'COMPLETED').length;
-  const inProgressTasks = tasks.filter(t => t.status === 'IN_PROGRESS').length;
-  const pendingTasks = tasks.filter(t => t.status === 'PENDING').length;
-  const overdueTasks = tasks.filter(t => t.status === 'OVERDUE').length;
+  const totalTasks = dateSpecificTasks.length;
+  const completedTasks = dateSpecificTasks.filter(t => t.status === 'COMPLETED').length;
+  const inProgressTasks = dateSpecificTasks.filter(t => t.status === 'IN_PROGRESS').length;
+  const pendingTasks = dateSpecificTasks.filter(t => t.status === 'PENDING').length;
+  const overdueTasks = dateSpecificTasks.filter(t => t.status === 'OVERDUE').length;
 
   const monitoringHorses = horses.filter(h => h.healthStatus === 'MONITORING' || h.healthStatus === 'INJURED' || h.healthStatus === 'ISOLATED').length;
   const criticalAlerts = alerts.filter(a => a.severity === 'CRITICAL' && a.status !== 'RESOLVED').length;
 
   const completionPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Lọc chiến mã theo nhân viên
-  const filteredHorses = horses.filter(h => {
-    if (selectedStaff === 'nam') return h.groomUsername === 'groom' || h.assignedGroom?.includes('Nam');
-    if (selectedStaff === 'dung') return h.assignedGroom?.includes('Dũng');
-    if (selectedStaff === 'thao') return h.assignedGroom?.includes('Thảo');
-    return true;
-  });
+  // Hiển thị toàn bộ chiến mã trong hệ thống vì Groom phục vụ tất cả ngựa của các chủ sở hữu
+  const filteredHorses = horses;
 
   // Lọc công việc sắp tới
-  const filteredTasks = tasks.filter(t => {
+  const filteredTasks = dateSpecificTasks.filter(t => {
     if (taskFilter === 'ALL') return true;
     return t.status === taskFilter;
   });
@@ -570,26 +589,42 @@ export default function GroomDashboardTab({
             </div>
 
             {/* Lọc theo nhân viên */}
-            <select
-              value={selectedStaff}
-              onChange={(e) => setSelectedStaff(e.target.value)}
-              style={{
+            {isLead ? (
+              <select
+                value={selectedStaff}
+                onChange={(e) => setSelectedStaff(e.target.value)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--line)',
+                  color: 'var(--paper)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                title="Chủ nhóm lọc xem tiến độ theo từng nhân viên chăm sóc"
+              >
+                <option value="ALL">Tất cả nhân viên Groom</option>
+                {GROOM_TEAM_MEMBERS.map(g => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({g.title})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div style={{
                 padding: '6px 12px',
                 borderRadius: '6px',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--line)',
-                color: 'var(--paper)',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-              title="Xem tiến độ theo từng nhân viên chăm sóc"
-            >
-              <option value="ALL">Tất cả nhân viên Groom</option>
-              <option value="nam">Lê Hoàng Nam (Groom Block A)</option>
-              <option value="dung">Vũ Tiến Dũng (Groom Block B)</option>
-              <option value="thao">Nguyễn Thu Thảo (Groom Block C)</option>
-            </select>
+                background: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                color: '#3B82F6',
+                fontSize: '11.5px',
+                fontWeight: 700
+              }}>
+                Tiến độ riêng: {currentGroomUser.name}
+              </div>
+            )}
           </div>
         </div>
 
@@ -607,64 +642,55 @@ export default function GroomDashboardTab({
             {/* Hoàn thành (xanh) */}
             <div
               style={{
-                width: `${(completedTasks / totalTasks) * 100}%`,
+                width: `${totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0}%`,
                 background: '#10B981',
                 transition: 'width 0.4s ease'
               }}
-              title={`Hoàn thành: ${completedTasks}/${totalTasks} (${Math.round((completedTasks / totalTasks) * 100)}%)`}
+              title={`Hoàn thành: ${completedTasks}/${totalTasks} (${completionPercent}%)`}
             />
             {/* Đang thực hiện (vàng brass) */}
             <div
               style={{
-                width: `${(inProgressTasks / totalTasks) * 100}%`,
+                width: `${totalTasks > 0 ? (inProgressTasks / totalTasks) * 100 : 0}%`,
                 background: 'var(--brass)',
                 transition: 'width 0.4s ease'
               }}
-              title={`Đang làm: ${inProgressTasks}/${totalTasks} (${Math.round((inProgressTasks / totalTasks) * 100)}%)`}
-            />
-            {/* Đang chờ (xám nhạt) */}
-            <div
-              style={{
-                width: `${(pendingTasks / totalTasks) * 100}%`,
-                background: 'rgba(255, 255, 255, 0.15)',
-                transition: 'width 0.4s ease'
-              }}
-              title={`Đang chờ: ${pendingTasks}/${totalTasks} (${Math.round((pendingTasks / totalTasks) * 100)}%)`}
+              title={`Đang làm: ${inProgressTasks}/${totalTasks}`}
             />
             {/* Quá hạn (đỏ) */}
             <div
               style={{
-                width: `${(overdueTasks / totalTasks) * 100}%`,
+                width: `${totalTasks > 0 ? (overdueTasks / totalTasks) * 100 : 0}%`,
                 background: '#EF4444',
                 transition: 'width 0.4s ease'
               }}
-              title={`Quá hạn: ${overdueTasks}/${totalTasks} (${Math.round((overdueTasks / totalTasks) * 100)}%)`}
+              title={`Quá hạn: ${overdueTasks}/${totalTasks}`}
             />
           </div>
         </div>
 
-        {/* Chú giải tỷ lệ và chi tiết các phân đoạn */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', fontSize: '12px' }}>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--paper)' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#10B981' }} />
-              Hoàn thành: <b>{completedTasks}</b> ({Math.round((completedTasks / totalTasks) * 100)}%)
+        {/* Chú thích tiến độ & Tỷ lệ */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', color: 'var(--paper-dim)', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#10B981' }} />
+              Hoàn thành: <b style={{ color: '#10B981' }}>{completedTasks} ({completionPercent}%)</b>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--paper)' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--brass)' }} />
-              Đang làm: <b>{inProgressTasks}</b> ({Math.round((inProgressTasks / totalTasks) * 100)}%)
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--brass)' }} />
+              Đang làm: <b style={{ color: 'var(--brass)' }}>{inProgressTasks}</b>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--paper)' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'rgba(255, 255, 255, 0.25)' }} />
-              Đang chờ: <b>{pendingTasks}</b> ({Math.round((pendingTasks / totalTasks) * 100)}%)
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--paper-dim)' }} />
+              Đang chờ: <b style={{ color: 'var(--paper)' }}>{pendingTasks}</b>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#EF4444', fontWeight: 700 }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#EF4444' }} />
-              Quá hạn: <b>{overdueTasks}</b> ({Math.round((overdueTasks / totalTasks) * 100)}%)
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#EF4444' }} />
+              Quá hạn: <b style={{ color: '#EF4444' }}>{overdueTasks}</b>
             </span>
           </div>
 
-          <div style={{ fontSize: '12.5px', color: 'var(--brass)', fontWeight: 700 }}>
+          <div style={{ fontWeight: 800, color: completionPercent === 100 ? '#10B981' : 'var(--brass)', fontSize: '12.5px' }}>
             Tỷ Lệ Hoàn Thành: {completionPercent}%
           </div>
         </div>
@@ -971,217 +997,272 @@ export default function GroomDashboardTab({
             </p>
           </div>
 
-          {/* Bộ lọc trạng thái công việc */}
-          <div style={{ display: 'inline-flex', background: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--line)', padding: '2px' }}>
-            <button
-              type="button"
-              onClick={() => setTaskFilter('ALL')}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '4px',
-                fontSize: '11.5px',
-                fontWeight: taskFilter === 'ALL' ? 700 : 500,
-                background: taskFilter === 'ALL' ? 'var(--brass)' : 'transparent',
-                color: taskFilter === 'ALL' ? '#0A0D14' : 'var(--paper-dim)',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Tất Cả ({tasks.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setTaskFilter('IN_PROGRESS')}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '4px',
-                fontSize: '11.5px',
-                fontWeight: taskFilter === 'IN_PROGRESS' ? 700 : 500,
-                background: taskFilter === 'IN_PROGRESS' ? 'var(--brass)' : 'transparent',
-                color: taskFilter === 'IN_PROGRESS' ? '#0A0D14' : 'var(--paper-dim)',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Đang Làm ({inProgressTasks})
-            </button>
-            <button
-              type="button"
-              onClick={() => setTaskFilter('PENDING')}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '4px',
-                fontSize: '11.5px',
-                fontWeight: taskFilter === 'PENDING' ? 700 : 500,
-                background: taskFilter === 'PENDING' ? 'var(--brass)' : 'transparent',
-                color: taskFilter === 'PENDING' ? '#0A0D14' : 'var(--paper-dim)',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Đang Chờ ({pendingTasks})
-            </button>
-            <button
-              type="button"
-              onClick={() => setTaskFilter('OVERDUE')}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '4px',
-                fontSize: '11.5px',
-                fontWeight: taskFilter === 'OVERDUE' ? 700 : 500,
-                background: taskFilter === 'OVERDUE' ? '#EF4444' : 'transparent',
-                color: taskFilter === 'OVERDUE' ? '#FFF' : '#EF4444',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Quá Hạn ({overdueTasks})
-            </button>
-            <button
-              type="button"
-              onClick={() => setTaskFilter('COMPLETED')}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '4px',
-                fontSize: '11.5px',
-                fontWeight: taskFilter === 'COMPLETED' ? 700 : 500,
-                background: taskFilter === 'COMPLETED' ? '#10B981' : 'transparent',
-                color: taskFilter === 'COMPLETED' ? '#FFF' : 'var(--paper-dim)',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Đã Xong ({completedTasks})
-            </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Nút Tạo lịch CHỈ DÀNH CHO CHỦ NHÓM GROOM */}
+            {isLead && (
+              <button
+                type="button"
+                onClick={onOpenScheduleModal}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  background: 'var(--brass)',
+                  color: '#0A0D14',
+                  fontWeight: 800,
+                  fontSize: '11.5px',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                + Phân Ca & Tạo Lịch
+              </button>
+            )}
+
+            {/* Bộ lọc trạng thái công việc */}
+            <div style={{ display: 'inline-flex', background: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--line)', padding: '2px' }}>
+              <button
+                type="button"
+                onClick={() => setTaskFilter('ALL')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  fontSize: '11.5px',
+                  fontWeight: taskFilter === 'ALL' ? 700 : 500,
+                  background: taskFilter === 'ALL' ? 'var(--brass)' : 'transparent',
+                  color: taskFilter === 'ALL' ? '#0A0D14' : 'var(--paper-dim)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Tất Cả ({dateSpecificTasks.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskFilter('IN_PROGRESS')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  fontSize: '11.5px',
+                  fontWeight: taskFilter === 'IN_PROGRESS' ? 700 : 500,
+                  background: taskFilter === 'IN_PROGRESS' ? 'var(--brass)' : 'transparent',
+                  color: taskFilter === 'IN_PROGRESS' ? '#0A0D14' : 'var(--paper-dim)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Đang Làm ({inProgressTasks})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskFilter('PENDING')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  fontSize: '11.5px',
+                  fontWeight: taskFilter === 'PENDING' ? 700 : 500,
+                  background: taskFilter === 'PENDING' ? 'var(--brass)' : 'transparent',
+                  color: taskFilter === 'PENDING' ? '#0A0D14' : 'var(--paper-dim)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Đang Chờ ({pendingTasks})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskFilter('OVERDUE')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  fontSize: '11.5px',
+                  fontWeight: taskFilter === 'OVERDUE' ? 700 : 500,
+                  background: taskFilter === 'OVERDUE' ? '#EF4444' : 'transparent',
+                  color: taskFilter === 'OVERDUE' ? '#FFF' : '#EF4444',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Quá Hạn ({overdueTasks})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskFilter('COMPLETED')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  fontSize: '11.5px',
+                  fontWeight: taskFilter === 'COMPLETED' ? 700 : 500,
+                  background: taskFilter === 'COMPLETED' ? '#10B981' : 'transparent',
+                  color: taskFilter === 'COMPLETED' ? '#FFF' : 'var(--paper-dim)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Đã Xong ({completedTasks})
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Danh sách nhiệm vụ dạng dòng thời gian */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {filteredTasks.map((t) => {
-            const isDone = t.status === 'COMPLETED';
-            const isOverdue = t.status === 'OVERDUE';
-            const inProgress = t.status === 'IN_PROGRESS';
+          {filteredTasks.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--paper-dim)', fontSize: '12.5px', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
+              Không có công việc nào trong danh mục này.
+            </div>
+          ) : (
+            filteredTasks.map((t) => {
+              const isDone = t.status === 'COMPLETED';
+              const isOverdue = t.status === 'OVERDUE';
+              const inProgress = t.status === 'IN_PROGRESS';
 
-            return (
-              <div
-                key={t.id}
-                style={{
-                  background: isOverdue ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-secondary)',
-                  border: isOverdue ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid var(--line)',
-                  borderLeft: isOverdue ? '4px solid #EF4444' : inProgress ? '4px solid var(--brass)' : isDone ? '4px solid #10B981' : '4px solid var(--line)',
-                  borderRadius: '8px',
-                  padding: '14px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '14px',
-                  flexWrap: 'wrap'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '280px' }}>
-                  {/* Cột thời gian */}
-                  <div style={{
-                    width: '60px',
-                    textAlign: 'center',
-                    background: 'var(--bg-card)',
-                    padding: '6px 4px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--line)',
-                    flexShrink: 0
-                  }}>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: isOverdue ? '#EF4444' : 'var(--brass)' }}>
-                      {t.time}
+              return (
+                <div
+                  key={t.id}
+                  style={{
+                    background: isOverdue ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-secondary)',
+                    border: isOverdue ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid var(--line)',
+                    borderLeft: isOverdue ? '4px solid #EF4444' : inProgress ? '4px solid var(--brass)' : isDone ? '4px solid #10B981' : '4px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '14px',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '280px' }}>
+                    {/* Cột thời gian */}
+                    <div style={{
+                      width: '60px',
+                      textAlign: 'center',
+                      background: 'var(--bg-card)',
+                      padding: '6px 4px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--line)',
+                      flexShrink: 0
+                    }}>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: isOverdue ? '#EF4444' : 'var(--brass)' }}>
+                        {t.time}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--paper-dim)' }}>
+                        {t.stall}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '10px', color: 'var(--paper-dim)' }}>
-                      {t.stall}
+
+                    {/* Nội dung công việc */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '2px' }}>
+                        <b style={{
+                          fontSize: '14px',
+                          color: isDone ? 'var(--paper-dim)' : 'var(--paper)'
+                        }}>
+                          {t.title}
+                        </b>
+                        <span style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 600 }}>
+                          · {t.horseName}
+                        </span>
+                        {renderTaskStatusBadge(t.status)}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.4 }}>
+                        {t.desc}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                        Groom phụ trách: <b style={{ color: 'var(--paper)' }}>{t.groom || 'Lê Hoàng Nam'}</b>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Nội dung công việc */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '2px' }}>
-                      <b style={{
-                        fontSize: '14px',
-                        color: isDone ? 'var(--paper-dim)' : 'var(--paper)',
-                        textDecoration: isDone ? 'none' : 'none'
-                      }}>
-                        {t.title}
-                      </b>
-                      <span style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 600 }}>
-                        · {t.horseName}
+                  {/* Nút hành động */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    {isDone ? (
+                      <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 600 }}>
+                        Xong lúc {t.completedAt}
                       </span>
-                      {renderTaskStatusBadge(t.status)}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.4 }}>
-                      {t.desc}
-                    </div>
+                    ) : inProgress ? (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateTaskStatus && onUpdateTaskStatus(t.id, 'COMPLETED')}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '5px',
+                          background: '#10B981',
+                          color: '#FFF',
+                          border: 'none',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✓ Xác Nhận Hoàn Thành
+                      </button>
+                    ) : isOverdue ? (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateTaskStatus && onUpdateTaskStatus(t.id, 'COMPLETED')}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '5px',
+                          background: '#EF4444',
+                          color: '#FFF',
+                          border: 'none',
+                          fontSize: '11.5px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
+                        }}
+                      >
+                        ⚡ Xử Lý Ngay
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateTaskStatus && onUpdateTaskStatus(t.id, 'IN_PROGRESS')}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '5px',
+                          background: 'var(--brass)',
+                          color: '#0A0D14',
+                          border: 'none',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Bắt Đầu Làm
+                      </button>
+                    )}
+
+                    {/* NÚT XÓA: CHỈ CHỦ NHÓM GROOM MỚI CÓ QUYỀN */}
+                    {isLead && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Xóa công việc "${t.title}"?`)) {
+                            onDeleteTask(t.id);
+                          }
+                        }}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '5px',
+                          background: 'transparent',
+                          color: '#EF4444',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                        title="Chủ nhóm xóa bỏ công việc"
+                      >
+                        ✕ Xóa
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                {/* Nút hành động */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  {isDone ? (
-                    <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 600 }}>
-                      Xong lúc {t.completedAt}
-                    </span>
-                  ) : inProgress ? (
-                    <button
-                      type="button"
-                      onClick={() => onUpdateTaskStatus && onUpdateTaskStatus(t.id, 'COMPLETED')}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '5px',
-                        background: '#10B981',
-                        color: '#FFF',
-                        border: 'none',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ✓ Xác Nhận Hoàn Thành
-                    </button>
-                  ) : isOverdue ? (
-                    <button
-                      type="button"
-                      onClick={() => onUpdateTaskStatus && onUpdateTaskStatus(t.id, 'COMPLETED')}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '5px',
-                        background: '#EF4444',
-                        color: '#FFF',
-                        border: 'none',
-                        fontSize: '11.5px',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
-                      }}
-                    >
-                      ⚡ Xử Lý Ngay
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onUpdateTaskStatus && onUpdateTaskStatus(t.id, 'IN_PROGRESS')}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '5px',
-                        background: 'var(--brass)',
-                        color: '#0A0D14',
-                        border: 'none',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Bắt Đầu Làm
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </section>
     </div>

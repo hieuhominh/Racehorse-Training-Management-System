@@ -26,8 +26,8 @@ export function syncHorseConfirmationToLocalStorage(horseNameOrMicrochip, roleTy
             let changed = false;
             const updatedList = list.map(h => {
               const match = (h.microchip && h.microchip.trim().toLowerCase() === key) ||
-                            (h.name && h.name.trim().toLowerCase() === key) ||
-                            (h.id && String(h.id) === key);
+                (h.name && h.name.trim().toLowerCase() === key) ||
+                (h.id && String(h.id) === key);
               if (!match) return h;
               changed = true;
               const next = { ...h };
@@ -85,15 +85,15 @@ export function getServiceAssignments() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter(item => 
-          item.ownerKey !== 'owner_thanh' && 
-          item.ownerName !== 'Phạm Tiến Thành' && 
+        return parsed.filter(item =>
+          item.ownerKey !== 'owner_thanh' &&
+          item.ownerName !== 'Phạm Tiến Thành' &&
           item.ownerName !== 'Trần Đình Thanh' &&
           !EXCLUDED_MOCK_NAMES.some(ex => (item.horseName || '').toLowerCase().includes(ex))
         );
       }
     }
-  } catch {}
+  } catch { }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ASSIGNMENTS));
   return INITIAL_ASSIGNMENTS;
 }
@@ -118,8 +118,8 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
 
   const foundIndex = list.findIndex(
     item => (item.microchip && item.microchip.toLowerCase() === horseKey) ||
-            item.horseName.toLowerCase() === (horse.name || '').toLowerCase() ||
-            String(item.id) === String(horse.id)
+      item.horseName.toLowerCase() === (horse.name || '').toLowerCase() ||
+      String(item.id) === String(horse.id)
   );
 
   const trainerObj = FIXED_TRAINERS_LIST.find(t => t.username === staffSelection.trainerUsername || t.name === staffSelection.trainerName) || FIXED_TRAINERS_LIST[0];
@@ -185,10 +185,11 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
       vetName: vetObj.name,
       vetStatus: 'PENDING',
       vetConfirmedAt: null,
-      groomUsername: groomObj.username,
-      groomName: groomObj.name,
-      groomStatus: 'PENDING',
-      groomConfirmedAt: null,
+      groomUsername: 'groom_team',
+      groomName: 'Bộ phận Chăm sóc (Groom)',
+      groomStatus: 'CONFIRMED',
+      groomConfirmedAt: nowStr,
+      groomConfirmedBy: 'Hệ thống Groom Trường Đua',
       assignedAt: nowStr
     });
   }
@@ -196,7 +197,7 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
   saveServiceAssignments(list);
   const targetItem = foundIndex >= 0 ? list[foundIndex] : list[list.length - 1];
   if (targetItem) {
-    saveServiceAssignmentApi(targetItem).catch(() => {});
+    saveServiceAssignmentApi(targetItem).catch(() => { });
     // Gửi thông báo đến Huấn luyện viên khi Chủ sở hữu chỉ định/yêu cầu huấn luyện
     if (targetItem.trainerStatus === 'PENDING') {
       try {
@@ -205,21 +206,13 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
         console.error('Error notifying training requested:', err);
       }
     }
-    // Gửi thông báo đến Chuyên viên chăm sóc (Groom) khi Chủ sở hữu chọn Groom
-    if (targetItem.groomStatus === 'PENDING') {
-      try {
-        notifyGroomAssignmentRequested(horse, ownerUser, targetItem.groomName);
-      } catch (err) {
-        console.error('Error notifying groom requested:', err);
-      }
-    }
   }
   return list;
 }
 
 // Nhân sự chuyên trách (HLV / Thú Y / Groom) xác nhận phục vụ
 export function confirmServiceAssignment(horseIdentifier, roleType, staffUsername) {
-  confirmApi(horseIdentifier, roleType, staffUsername).catch(() => {});
+  confirmApi(horseIdentifier, roleType, staffUsername).catch(() => { });
   const list = getServiceAssignments();
   const key = String(horseIdentifier || '').trim().toLowerCase();
   const nowStr = new Date().toLocaleDateString('vi-VN');
@@ -228,8 +221,8 @@ export function confirmServiceAssignment(horseIdentifier, roleType, staffUsernam
   let confirmedItem = null;
   const nextList = list.map(item => {
     const match = (item.microchip && item.microchip.trim().toLowerCase() === key) ||
-                  (item.horseName && item.horseName.trim().toLowerCase() === key) ||
-                  (item.id && String(item.id) === key);
+      (item.horseName && item.horseName.trim().toLowerCase() === key) ||
+      (item.id && String(item.id) === key);
     if (!match) return item;
 
     if (roleType === 'TRAINER') {
@@ -274,8 +267,8 @@ export function rejectServiceAssignment(horseIdentifier, roleType, staffUsername
   let rejectedItem = null;
   const nextList = list.map(item => {
     const match = (item.microchip && item.microchip.trim().toLowerCase() === key) ||
-                  (item.horseName && item.horseName.trim().toLowerCase() === key) ||
-                  (item.id && String(item.id) === key);
+      (item.horseName && item.horseName.trim().toLowerCase() === key) ||
+      (item.id && String(item.id) === key);
     if (!match) return item;
 
     updated = true;
@@ -324,36 +317,123 @@ export function rejectServiceAssignment(horseIdentifier, roleType, staffUsername
   return nextList;
 }
 
-// Lọc danh sách chiến mã dành cho Groom theo thời gian thực:
-// - confirmed: CHỈ NHỮNG CHIẾN MÃ DO GROOM PHỤ TRÁCH ĐỒNG Ý
-// - pending: Các yêu cầu gửi gắm từ chủ sở hữu đang chờ Groom đồng ý
-// - rejected: Bị từ chối / Không đồng ý -> Xóa hết khỏi danh sách quản lý
-export function getGroomRealtimeHorses(groomUser, assignmentsList = null) {
-  const list = assignmentsList || getServiceAssignments();
-  const uName = (groomUser?.username || '').trim().toLowerCase();
-  const fName = (groomUser?.full_name || '').trim().toLowerCase();
+// Quét toàn bộ chiến mã của các chủ sở hữu trong hệ thống dành cho Groom
+// Groom là nơi phục vụ toàn bộ ngựa của các chủ sở hữu trong hệ thống, không cần chủ sở hữu chỉ định Groom riêng
+export function getAllSystemHorsesForGroom() {
+  const map = new Map();
+  const EXCLUDED_MOCK_NAMES = ['hắc phong', 'xích thố', 'phi yến', 'lôi chấn', 'bạch long'];
 
-  const isMyGroom = (item) => {
-    if (!item) return false;
-    const gUser = (item.groomUsername || '').trim().toLowerCase();
-    const gName = (item.groomName || '').trim().toLowerCase();
-    return (
-      (uName && (gUser === uName || (uName === 'groom' && (gUser === 'groom_nam' || gName.includes('nam'))))) ||
-      (fName && gName === fName) ||
-      (!uName && !fName)
-    );
-  };
+  // 1. Quét từ service assignments
+  try {
+    const asgns = getServiceAssignments();
+    if (Array.isArray(asgns)) {
+      asgns.forEach((item, idx) => {
+        if (!item || !item.horseName) return;
+        const key = (item.microchip || item.horseName).trim().toLowerCase();
+        if (EXCLUDED_MOCK_NAMES.some(ex => key.includes(ex))) return;
+        const defaultStall = item.stable || `Ô A${(idx % 6) + 1}`;
+        map.set(key, {
+          id: item.id || item.microchip || key,
+          horseName: item.horseName,
+          name: item.horseName,
+          microchip: item.microchip || 'MC-VN-2026',
+          breed: item.breed || 'Thoroughbred thuần chủng',
+          age: item.age || 4,
+          gender: item.gender || 'Đực (Stallion)',
+          ownerName: item.ownerName || 'Chủ sở hữu',
+          owner: item.ownerName || 'Chủ sở hữu',
+          ownerKey: item.ownerKey,
+          stable: defaultStall,
+          stall: defaultStall.match(/Ô\s*[A-Z0-9]+/i)?.[0] || defaultStall.split('(')[0].trim(),
+          block: defaultStall.includes('B') ? 'Block B' : defaultStall.includes('C') ? 'Block C' : 'Block A',
+          trainerName: item.trainerName || 'HLV Lê Trọng Nghĩa',
+          vetName: item.vetName || 'BS. Nguyễn An',
+          groomName: 'Bộ phận Chăm sóc (Groom)',
+          groomStatus: 'CONFIRMED',
+          groomConfirmed: true,
+          isLockedByVet: item.isLockedByVet || false,
+          avatar: item.avatar
+        });
+      });
+    }
+  } catch (err) {
+    console.error('Error scanning service assignments for groom:', err);
+  }
 
-  const myGroomAssignments = list.filter(isMyGroom);
-  const confirmed = myGroomAssignments.filter(a => a.groomStatus === 'CONFIRMED');
-  const pending = myGroomAssignments.filter(a => a.groomStatus === 'PENDING');
-  const rejected = myGroomAssignments.filter(a => a.groomStatus === 'REJECTED');
+  // 2. Quét từ toàn bộ kho ngựa của tất cả các chủ sở hữu trong localStorage: matruong_owner_horses_*
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('matruong_owner_horses_')) {
+          if (k.includes('owner_thanh') || k.endsWith('_6') || k.endsWith('_11')) continue;
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              list.forEach((h, idx) => {
+                if (!h || !h.name) return;
+                const key = (h.microchip || h.name).trim().toLowerCase();
+                if (EXCLUDED_MOCK_NAMES.some(ex => key.includes(ex))) return;
+
+                const defaultStall = h.stall || h.stable || `Ô A${(idx % 6) + 1}`;
+                const existing = map.get(key);
+                if (!existing) {
+                  map.set(key, {
+                    id: h.id || h.microchip || key,
+                    horseName: h.name,
+                    name: h.name,
+                    microchip: h.microchip || 'MC-VN-2026',
+                    breed: h.breed || 'Thoroughbred thuần chủng',
+                    age: h.age || 4,
+                    gender: h.gender || 'Đực (Stallion)',
+                    ownerName: h.ownerName || h.owner || 'Chủ sở hữu',
+                    owner: h.ownerName || h.owner || 'Chủ sở hữu',
+                    ownerKey: k.replace('matruong_owner_horses_', ''),
+                    stable: defaultStall,
+                    stall: defaultStall.match(/Ô\s*[A-Z0-9]+/i)?.[0] || defaultStall.split('(')[0].trim(),
+                    block: defaultStall.includes('B') ? 'Block B' : defaultStall.includes('C') ? 'Block C' : 'Block A',
+                    trainerName: h.trainer || h.trainerName || 'HLV Lê Trọng Nghĩa',
+                    vetName: h.vet || h.vetName || 'BS. Nguyễn An',
+                    groomName: 'Bộ phận Chăm sóc (Groom)',
+                    groomStatus: 'CONFIRMED',
+                    groomConfirmed: true,
+                    isLockedByVet: h.isLockedByVet || h.locked || false,
+                    avatar: h.avatar || h.image
+                  });
+                } else {
+                  map.set(key, {
+                    ...existing,
+                    ownerName: existing.ownerName || h.ownerName || h.owner,
+                    owner: existing.owner || h.ownerName || h.owner,
+                    isLockedByVet: h.isLockedByVet || h.locked || existing.isLockedByVet,
+                    avatar: h.avatar || h.image || existing.avatar
+                  });
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error scanning owner horses for groom:', err);
+  }
+
+  return Array.from(map.values());
+}
+
+// Logic mới: Groom là nơi phục vụ hết tất cả các ngựa của các chủ sở hữu trong hệ thống.
+// Chủ sở hữu không cần chọn Groom nào hết và không cần gửi yêu cầu phục vụ từ Groom nữa.
+// Toàn bộ chiến mã đang có trong hệ thống sẽ tự động hiển thị đầy đủ bên Cổng Groom.
+export function getGroomRealtimeHorses(groomUser = null, assignmentsList = null) {
+  const allHorses = getAllSystemHorsesForGroom();
 
   return {
-    all: myGroomAssignments,
-    confirmed, // Danh sách chiến mã được Groom đồng ý chăm sóc (DUY NHẤT ĐƯỢC HIỂN THỊ TRONG QUẢN LÝ)
-    pending,   // Danh sách chờ Groom đồng ý tiếp nhận
-    rejected   // Danh sách không đồng ý (Bị xóa hết khỏi giao diện quản lý)
+    all: allHorses,
+    confirmed: allHorses, // Tất cả ngựa trong hệ thống đều sẵn sàng để Groom phục vụ
+    pending: [],          // Không cần chờ Groom đồng ý
+    rejected: []
   };
 }
 
@@ -366,8 +446,8 @@ export function setServiceAssignmentStatus(horseIdentifier, roleType, newStatus 
   let updated = false;
   const nextList = list.map(item => {
     const match = (item.microchip && item.microchip.trim().toLowerCase() === key) ||
-                  (item.horseName && item.horseName.trim().toLowerCase() === key) ||
-                  (item.id && String(item.id) === key);
+      (item.horseName && item.horseName.trim().toLowerCase() === key) ||
+      (item.id && String(item.id) === key);
     if (!match) return item;
 
     updated = true;
@@ -412,8 +492,8 @@ export function removeServiceAssignmentByHorse(horseIdentifier) {
   const key = String(horseIdentifier).trim().toLowerCase();
   const nextList = list.filter(item => {
     const match = (item.microchip && item.microchip.toLowerCase() === key) ||
-                  (item.horseName && item.horseName.toLowerCase() === key) ||
-                  String(item.id) === key;
+      (item.horseName && item.horseName.toLowerCase() === key) ||
+      String(item.id) === key;
     return !match;
   });
   if (nextList.length !== list.length) {
@@ -431,8 +511,8 @@ export function updateServiceAssignmentPedigree(horseIdentifier, pedigreeData) {
   let updated = false;
   const nextList = list.map(item => {
     const match = (item.microchip && item.microchip.trim().toLowerCase() === key) ||
-                  (item.horseName && item.horseName.trim().toLowerCase() === key) ||
-                  (item.id && String(item.id) === key);
+      (item.horseName && item.horseName.trim().toLowerCase() === key) ||
+      (item.id && String(item.id) === key);
     if (!match) return item;
 
     updated = true;
@@ -453,7 +533,7 @@ export function updateServiceAssignmentPedigree(horseIdentifier, pedigreeData) {
     window.dispatchEvent(new CustomEvent('matruong_pedigree_updated', {
       detail: { horseIdentifier, pedigree: pedigreeData }
     }));
-  } catch {}
+  } catch { }
 
   return nextList;
 }
@@ -486,7 +566,7 @@ export function lookupFullHorseInfo(horseIdentifier) {
         }
       }
     }
-  } catch {}
+  } catch { }
 
   // 2. Quét tìm trong danh sách phân công chuyên môn
   const assignments = getServiceAssignments();
@@ -496,92 +576,92 @@ export function lookupFullHorseInfo(horseIdentifier) {
     (item.id && String(item.id).trim() === key)
   );
 
-const DEFAULT_HORSE_PEDIGREES = {
-  'hắc phong': {
-    sire: 'Deep Impact (JPN)',
-    sireOfSire: 'Sunday Silence (USA)',
-    damOfSire: 'Wind in Her Hair (IRE)',
-    sireAchievements: 'Huyền thoại 7 danh hiệu G1, Vô địch Japan Cup',
-    dam: 'Northern Dancer (USA)',
-    sireOfDam: 'Nearctic (CAN)',
-    damOfDam: 'Natalma (USA)',
-    damAchievements: 'Dòng máu cái vĩ đại nhất lịch sử đua ngựa thế giới',
-    foaled: '2022 (4 tuổi)',
-    bloodline: 'Sunday Silence × Northern Dancer (98.5% thuần chủng)',
-    origin: 'Nhật Bản (JRA) & Hoa Kỳ',
-    studBookNo: 'VTB-SB-2024-001'
-  },
-  'xích thố': {
-    sire: 'Marwan Al Shaqab (QAT)',
-    sireOfSire: 'Gazal Al Shaqab (QAT)',
-    damOfSire: 'Little Liza Fame (USA)',
-    sireAchievements: 'Vô địch World Champion Stallion 3 năm liên tiếp',
-    dam: 'Al Adeed Al Shaqab (QAT)',
-    sireOfDam: 'Ansata Halim Shah (USA)',
-    damOfDam: 'Sundar Alisayyah (USA)',
-    damAchievements: 'Huyền thoại dòng Arabian thuần chủng sa mạc',
-    foaled: '2021 (5 tuổi)',
-    bloodline: 'Al Shaqab Desert Arabian (100% thuần chủng)',
-    origin: 'Qatar & UAE',
-    studBookNo: 'VTB-SB-2021-014'
-  },
-  'phi yến': {
-    sire: 'Frankel (GB)',
-    sireOfSire: 'Galileo (IRE)',
-    damOfSire: 'Kind (IRE)',
-    sireAchievements: 'Bất bại 14/14 chặng đua G1, Chiến mã số 1 hành tinh',
-    dam: 'Sea The Stars (IRE)',
-    sireOfDam: 'Cape Cross (IRE)',
-    damOfDam: 'Urban Sea (USA)',
-    damAchievements: 'Vô địch Prix de l\'Arc de Triomphe & 2000 Guineas',
-    foaled: '2023 (3 tuổi)',
-    bloodline: 'Frankel (GB) × Sea The Stars (IRE)',
-    origin: 'Anh Quốc (Weatherbys) & Ireland',
-    studBookNo: 'VTB-SB-2023-009'
-  },
-  'lôi chấn': {
-    sire: 'Corona Cartel (USA)',
-    sireOfSire: 'Holland Ease (USA)',
-    damOfSire: 'Corona Chick (USA)',
-    sireAchievements: 'Vua nước rút Quarter Horse, Hall of Fame AQHA',
-    dam: 'First Down Dash (USA)',
-    sireOfDam: 'Dash For Cash (USA)',
-    damOfDam: 'First Prize Rose (USA)',
-    damAchievements: 'Dòng dõi vô địch All American Futurity danh giá',
-    foaled: '2021 (5 tuổi)',
-    bloodline: 'Corona Cartel × Dash For Cash',
-    origin: 'Hoa Kỳ (AQHA Stud Book)',
-    studBookNo: 'VTB-SB-2022-088'
-  },
-  'bạch long': {
-    sire: 'Tapit (USA)',
-    sireOfSire: 'Pulpit (USA)',
-    damOfSire: 'Tap Your Heels (USA)',
-    sireAchievements: 'Đứng đầu danh sách Sire Bắc Mỹ 3 lần liên tiếp',
-    dam: 'Flightline (USA)',
-    sireOfDam: 'Tapit (USA)',
-    damOfDam: 'Feathered (USA)',
-    damAchievements: 'Chiến mã số 1 thế giới Longines World\'s Best Racehorse',
-    foaled: '2024 (2 tuổi)',
-    bloodline: 'Tapit × A.P. Indy Lineage',
-    origin: 'Hoa Kỳ (Keeneland)',
-    studBookNo: 'VTB-SB-2024-003'
-  },
-  'chiến mã hiếu': {
-    sire: 'Secretariat (USA)',
-    sireOfSire: 'Bold Ruler (USA)',
-    damOfSire: 'Somethingroyal (USA)',
-    sireAchievements: 'Huyền thoại Triple Crown Hoa Kỳ với kỷ lục bất bại',
-    dam: 'Zenyatta (USA)',
-    sireOfDam: 'Street Cry (IRE)',
-    damOfDam: 'Vertigineux (USA)',
-    damAchievements: 'Chiến mã cái bất bại 19 chặng đua G1 danh giá',
-    foaled: '2023 (3 tuổi)',
-    bloodline: 'Secretariat × Street Cry',
-    origin: 'Kentucky, Hoa Kỳ',
-    studBookNo: 'VTB-SB-2026-662'
-  }
-};
+  const DEFAULT_HORSE_PEDIGREES = {
+    'hắc phong': {
+      sire: 'Deep Impact (JPN)',
+      sireOfSire: 'Sunday Silence (USA)',
+      damOfSire: 'Wind in Her Hair (IRE)',
+      sireAchievements: 'Huyền thoại 7 danh hiệu G1, Vô địch Japan Cup',
+      dam: 'Northern Dancer (USA)',
+      sireOfDam: 'Nearctic (CAN)',
+      damOfDam: 'Natalma (USA)',
+      damAchievements: 'Dòng máu cái vĩ đại nhất lịch sử đua ngựa thế giới',
+      foaled: '2022 (4 tuổi)',
+      bloodline: 'Sunday Silence × Northern Dancer (98.5% thuần chủng)',
+      origin: 'Nhật Bản (JRA) & Hoa Kỳ',
+      studBookNo: 'VTB-SB-2024-001'
+    },
+    'xích thố': {
+      sire: 'Marwan Al Shaqab (QAT)',
+      sireOfSire: 'Gazal Al Shaqab (QAT)',
+      damOfSire: 'Little Liza Fame (USA)',
+      sireAchievements: 'Vô địch World Champion Stallion 3 năm liên tiếp',
+      dam: 'Al Adeed Al Shaqab (QAT)',
+      sireOfDam: 'Ansata Halim Shah (USA)',
+      damOfDam: 'Sundar Alisayyah (USA)',
+      damAchievements: 'Huyền thoại dòng Arabian thuần chủng sa mạc',
+      foaled: '2021 (5 tuổi)',
+      bloodline: 'Al Shaqab Desert Arabian (100% thuần chủng)',
+      origin: 'Qatar & UAE',
+      studBookNo: 'VTB-SB-2021-014'
+    },
+    'phi yến': {
+      sire: 'Frankel (GB)',
+      sireOfSire: 'Galileo (IRE)',
+      damOfSire: 'Kind (IRE)',
+      sireAchievements: 'Bất bại 14/14 chặng đua G1, Chiến mã số 1 hành tinh',
+      dam: 'Sea The Stars (IRE)',
+      sireOfDam: 'Cape Cross (IRE)',
+      damOfDam: 'Urban Sea (USA)',
+      damAchievements: 'Vô địch Prix de l\'Arc de Triomphe & 2000 Guineas',
+      foaled: '2023 (3 tuổi)',
+      bloodline: 'Frankel (GB) × Sea The Stars (IRE)',
+      origin: 'Anh Quốc (Weatherbys) & Ireland',
+      studBookNo: 'VTB-SB-2023-009'
+    },
+    'lôi chấn': {
+      sire: 'Corona Cartel (USA)',
+      sireOfSire: 'Holland Ease (USA)',
+      damOfSire: 'Corona Chick (USA)',
+      sireAchievements: 'Vua nước rút Quarter Horse, Hall of Fame AQHA',
+      dam: 'First Down Dash (USA)',
+      sireOfDam: 'Dash For Cash (USA)',
+      damOfDam: 'First Prize Rose (USA)',
+      damAchievements: 'Dòng dõi vô địch All American Futurity danh giá',
+      foaled: '2021 (5 tuổi)',
+      bloodline: 'Corona Cartel × Dash For Cash',
+      origin: 'Hoa Kỳ (AQHA Stud Book)',
+      studBookNo: 'VTB-SB-2022-088'
+    },
+    'bạch long': {
+      sire: 'Tapit (USA)',
+      sireOfSire: 'Pulpit (USA)',
+      damOfSire: 'Tap Your Heels (USA)',
+      sireAchievements: 'Đứng đầu danh sách Sire Bắc Mỹ 3 lần liên tiếp',
+      dam: 'Flightline (USA)',
+      sireOfDam: 'Tapit (USA)',
+      damOfDam: 'Feathered (USA)',
+      damAchievements: 'Chiến mã số 1 thế giới Longines World\'s Best Racehorse',
+      foaled: '2024 (2 tuổi)',
+      bloodline: 'Tapit × A.P. Indy Lineage',
+      origin: 'Hoa Kỳ (Keeneland)',
+      studBookNo: 'VTB-SB-2024-003'
+    },
+    'chiến mã hiếu': {
+      sire: 'Secretariat (USA)',
+      sireOfSire: 'Bold Ruler (USA)',
+      damOfSire: 'Somethingroyal (USA)',
+      sireAchievements: 'Huyền thoại Triple Crown Hoa Kỳ với kỷ lục bất bại',
+      dam: 'Zenyatta (USA)',
+      sireOfDam: 'Street Cry (IRE)',
+      damOfDam: 'Vertigineux (USA)',
+      damAchievements: 'Chiến mã cái bất bại 19 chặng đua G1 danh giá',
+      foaled: '2023 (3 tuổi)',
+      bloodline: 'Secretariat × Street Cry',
+      origin: 'Kentucky, Hoa Kỳ',
+      studBookNo: 'VTB-SB-2026-662'
+    }
+  };
 
   const defaultAvatar = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80';
   const horseName = foundOwnerHorse?.name || matchAsgn?.horseName || horseIdentifier;
@@ -595,7 +675,7 @@ const DEFAULT_HORSE_PEDIGREES = {
   const avatar = foundOwnerHorse?.avatar || matchAsgn?.avatar || defaultAvatar;
 
   const fallbackPed = DEFAULT_HORSE_PEDIGREES[horseName.toLowerCase()] ||
-                       DEFAULT_HORSE_PEDIGREES[String(microchip).toLowerCase()] || {
+    DEFAULT_HORSE_PEDIGREES[String(microchip).toLowerCase()] || {
     sire: 'Storm Cat (USA)',
     sireOfSire: 'Storm Bird (CAN)',
     damOfSire: 'Terlingua (USA)',

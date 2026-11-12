@@ -1520,13 +1520,13 @@ export default function OwnerPage() {
             ...h,
             trainer: trObj ? trObj.name : h.trainer,
             vet: vtObj ? vtObj.name : h.vet,
-            groom: gmObj ? gmObj.name : h.groom,
+            groom: 'Đội ngũ Groom Trường Đua',
             trainerStatus: autoConfirmAll ? 'CONFIRMED' : (h.trainer !== (trObj ? trObj.name : h.trainer) ? 'PENDING' : h.trainerStatus),
             vetStatus: autoConfirmAll ? 'CONFIRMED' : (h.vet !== (vtObj ? vtObj.name : h.vet) ? 'PENDING' : h.vetStatus),
-            groomStatus: autoConfirmAll ? 'CONFIRMED' : 'PENDING',
+            groomStatus: 'CONFIRMED',
             trainerConfirmed: autoConfirmAll ? true : (h.trainer !== (trObj ? trObj.name : h.trainer) ? false : h.trainerConfirmed),
             vetConfirmed: autoConfirmAll ? true : (h.vet !== (vtObj ? vtObj.name : h.vet) ? false : h.vetConfirmed),
-            groomConfirmed: autoConfirmAll ? true : false
+            groomConfirmed: true
           };
         }
         return h;
@@ -10641,31 +10641,22 @@ export default function OwnerPage() {
                 </select>
               </div>
 
-              {/* 3. Chọn Groom */}
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#C084FC', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  <span></span> Chuyên Viên Chăm Sóc (1 trong 3 Groom chính):
-                </label>
-                <select
-                  value={selectedTeamStaff.groomUsername}
-                  onChange={(e) => setSelectedTeamStaff({ ...selectedTeamStaff, groomUsername: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--line)',
-                    borderRadius: '8px',
-                    color: 'var(--paper)',
-                    fontSize: '13px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {FIXED_GROOMS_LIST.map(gm => (
-                    <option key={gm.username} value={gm.username}>
-                      {gm.name} — {gm.title}
-                    </option>
-                  ))}
-                </select>
+              {/* 3. Groom: Bộ phận chăm sóc phục vụ toàn bộ ngựa */}
+              <div style={{
+                background: 'rgba(212, 175, 55, 0.08)',
+                border: '1px solid rgba(212, 175, 55, 0.25)',
+                borderRadius: '8px',
+                padding: '10px 14px'
+              }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🌾</span> BỘ PHẬN CHĂM SÓC CHUỒNG TRẠI (GROOM TRƯỜNG ĐUA)
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--paper)', marginTop: '4px', fontWeight: 600 }}>
+                  Đội ngũ Groom Trường Đua (Phục vụ chăm sóc toàn bộ chiến mã)
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                  * Tự động tiếp nhận, vệ sinh chuồng trại, cho ăn & theo dõi sức khỏe hằng ngày. Chủ sở hữu không cần chỉ định hay gửi yêu cầu riêng.
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: '10px', marginTop: '12px' }}>

@@ -1592,15 +1592,61 @@ export async function reportIncidentApi(incident) {
       credentials: 'include',
       body: JSON.stringify(incident)
     });
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('matruong_incidents_updated', { detail: data }));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return data;
+    }
   } catch {
     // Fallback
   }
 
   const local = getLocalData(STORAGE_KEYS.INCIDENTS, []);
-  const newIncident = { ...incident, id: Date.now() };
+  const newIncident = { ...incident, id: incident.id || `INC-${Date.now().toString().slice(-4)}` };
   setLocalData(STORAGE_KEYS.INCIDENTS, [newIncident, ...local]);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_incidents_updated', { detail: newIncident }));
+    window.dispatchEvent(new Event('storage'));
+  }
   return newIncident;
+}
+
+export async function updateIncidentStatusApi(incidentId, updateData) {
+  try {
+    const res = await fetch(`/api/incidents/${incidentId}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(updateData)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('matruong_incidents_updated', { detail: data }));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+
+  const local = getLocalData(STORAGE_KEYS.INCIDENTS, []);
+  const updated = local.map(inc => {
+    if (String(inc.id) === String(incidentId)) {
+      return { ...inc, ...updateData };
+    }
+    return inc;
+  });
+  setLocalData(STORAGE_KEYS.INCIDENTS, updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('matruong_incidents_updated', { detail: { id: incidentId, ...updateData } }));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return { id: incidentId, ...updateData };
 }
 
 

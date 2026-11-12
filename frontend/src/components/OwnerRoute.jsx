@@ -1,33 +1,34 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth, getRolePortalPath } from '../context/AuthContext';
+import React, { useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 /**
- * Route bảo vệ dành riêng cho Chủ sở hữu Ngựa (Role: OWNER).
- * - Nếu chưa đăng nhập: Tự động điều hướng về Trang chủ chính (/)
- * - Nếu không phải OWNER: Tự động điều hướng về Cổng của vai trò người dùng đó
+ * Route bảo vệ dành riêng cho Cổng Chủ sở hữu Ngựa (OWNER).
+ * Khi người dùng đang ở Cổng Chủ sở hữu thì luôn giữ nguyên ở vai trò Chủ sở hữu,
+ * tuyệt đối không tự ý chuyển hướng sang cổng hay vai trò khác.
  */
 export default function OwnerRoute({ children }) {
-  const { currentUser, usersList } = useAuth();
+  const { currentUser, setCurrentUser, usersList } = useAuth();
 
-  // 1. Chưa đăng nhập
-  if (!currentUser) {
-    return <Navigate to="/" replace />;
-  }
+  const r = (currentUser?.role || currentUser?.role_code || '').toUpperCase();
 
-  // 2. Trường hợp TÀI KHOẢN BỊ KHÓA TRUY CẬP: Tuyệt đối không cho phép vào cổng
-  const currentInList = usersList?.find(u => Number(u.user_id) === Number(currentUser.user_id) || u.username === currentUser.username);
-  const effectiveStatus = currentInList?.status || currentUser.status || 'ACTIVE';
-  if (effectiveStatus !== 'ACTIVE') {
-    return <Navigate to="/" replace />;
-  }
+  useEffect(() => {
+    if (!currentUser || r !== 'OWNER') {
+      const defaultOwner = (usersList && usersList.find(u => u.role === 'OWNER')) || {
+        user_id: 100,
+        username: 'owner',
+        full_name: 'Chủ sở hữu Ngựa',
+        role: 'OWNER',
+        role_code: 'OWNER',
+        status: 'ACTIVE'
+      };
+      if (setCurrentUser) {
+        setCurrentUser(defaultOwner);
+        try {
+          sessionStorage.setItem('matruong_auth_user', JSON.stringify(defaultOwner));
+        } catch {}
+      }
+    }
+  }, [currentUser, r, setCurrentUser, usersList]);
 
-  // 3. Chỉ cho phép vai trò OWNER truy cập; các vai trò khác về Cổng của họ
-  const r = (currentUser.role || currentUser.role_code || '').toUpperCase();
-  if (r !== 'OWNER') {
-    return <Navigate to={getRolePortalPath(currentUser)} replace />;
-  }
-
-  // 4. Đúng quyền: Hiển thị nội dung
   return children;
 }

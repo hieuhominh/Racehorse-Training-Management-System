@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationBell from '../components/NotificationBell';
 import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
+import GroomIncidentReportModal from '../components/groom/GroomIncidentReportModal';
+import GroomScheduleModal from '../components/groom/GroomScheduleModal';
 import { reportIncidentApi } from '../services/api';
+import { addSystemNotification } from '../services/notificationService';
 import {
   getServiceAssignments,
   confirmServiceAssignment,
@@ -16,6 +19,7 @@ import {
 import {
   formatConfirmedHorseForGroom,
   generateRealtimeDailyTasks,
+  GROOM_TEAM_MEMBERS,
   INITIAL_EMERGENCY_ALERTS,
   INITIAL_VET_INSTRUCTIONS,
   INITIAL_INVENTORY,
@@ -189,21 +193,51 @@ export default function GroomPage() {
     };
   }, []);
 
+  // Phân quyền nhân sự Groom gắn chặt theo tài khoản đăng nhập (currentUser), tuyệt đối không cho phép tự ý đổi quyền
+  const currentGroomUser = useMemo(() => {
+    const uName = (currentUser?.username || '').trim().toLowerCase();
+    const fName = (currentUser?.full_name || '').trim().toLowerCase();
+
+    if (uName === 'groom_dung' || fName.includes('tiến dũng') || fName.includes('vũ tiến dũng')) {
+      return GROOM_TEAM_MEMBERS.find(g => g.id === 'groom_dung') || GROOM_TEAM_MEMBERS[1];
+    }
+    if (uName === 'groom_thao' || fName.includes('thu thảo') || fName.includes('nguyễn thu thảo')) {
+      return GROOM_TEAM_MEMBERS.find(g => g.id === 'groom_thao') || GROOM_TEAM_MEMBERS[2];
+    }
+    // Mặc định hoặc tài khoản groom_nam / groom là Chủ nhóm Groom (Lê Hoàng Nam)
+    return GROOM_TEAM_MEMBERS[0];
+  }, [currentUser]);
+
+  // Xóa bỏ hoàn toàn key ACTIVE_ROLE cũ nếu có
+  useEffect(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_ROLE);
+    } catch {}
+  }, []);
+
   // Lọc dữ liệu chiến mã theo thời gian thực dành cho Groom:
   // - confirmedList: CHỈ NHỮNG CHIẾN MÃ DO GROOM PHỤ TRÁCH ĐỒNG Ý
   // - pendingList: Các yêu cầu gửi gắm từ chủ sở hữu đang chờ Groom đồng ý
   // - Những chiến mã không do Groom đồng ý (hoặc từ chối) BỊ XÓA HẾT KHỎI DANH SÁCH!
-  const groomRealtime = getGroomRealtimeHorses(currentUser, serviceAssignments);
+  const groomRealtime = getGroomRealtimeHorses(currentGroomUser, serviceAssignments);
   const pendingRequests = groomRealtime.pending; // Chờ Groom đồng ý
   const confirmedList = groomRealtime.confirmed; // ĐÃ ĐỒNG Ý TIẾP NHẬN
 
   // Chuyển đổi các chiến mã đã đồng ý thành dữ liệu chiến mã quản lý
   const confirmedHorses = confirmedList.map(a => formatConfirmedHorseForGroom(a));
 
+  // Toàn bộ chiến mã được các Groom trong đội đồng ý tiếp nhận (để Chủ nhóm Groom phân ca theo đúng Groom phụ trách)
+  const allTeamConfirmedHorses = useMemo(() => {
+    return (serviceAssignments || [])
+      .filter(a => a.groomStatus === 'CONFIRMED')
+      .map(a => formatConfirmedHorseForGroom(a));
+  }, [serviceAssignments]);
+
   // =========================================================================
   // 2. SINH CÔNG VIỆC HẰNG NGÀY & Ô CHUỒNG DỰA TRÊN CHIẾN MÃ ĐÃ ĐỒNG Ý
   // =========================================================================
   const [tasks, setTasks] = useState(() => generateRealtimeDailyTasks(confirmedHorses));
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   // Tự động đồng bộ tasks khi danh sách chiến mã đã đồng ý thay đổi
   useEffect(() => {
@@ -239,11 +273,28 @@ export default function GroomPage() {
   // Vật tư
   const [inventory, setInventory] = useState(() => getGroomData(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY));
 
-  // Ô chuồng phụ trách Block A (Ô A1 - Ô A6)
-  const defaultStallCodes = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6'];
+  // Các ô chuồng phụ trách chăm sóc toàn bộ chiến mã trong hệ thống
+  const stallCodes = useMemo(() => {
+    const set = new Set(['A1', 'A2', 'A3', 'A4', 'A5', 'A6']);
+    confirmedHorses.forEach(h => {
+      if (h.stall) {
+        const m = h.stall.match(/[A-Z0-9]+/i);
+        if (m) set.add(m[0].toUpperCase());
+      }
+    });
+    return Array.from(set).sort();
+  }, [confirmedHorses]);
+
   const [stalls, setStalls] = useState(() => {
-    return defaultStallCodes.map((code) => {
-      const assigned = confirmedHorses.find(h => h.stall.toUpperCase().includes(code));
+    const set = new Set(['A1', 'A2', 'A3', 'A4', 'A5', 'A6']);
+    confirmedHorses.forEach(h => {
+      if (h.stall) {
+        const m = h.stall.match(/[A-Z0-9]+/i);
+        if (m) set.add(m[0].toUpperCase());
+      }
+    });
+    return Array.from(set).sort().map((code) => {
+      const assigned = confirmedHorses.find(h => (h.stall || '').toUpperCase().includes(code));
       return {
         code,
         horseName: assigned ? assigned.name : null,
@@ -257,10 +308,10 @@ export default function GroomPage() {
     });
   });
 
-  // Đồng bộ ô chuồng theo thời gian thực khi có ngựa được đồng ý hoặc bị xóa
+  // Đồng bộ ô chuồng theo thời gian thực khi có ngựa mới trong hệ thống
   useEffect(() => {
-    setStalls(defaultStallCodes.map((code) => {
-      const assigned = confirmedHorses.find(h => h.stall.toUpperCase().includes(code));
+    setStalls(stallCodes.map((code) => {
+      const assigned = confirmedHorses.find(h => (h.stall || '').toUpperCase().includes(code));
       return {
         code,
         horseName: assigned ? assigned.name : null,
@@ -272,7 +323,7 @@ export default function GroomPage() {
         lastCleaned: assigned ? 'Sáng nay' : 'Đã sát trùng'
       };
     }));
-  }, [confirmedList.length]);
+  }, [confirmedHorses.length, stallCodes]);
 
   // Modal Profile chiến mã
   const [selectedHorseModal, setSelectedHorseModal] = useState(null);
@@ -319,8 +370,21 @@ export default function GroomPage() {
   };
 
   const handleAddTask = (newTask) => {
+    if (!currentGroomUser.isLead) {
+      showToast('Chỉ Chủ nhóm Groom mới có quyền phân ca và tạo lịch công việc!', 'TỪ CHỐI QUYỀN', 'error');
+      return;
+    }
     setTasks(prev => [newTask, ...prev]);
-    showToast(`Đã thêm nhiệm vụ: "${newTask.title}"!`, 'THÊM CÔNG VIỆC', 'success');
+    showToast(`Chủ nhóm đã phân công: "${newTask.title}" cho ${newTask.groom}!`, 'PHÂN CA THÀNH CÔNG', 'success');
+  };
+
+  const handleDeleteTask = (taskId) => {
+    if (!currentGroomUser.isLead) {
+      showToast('Chỉ Chủ nhóm Groom mới có quyền xóa lịch công việc!', 'TỪ CHỐI QUYỀN', 'error');
+      return;
+    }
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    showToast('Đã xóa công việc khỏi lịch ca trực!', 'ĐÃ XÓA', 'info');
   };
 
   const handleCleanBedding = (stallCode) => {
@@ -337,46 +401,114 @@ export default function GroomPage() {
     showToast(`Đã gửi yêu cầu cấp phát "${supplyName}" đến Quản lý!`, 'CẤP PHÁT VẬT TƯ', 'info');
   };
 
-  const handleSubmitReport = (e) => {
-    e.preventDefault();
-    if (!reportFormData.desc.trim()) {
-      showToast('Vui lòng nhập mô tả cụ thể về sự cố tại chuồng.', 'THIẾU THÔNG TIN', 'warning');
-      return;
-    }
+  // Lắng nghe cập nhật từ Bác sĩ thú y theo thời gian thực
+  useEffect(() => {
+    const handleVetIncidentUpdate = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.INCIDENTS) || localStorage.getItem('matruong_incidents');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            setAlerts(prev => prev.map(a => {
+              const matched = list.find(item => item.id === a.id || (item.horseName === a.horseName && item.symptoms === a.title?.split(' (')[0]));
+              if (matched) {
+                if (matched.status === 'resolved') {
+                  return {
+                    ...a,
+                    status: 'RESOLVED',
+                    actionRequired: `Bác sĩ Thú y đã hoàn tất thăm khám: ${matched.vetDiagnosis || 'Thể trạng ổn định'}. Phác đồ: ${matched.actionTaken || 'Đã áp dụng điều trị'}`
+                  };
+                } else if (matched.status === 'in_review') {
+                  return {
+                    ...a,
+                    status: 'IN_TREATMENT',
+                    actionRequired: 'Bác sĩ Thú y đã tiếp nhận thông tin và đang trực tiếp có mặt tại chuồng khám.'
+                  };
+                }
+              }
+              return a;
+            }));
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('matruong_incidents_updated', handleVetIncidentUpdate);
+    window.addEventListener('storage', handleVetIncidentUpdate);
+    return () => {
+      window.removeEventListener('matruong_incidents_updated', handleVetIncidentUpdate);
+      window.removeEventListener('storage', handleVetIncidentUpdate);
+    };
+  }, []);
+
+  const handleSubmitReport = (reportPayload) => {
+    const isCritical = reportPayload.severity === 'CRITICAL';
+    const incidentId = `INC-${Date.now().toString().slice(-4)}`;
 
     const newInc = {
-      id: `INC-${Date.now().toString().slice(-4)}`,
-      stallCode: reportFormData.stallCode,
-      horseName: reportFormData.horseName || 'Chiến mã',
-      severity: reportFormData.severity,
-      symptoms: reportFormData.symptoms,
-      desc: reportFormData.desc,
+      id: incidentId,
+      stallCode: reportPayload.stallCode,
+      stall: reportPayload.stall,
+      horseName: reportPayload.horseName || 'Chiến mã',
+      horseId: reportPayload.horseId || 'EQ-VN-2026',
+      severity: reportPayload.severity,
+      symptoms: reportPayload.symptoms,
+      desc: reportPayload.desc,
+      description: reportPayload.desc,
+      vitalSigns: {
+        temp: reportPayload.temp,
+        respRate: reportPayload.respRate,
+        mucousColor: reportPayload.mucousColor,
+        gutSounds: reportPayload.gutSounds
+      },
+      firstAidActions: reportPayload.firstAidActions || [],
       reportedAt: 'Vừa xong',
       reportedBy: currentUser?.full_name || 'Lê Hoàng Nam (Groom)',
       status: 'pending_vet',
-      statusText: 'Đang chờ BS Thú Y khám'
+      statusText: isCritical ? 'Khẩn cấp: Đang chờ BS Thú Y đến ngay' : 'Đang chờ BS Thú Y khám'
     };
 
+    const firstAidText = (reportPayload.firstAidActions && reportPayload.firstAidActions.length > 0)
+      ? ` [Sơ cứu: ${reportPayload.firstAidActions.join(' · ')}]`
+      : '';
+
     const newAlert = {
-      id: `ALT-${Date.now().toString().slice(-4)}`,
-      type: 'ABNORMAL_BEHAVIOR',
-      severity: reportFormData.severity,
-      title: `${reportFormData.symptoms} (${reportFormData.horseName || 'Chiến mã'})`,
-      horseName: reportFormData.horseName || 'Chiến mã',
-      horseId: 'EQ-VN-2026',
-      stall: `Ô ${reportFormData.stallCode}`,
+      id: incidentId,
+      type: isCritical ? 'COLIC_SIGNS' : 'ABNORMAL_BEHAVIOR',
+      severity: reportPayload.severity,
+      title: `${reportPayload.symptoms} (${reportPayload.horseName || 'Chiến mã'})`,
+      horseName: reportPayload.horseName || 'Chiến mã',
+      horseId: reportPayload.horseId || 'EQ-VN-2026',
+      stall: reportPayload.stall,
       time: 'Vừa xong',
-      desc: reportFormData.desc,
-      actionRequired: 'Chờ Bác sĩ Thú y kiểm tra trực tiếp tại chuồng.',
-      status: 'PENDING',
+      desc: `${reportPayload.desc}${firstAidText} [Thân nhiệt: ${reportPayload.temp} · Nhịp thở: ${reportPayload.respRate}]`,
+      actionRequired: isCritical
+        ? 'KHẨN CẤP: Dắt ngựa đi bộ chậm, ngắt máng cỏ khô, chờ BS. Thú Y đến ngay!'
+        : 'Chờ Bác sĩ Thú y kiểm tra trực tiếp tại chuồng.',
+      status: isCritical ? 'CRITICAL_PENDING' : 'PENDING',
       reportedToVet: true
     };
 
     reportIncidentApi(newInc).catch(() => {});
     setAlerts(prev => [newAlert, ...prev]);
+
+    // Bắn thông báo khẩn cấp hệ thống đến Bác sĩ Thú Y và Quản trị viên
+    try {
+      addSystemNotification({
+        type: 'INCIDENT_REPORTED',
+        title: `BÁO ĐỘNG SỨC KHỎE [${reportPayload.severity}]: ${reportPayload.horseName?.toUpperCase()} (${reportPayload.stall})`,
+        message: `Groom ${currentUser?.full_name || 'Lê Hoàng Nam'} vừa phát báo động lâm sàng: "${reportPayload.symptoms}". Thân nhiệt: ${reportPayload.temp}. Yêu cầu Bác sĩ Thú y thăm khám khẩn cấp!`,
+        horseName: reportPayload.horseName,
+        horseId: reportPayload.horseId,
+        stall: reportPayload.stall,
+        severity: reportPayload.severity,
+        recipientRoles: ['VET', 'ADMIN', 'GROOM', 'ALL']
+      });
+    } catch {}
+
     setShowReportModal(false);
     setReportFormData({ stallCode: 'A1', horseName: '', severity: 'HIGH', symptoms: 'Ngựa bỏ ăn / Bỏ ăn trên 50%', desc: '' });
-    showToast(`Đã phát báo động sự cố "${newInc.id}" đến Bác sĩ Thú Y!`, 'BÁO ĐỘNG THÀNH CÔNG', 'success');
+    showToast(`Đã phát báo động sự cố "${newInc.id}" đến Bác sĩ Thú Y trực ban!`, 'BÁO ĐỘNG THÀNH CÔNG', 'success');
   };
 
   const handleLogout = () => {
@@ -629,11 +761,13 @@ export default function GroomPage() {
             <ThemeToggle />
             <div className="portal-user-badge">
               <div className="portal-user-avatar">
-                GN
+                {currentGroomUser.name.split(' ').map(n => n[0]).slice(-2).join('')}
               </div>
               <div className="portal-user-info">
-                <div className="portal-user-name">{currentUser?.full_name || 'Lê Hoàng Nam'}</div>
-                <div className="portal-user-role">Trưởng nhóm Groom Block A</div>
+                <div className="portal-user-name">{currentGroomUser.name}</div>
+                <div className="portal-user-role" style={{ color: currentGroomUser.isLead ? 'var(--brass)' : '#3B82F6', fontWeight: 600 }}>
+                  {currentGroomUser.title}
+                </div>
               </div>
             </div>
             <button
@@ -780,6 +914,9 @@ export default function GroomPage() {
               onOpenReportModal={() => setShowReportModal(true)}
               onOpenHorseModal={(h) => setSelectedHorseModal(h)}
               onNavigateTab={(tab) => setActiveTab(tab)}
+              onOpenScheduleModal={() => setShowScheduleModal(true)}
+              onDeleteTask={handleDeleteTask}
+              currentGroomUser={currentGroomUser}
             />
           )}
 
@@ -788,7 +925,9 @@ export default function GroomPage() {
             <GroomTasksTab
               tasks={tasks}
               onUpdateTaskStatus={handleUpdateTaskStatus}
-              onAddTask={handleAddTask}
+              onOpenScheduleModal={() => setShowScheduleModal(true)}
+              onDeleteTask={handleDeleteTask}
+              currentGroomUser={currentGroomUser}
             />
           )}
 
@@ -871,161 +1010,15 @@ export default function GroomPage() {
       </div>
 
       {/* ===================== MODAL: BÁO CÁO SỰ CỐ KHẨN CẤP CHO BÁC SĨ THÚ Y ===================== */}
-      {showReportModal && (
-        <div className="modal-overlay" onClick={() => setShowReportModal(false)}>
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: '460px',
-              width: '90%',
-              padding: '22px 24px',
-              border: '1px solid rgba(239, 68, 68, 0.45)',
-              boxShadow: '0 16px 36px rgba(0, 0, 0, 0.55)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: 800, color: '#EF4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🚨 Phát Báo Động Sự Cố Sức Khỏe</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowReportModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <p style={{ fontSize: '12px', color: 'var(--paper-dim)', margin: '0 0 14px', lineHeight: 1.4 }}>
-              Phiếu báo động này sẽ được đẩy trực tiếp lên màn hình của <b>Bác sĩ Thú Y trực</b> để thăm khám khẩn cấp.
-            </p>
-
-            <form onSubmit={handleSubmitReport}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--paper)', marginBottom: '4px' }}>
-                    Ô chuồng:
-                  </label>
-                  <select
-                    value={reportFormData.stallCode}
-                    onChange={(e) => {
-                      const h = confirmedHorses.find(item => item.stall.includes(e.target.value));
-                      setReportFormData({
-                        ...reportFormData,
-                        stallCode: e.target.value,
-                        horseName: h ? h.name : 'Chiến mã'
-                      });
-                    }}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)', fontSize: '12.5px' }}
-                  >
-                    <option value="A1">Ô A1</option>
-                    <option value="A2">Ô A2</option>
-                    <option value="A3">Ô A3</option>
-                    <option value="A4">Ô A4</option>
-                    <option value="A5">Ô A5</option>
-                    <option value="A6">Ô A6</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--paper)', marginBottom: '4px' }}>
-                    Mức độ nghiêm trọng:
-                  </label>
-                  <select
-                    value={reportFormData.severity}
-                    onChange={(e) => setReportFormData({ ...reportFormData, severity: e.target.value })}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)', fontSize: '12.5px' }}
-                  >
-                    <option value="CRITICAL">🚨 Khẩn cấp (Critical - Nguy cơ Colic/Sốt cao)</option>
-                    <option value="HIGH">⚠️ Cao (High - Khập khiễng, sưng chân)</option>
-                    <option value="MEDIUM">🟡 Trung bình (Bỏ ăn, hành vi lạ)</option>
-                    <option value="LOW">🟢 Nhẹ (Xước da ngoài)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '10px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--paper)', marginBottom: '4px' }}>
-                  Dấu hiệu / Triệu chứng phát hiện:
-                </label>
-                <select
-                  value={reportFormData.symptoms}
-                  onChange={(e) => setReportFormData({ ...reportFormData, symptoms: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)', fontSize: '12.5px' }}
-                >
-                  <option value="Ngựa bỏ ăn / Bỏ ăn trên 50%">Ngựa bỏ ăn / Bỏ ăn trên 50%</option>
-                  <option value="Hành vi bất thường (cắn gỗ, dậm chân liên tục)">Hành vi bất thường (cắn gỗ, dậm chân liên tục)</option>
-                  <option value="Có dấu hiệu đau bụng Colic (nằm lăn, ngoái nhìn sườn)">Có dấu hiệu đau bụng Colic (nằm lăn, ngoái nhìn sườn)</option>
-                  <option value="Đi khập khiễng / Bước chân ngắn gật đầu">Đi khập khiễng / Bước chân ngắn gật đầu</option>
-                  <option value="Chân bị sưng nóng / Khớp cổ chân căng cứng">Chân bị sưng nóng / Khớp cổ chân căng cứng</option>
-                  <option value="Có vết thương ngoài da hoặc rỉ máu">Có vết thương ngoài da hoặc rỉ máu</option>
-                  <option value="Sốt cao trên 38.8°C / Thở dốc">Sốt cao trên 38.8°C / Thở dốc</option>
-                  <option value="Khác">Dấu hiệu bất thường khác...</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--paper)', marginBottom: '4px' }}>
-                  Mô tả cụ thể quan sát thực tế tại chuồng:
-                </label>
-                <textarea
-                  rows="3"
-                  required
-                  placeholder="Ghi nhận rõ tư thế đứng, phản xạ khi chạm vào, màu phân/nước tiểu..."
-                  value={reportFormData.desc}
-                  onChange={(e) => setReportFormData({ ...reportFormData, desc: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--line)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--paper)',
-                    fontFamily: 'inherit',
-                    fontSize: '12.5px',
-                    resize: 'none'
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowReportModal(false)}
-                  style={{
-                    padding: '7px 14px',
-                    borderRadius: '6px',
-                    background: 'transparent',
-                    color: 'var(--paper-dim)',
-                    border: '1px solid var(--line)',
-                    fontSize: '12.5px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '7px 18px',
-                    borderRadius: '6px',
-                    background: '#EF4444',
-                    color: '#FFF',
-                    fontWeight: 700,
-                    border: 'none',
-                    fontSize: '12.5px',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
-                  }}
-                >
-                  Gửi Bác Sĩ Thú Y Ngay
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <GroomIncidentReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={handleSubmitReport}
+        horses={confirmedHorses}
+        stalls={stalls}
+        prefill={reportFormData}
+        currentUser={currentUser}
+      />
 
       {/* ===================== MODAL: PROFILE CHI TIẾT CHIẾN MÃ ===================== */}
       {selectedHorseModal && (
@@ -1035,6 +1028,14 @@ export default function GroomPage() {
           onClose={() => setSelectedHorseModal(null)}
         />
       )}
+
+      {/* ===================== MODAL: PHÂN CA & TẠO LỊCH CÔNG VIỆC (CHỦ NHÓM GROOM) ===================== */}
+      <GroomScheduleModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        onAddTask={handleAddTask}
+        horses={currentGroomUser.isLead ? allTeamConfirmedHorses : confirmedHorses}
+      />
     </div>
   );
 }

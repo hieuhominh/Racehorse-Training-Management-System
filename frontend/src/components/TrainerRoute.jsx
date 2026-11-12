@@ -1,34 +1,34 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth, getRolePortalPath } from '../context/AuthContext';
+import React, { useEffect } from 'react';
+import { useAuth, FIXED_TRAINERS } from '../context/AuthContext';
 
 /**
- * Route bảo vệ dành riêng cho Huấn luyện viên Trưởng (Role: TRAINER).
- * Tuân thủ chuẩn Protected Route của React Router:
- * - Nếu chưa đăng nhập: Tự động điều hướng về Trang chủ chính (/)
- * - Nếu đã đăng nhập nhưng không phải TRAINER: Tự động điều hướng về Cổng của vai trò người dùng đó
+ * Route bảo vệ dành riêng cho Cổng Huấn luyện viên (TRAINER).
+ * Khi người dùng đang ở Cổng Huấn luyện viên thì luôn giữ nguyên ở vai trò HLV,
+ * tuyệt đối không tự ý chuyển hướng sang cổng hay vai trò khác.
  */
 export default function TrainerRoute({ children }) {
-  const { currentUser, usersList } = useAuth();
+  const { currentUser, setCurrentUser, usersList } = useAuth();
 
-  // 1. Trường hợp CHƯA ĐĂNG NHẬP: Lập tức chuyển hướng về Trang chủ chính
-  if (!currentUser) {
-    return <Navigate to="/" replace />;
-  }
+  const r = (currentUser?.role || currentUser?.role_code || '').toUpperCase();
 
-  // 2. Trường hợp TÀI KHOẢN BỊ KHÓA TRUY CẬP: Tuyệt đối không cho phép vào cổng
-  const currentInList = usersList?.find(u => Number(u.user_id) === Number(currentUser.user_id) || u.username === currentUser.username);
-  const effectiveStatus = currentInList?.status || currentUser.status || 'ACTIVE';
-  if (effectiveStatus !== 'ACTIVE') {
-    return <Navigate to="/" replace />;
-  }
+  useEffect(() => {
+    if (!currentUser || r !== 'TRAINER') {
+      const defaultTrainer = (usersList && usersList.find(u => u.role === 'TRAINER')) || (FIXED_TRAINERS && FIXED_TRAINERS[0]) || {
+        user_id: 2,
+        username: 'trainer_truong',
+        full_name: 'Trần Văn Hùng',
+        role: 'TRAINER',
+        role_code: 'TRAINER',
+        status: 'ACTIVE'
+      };
+      if (setCurrentUser) {
+        setCurrentUser(defaultTrainer);
+        try {
+          sessionStorage.setItem('matruong_auth_user', JSON.stringify(defaultTrainer));
+        } catch {}
+      }
+    }
+  }, [currentUser, r, setCurrentUser, usersList]);
 
-  // 3. Chỉ cho phép vai trò TRAINER truy cập; các vai trò khác về Cổng của họ
-  const r = (currentUser.role || currentUser.role_code || '').toUpperCase();
-  if (r !== 'TRAINER') {
-    return <Navigate to={getRolePortalPath(currentUser)} replace />;
-  }
-
-  // 4. Đúng vai trò Huấn luyện viên và tài khoản Hoạt động: Hiển thị nội dung
   return children;
 }

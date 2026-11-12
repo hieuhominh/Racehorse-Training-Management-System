@@ -7,6 +7,7 @@ import {
   getHorsesApi,
   toggleHorseLockApi,
   getIncidentsApi,
+  updateIncidentStatusApi,
   getVetPrescriptionsApi,
   createVetPrescriptionApi,
   getVetClearanceListApi,
@@ -383,6 +384,51 @@ export default function VetPage() {
     return () => { isMounted = false; };
   }, [isNewAccount]);
 
+  // Lắng nghe sự cố y tế lâm sàng thời gian thực từ Groom phát động
+  useEffect(() => {
+    const handleIncidentsSync = (e) => {
+      getIncidentsApi().then(res => {
+        if (res && Array.isArray(res.data) && res.data.length > 0) {
+          const sanitized = res.data.map((item, idx) => ({
+            id: item.id || `INC-${1000 + idx}`,
+            stallCode: item.stallCode || item.stall || 'A1',
+            stall: item.stall || `Ô ${item.stallCode || 'A1'}`,
+            horseName: item.horseName || item.horse || 'Chiến mã',
+            horseId: item.horseId || 'EQ-VN-2026',
+            chipId: item.chipId || item.microchip || 'N/A',
+            symptoms: Array.isArray(item.symptoms) ? item.symptoms : (typeof item.symptoms === 'string' ? [item.symptoms] : ['Theo dõi thể trạng']),
+            severity: item.severity || 'HIGH',
+            description: item.desc || item.description || item.note || 'Báo cáo sự cố cần bác sĩ khám nghiệm.',
+            vitalSigns: item.vitalSigns || null,
+            firstAidActions: item.firstAidActions || [],
+            imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=600&q=80',
+            reportedBy: item.reportedBy || 'Groom phụ trách',
+            timestamp: item.reportedAt || item.timestamp || 'Vừa xong',
+            status: item.status || 'pending_vet',
+            vetDiagnosis: item.vetDiagnosis || '',
+            actionTaken: item.actionTaken || ''
+          }));
+          setIncidents(sanitized);
+
+          if (e?.detail && (e.detail.severity || e.detail.horseName)) {
+            showToast(
+              `Có ca báo động khẩn cấp mới từ Groom: ${e.detail.horseName || 'Chiến mã'} (${e.detail.stall || 'Ô chuồng'}) - ${e.detail.symptoms || 'Cần khám khẩn'}!`,
+              'BÁO ĐỘNG SỨC KHỎE',
+              'warning'
+            );
+          }
+        }
+      }).catch(() => {});
+    };
+
+    window.addEventListener('matruong_incidents_updated', handleIncidentsSync);
+    window.addEventListener('storage', handleIncidentsSync);
+    return () => {
+      window.removeEventListener('matruong_incidents_updated', handleIncidentsSync);
+      window.removeEventListener('storage', handleIncidentsSync);
+    };
+  }, []);
+
   // State: Phân công y tế từ Chủ sở hữu (3 Bác sĩ thú y cố định)
   const [serviceAssignments, setServiceAssignments] = useState(() => getServiceAssignments());
 
@@ -702,27 +748,90 @@ export default function VetPage() {
     }
   };
 
-  // Tiếp nhận & Cập nhật ca sự cố
+  // Bác sĩ xác nhận tiếp nhận thông tin ca báo động và đang trực tiếp đến chuồng khám
+  const handleAcceptIncident = (targetIncident) => {
+    const inc = targetIncident || selectedIncidentModal;
+    if (!inc) return;
+
+    setIncidents(prev => prev.map(item => {
+      if (item.id === inc.id) {
+        return {
+          ...item,
+          status: 'in_review',
+          statusText: 'Bác sĩ Thú y đã tiếp nhận & đang đến ô chuồng'
+        };
+      }
+      return item;
+    }));
+
+    updateIncidentStatusApi(inc.id, {
+      status: 'in_review',
+      statusText: 'Bác sĩ Thú y đã tiếp nhận & đang đến ô chuồng'
+    }).catch(() => {});
+
+    try {
+      addSystemNotification({
+        type: 'INCIDENT_ACCEPTED',
+        title: `TIẾP NHẬN THĂM KHÁM: ${inc.horseName?.toUpperCase()}`,
+        message: `BS. ${currentUser?.full_name || 'Bác sĩ Thú y'} đã xác nhận tiếp nhận ca báo động ${inc.id} và đang đến ô chuồng ${inc.stallCode || inc.stall || ''} để thăm khám trực tiếp.`,
+        horseName: inc.horseName,
+        stall: inc.stallCode || inc.stall,
+        recipientRoles: ['GROOM', 'OWNER', 'ADMIN', 'ALL']
+      });
+    } catch {}
+
+    showToast(
+      `Đã xác nhận tiếp nhận ca ${inc.id}. Hệ thống đã gửi thông báo đến Groom phụ trách!`,
+      'TIẾP NHẬN THĂM KHÁM',
+      'success'
+    );
+
+    if (selectedIncidentModal && selectedIncidentModal.id === inc.id) {
+      setSelectedIncidentModal(prev => ({ ...prev, status: 'in_review' }));
+    }
+  };
+
+  // Hoàn tất thăm khám, chẩn đoán và ban hành y lệnh phác đồ
   const handleResolveIncident = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!selectedIncidentModal) return;
+
+    const diagnosis = incidentDiagnosisInput || 'Bác sĩ thú y đã trực tiếp thăm khám và kiểm tra thể trạng tại chuồng.';
+    const action = incidentActionInput || 'Đã áp dụng phác đồ điều trị, hạ sốt/giảm đau và ổn định thể trạng.';
 
     setIncidents(prev => prev.map(inc => {
       if (inc.id === selectedIncidentModal.id) {
         return {
           ...inc,
           status: 'resolved',
-          vetDiagnosis: incidentDiagnosisInput || 'Bác sĩ thú y đã trực tiếp thăm khám và xử lý tại chuồng.',
-          actionTaken: incidentActionInput || 'Đã áp dụng phác đồ điều trị và ổn định thể trạng.'
+          vetDiagnosis: diagnosis,
+          actionTaken: action
         };
       }
       return inc;
     }));
 
+    updateIncidentStatusApi(selectedIncidentModal.id, {
+      status: 'resolved',
+      vetDiagnosis: diagnosis,
+      actionTaken: action
+    }).catch(() => {});
+
+    try {
+      addSystemNotification({
+        type: 'INCIDENT_RESOLVED',
+        title: `KẾT QUẢ THĂM KHÁM: ${selectedIncidentModal.horseName?.toUpperCase()}`,
+        message: `BS. ${currentUser?.full_name || 'Bác sĩ Thú y'} đã hoàn tất thăm khám cho ${selectedIncidentModal.horseName}. Chẩn đoán: "${diagnosis}". Phác đồ: "${action}".`,
+        horseName: selectedIncidentModal.horseName,
+        stall: selectedIncidentModal.stallCode || selectedIncidentModal.stall,
+        recipientRoles: ['GROOM', 'OWNER', 'ADMIN', 'ALL']
+      });
+    } catch {}
+
     showToast(
-      `Đã hoàn tất xử lý ca bệnh ${selectedIncidentModal.id} (${selectedIncidentModal.horseName})`,
+      `Đã hoàn tất xử lý & ban hành phác đồ cho ${selectedIncidentModal.horseName}!`,
       'XỬ LÝ LÂM SÀNG THÀNH CÔNG',
-      'info'
+      'success'
     );
     setSelectedIncidentModal(null);
     setIncidentDiagnosisInput('');
@@ -1933,40 +2042,75 @@ export default function VetPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '18px' }}>
                 {incidents.map((inc) => {
                   const isPending = inc.status === 'pending_vet';
+                  const isInReview = inc.status === 'in_review';
+                  const isCritical = inc.severity === 'CRITICAL';
+                  const isHigh = inc.severity === 'HIGH';
+
+                  const badgeColor = isCritical ? '#EF4444' : isHigh ? '#F59E0B' : '#3B82F6';
+                  const badgeBg = isCritical ? 'rgba(239, 68, 68, 0.15)' : isHigh ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)';
+
                   return (
                     <div
                       key={inc.id}
                       className="facility-card"
                       style={{
-                        borderColor: isPending ? 'var(--brass)' : 'var(--line)',
-                        boxShadow: isPending ? '0 0 16px var(--brass-glow)' : 'none'
+                        borderColor: isPending ? (isCritical ? '#EF4444' : 'var(--brass)') : 'var(--line)',
+                        boxShadow: isPending ? (isCritical ? '0 0 16px rgba(239, 68, 68, 0.3)' : '0 0 16px var(--brass-glow)') : 'none',
+                        display: 'flex',
+                        flexDirection: 'column'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                        <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{
                             padding: '3px 8px',
                             borderRadius: '4px',
                             fontSize: '11px',
-                            fontWeight: 700,
-                            background: isPending ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                            color: isPending ? 'var(--brass)' : 'var(--paper-dim)',
-                            border: `1px solid ${isPending ? 'var(--brass)' : 'var(--line)'}`,
-                            marginRight: '8px'
+                            fontWeight: 800,
+                            background: badgeBg,
+                            color: badgeColor,
+                            border: `1px solid ${badgeColor}`,
+                            letterSpacing: '0.04em'
                           }}>
                             {inc.severity}
                           </span>
-                          <b style={{ color: 'var(--paper)', fontSize: '14px' }}>Mã phiếu: {inc.id}</b>
+                          <b style={{ color: 'var(--paper)', fontSize: '13.5px' }}>{inc.id}</b>
+                          {isPending && (
+                            <span style={{
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              color: '#EF4444',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              border: '1px solid rgba(239, 68, 68, 0.4)',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              Chờ BS Khám
+                            </span>
+                          )}
+                          {isInReview && (
+                            <span style={{
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              color: '#F59E0B',
+                              background: 'rgba(245, 158, 11, 0.12)',
+                              border: '1px solid rgba(245, 158, 11, 0.4)',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              Đang Thăm Khám
+                            </span>
+                          )}
                         </div>
                         <span style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{inc.timestamp}</span>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '14px', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', gap: '14px', marginBottom: '12px' }}>
                         {inc.imageUrl && (
                           <img
                             src={inc.imageUrl}
                             alt="Ảnh hiện trường"
-                            style={{ width: '90px', height: '90px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--line)' }}
+                            style={{ width: '84px', height: '84px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--line)' }}
                             onError={(e) => {
                               e.target.src = 'https://images.unsplash.com/photo-1535083783855-76ae62b2914e?auto=format&fit=crop&w=600&q=80';
                             }}
@@ -1974,33 +2118,101 @@ export default function VetPage() {
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--brass)' }}>
-                            {inc.horseName} · <span style={{ color: 'var(--paper)' }}>Ô chuồng {inc.stallCode}</span>
+                            {inc.horseName} · <span style={{ color: 'var(--paper)' }}>{inc.stall || `Ô chuồng ${inc.stallCode}`}</span>
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)', margin: '4px 0' }}>
-                            Báo cáo bởi: <b>{inc.reportedBy}</b>
+                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)', margin: '3px 0' }}>
+                            Báo cáo bởi: <b style={{ color: 'var(--paper)' }}>{inc.reportedBy}</b>
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
                             {Array.isArray(inc.symptoms) && inc.symptoms.map((sym, idx) => (
-                              <span key={idx} style={{ fontSize: '11px', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', color: 'var(--paper)' }}>
-                                • {sym}
+                              <span key={idx} style={{ fontSize: '11px', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px', color: 'var(--paper)', border: '1px solid var(--line)' }}>
+                                {sym}
                               </span>
                             ))}
                           </div>
                         </div>
                       </div>
 
-                      <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', color: 'var(--paper)', marginBottom: '14px', lineHeight: '1.45' }}>
+                      {/* Chỉ số sinh tồn sơ bộ do Groom ghi nhận */}
+                      {inc.vitalSigns && (
+                        <div style={{
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '6px',
+                          padding: '8px 10px',
+                          marginBottom: '10px',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(4, 1fr)',
+                          gap: '6px',
+                          fontSize: '11px'
+                        }}>
+                          <div>
+                            <span style={{ color: 'var(--paper-dim)' }}>Thân nhiệt:</span>
+                            <div style={{ fontWeight: 700, color: Number((inc.vitalSigns.temp || '').replace(/[^0-9.]/g, '')) > 38.5 ? '#EF4444' : 'var(--paper)' }}>
+                              {inc.vitalSigns.temp || 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--paper-dim)' }}>Nhịp thở:</span>
+                            <div style={{ fontWeight: 700, color: 'var(--paper)' }}>{inc.vitalSigns.respRate || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--paper-dim)' }}>Niêm mạc:</span>
+                            <div style={{ fontWeight: 600, color: 'var(--paper)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {inc.vitalSigns.mucousColor?.split(' ')[0] || 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{ color: 'var(--paper-dim)' }}>Tiếng ruột:</span>
+                            <div style={{ fontWeight: 600, color: 'var(--paper)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {inc.vitalSigns.gutSounds?.split(' ')[0] || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mô tả chi tiết Groom */}
+                      <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', color: 'var(--paper)', marginBottom: '12px', lineHeight: '1.45' }}>
                         {inc.description}
                       </div>
 
+                      {/* Thao tác sơ cứu Groom đã thực hiện */}
+                      {inc.firstAidActions && inc.firstAidActions.length > 0 && (
+                        <div style={{ fontSize: '11px', color: '#10B981', marginBottom: '12px', background: 'rgba(16, 185, 129, 0.08)', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                          <b>Sơ cứu hiện trường:</b> {inc.firstAidActions.join(' · ')}
+                        </div>
+                      )}
+
+                      {/* Chẩn đoán của Bác sĩ nếu đã xử lý */}
                       {inc.vetDiagnosis && (
-                        <div style={{ background: 'rgba(212, 175, 55, 0.08)', border: '1px solid rgba(212, 175, 55, 0.25)', padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', marginBottom: '14px' }}>
+                        <div style={{ background: 'rgba(212, 175, 55, 0.08)', border: '1px solid rgba(212, 175, 55, 0.25)', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '12px' }}>
                           <b style={{ color: 'var(--brass)' }}>Chẩn đoán BS Thú y:</b> {inc.vetDiagnosis}
                           {inc.actionTaken && <div style={{ color: 'var(--paper-dim)', marginTop: '4px' }}>• Xử lý: {inc.actionTaken}</div>}
                         </div>
                       )}
 
-                      <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: 'auto', paddingTop: '6px' }}>
+                        {isPending && (
+                          <button
+                            type="button"
+                            onClick={() => handleAcceptIncident(inc)}
+                            style={{
+                              padding: '8px 12px',
+                              background: 'rgba(245, 158, 11, 0.15)',
+                              color: '#F59E0B',
+                              border: '1px solid rgba(245, 158, 11, 0.4)',
+                              fontWeight: 700,
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              whiteSpace: 'nowrap'
+                            }}
+                            title="Xác nhận tiếp nhận thông tin và di chuyển đến ô chuồng khám"
+                          >
+                            Tiếp Nhận Ca
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => {
@@ -2016,10 +2228,11 @@ export default function VetPage() {
                             fontWeight: 700,
                             borderRadius: '6px',
                             border: '1px solid var(--line)',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            fontSize: '12.5px'
                           }}
                         >
-                          {isPending ? 'Thăm khám & Kê toa' : 'Cập nhật diễn biến'}
+                          {isPending ? 'Xác Nhận & Thăm Khám' : 'Cập nhật diễn biến'}
                         </button>
 
                         <button
@@ -2035,7 +2248,8 @@ export default function VetPage() {
                             fontWeight: 600,
                             borderRadius: '6px',
                             border: '1px solid var(--line)',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            fontSize: '12px'
                           }}
                           title="Kích hoạt lệnh cấm tập nặng ngay lập tức"
                         >
@@ -2622,31 +2836,167 @@ export default function VetPage() {
       </div>
 
       {/* ========================================================================= */}
-      {/* MODAL 1: XỬ LÝ CA SỰ CỐ & THĂM KHÁM LÂM SÀNG */}
+      {/* MODAL 1: TIẾP NHẬN BÁO ĐỘNG & THĂM KHÁM LÂM SÀNG */}
       {/* ========================================================================= */}
       {selectedIncidentModal && (
-        <div className="modal-overlay" onClick={() => setSelectedIncidentModal(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px', width: '90%' }}>
-            <h3 style={{ margin: '0 0 14px 0', fontSize: '18px', color: 'var(--brass)' }}>
-              Thăm khám & Kê đơn Sự cố: {selectedIncidentModal.id}
-            </h3>
-
-            <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '16px', fontSize: '13px' }}>
-              <div>Chiến mã: <b style={{ color: 'var(--paper)' }}>{selectedIncidentModal.horseName}</b> (Ô {selectedIncidentModal.stallCode})</div>
-              <div>Báo cáo bởi: <b>{selectedIncidentModal.reportedBy}</b> lúc {selectedIncidentModal.timestamp}</div>
-              <div style={{ marginTop: '6px', color: 'var(--paper-dim)' }}>{selectedIncidentModal.description}</div>
+        <div className="modal-overlay" onClick={() => setSelectedIncidentModal(null)} style={{ zIndex: 1100 }}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '680px',
+              width: '92%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              borderRadius: '12px',
+              border: selectedIncidentModal.severity === 'CRITICAL' ? '1px solid #EF4444' : '1px solid var(--line)',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.75)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '16px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', color: '#FFFFFF', fontWeight: 800, textTransform: 'uppercase' }}>
+                    Phiếu Tiếp Nhận Báo Động & Thăm Khám Y Tế
+                  </h3>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    background: selectedIncidentModal.severity === 'CRITICAL' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                    color: selectedIncidentModal.severity === 'CRITICAL' ? '#EF4444' : '#F59E0B',
+                    border: `1px solid ${selectedIncidentModal.severity === 'CRITICAL' ? '#EF4444' : '#F59E0B'}`
+                  }}>
+                    {selectedIncidentModal.severity}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '4px' }}>
+                  Mã tiếp nhận: <b style={{ color: 'var(--brass)', fontFamily: 'monospace' }}>{selectedIncidentModal.id}</b> · Báo cáo lúc: {selectedIncidentModal.timestamp}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedIncidentModal(null)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--line)',
+                  color: 'var(--paper-dim)',
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕
+              </button>
             </div>
+
+            {/* Thông tin Groom ghi nhận tại hiện trường */}
+            <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '12.5px', marginBottom: '10px' }}>
+                <div>Chiến mã: <b style={{ color: 'var(--paper)' }}>{selectedIncidentModal.horseName}</b></div>
+                <div>Vị trí: <b style={{ color: 'var(--brass)' }}>{selectedIncidentModal.stall || `Ô chuồng ${selectedIncidentModal.stallCode}`}</b></div>
+                <div>Người lập báo động: <b style={{ color: 'var(--paper)' }}>{selectedIncidentModal.reportedBy}</b></div>
+                <div>Trạng thái hiện tại: <b style={{ color: selectedIncidentModal.status === 'resolved' ? '#10B981' : '#F59E0B' }}>
+                  {selectedIncidentModal.status === 'resolved' ? 'Đã hoàn tất khám' : (selectedIncidentModal.status === 'in_review' ? 'Đang tiếp nhận thăm khám' : 'Chờ Bác sĩ khám')}
+                </b></div>
+              </div>
+
+              {/* Chỉ số sinh tồn nếu có */}
+              {selectedIncidentModal.vitalSigns && (
+                <div style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  marginBottom: '10px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '8px',
+                  fontSize: '11px'
+                }}>
+                  <div>
+                    <span style={{ color: 'var(--paper-dim)' }}>Thân nhiệt:</span>
+                    <div style={{ fontWeight: 700, color: '#EF4444' }}>{selectedIncidentModal.vitalSigns.temp}</div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--paper-dim)' }}>Nhịp thở:</span>
+                    <div style={{ fontWeight: 700, color: 'var(--paper)' }}>{selectedIncidentModal.vitalSigns.respRate}</div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--paper-dim)' }}>Niêm mạc:</span>
+                    <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{selectedIncidentModal.vitalSigns.mucousColor}</div>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--paper-dim)' }}>Nhu động ruột:</span>
+                    <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{selectedIncidentModal.vitalSigns.gutSounds}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Triệu chứng và sơ cứu */}
+              <div style={{ fontSize: '12px', color: 'var(--paper)', marginBottom: '8px' }}>
+                <b>Triệu chứng:</b> {Array.isArray(selectedIncidentModal.symptoms) ? selectedIncidentModal.symptoms.join(', ') : selectedIncidentModal.symptoms}
+              </div>
+
+              {selectedIncidentModal.firstAidActions && selectedIncidentModal.firstAidActions.length > 0 && (
+                <div style={{ fontSize: '11.5px', color: '#10B981', marginBottom: '8px' }}>
+                  <b>Sơ cứu hiện trường Groom đã làm:</b> {selectedIncidentModal.firstAidActions.join(' · ')}
+                </div>
+              )}
+
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.45, borderTop: '1px dashed var(--line)', paddingTop: '8px' }}>
+                <b>Mô tả của Groom:</b> {selectedIncidentModal.description}
+              </div>
+            </div>
+
+            {/* Thanh xác nhận tiếp nhận nhanh */}
+            {selectedIncidentModal.status === 'pending_vet' && (
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}>
+                <div style={{ fontSize: '12px', color: '#F59E0B' }}>
+                  Xác nhận tiếp nhận thông tin để Groom và Chủ sở hữu biết Bác sĩ đang trực tiếp đến ô chuồng.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAcceptIncident(selectedIncidentModal)}
+                  style={{
+                    padding: '7px 14px',
+                    borderRadius: '6px',
+                    background: '#F59E0B',
+                    color: '#000',
+                    fontWeight: 700,
+                    border: 'none',
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Xác Nhận Đang Đến Khám
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleResolveIncident}>
               <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px' }}>
-                  Chẩn đoán lâm sàng của Bác sĩ Thú y:
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--paper)', marginBottom: '6px' }}>
+                  Chẩn đoán lâm sàng của Bác sĩ Thú y: <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <textarea
                   rows="3"
                   value={incidentDiagnosisInput}
                   onChange={(e) => setIncidentDiagnosisInput(e.target.value)}
-                  placeholder="Ví dụ: Đau bụng nhẹ do ăn quá nhanh, gõ nghe âm vang vùng manh tràng..."
+                  placeholder="Ví dụ: Đau bụng nhẹ do ăn quá nhanh / Viêm bao gân cổ chân độ 1 / Trầy xước mô mềm không tổn thương khớp..."
                   style={{
                     width: '100%',
                     padding: '10px',
@@ -2654,21 +3004,22 @@ export default function VetPage() {
                     border: '1px solid var(--line)',
                     background: 'var(--bg-secondary)',
                     color: 'var(--paper)',
-                    fontSize: '13px'
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
                   }}
                   required
                 />
               </div>
 
               <div style={{ marginBottom: '18px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--paper-dim)', marginBottom: '6px' }}>
-                  Biện pháp xử lý & Phác đồ điều trị:
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--paper)', marginBottom: '6px' }}>
+                  Biện pháp xử lý, Phác đồ điều trị & Y lệnh cho Groom: <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <textarea
-                  rows="2"
+                  rows="3"
                   value={incidentActionInput}
                   onChange={(e) => setIncidentActionInput(e.target.value)}
-                  placeholder="Ví dụ: Tiêm giảm đau chống co thắt Buscopan 20ml, cho nhịn ăn tinh 12h, ngâm chân đá lạnh..."
+                  placeholder="Ví dụ: Tiêm giảm đau chống co thắt Buscopan 20ml, cho nhịn ăn tinh 12h, Groom tiếp tục dắt đi bộ chậm 15 phút mỗi 2 tiếng và theo dõi nhu động ruột..."
                   style={{
                     width: '100%',
                     padding: '10px',
@@ -2676,25 +3027,26 @@ export default function VetPage() {
                     border: '1px solid var(--line)',
                     background: 'var(--bg-secondary)',
                     color: 'var(--paper)',
-                    fontSize: '13px'
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
                   }}
                   required
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid var(--line)', paddingTop: '12px' }}>
                 <button
                   type="button"
                   onClick={() => setSelectedIncidentModal(null)}
-                  style={{ padding: '8px 16px', borderRadius: '6px', background: 'transparent', color: 'var(--paper-dim)', border: '1px solid var(--line)', cursor: 'pointer' }}
+                  style={{ padding: '8px 18px', borderRadius: '6px', background: 'transparent', color: 'var(--paper-dim)', border: '1px solid var(--line)', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600 }}
                 >
                   Đóng
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: '8px 18px', borderRadius: '6px', background: 'var(--brass)', color: '#000', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+                  style={{ padding: '8px 22px', borderRadius: '6px', background: 'var(--brass)', color: '#000', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '12.5px' }}
                 >
-                  Lưu & Hoàn tất ca khám
+                  XÁC NHẬN & BAN HÀNH PHÁC ĐỒ ĐIỀU TRỊ
                 </button>
               </div>
             </form>

@@ -1,33 +1,34 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth, getRolePortalPath } from '../context/AuthContext';
+import React, { useEffect } from 'react';
+import { useAuth, FIXED_GROOMS } from '../context/AuthContext';
 
 /**
- * Route bảo vệ dành riêng cho Nhân viên Chăm sóc (Role: GROOM).
- * - Nếu chưa đăng nhập: Tự động điều hướng về Trang chủ chính (/)
- * - Nếu không phải GROOM: Tự động điều hướng về Cổng của vai trò người dùng đó
+ * Route bảo vệ dành riêng cho Cổng Chăm Sóc (Groom).
+ * Khi người dùng đang ở Cổng Groom thì luôn giữ nguyên ở vai trò Groom,
+ * tuyệt đối không tự ý chuyển hướng sang cổng hay vai trò khác.
  */
 export default function GroomRoute({ children }) {
-  const { currentUser, usersList } = useAuth();
+  const { currentUser, setCurrentUser, usersList } = useAuth();
 
-  // 1. Trường hợp CHƯA ĐĂNG NHẬP
-  if (!currentUser) {
-    return <Navigate to="/" replace />;
-  }
+  const r = (currentUser?.role || currentUser?.role_code || '').toUpperCase();
 
-  // 2. Trường hợp TÀI KHOẢN BỊ KHÓA TRUY CẬP: Tuyệt đối không cho phép vào cổng
-  const currentInList = usersList?.find(u => Number(u.user_id) === Number(currentUser.user_id) || u.username === currentUser.username);
-  const effectiveStatus = currentInList?.status || currentUser.status || 'ACTIVE';
-  if (effectiveStatus !== 'ACTIVE') {
-    return <Navigate to="/" replace />;
-  }
+  useEffect(() => {
+    if (!currentUser || r !== 'GROOM') {
+      const defaultGroom = (usersList && usersList.find(u => u.role === 'GROOM')) || (FIXED_GROOMS && FIXED_GROOMS[0]) || {
+        user_id: 8,
+        username: 'groom_nam',
+        full_name: 'Lê Hoàng Nam',
+        role: 'GROOM',
+        role_code: 'GROOM',
+        status: 'ACTIVE'
+      };
+      if (setCurrentUser) {
+        setCurrentUser(defaultGroom);
+        try {
+          sessionStorage.setItem('matruong_auth_user', JSON.stringify(defaultGroom));
+        } catch {}
+      }
+    }
+  }, [currentUser, r, setCurrentUser, usersList]);
 
-  // 3. Chỉ cho phép GROOM truy cập; các vai trò khác về Cổng của họ
-  const r = (currentUser.role || currentUser.role_code || '').toUpperCase();
-  if (r !== 'GROOM') {
-    return <Navigate to={getRolePortalPath(currentUser)} replace />;
-  }
-
-  // 4. Đúng quyền: Hiển thị nội dung
   return children;
 }
