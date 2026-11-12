@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
 import PaymentModal from '../components/PaymentModal';
 import RacehorseFitnessDetailModal from '../components/RacehorseFitnessDetailModal';
 import { getHorseFitnessTelemetry, isHorseCalibrating } from '../services/fitnessAlgorithm';
@@ -1456,14 +1457,23 @@ export default function OwnerPage() {
   useEffect(() => {
     const handleUpdate = () => {
       setServiceAssignments(getServiceAssignments());
+      try {
+        const raw = localStorage.getItem(`matruong_owner_horses_${ownerKey}`);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) setMyHorses(deduplicateHorses(list));
+        }
+      } catch {}
     };
     window.addEventListener('matruong_service_assignment_updated', handleUpdate);
+    window.addEventListener('matruong_notifications_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       window.removeEventListener('matruong_service_assignment_updated', handleUpdate);
+      window.removeEventListener('matruong_notifications_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
-  }, []);
+  }, [ownerKey]);
 
   // State: Modal Đổi Đội Ngũ Phục Vụ
   const [teamModalHorse, setTeamModalHorse] = useState(null);
@@ -1511,12 +1521,12 @@ export default function OwnerPage() {
             trainer: trObj ? trObj.name : h.trainer,
             vet: vtObj ? vtObj.name : h.vet,
             groom: gmObj ? gmObj.name : h.groom,
-            trainerStatus: autoConfirmAll ? 'CONFIRMED' : h.trainerStatus,
-            vetStatus: autoConfirmAll ? 'CONFIRMED' : h.vetStatus,
-            groomStatus: autoConfirmAll ? 'CONFIRMED' : h.groomStatus,
-            trainerConfirmed: autoConfirmAll ? true : h.trainerConfirmed,
-            vetConfirmed: autoConfirmAll ? true : h.vetConfirmed,
-            groomConfirmed: autoConfirmAll ? true : h.groomConfirmed
+            trainerStatus: autoConfirmAll ? 'CONFIRMED' : (h.trainer !== (trObj ? trObj.name : h.trainer) ? 'PENDING' : h.trainerStatus),
+            vetStatus: autoConfirmAll ? 'CONFIRMED' : (h.vet !== (vtObj ? vtObj.name : h.vet) ? 'PENDING' : h.vetStatus),
+            groomStatus: autoConfirmAll ? 'CONFIRMED' : 'PENDING',
+            trainerConfirmed: autoConfirmAll ? true : (h.trainer !== (trObj ? trObj.name : h.trainer) ? false : h.trainerConfirmed),
+            vetConfirmed: autoConfirmAll ? true : (h.vet !== (vtObj ? vtObj.name : h.vet) ? false : h.vetConfirmed),
+            groomConfirmed: autoConfirmAll ? true : false
           };
         }
         return h;
@@ -2910,6 +2920,7 @@ export default function OwnerPage() {
           </div>
 
           <div className="portal-topbar-right">
+            <NotificationBell role="OWNER" currentUser={currentUser} />
             <ThemeToggle />
             <div className="portal-user-badge">
               <div className="portal-user-avatar">
@@ -3484,6 +3495,7 @@ export default function OwnerPage() {
                         const trOk = asgn?.trainerStatus === 'CONFIRMED' || h.trainerStatus === 'CONFIRMED' || h.trainerConfirmed === true;
                         const vtOk = asgn?.vetStatus === 'CONFIRMED' || h.vetStatus === 'CONFIRMED' || h.vetConfirmed === true;
                         const gmOk = asgn?.groomStatus === 'CONFIRMED' || h.groomStatus === 'CONFIRMED' || h.groomConfirmed === true;
+                        const gmRejected = asgn?.groomStatus === 'REJECTED' || h.groomStatus === 'REJECTED';
 
                         return (
                           <div style={{
@@ -3599,9 +3611,9 @@ export default function OwnerPage() {
                                   style={{
                                     fontSize: '10px',
                                     fontWeight: 700,
-                                    color: gmOk ? '#10B981' : '#F59E0B',
-                                    background: gmOk ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                                    border: `1px solid ${gmOk ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
+                                    color: gmRejected ? '#EF4444' : gmOk ? '#10B981' : '#F59E0B',
+                                    background: gmRejected ? 'rgba(239, 68, 68, 0.12)' : gmOk ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                                    border: `1px solid ${gmRejected ? 'rgba(239, 68, 68, 0.35)' : gmOk ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
                                     width: '118px',
                                     minWidth: '118px',
                                     height: '24px',
@@ -3616,9 +3628,9 @@ export default function OwnerPage() {
                                     transition: 'all 0.2s ease',
                                     boxSizing: 'border-box'
                                   }}
-                                  title={gmOk ? 'Groom đã xác nhận chăm sóc. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ Groom xác nhận. Bấm để duyệt xác nhận ngay.'}
+                                  title={gmRejected ? 'Groom từ chối tiếp nhận. Vui lòng bấm Đổi Đội Ngũ để chọn Groom khác.' : gmOk ? 'Groom đã đồng ý và xác nhận phục vụ. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ Groom xác nhận trước khi phục vụ. Bấm để duyệt xác nhận ngay.'}
                                 >
-                                  {gmOk ? 'Đã xác nhận' : 'Chờ Groom duyệt'}
+                                  {gmRejected ? 'Groom từ chối' : gmOk ? 'Đã xác nhận' : 'Chờ Groom duyệt'}
                                 </button>
                               </div>
                             </div>

@@ -3,19 +3,57 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
-import {
-  reportIncidentApi,
-  getGroomRoutinesApi,
-  toggleGroomRoutineApi,
-  getGroomStallsApi,
-  updateGroomStallStatusApi
-} from '../services/api';
-import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
 import NotificationBell from '../components/NotificationBell';
 import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
-import { getSystemNotifications } from '../services/notificationService';
+import { reportIncidentApi } from '../services/api';
+import {
+  getServiceAssignments,
+  confirmServiceAssignment,
+  rejectServiceAssignment,
+  getGroomRealtimeHorses,
+  lookupFullHorseInfo
+} from '../services/serviceAssignment';
+import {
+  formatConfirmedHorseForGroom,
+  generateRealtimeDailyTasks,
+  INITIAL_EMERGENCY_ALERTS,
+  INITIAL_VET_INSTRUCTIONS,
+  INITIAL_INVENTORY,
+  getGroomData,
+  saveGroomData,
+  STORAGE_KEYS
+} from '../services/groomService';
+
+// Import các Tab chuyên trách
+import GroomDashboardTab from '../components/groom/GroomDashboardTab';
+import GroomTasksTab from '../components/groom/GroomTasksTab';
+import GroomHorsesTab from '../components/groom/GroomHorsesTab';
+import GroomCareTab from '../components/groom/GroomCareTab';
+import GroomHealthTab from '../components/groom/GroomHealthTab';
+import GroomIncidentsTab from '../components/groom/GroomIncidentsTab';
+import GroomVetInstructionsTab from '../components/groom/GroomVetInstructionsTab';
+import GroomInventoryTab from '../components/groom/GroomInventoryTab';
+import GroomReportsTab from '../components/groom/GroomReportsTab';
+import GroomNotificationsTab from '../components/groom/GroomNotificationsTab';
+import GroomProfileTab from '../components/groom/GroomProfileTab';
 
 // Minimalist High-End SVG Icons for Groom Portal
+const IconDashboard = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+  </svg>
+);
+
+const IconTasks = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 11l3 3L22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+
 const IconHorse = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M22 17v1c0 .5-.5 1-1 1H3c-.5 0-1-.5-1-1v-1" />
@@ -24,10 +62,19 @@ const IconHorse = ({ size = 18, color = 'currentColor' }) => (
   </svg>
 );
 
-const IconChecklist = ({ size = 18, color = 'currentColor' }) => (
+const IconCare = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 11l3 3L22 4" />
-    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M9 3v18" />
+    <path d="M15 3v18" />
+    <path d="M3 9h18" />
+    <path d="M3 15h18" />
+  </svg>
+);
+
+const IconHealth = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
   </svg>
 );
 
@@ -39,26 +86,50 @@ const IconAlert = ({ size = 18, color = 'currentColor' }) => (
   </svg>
 );
 
-const IconFeed = ({ size = 18, color = 'currentColor' }) => (
+const IconVet = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2a10 10 0 0 0-10 10c0 5.5 4.5 10 10 10s10-4.5 10-10c0-3-1.3-5.7-3.4-7.5" />
-    <path d="M12 6v6l4 2" />
+    <path d="M12 2v20" />
+    <path d="M2 12h20" />
   </svg>
 );
 
-const IconSupplies = ({ size = 18, color = 'currentColor' }) => (
+const IconInventory = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+    <line x1="12" y1="22.08" x2="12" y2="12" />
   </svg>
 );
 
-const IconStall = ({ size = 18, color = 'currentColor' }) => (
+const IconReport = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" />
-    <path d="M9 3v18" />
-    <path d="M15 3v18" />
-    <path d="M3 9h18" />
-    <path d="M3 15h18" />
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+    <polyline points="10 9 9 9 8 9" />
+  </svg>
+);
+
+const IconNotification = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+);
+
+const IconProfile = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const IconLogout = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
   </svg>
 );
 
@@ -67,463 +138,280 @@ export default function GroomPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  // Tab Sidebar hiện tại (Mặc định: 'dashboard')
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const saved = localStorage.getItem('matruong_tab_groom');
-      return ['stalls', 'checklist', 'incident', 'nutrition', 'supplies'].includes(saved) ? saved : 'stalls';
+      const validTabs = [
+        'dashboard',
+        'tasks',
+        'horses',
+        'care',
+        'health',
+        'incidents',
+        'vet-instructions',
+        'inventory',
+        'reports',
+        'notifications',
+        'profile'
+      ];
+      return validTabs.includes(saved) ? saved : 'dashboard';
     } catch {
-      return 'stalls';
+      return 'dashboard';
     }
-  }); // 'stalls' | 'checklist' | 'incident' | 'nutrition' | 'supplies'
+  });
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('matruong_tab_groom', activeTab);
   }, [activeTab]);
 
-  // 1. Dữ liệu các ô chuồng Groom phụ trách (Block A)
-  const [assignedStalls, setAssignedStalls] = useState(() => {
+  // =========================================================================
+  // 1. ĐỒNG BỘ PHÂN CÔNG TỪ CHỦ SỞ HỮU THEO THỜI GIAN THỰC (REAL-TIME)
+  // =========================================================================
+  const [serviceAssignments, setServiceAssignments] = useState(() => getServiceAssignments());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const latest = getServiceAssignments();
+      setServiceAssignments(latest);
+    };
+
+    window.addEventListener('matruong_service_assignment_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    window.addEventListener('matruong_notifications_updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('matruong_service_assignment_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('matruong_notifications_updated', handleUpdate);
+    };
+  }, []);
+
+  // Lọc dữ liệu chiến mã theo thời gian thực dành cho Groom:
+  // - confirmedList: CHỈ NHỮNG CHIẾN MÃ DO GROOM PHỤ TRÁCH ĐỒNG Ý
+  // - pendingList: Các yêu cầu gửi gắm từ chủ sở hữu đang chờ Groom đồng ý
+  // - Những chiến mã không do Groom đồng ý (hoặc từ chối) BỊ XÓA HẾT KHỎI DANH SÁCH!
+  const groomRealtime = getGroomRealtimeHorses(currentUser, serviceAssignments);
+  const pendingRequests = groomRealtime.pending; // Chờ Groom đồng ý
+  const confirmedList = groomRealtime.confirmed; // ĐÃ ĐỒNG Ý TIẾP NHẬN
+
+  // Chuyển đổi các chiến mã đã đồng ý thành dữ liệu chiến mã quản lý
+  const confirmedHorses = confirmedList.map(a => formatConfirmedHorseForGroom(a));
+
+  // =========================================================================
+  // 2. SINH CÔNG VIỆC HẰNG NGÀY & Ô CHUỒNG DỰA TRÊN CHIẾN MÃ ĐÃ ĐỒNG Ý
+  // =========================================================================
+  const [tasks, setTasks] = useState(() => generateRealtimeDailyTasks(confirmedHorses));
+
+  // Tự động đồng bộ tasks khi danh sách chiến mã đã đồng ý thay đổi
+  useEffect(() => {
+    setTasks(generateRealtimeDailyTasks(confirmedHorses));
+  }, [confirmedList.length]);
+
+  // Cảnh báo quan trọng (Alerts)
+  const [alerts, setAlerts] = useState(() => getGroomData(STORAGE_KEYS.ALERTS, INITIAL_EMERGENCY_ALERTS));
+
+  // Dọn dẹp cảnh báo và y lệnh của các chiến mã mock cũ không thuộc về ngựa Groom phụ trách
+  useEffect(() => {
     try {
-      const saved = localStorage.getItem('matruong_groom_stalls_state');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      const raw = localStorage.getItem(STORAGE_KEYS.ALERTS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(alt => {
+            const name = (alt.horseName || '').toLowerCase();
+            return !['bạch long', 'kim sa', 'hắc phong', 'xích thố', 'phi yến', 'lôi chấn'].some(ex => name.includes(ex));
+          });
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(cleaned));
+            setAlerts(cleaned);
+          }
+        }
       }
     } catch {}
-    return [
-      {
-        code: 'A1',
-        zone: 'Block A',
-        horseName: null,
-        breed: 'Trống',
-        microchip: 'N/A',
-        status: 'AVAILABLE',
-        bedding: 'Mùn cưa sạch',
-        beddingStatus: 'GOOD',
-        waterLevel: '100%',
+  }, []);
+
+  // Y lệnh thú y
+  const [vetInstructions, setVetInstructions] = useState(() => getGroomData(STORAGE_KEYS.VET_INSTRUCTIONS, INITIAL_VET_INSTRUCTIONS));
+
+  // Vật tư
+  const [inventory, setInventory] = useState(() => getGroomData(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY));
+
+  // Ô chuồng phụ trách Block A (Ô A1 - Ô A6)
+  const defaultStallCodes = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6'];
+  const [stalls, setStalls] = useState(() => {
+    return defaultStallCodes.map((code) => {
+      const assigned = confirmedHorses.find(h => h.stall.toUpperCase().includes(code));
+      return {
+        code,
+        horseName: assigned ? assigned.name : null,
+        owner: assigned ? assigned.owner : null,
+        bedding: assigned ? 'Mùn cưa sạch tiêu chuẩn' : 'Ô trống sẵn sàng',
+        waterLevel: assigned ? '100% (Tự động)' : 'Đã súc rửa',
         temp: '26.5°C',
         humidity: '65%',
-        lastCleaned: 'Sáng nay',
-        image: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=400&q=80'
-      },
-      {
-        code: 'A2',
-        zone: 'Block A',
-        horseName: null,
-        breed: 'Trống',
-        microchip: 'N/A',
-        status: 'AVAILABLE',
-        bedding: 'Rơm khô mới thay',
-        beddingStatus: 'GOOD',
-        waterLevel: '100%',
-        temp: '26.8°C',
-        humidity: '63%',
-        lastCleaned: 'Sáng nay',
-        image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-      },
-      {
-        code: 'A3',
-        zone: 'Block A',
-        horseName: null,
-        breed: 'Trống',
-        microchip: 'N/A',
-        status: 'AVAILABLE',
-        bedding: 'Mùn cưa sạch',
-        beddingStatus: 'GOOD',
-        waterLevel: '100%',
-        temp: '27.1°C',
-        humidity: '68%',
-        lastCleaned: 'Sáng nay',
-        image: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=400&q=80'
-      },
-      {
-        code: 'A4',
-        zone: 'Block A',
-        horseName: null,
-        breed: 'Trống',
-        microchip: 'N/A',
-        status: 'AVAILABLE',
-        bedding: 'Rơm khô tiêu chuẩn',
-        beddingStatus: 'GOOD',
-        waterLevel: '100%',
-        temp: '26.6°C',
-        humidity: '64%',
-        lastCleaned: 'Sáng nay',
-        image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-      },
-      {
-        code: 'A5',
-        zone: 'Block A',
-        horseName: null,
-        breed: 'Trống',
-        microchip: 'N/A',
-        status: 'AVAILABLE',
-        bedding: 'Đệm cao su + Rơm mềm',
-        beddingStatus: 'GOOD',
-        waterLevel: '100%',
-        temp: '26.4°C',
-        humidity: '62%',
-        lastCleaned: 'Sáng nay',
-        image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-      },
-      {
-        code: 'A6',
-        zone: 'Block A',
-        horseName: null,
-        breed: 'Trống',
-        microchip: 'N/A',
-        status: 'AVAILABLE',
-        bedding: 'Đã sát trùng vôi bột',
-        beddingStatus: 'GOOD',
-        waterLevel: '100%',
-        temp: '26.2°C',
-        humidity: '60%',
-        lastCleaned: 'Sáng nay',
-        image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80'
-      }
-    ];
+        lastCleaned: assigned ? 'Sáng nay' : 'Đã sát trùng'
+      };
+    });
   });
 
-  // 2. Checklist Chăm sóc Trực ca hàng ngày
-  const [dailyRoutines, setDailyRoutines] = useState(() => {
-    try {
-      const saved = localStorage.getItem('matruong_groom_routines');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return [
-    {
-      id: 1,
-      time: '06:00',
-      title: 'Bữa sáng & Cấp nước',
-      desc: 'Cấp cỏ khô Alfalfa (4kg/con), yến mạch ngâm nở và kiểm tra phao nước tự động.',
-      completed: true,
-      completedAt: '06:25'
-    },
-    {
-      id: 2,
-      time: '08:00',
-      title: 'Chải lông & Cạo móng',
-      desc: 'Dùng lược Curry chải sạch bụi cát, dao Hoof pick nạo sạch sỏi đá bám kẽ móng guốc.',
-      completed: true,
-      completedAt: '08:40'
-    },
-    {
-      id: 3,
-      time: '11:30',
-      title: 'Bữa trưa & Điện giải',
-      desc: 'Khẩu phần cỏ tươi, cám đậm đặc và bổ sung điện giải chống mất nước do nắng nóng.',
-      completed: true,
-      completedAt: '11:45'
-    },
-    {
-      id: 4,
-      time: '15:30',
-      title: 'Hạ nhiệt & Ngâm chân đá Cryo',
-      desc: 'Đón ngựa sau giờ tập của HLV, xịt nước làm mát gân chân và mang ủng đá lạnh 20 phút.',
-      completed: true,
-      completedAt: '16:05'
-    },
-    {
-      id: 5,
-      time: '18:00',
-      title: 'Bữa tối & Khóa an toàn ban đêm',
-      desc: 'Cho ăn cỏ khô bữa tối, dọn sạch phân tồn đọng, khóa chốt an toàn cửa chuồng.',
-      completed: false,
-      completedAt: null
-    }
-  ];
-  });
-
+  // Đồng bộ ô chuồng theo thời gian thực khi có ngựa được đồng ý hoặc bị xóa
   useEffect(() => {
-    let isMounted = true;
-    getGroomRoutinesApi().then(res => {
-      if (isMounted && res && Array.isArray(res) && res.length > 0) {
-        setDailyRoutines(res);
-      }
-    }).catch(() => {});
-
-    getGroomStallsApi().then(res => {
-      if (isMounted && res && Array.isArray(res) && res.length > 0) {
-        setAssignedStalls(res);
-      }
-    }).catch(() => {});
-
-    return () => { isMounted = false; };
-  }, []);
-
-  useEffect(() => {
-    setAssignedStalls(prev => prev.map(s => {
-      if (s.ownerName === 'Phạm Tiến Thành' || s.owner === 'Phạm Tiến Thành' || ['Hắc Phong', 'Xích Thố', 'Phi Yến', 'Lôi Chấn', 'Bạch Long'].includes(s.horseName)) {
-        return {
-          ...s,
-          horseName: null,
-          breed: 'Trống',
-          microchip: 'N/A',
-          status: 'AVAILABLE',
-          occupied: false,
-          ownerName: undefined,
-          owner: undefined,
-          bedding: s.bedding || 'Mùn cưa sạch',
-          waterLevel: s.waterLevel || '100%',
-          temp: s.temp || '26.5°C',
-          lastCleaned: s.lastCleaned || 'Sáng nay'
-        };
-      }
-      return s;
+    setStalls(defaultStallCodes.map((code) => {
+      const assigned = confirmedHorses.find(h => h.stall.toUpperCase().includes(code));
+      return {
+        code,
+        horseName: assigned ? assigned.name : null,
+        owner: assigned ? assigned.owner : null,
+        bedding: assigned ? 'Mùn cưa sạch tiêu chuẩn' : 'Ô trống sẵn sàng',
+        waterLevel: assigned ? '100% (Tự động)' : 'Đã súc rửa',
+        temp: '26.5°C',
+        humidity: '65%',
+        lastCleaned: assigned ? 'Sáng nay' : 'Đã sát trùng'
+      };
     }));
-    try {
-      localStorage.removeItem('matruong_groom_stalls_state');
-    } catch {}
-  }, []);
+  }, [confirmedList.length]);
 
-  // 3. Danh sách ca sự cố Groom đã báo cáo
-  const [incidents, setIncidents] = useState([]);
+  // Modal Profile chiến mã
+  const [selectedHorseModal, setSelectedHorseModal] = useState(null);
 
-  // Modal báo cáo sự cố mới
+  // Modal Báo cáo sự cố khẩn cấp
   const [showReportModal, setShowReportModal] = useState(false);
-  const [reportData, setReportData] = useState({
-    stallCode: '',
+  const [reportFormData, setReportFormData] = useState({
+    stallCode: 'A1',
     horseName: '',
     severity: 'HIGH',
-    symptoms: 'Bỏ ăn / Mệt mỏi',
+    symptoms: 'Ngựa bỏ ăn / Bỏ ăn trên 50%',
     desc: ''
   });
 
-  // 4. Nhật ký Dinh dưỡng & Thức ăn
-  const [feedLogs] = useState([]);
-
-  // 5. Tủ vật tư & Dụng cụ chuồng trại
-  const [suppliesList] = useState([
-    { id: 1, name: 'Băng quấn chân bảo vệ gân', qty: '12 cuộn', status: 'GOOD', statusLabel: 'Đầy đủ' },
-    { id: 2, name: 'Ủng đá lạnh phục hồi Cryo', qty: '8 bộ', status: 'GOOD', statusLabel: 'Đầy đủ' },
-    { id: 3, name: 'Thuốc xịt sát trùng móng Blue Kote', qty: '3 chai', status: 'LOW', statusLabel: 'Sắp hết' },
-    { id: 4, name: 'Đệm lót rơm tươi & mùn cưa', qty: '4 bao', status: 'LOW', statusLabel: 'Cần bổ sung' },
-    { id: 5, name: 'Khoáng vi lượng dạng đá liếm', qty: '15 bánh', status: 'GOOD', statusLabel: 'Đầy đủ' }
-  ]);
-
-  // Đăng xuất
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-    showToast('Đã đăng xuất khỏi Cổng Groom.', 'ĐĂNG XUẤT', 'info');
+  // =========================================================================
+  // 3. THAO TÁC TIẾP NHẬN HOẶC TỪ CHỐI CHIẾN MÃ CỦA CHỦ SỞ HỮU
+  // =========================================================================
+  // Groom Đồng Ý Tiếp Nhận Chăm Sóc -> Chiến mã lập tức xuất hiện trong danh sách & gửi thông báo đến Chủ sở hữu
+  const handleAcceptHorse = (asgn) => {
+    const groomUser = asgn.groomUsername || currentUser?.username || 'groom_nam';
+    const updated = confirmServiceAssignment(asgn.horseName || asgn.microchip, 'GROOM', groomUser);
+    setServiceAssignments(updated);
+    showToast(`Đã đồng ý tiếp nhận chăm sóc chiến mã "${asgn.horseName}"! Đã gửi thông báo xác nhận đến Chủ sở hữu ${asgn.ownerName}.`, 'GROOM ĐỒNG Ý TIẾP NHẬN', 'success');
   };
 
-  // Toggle checklist item
-  const handleToggleRoutine = (id) => {
-    let targetNextState = false;
-    setDailyRoutines(prev => {
-      const next = prev.map(r => {
-        if (r.id === id) {
-          const nextState = !r.completed;
-          targetNextState = nextState;
-          const now = new Date();
-          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-          return {
-            ...r,
-            completed: nextState,
-            completedAt: nextState ? timeStr : null
-          };
-        }
-        return r;
-      });
-      try {
-        localStorage.setItem('matruong_groom_routines', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-    toggleGroomRoutineApi(id, targetNextState).catch(() => {});
+  // Groom Không Đồng Ý / Từ Chối -> Chiến mã BỊ XÓA HẾT KHỎI DANH SÁCH & gửi thông báo từ chối đến Chủ sở hữu
+  const handleRejectHorse = (asgn) => {
+    const groomUser = asgn.groomUsername || currentUser?.username || 'groom_nam';
+    const updated = rejectServiceAssignment(asgn.horseName || asgn.microchip, 'GROOM', groomUser, 'Groom không thể tiếp nhận chăm sóc lúc này');
+    setServiceAssignments(updated);
+    showToast(`Đã từ chối tiếp nhận chiến mã "${asgn.horseName}". Chiến mã đã được loại bỏ hoàn toàn khỏi danh sách của bạn và thông báo đến Chủ sở hữu ${asgn.ownerName}!`, 'ĐÃ TỪ CHỐI TIẾP NHẬN', 'info');
   };
 
-  // Làm sạch đệm lót 1-chạm
+  const handleUpdateTaskStatus = (taskId, newStatus) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id === taskId) {
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        return { ...t, status: newStatus, completedAt: newStatus === 'COMPLETED' ? timeStr : t.completedAt };
+      }
+      return t;
+    }));
+    showToast(newStatus === 'COMPLETED' ? 'Đã hoàn thành công việc!' : 'Đã chuyển trạng thái làm việc.', 'CÔNG VIỆC', 'info');
+  };
+
+  const handleAddTask = (newTask) => {
+    setTasks(prev => [newTask, ...prev]);
+    showToast(`Đã thêm nhiệm vụ: "${newTask.title}"!`, 'THÊM CÔNG VIỆC', 'success');
+  };
+
   const handleCleanBedding = (stallCode) => {
-    setAssignedStalls(prev => {
-      const next = prev.map(s => {
-        if (s.code === stallCode) {
-          return {
-            ...s,
-            bedding: 'Mùn cưa mới thay',
-            beddingStatus: 'GOOD',
-            lastCleaned: 'Vừa xong'
-          };
-        }
-        return s;
-      });
-      try {
-        localStorage.setItem('matruong_groom_stalls_state', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-    updateGroomStallStatusApi({ stallCode, bedding: 'Mùn cưa mới thay', beddingStatus: 'GOOD' }).catch(() => {});
-    showToast(`Đã ghi nhận hoàn tất dọn vệ sinh ô chuồng ${stallCode}!`, 'VỆ SINH Ô CHUỒNG', 'info');
+    setStalls(prev => prev.map(s => s.code === stallCode ? { ...s, bedding: 'Mùn cưa mới thay', lastCleaned: 'Vừa xong' } : s));
+    showToast(`Đã dọn vệ sinh ô chuồng ${stallCode}!`, 'VỆ SINH Ô CHUỒNG', 'success');
   };
 
-  // Gửi báo cáo sự cố lên Thú Y
+  const handleConfirmInstruction = (instructionId) => {
+    setVetInstructions(prev => prev.map(v => v.id === instructionId ? { ...v, groomConfirmed: true } : v));
+    showToast('Groom đã xác nhận tuân thủ y lệnh Bác sĩ Thú y!', 'TIẾP NHẬN Y LỆNH', 'success');
+  };
+
+  const handleRequestSupply = (supplyName) => {
+    showToast(`Đã gửi yêu cầu cấp phát "${supplyName}" đến Quản lý!`, 'CẤP PHÁT VẬT TƯ', 'info');
+  };
+
   const handleSubmitReport = (e) => {
     e.preventDefault();
-    if (!reportData.desc.trim()) {
-      showToast('Vui lòng nhập mô tả sự cố cụ thể.', 'THIẾU THÔNG TIN', 'warning');
+    if (!reportFormData.desc.trim()) {
+      showToast('Vui lòng nhập mô tả cụ thể về sự cố tại chuồng.', 'THIẾU THÔNG TIN', 'warning');
       return;
     }
 
     const newInc = {
-      id: `INC-${Math.floor(1000 + Math.random() * 9000)}`,
-      stallCode: reportData.stallCode,
-      horseName: reportData.horseName,
-      severity: reportData.severity,
-      symptoms: reportData.symptoms,
-      description: reportData.desc,
+      id: `INC-${Date.now().toString().slice(-4)}`,
+      stallCode: reportFormData.stallCode,
+      horseName: reportFormData.horseName || 'Chiến mã',
+      severity: reportFormData.severity,
+      symptoms: reportFormData.symptoms,
+      desc: reportFormData.desc,
+      reportedAt: 'Vừa xong',
       reportedBy: currentUser?.full_name || 'Lê Hoàng Nam (Groom)',
-      timestamp: new Date().toLocaleString('vi-VN'),
-      status: 'pending_vet'
+      status: 'pending_vet',
+      statusText: 'Đang chờ BS Thú Y khám'
     };
 
-    reportIncidentApi(newInc);
-    setIncidents(prev => [
-      {
-        id: newInc.id,
-        stallCode: newInc.stallCode,
-        horseName: newInc.horseName,
-        severity: newInc.severity,
-        symptoms: newInc.symptoms,
-        desc: newInc.description,
-        reportedAt: 'Vừa xong',
-        status: 'pending_vet',
-        statusText: 'Đang chờ BS Thú Y khám'
-      },
-      ...prev
-    ]);
+    const newAlert = {
+      id: `ALT-${Date.now().toString().slice(-4)}`,
+      type: 'ABNORMAL_BEHAVIOR',
+      severity: reportFormData.severity,
+      title: `${reportFormData.symptoms} (${reportFormData.horseName || 'Chiến mã'})`,
+      horseName: reportFormData.horseName || 'Chiến mã',
+      horseId: 'EQ-VN-2026',
+      stall: `Ô ${reportFormData.stallCode}`,
+      time: 'Vừa xong',
+      desc: reportFormData.desc,
+      actionRequired: 'Chờ Bác sĩ Thú y kiểm tra trực tiếp tại chuồng.',
+      status: 'PENDING',
+      reportedToVet: true
+    };
 
+    reportIncidentApi(newInc).catch(() => {});
+    setAlerts(prev => [newAlert, ...prev]);
     setShowReportModal(false);
-    setReportData({
-      stallCode: 'A1',
-      horseName: '(Trống)',
-      severity: 'HIGH',
-      symptoms: 'Bỏ ăn / Mệt mỏi',
-      desc: ''
-    });
-    showToast(`Đã phát tín hiệu báo động ca ${newInc.id} đến Bác sĩ Thú Y!`, 'BÁO ĐỘNG THÀNH CÔNG', 'info');
+    setReportFormData({ stallCode: 'A1', horseName: '', severity: 'HIGH', symptoms: 'Ngựa bỏ ăn / Bỏ ăn trên 50%', desc: '' });
+    showToast(`Đã phát báo động sự cố "${newInc.id}" đến Bác sĩ Thú Y!`, 'BÁO ĐỘNG THÀNH CÔNG', 'success');
   };
 
-  // State: Quản lý phân công chăm sóc từ Chủ sở hữu (3 Groom cố định)
-  const [serviceAssignments, setServiceAssignments] = useState(() => getServiceAssignments());
-
-  useEffect(() => {
-    const handleUpdate = () => setServiceAssignments(getServiceAssignments());
-    window.addEventListener('matruong_service_assignment_updated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
-    return () => {
-      window.removeEventListener('matruong_service_assignment_updated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
-    };
-  }, []);
-
-  const [confirmedHorseModal, setConfirmedHorseModal] = useState(null);
-
-  // Lắng nghe thông báo khi chiến mã bị xóa từ phía Chủ sở hữu
-  useEffect(() => {
-    const handleNotificationUpdate = () => {
-      const list = getSystemNotifications();
-      const latest = list[0];
-      if (latest && latest.type === 'HORSE_DELETED') {
-        const deletedName = (latest.horseName || '').toLowerCase();
-        const stallCode = (latest.stable || '').match(/[A-Z0-9]+/i)?.[0] || '';
-        setAssignedStalls(prev => prev.map(s => {
-          const match = (s.horseName && s.horseName.toLowerCase() === deletedName) ||
-                        (stallCode && s.code.toLowerCase() === stallCode.toLowerCase());
-          if (match) {
-            return {
-              ...s,
-              horseName: '(Ô chuồng trống - Đã xuất)',
-              occupied: false,
-              breed: 'Vacant',
-              beddingStatus: 'GOOD',
-              waterStatus: 'CLEAN'
-            };
-          }
-          return s;
-        }));
-      }
-    };
-    window.addEventListener('matruong_notifications_updated', handleNotificationUpdate);
-    window.addEventListener('storage', handleNotificationUpdate);
-    return () => {
-      window.removeEventListener('matruong_notifications_updated', handleNotificationUpdate);
-      window.removeEventListener('storage', handleNotificationUpdate);
-    };
-  }, []);
-
-  const handleConfirmGroomService = (asgn) => {
-    const groomUser = asgn.groomUsername || currentUser?.username || 'groom_nam';
-    const updated = confirmServiceAssignment(asgn.horseName || asgn.microchip, 'GROOM', groomUser);
-    setServiceAssignments(updated);
-
-    const fullHorse = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
-
-    // Bổ sung hoặc cập nhật ô chuồng của ngựa này trong assignedStalls
-    const stallCode = fullHorse.stable ? (fullHorse.stable.match(/[A-Z0-9]+/i)?.[0] || 'A1') : 'A1';
-    setAssignedStalls(prev => {
-      const exists = prev.some(s => s.code.toLowerCase() === stallCode.toLowerCase() || (s.horseName && s.horseName.toLowerCase() === fullHorse.name.toLowerCase()));
-      let next;
-      if (exists) {
-        next = prev.map(s => {
-          if (s.code.toLowerCase() === stallCode.toLowerCase() || (s.horseName && s.horseName.toLowerCase() === fullHorse.name.toLowerCase())) {
-            return {
-              ...s,
-              horseName: fullHorse.name,
-              occupied: true,
-              breed: fullHorse.breed || 'Thoroughbred',
-              avatar: fullHorse.avatar || s.avatar,
-              ownerName: fullHorse.ownerName || 'Chủ sở hữu',
-              owner: fullHorse.ownerName || 'Chủ sở hữu',
-              microchip: fullHorse.microchip || s.microchip,
-              specialNotes: `Chiến mã của chủ sở hữu ${fullHorse.ownerName || 'Chủ sở hữu'}`
-            };
-          }
-          return s;
-        });
-      } else {
-        next = [
-          {
-            code: stallCode,
-            horseName: fullHorse.name,
-            breed: fullHorse.breed || 'Thoroughbred',
-            microchip: fullHorse.microchip || 'MC-VN-NEW',
-            avatar: fullHorse.avatar,
-            ownerName: fullHorse.ownerName || 'Chủ sở hữu',
-            owner: fullHorse.ownerName || 'Chủ sở hữu',
-            occupied: true,
-            bedding: 'Mùn cưa sạch tiêu chuẩn',
-            beddingStatus: 'GOOD',
-            waterStatus: 'CLEAN',
-            waterLevel: 'Đầy (98%)',
-            temp: '22.5°C',
-            dietSchedule: 'Cỏ Alfalfa 4kg + Yến mạch 2kg',
-            dietStatus: 'PENDING',
-            lastCleaned: 'Vừa tiếp nhận',
-            status: 'NORMAL',
-            specialNotes: `Chiến mã của chủ sở hữu ${fullHorse.ownerName || 'Chủ sở hữu'}`
-          },
-          ...prev
-        ];
-      }
-      try {
-        localStorage.setItem('matruong_groom_stalls_state', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-
-    // Mở modal toàn bộ Profile chi tiết của ngựa chủ sở hữu
-    setConfirmedHorseModal(fullHorse);
-
-    showToast(`Đã xác nhận nhận chăm sóc chiến mã "${fullHorse.name}" của Chủ sở hữu ${fullHorse.ownerName}!`, 'GROOM XÁC NHẬN CHĂM SÓC', 'success');
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+    showToast('Đã đăng xuất an toàn khỏi Cổng Groom.', 'ĐĂNG XUẤT', 'info');
   };
 
-  // Tính tiến độ ca trực hôm nay
-  const completedRoutinesCount = dailyRoutines.filter(r => r.completed).length;
-  const routinePercent = Math.round((completedRoutinesCount / dailyRoutines.length) * 100);
+  // LỌC CHẶT CHẼ THEO THỜI GIAN THỰC:
+  // Chỉ hiển thị cảnh báo và y lệnh cho các chiến mã Groom ĐÃ ĐỒNG Ý TIẾP NHẬN PHỤC VỤ
+  const confirmedHorseNames = new Set(confirmedHorses.map(h => (h.name || '').trim().toLowerCase()));
+  const confirmedHorseIds = new Set(confirmedHorses.map(h => String(h.id || h.horseId || '').trim().toLowerCase()));
+
+  const activeAlerts = alerts.filter(alt => {
+    const altName = (alt.horseName || '').trim().toLowerCase();
+    const altId = String(alt.horseId || alt.horseIdentifier || '').trim().toLowerCase();
+    return (
+      (altName && confirmedHorseNames.has(altName)) ||
+      (altId && confirmedHorseIds.has(altId))
+    );
+  });
+
+  const activeVetInstructions = vetInstructions.filter(inst => {
+    const instName = (inst.horseName || '').trim().toLowerCase();
+    const instId = String(inst.horseId || '').trim().toLowerCase();
+    return (
+      (instName && confirmedHorseNames.has(instName)) ||
+      (instId && confirmedHorseIds.has(instId))
+    );
+  });
+
+  // Tính số lượng badge hiển thị trên Sidebar
+  const uncompletedTasksCount = tasks.filter(t => t.status !== 'COMPLETED').length;
+  const pendingIncidentsCount = activeAlerts.filter(a => a.severity === 'CRITICAL' && a.status !== 'RESOLVED').length;
+  const unconfirmedVetOrdersCount = activeVetInstructions.filter(v => !v.groomConfirmed).length;
 
   return (
     <div className="portal-layout">
@@ -533,7 +421,7 @@ export default function GroomPage() {
         onClick={() => setSidebarOpen(false)}
       />
 
-      {/* ===================== 1. SIDEBAR NAVIGATION ===================== */}
+      {/* ===================== 1. SIDEBAR NAVIGATION (12 MỤC CHUẨN) ===================== */}
       <aside className={`portal-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="portal-brand">
           <div className="portal-brand-icon">
@@ -545,74 +433,164 @@ export default function GroomPage() {
           </div>
         </div>
 
-        <nav className="portal-nav">
+        <nav className="portal-nav" style={{ overflowY: 'auto', flex: 1 }}>
+          {/* 1. Tổng quan (Dashboard) */}
           <button
             type="button"
-            className={`portal-nav-item ${activeTab === 'stalls' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('stalls'); setSidebarOpen(false); }}
-            title="Quản lý Ô Chuồng Phụ Trách"
+            className={`portal-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }}
+            title="Tổng quan toàn bộ ca trực trong ngày"
           >
-            <span className="portal-nav-icon"><IconStall size={18} /></span>
-            <span className="portal-nav-label">Ô chuồng phụ trách</span>
-            <span className="portal-nav-badge">{assignedStalls.length}</span>
+            <span className="portal-nav-icon"><IconDashboard size={18} /></span>
+            <span className="portal-nav-label">Tổng quan (Dashboard)</span>
           </button>
 
+          {/* 2. Công việc hằng ngày (My Daily Tasks) */}
           <button
             type="button"
-            className={`portal-nav-item ${activeTab === 'checklist' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('checklist'); setSidebarOpen(false); }}
-            title="Lịch Trực Nhật & Chăm Sóc Hàng Ngày"
+            className={`portal-nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('tasks'); setSidebarOpen(false); }}
+            title="Quản lý công việc hằng ngày của các chiến mã được đồng ý chăm sóc"
           >
-            <span className="portal-nav-icon"><IconChecklist size={18} /></span>
-            <span className="portal-nav-label">Checklist ca trực</span>
-            <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14' }}>
-              {completedRoutinesCount}/{dailyRoutines.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            className={`portal-nav-item ${activeTab === 'incident' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('incident'); setSidebarOpen(false); }}
-            title="Báo Cáo Sự Cố Chuồng Trại Cho Thú Y"
-          >
-            <span className="portal-nav-icon"><IconAlert size={18} /></span>
-            <span className="portal-nav-label">Báo động sự cố</span>
-            {incidents.filter(i => i.status === 'pending_vet').length > 0 && (
+            <span className="portal-nav-icon"><IconTasks size={18} /></span>
+            <span className="portal-nav-label">Công việc hằng ngày</span>
+            {uncompletedTasksCount > 0 && (
               <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14' }}>
-                {incidents.filter(i => i.status === 'pending_vet').length}
+                {uncompletedTasksCount}
               </span>
             )}
           </button>
 
+          {/* 3. Quản lý chiến mã (Horse Management) */}
           <button
             type="button"
-            className={`portal-nav-item ${activeTab === 'nutrition' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('nutrition'); setSidebarOpen(false); }}
-            title="Nhật Ký Dinh Dưỡng & Khẩu Phần Ăn"
+            className={`portal-nav-item ${activeTab === 'horses' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('horses'); setSidebarOpen(false); }}
+            title="Danh sách chiến mã do Groom đồng ý chăm sóc"
           >
-            <span className="portal-nav-icon"><IconFeed size={18} /></span>
-            <span className="portal-nav-label">Thực đơn dinh dưỡng</span>
+            <span className="portal-nav-icon"><IconHorse size={18} /></span>
+            <span className="portal-nav-label">Quản lý chiến mã</span>
+            <span className="portal-nav-badge">{confirmedHorses.length}</span>
           </button>
 
+          {/* 4. Chăm sóc ngựa (Daily Care) */}
           <button
             type="button"
-            className={`portal-nav-item ${activeTab === 'supplies' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('supplies'); setSidebarOpen(false); }}
-            title="Vật Tư & Dụng Cụ Chuồng Trại"
+            className={`portal-nav-item ${activeTab === 'care' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('care'); setSidebarOpen(false); }}
+            title="Vệ sinh chuồng, tắm rửa, cạo móng & ngâm đá"
           >
-            <span className="portal-nav-icon"><IconSupplies size={18} /></span>
-            <span className="portal-nav-label">Vật tư & Dụng cụ</span>
-            <span className="portal-nav-badge">
-              {suppliesList.filter(s => s.status === 'LOW').length > 0 ? `${suppliesList.filter(s => s.status === 'LOW').length} thiếu` : suppliesList.length}
+            <span className="portal-nav-icon"><IconCare size={18} /></span>
+            <span className="portal-nav-label">Chăm sóc ngựa</span>
+          </button>
+
+          {/* 5. Theo dõi sức khỏe (Health Monitoring) */}
+          <button
+            type="button"
+            className={`portal-nav-item ${activeTab === 'health' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('health'); setSidebarOpen(false); }}
+            title="Ghi nhận chỉ số thể chất & dấu hiệu bất thường"
+          >
+            <span className="portal-nav-icon"><IconHealth size={18} /></span>
+            <span className="portal-nav-label">Theo dõi sức khỏe</span>
+          </button>
+
+          {/* 6. Báo cáo sự cố (Incident Reports) */}
+          <button
+            type="button"
+            className={`portal-nav-item ${activeTab === 'incidents' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('incidents'); setSidebarOpen(false); }}
+            title="Lập và theo dõi báo cáo sự cố gửi Bác sĩ Thú y"
+          >
+            <span className="portal-nav-icon"><IconAlert size={18} /></span>
+            <span className="portal-nav-label">Báo cáo sự cố</span>
+            {pendingIncidentsCount > 0 && (
+              <span className="portal-nav-badge" style={{ background: '#EF4444', color: '#FFF' }}>
+                {pendingIncidentsCount}
+              </span>
+            )}
+          </button>
+
+          {/* 7. Chỉ định thú y (Veterinary Instructions) */}
+          <button
+            type="button"
+            className={`portal-nav-item ${activeTab === 'vet-instructions' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('vet-instructions'); setSidebarOpen(false); }}
+            title="Y lệnh thuốc và chăm sóc y tế từ Bác sĩ Thú y"
+          >
+            <span className="portal-nav-icon"><IconVet size={18} /></span>
+            <span className="portal-nav-label">Chỉ định thú y</span>
+            {unconfirmedVetOrdersCount > 0 && (
+              <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14' }}>
+                {unconfirmedVetOrdersCount}
+              </span>
+            )}
+          </button>
+
+          {/* 8. Quản lý vật tư (Inventory Management) */}
+          <button
+            type="button"
+            className={`portal-nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('inventory'); setSidebarOpen(false); }}
+            title="Kiểm kê thức ăn, rơm mùn cưa và dụng cụ chuồng"
+          >
+            <span className="portal-nav-icon"><IconInventory size={18} /></span>
+            <span className="portal-nav-label">Quản lý vật tư</span>
+          </button>
+
+          {/* 9. Báo cáo hằng ngày (Daily Reports) */}
+          <button
+            type="button"
+            className={`portal-nav-item ${activeTab === 'reports' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('reports'); setSidebarOpen(false); }}
+            title="Lập nhật ký ca trực và bàn giao ca"
+          >
+            <span className="portal-nav-icon"><IconReport size={18} /></span>
+            <span className="portal-nav-label">Báo cáo hằng ngày</span>
+          </button>
+
+          {/* 10. Thông báo (Notifications) */}
+          <button
+            type="button"
+            className={`portal-nav-item ${activeTab === 'notifications' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('notifications'); setSidebarOpen(false); }}
+            title="Thông báo y lệnh, khóa huấn luyện và lịch tập"
+          >
+            <span className="portal-nav-icon"><IconNotification size={18} /></span>
+            <span className="portal-nav-label">Thông báo</span>
+            <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14' }}>
+              {pendingRequests.length > 0 ? `${pendingRequests.length} mới` : '3'}
             </span>
+          </button>
+
+          {/* 11. Hồ sơ cá nhân (My Profile) */}
+          <button
+            type="button"
+            className={`portal-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
+            title="Thông tin cá nhân và chứng chỉ Groom"
+          >
+            <span className="portal-nav-icon"><IconProfile size={18} /></span>
+            <span className="portal-nav-label">Hồ sơ cá nhân</span>
+          </button>
+
+          {/* 12. Đăng xuất (Logout) */}
+          <button
+            type="button"
+            className="portal-nav-item"
+            onClick={handleLogout}
+            style={{ marginTop: 'auto', borderTop: '1px solid var(--line)', color: '#EF4444' }}
+            title="Đăng xuất khỏi Cổng Groom"
+          >
+            <span className="portal-nav-icon"><IconLogout size={18} color="#EF4444" /></span>
+            <span className="portal-nav-label" style={{ color: '#EF4444', fontWeight: 700 }}>Đăng xuất</span>
           </button>
         </nav>
       </aside>
 
       {/* ===================== 2. MAIN CONTENT WRAPPER ===================== */}
       <div className="portal-content-wrap">
-        {/* TOP BAR */}
+        {/* TOPBAR */}
         <header className="portal-topbar">
           <div className="portal-topbar-left">
             <button
@@ -621,11 +599,11 @@ export default function GroomPage() {
               onClick={() => setSidebarOpen(true)}
               aria-label="Mở Menu"
             >
-              <IconHorse size={20} />
+              <IconDashboard size={20} />
             </button>
             <div className="portal-title-box">
               <h2 className="portal-page-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span>CỔNG NHÂN VIÊN CHĂM SÓC</span>
+                <span>CỔNG NHÂN VIÊN CHĂM SÓC NGỰA</span>
                 <span style={{
                   fontSize: '10.5px',
                   background: 'rgba(212, 175, 55, 0.12)',
@@ -641,7 +619,7 @@ export default function GroomPage() {
                 </span>
               </h2>
               <div className="portal-page-subtitle">
-                Daily Equine Husbandry, Nutrition & Facility Duty Protocol
+                Đồng bộ thời gian thực theo phân công của Chủ sở hữu · Chỉ quản lý chiến mã do Groom đồng ý tiếp nhận
               </div>
             </div>
           </div>
@@ -655,7 +633,7 @@ export default function GroomPage() {
               </div>
               <div className="portal-user-info">
                 <div className="portal-user-name">{currentUser?.full_name || 'Lê Hoàng Nam'}</div>
-                <div className="portal-user-role">Groom Trực ban Block A</div>
+                <div className="portal-user-role">Trưởng nhóm Groom Block A</div>
               </div>
             </div>
             <button
@@ -668,502 +646,121 @@ export default function GroomPage() {
           </div>
         </header>
 
-        {/* MAIN WORKSPACE CONTENT */}
+        {/* WORKSPACE MAIN */}
         <main className="portal-main">
           {/* ========================================================================= */}
-          {/* 3 THẺ CHỈ SỐ NHANH (KPI STATS - CHUẨN 3 MÀU CHỦ ĐẠO & GỌN GÀNG) */}
+          {/* KHỐI YÊU CẦU TIẾP NHẬN CHĂM SÓC TỪ CHỦ SỞ HỮU (CHỜ GROOM ĐỒNG Ý THEO THỜI GIAN THỰC) */}
           {/* ========================================================================= */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '16px',
-            marginBottom: '24px'
-          }}>
-            <div className="facility-card" style={{
-              padding: '18px 20px',
-              borderTop: '2px solid var(--brass)',
-              background: 'var(--bg-card)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
+          {pendingRequests.length > 0 && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.12) 0%, rgba(15, 23, 42, 0.75) 100%)',
+              border: '1px solid var(--brass)',
+              borderRadius: '10px',
+              padding: '16px 20px',
+              marginBottom: '22px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35)'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--brass)', textTransform: 'uppercase' }}>
-                  Ô CHUỒNG PHỤ TRÁCH
-                </div>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--brass)', boxShadow: '0 0 8px var(--brass-glow)' }} />
-              </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--brass)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
-                {assignedStalls.length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>Ô CHUỒNG</span>
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                Block A · Khu chuồng đua chính
-              </div>
-            </div>
-
-            <div className="facility-card" style={{
-              padding: '18px 20px',
-              borderTop: '2px solid var(--line-strong)',
-              background: 'var(--bg-card)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--paper)', textTransform: 'uppercase' }}>
-                  TIẾN ĐỘ CA TRỰC HÔM NAY
-                </div>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--paper-dim)' }} />
-              </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
-                {routinePercent}% <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>({completedRoutinesCount}/{dailyRoutines.length} ca)</span>
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                Mốc tiếp theo: 18:00 Bữa tối
-              </div>
-            </div>
-
-            <div className="facility-card" style={{
-              padding: '18px 20px',
-              borderTop: '2px solid var(--line)',
-              background: 'var(--bg-card)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--paper-dim)', textTransform: 'uppercase' }}>
-                  SỰ CỐ ĐÃ BÁO THÚ Y
-                </div>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--paper-muted)' }} />
-              </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
-                {incidents.filter(i => i.status === 'pending_vet').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA CHỜ KHÁM</span>
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                {incidents.find(i => i.status === 'pending_vet')?.horseName ? `${incidents.find(i => i.status === 'pending_vet')?.horseName} · Đang chờ BS Thú Y` : 'Hệ thống chuồng trại ổn định'}
-              </div>
-            </div>
-          </div>
-
-          {/* ========================================================================= */}
-          {/* TAB 1: Ô CHUỒNG PHỤ TRÁCH */}
-          {/* ========================================================================= */}
-          {activeTab === 'stalls' && (
-            <div className="tab-pane">
-              <div className="pane-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div>
-                  <h2 className="pane-title">Ô Chuồng Phụ Trách (Assigned Stalls)</h2>
-                  <p className="pane-desc">Theo dõi thực tế tình trạng chiến mã, đệm lót rơm và máng nước tự động.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowReportModal(true)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    background: 'var(--brass)',
-                    color: '#0A0D14',
-                    fontWeight: 700,
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '13px'
-                  }}
-                >
-                  + Báo sự cố chuồng
-                </button>
-              </div>
-
-              {/* Khối Xác Nhận Chăm Sóc Cho Nhân Viên Groom */}
-              {(() => {
-                const uName = (currentUser?.username || '').trim().toLowerCase();
-                const fName = (currentUser?.full_name || '').trim().toLowerCase();
-                const isMyGroomHorse = (a) => (
-                  (a.groomUsername && a.groomUsername.trim().toLowerCase() === uName) ||
-                  (!a.groomUsername && a.groomName && a.groomName.trim().toLowerCase() === fName)
-                );
-                const assignedToMe = serviceAssignments.filter(a => isMyGroomHorse(a));
-                if (assignedToMe.length === 0) return null;
-
-                const pendingAssignments = assignedToMe.filter(a => a.groomStatus === 'PENDING');
-
-                return (
-                  <div style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--line)',
-                    borderRadius: '8px',
-                    padding: '16px 20px',
-                    marginBottom: '20px',
-                    boxShadow: 'var(--shadow-sm)'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '18px' }}>🌾</span>
-                        <div>
-                          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>
-                            Chiến Mã Được Chủ Sở Hữu Chỉ Định Chăm Sóc ({assignedToMe.length})
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                            {pendingAssignments.length > 0
-                              ? `Có ${pendingAssignments.length} chiến mã mới đang chờ bạn xác nhận nhận chăm sóc.`
-                              : `Bạn đã xác nhận phụ trách chăm sóc đầy đủ cho tất cả chiến mã được giao.`}
-                          </div>
-                        </div>
-                      </div>
-                      {pendingAssignments.length > 0 && (
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.12)', padding: '3px 10px', borderRadius: '12px' }}>
-                          {pendingAssignments.length} Chờ xác nhận
-                        </span>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))', gap: '14px' }}>
-                      {assignedToMe.map(asgn => {
-                        const isPending = asgn.groomStatus === 'PENDING';
-                        // Rút gọn mã ô chuồng để không bị tràn chữ (vd: 'Ô A1 (Block A - 18 m²)' -> 'Ô A1')
-                        const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
-                        const trClean = asgn.trainerName ? asgn.trainerName.replace(/^(HLV|Huấn luyện viên)\.?\s*/i, '').trim() : 'Trần Văn Hùng';
-                        const vetClean = asgn.vetName ? asgn.vetName.replace(/^(BS|Bác sĩ)\.?\s*/i, '').trim() : 'Nguyễn An';
-
-                        return (
-                          <div
-                            key={asgn.id || asgn.microchip}
-                            style={{
-                              background: 'var(--bg-secondary)',
-                              border: isPending ? '1px solid rgba(212, 175, 55, 0.4)' : '1px solid var(--line)',
-                              borderRadius: '10px',
-                              padding: '14px 18px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between',
-                              height: '100%',
-                              gap: '10px',
-                              boxShadow: isPending ? '0 4px 16px rgba(0,0,0,0.25)' : 'none'
-                            }}
-                          >
-                            {/* Dòng 1: Tên chiến mã, ô chuồng & Nút thao tác (Cố định 1 hàng cân bằng) */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', minHeight: '34px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '6px' }}>
-                                <b
-                                  style={{
-                                    color: 'var(--paper)',
-                                    fontSize: '15px',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    maxWidth: '220px'
-                                  }}
-                                  title={asgn.horseName}
-                                >
-                                  {asgn.horseName}
-                                </b>
-                                <span style={{
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  color: 'var(--brass)',
-                                  background: 'rgba(212, 175, 55, 0.12)',
-                                  padding: '2px 7px',
-                                  borderRadius: '4px',
-                                  border: '1px solid rgba(212, 175, 55, 0.25)',
-                                  whiteSpace: 'nowrap',
-                                  flexShrink: 0
-                                }}>
-                                  {stallCode}
-                                </span>
-                                {isPending && (
-                                  <span style={{
-                                    fontSize: '10.5px',
-                                    fontWeight: 700,
-                                    color: '#F59E0B',
-                                    background: 'rgba(245, 158, 11, 0.12)',
-                                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                                    padding: '2px 7px',
-                                    borderRadius: '4px',
-                                    whiteSpace: 'nowrap',
-                                    flexShrink: 0
-                                  }}>
-                                    Chờ xác nhận
-                                  </span>
-                                )}
-                              </div>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
-                                    setConfirmedHorseModal(full);
-                                  }}
-                                  style={{
-                                    background: 'transparent',
-                                    color: 'var(--brass)',
-                                    border: '1px solid var(--brass)',
-                                    padding: '5px 10px',
-                                    borderRadius: '5px',
-                                    fontSize: '11.5px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    whiteSpace: 'nowrap',
-                                    transition: 'all 0.2s ease'
-                                  }}
-                                  title="Xem hồ sơ định danh chiến mã và thông tin chủ sở hữu"
-                                >
-                                  Xem hồ sơ
-                                </button>
-
-                                {isPending ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleConfirmGroomService(asgn)}
-                                    style={{
-                                      background: 'var(--brass)',
-                                      color: '#0A0D14',
-                                      border: 'none',
-                                      padding: '5px 12px',
-                                      borderRadius: '5px',
-                                      fontSize: '11.5px',
-                                      fontWeight: 800,
-                                      cursor: 'pointer',
-                                      boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)',
-                                      whiteSpace: 'nowrap'
-                                    }}
-                                  >
-                                    ✓ Nhận Chăm Sóc
-                                  </button>
-                                ) : (
-                                  <span style={{
-                                    fontSize: '11.5px',
-                                    fontWeight: 700,
-                                    color: '#10B981',
-                                    background: 'rgba(16, 185, 129, 0.12)',
-                                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                                    padding: '4px 10px',
-                                    borderRadius: '5px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    whiteSpace: 'nowrap'
-                                  }}>
-                                    ✓ Đã Tiếp Nhận
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Dòng 2 & 3: Thông tin chi tiết */}
-                            <div style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '6px',
-                              paddingTop: '8px',
-                              borderTop: '1px solid var(--line)',
-                              fontSize: '12px'
-                            }}>
-                              <div style={{ color: 'var(--paper-dim)' }}>
-                                Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip}</span>
-                              </div>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <span style={{ color: 'var(--paper-dim)', fontSize: '11.5px' }}>Đội ngũ cùng phục vụ:</span>
-                                <span style={{
-                                  background: 'var(--bg-card)',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  border: '1px solid var(--line)',
-                                  color: 'var(--paper)',
-                                  fontWeight: 600,
-                                  fontSize: '11.5px',
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  🏇 HLV {trClean}
-                                </span>
-                                <span style={{
-                                  background: 'var(--bg-card)',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  border: '1px solid var(--line)',
-                                  color: 'var(--paper)',
-                                  fontWeight: 600,
-                                  fontSize: '11.5px',
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  🩺 BS. {vetClean}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '20px' }}>🌾</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: 'var(--brass)' }}>
+                      YÊU CẦU GỬI GẮM CHĂM SÓC MỚI TỪ CHỦ SỞ HỮU ({pendingRequests.length})
+                    </h3>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                      Chủ sở hữu vừa gửi gắm chiến mã và chỉ định bạn chăm sóc. Nếu bạn <b>Đồng Ý</b>, chiến mã sẽ xuất hiện trong danh sách chăm sóc chính thức; nếu bạn <b>Không Đồng Ý</b>, chiến mã sẽ bị xóa khỏi danh sách.
+                    </p>
                   </div>
-                );
-              })()}
+                </div>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#0A0D14',
+                  background: 'var(--brass)',
+                  padding: '3px 10px',
+                  borderRadius: '12px'
+                }}>
+                  {pendingRequests.length} Yêu cầu chờ phê duyệt
+                </span>
+              </div>
 
-              <div className="portal-cards-grid" style={{ display: 'grid', gap: '16px' }}>
-                {assignedStalls.map((s) => {
-                  const isVacant = !s.horseName || s.horseName === '(Trống)' || s.horseName.toLowerCase().includes('trống') || s.status === 'AVAILABLE';
-                  const displayHorseName = isVacant ? '(Ô Trống)' : s.horseName;
-                  const displayBreed = isVacant ? 'Ô tiêu chuẩn 16m² · Block A' : `${s.breed || 'Thoroughbred'} · ${s.microchip || 'MC-VN-2026-662'}`;
-                  const cleanBedding = (s.bedding || 'Mùn cưa sạch').replace(/tiêu chuẩn/i, '').trim();
-
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 460px), 1fr))', gap: '12px' }}>
+                {pendingRequests.map((asgn) => {
+                  const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
                   return (
-                    <div key={s.code} className="facility-card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '232px' }}>
-                      {/* Header của thẻ ô chuồng - Chiều cao cố định cân bằng */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', minHeight: '66px' }}>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+                    <div
+                      key={asgn.id || asgn.microchip}
+                      style={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid rgba(212, 175, 55, 0.4)',
+                        borderRadius: '8px',
+                        padding: '12px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                          <b style={{ color: 'var(--paper)', fontSize: '15px' }}>{asgn.horseName}</b>
                           <span style={{
-                            width: '42px',
-                            height: '42px',
-                            borderRadius: '8px',
-                            background: isVacant ? 'rgba(255, 255, 255, 0.05)' : 'rgba(212, 175, 55, 0.15)',
-                            color: isVacant ? '#94A3B8' : 'var(--brass)',
-                            fontWeight: 800,
-                            fontSize: '15px',
-                            border: `1px solid ${isVacant ? 'var(--line)' : 'var(--line-strong)'}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: 'var(--brass)',
+                            background: 'rgba(212, 175, 55, 0.12)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(212, 175, 55, 0.25)'
                           }}>
-                            {s.code}
+                            {stallCode}
                           </span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <b style={{
-                                fontSize: '15px',
-                                color: isVacant ? '#94A3B8' : 'var(--paper)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                maxWidth: '170px'
-                              }} title={displayHorseName}>
-                                {displayHorseName}
-                              </b>
-                              {!isVacant && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const full = lookupFullHorseInfo(s.horseName || s.microchip);
-                                    setConfirmedHorseModal(full);
-                                  }}
-                                  style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--brass)',
-                                    cursor: 'pointer',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    textDecoration: 'underline',
-                                    padding: 0,
-                                    whiteSpace: 'nowrap'
-                                  }}
-                                >
-                                  Xem hồ sơ ↗
-                                </button>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {displayBreed}
-                            </div>
-                            <div style={{ fontSize: '11.5px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {isVacant ? (
-                                <span style={{ color: '#64748B', fontStyle: 'italic' }}>Chưa có ngựa lưu chuồng</span>
-                              ) : (
-                                <span style={{ color: 'var(--brass)', fontWeight: 600 }}>Chủ sở hữu: <b style={{ color: '#F1F5F9' }}>{s.ownerName || s.owner || 'Chủ sở hữu'}</b></span>
-                              )}
-                            </div>
-                          </div>
                         </div>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          background: isVacant ? 'rgba(255, 255, 255, 0.04)' : (s.status === 'WATCH_HEALTH' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)'),
-                          color: isVacant ? '#64748B' : (s.status === 'WATCH_HEALTH' ? 'var(--brass)' : 'var(--paper-dim)'),
-                          border: `1px solid ${isVacant ? 'var(--line)' : (s.status === 'WATCH_HEALTH' ? 'var(--brass)' : 'var(--line)')}`,
-                          whiteSpace: 'nowrap',
-                          flexShrink: 0
-                        }}>
-                          {isVacant ? 'TRỐNG' : (s.status === 'WATCH_HEALTH' ? 'CẦN CHÚ Ý' : s.status === 'RESTRICTED_CARE' ? 'KHÓA Y TẾ' : 'BÌNH THƯỜNG')}
+                        <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                          Chủ ngựa: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Chủ sở hữu'}</b>
                         </span>
                       </div>
 
-                      {/* Khối 4 thông số kỹ thuật - Chiều cao cố định cân đối */}
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, 1fr)',
-                        gap: '8px 12px',
-                        background: 'var(--bg-secondary)',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        marginBottom: '12px',
-                        minHeight: '74px',
-                        alignContent: 'center'
-                      }}>
-                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <span style={{ color: 'var(--paper-dim)' }}>Đệm lót: </span>
-                          <b style={{ color: 'var(--paper)' }}>{cleanBedding || 'Mùn cưa sạch'}</b>
-                        </div>
-                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <span style={{ color: 'var(--paper-dim)' }}>Máng nước: </span>
-                          <b style={{ color: 'var(--paper)' }}>{s.waterLevel || 'Đầy (98%)'}</b>
-                        </div>
-                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <span style={{ color: 'var(--paper-dim)' }}>Nhiệt độ: </span>
-                          <b style={{ color: 'var(--paper)' }}>{s.temp || '26.2°C'}</b>
-                        </div>
-                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <span style={{ color: 'var(--paper-dim)' }}>Dọn gần nhất: </span>
-                          <b style={{ color: 'var(--paper)' }}>{s.lastCleaned || s.lastMucked || 'Sáng nay'}</b>
-                        </div>
+                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', display: 'flex', gap: '12px' }}>
+                        <span>Giống: <b style={{ color: 'var(--paper)' }}>{asgn.breed || 'Thoroughbred'}</b></span>
+                        <span>Mã chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip}</span></span>
                       </div>
 
-                      {/* Hàng nút bấm ở chân thẻ - Luôn căn đáy thẳng hàng */}
-                      <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', paddingTop: '6px', borderTop: '1px solid var(--line)' }}>
                         <button
                           type="button"
-                          onClick={() => handleCleanBedding(s.code)}
+                          onClick={() => handleRejectHorse(asgn)}
                           style={{
-                            flex: 1,
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            background: 'var(--bg-secondary)',
-                            color: 'var(--paper)',
-                            border: '1px solid var(--line)',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '4px',
-                            transition: 'all 0.15s ease'
+                            padding: '6px 14px',
+                            borderRadius: '5px',
+                            background: 'transparent',
+                            color: '#EF4444',
+                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
                           }}
+                          title="Không đồng ý tiếp nhận - Chiến mã sẽ bị xóa khỏi danh sách chăm sóc của bạn"
                         >
-                          ✓ Đã dọn đệm lót
+                          ✕ Không Đồng Ý (Xóa)
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            setReportData(prev => ({ ...prev, stallCode: s.code, horseName: isVacant ? null : s.horseName }));
-                            setShowReportModal(true);
-                          }}
+                          onClick={() => handleAcceptHorse(asgn)}
                           style={{
-                            padding: '8px 14px',
-                            borderRadius: '6px',
-                            background: 'transparent',
-                            color: 'var(--brass)',
-                            border: '1px solid var(--line)',
-                            fontSize: '12px',
-                            fontWeight: 600,
+                            padding: '6px 16px',
+                            borderRadius: '5px',
+                            background: 'var(--brass)',
+                            color: '#0A0D14',
+                            border: 'none',
+                            fontSize: '11.5px',
+                            fontWeight: 800,
                             cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                            transition: 'all 0.15s ease'
+                            boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
                           }}
+                          title="Đồng ý tiếp nhận chăm sóc - Đưa chiến mã vào danh sách quản lý chính thức"
                         >
-                          Báo sự cố
+                          ✓ Đồng Ý Tiếp Nhận
                         </button>
                       </div>
                     </div>
@@ -1173,280 +770,135 @@ export default function GroomPage() {
             </div>
           )}
 
-          {/* ========================================================================= */}
-          {/* TAB 2: CHECKLIST CA TRỰC HÀNG NGÀY */}
-          {/* ========================================================================= */}
-          {activeTab === 'checklist' && (
-            <div className="tab-pane">
-              <div className="pane-header" style={{ marginBottom: '16px' }}>
-                <h2 className="pane-title">Checklist Ca Trực Hàng Ngày (Daily Routine)</h2>
-                <p className="pane-desc">Đánh dấu tiến độ thực tế theo từng mốc giờ trong ca trực.</p>
-              </div>
-
-              {/* Progress bar */}
-              <div style={{ background: 'var(--bg-card)', padding: '16px 20px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
-                  <b style={{ color: 'var(--paper)' }}>Tiến độ hoàn thành ca trực: {routinePercent}%</b>
-                  <span style={{ color: 'var(--brass)', fontWeight: 700 }}>{completedRoutinesCount} / {dailyRoutines.length} nhiệm vụ</span>
-                </div>
-                <div style={{ height: '8px', background: 'var(--bg-secondary)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ width: `${routinePercent}%`, height: '100%', background: 'var(--brass)', transition: 'width 0.3s ease' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {dailyRoutines.map((r) => (
-                  <div
-                    key={r.id}
-                    onClick={() => handleToggleRoutine(r.id)}
-                    className="facility-card"
-                    style={{
-                      padding: '16px 20px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      borderLeft: r.completed ? '4px solid var(--brass)' : '4px solid var(--line)',
-                      opacity: r.completed ? 0.9 : 1
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <input
-                        type="checkbox"
-                        checked={r.completed}
-                        onChange={() => {}}
-                        style={{ width: '18px', height: '18px', accentColor: 'var(--brass)', cursor: 'pointer' }}
-                      />
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)' }}>{r.time}</span>
-                          <b style={{ fontSize: '14.5px', color: r.completed ? 'var(--paper)' : 'var(--paper-dim)', textDecoration: r.completed ? 'none' : 'none' }}>
-                            {r.title}
-                          </b>
-                        </div>
-                        <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginTop: '4px' }}>
-                          {r.desc}
-                        </div>
-                      </div>
-                    </div>
-                    {r.completed && (
-                      <span style={{ fontSize: '11.5px', color: 'var(--brass)', fontWeight: 600, background: 'rgba(212, 175, 55, 0.1)', padding: '3px 8px', borderRadius: '4px' }}>
-                        ✓ Xong lúc {r.completedAt}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* TAB 1: TỔNG QUAN (DASHBOARD) */}
+          {activeTab === 'dashboard' && (
+            <GroomDashboardTab
+              horses={confirmedHorses}
+              tasks={tasks}
+              alerts={activeAlerts}
+              onUpdateTaskStatus={handleUpdateTaskStatus}
+              onOpenReportModal={() => setShowReportModal(true)}
+              onOpenHorseModal={(h) => setSelectedHorseModal(h)}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+            />
           )}
 
-          {/* ========================================================================= */}
-          {/* TAB 3: BÁO ĐỘNG SỰ CỐ KHẨN CẤP */}
-          {/* ========================================================================= */}
-          {activeTab === 'incident' && (
-            <div className="tab-pane">
-              <div className="pane-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div>
-                  <h2 className="pane-title">Báo Động Sự Cố Chuồng Trại (Incident Dispatch)</h2>
-                  <p className="pane-desc">Phát tín hiệu trực tiếp cho Bác sĩ Thú y khi phát hiện ngựa bỏ ăn hoặc có dấu hiệu chấn thương.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowReportModal(true)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    background: 'var(--brass)',
-                    color: '#0A0D14',
-                    fontWeight: 700,
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '13px'
-                  }}
-                >
-                  + Tạo báo động khẩn cấp
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {incidents.map((inc) => (
-                  <div key={inc.id} className="facility-card" style={{ padding: '16px 20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          background: 'rgba(212, 175, 55, 0.15)',
-                          color: 'var(--brass)',
-                          border: '1px solid var(--line-strong)'
-                        }}>
-                          {inc.severity}
-                        </span>
-                        <b style={{ fontSize: '14px', color: 'var(--paper)' }}>Mã: {inc.id}</b>
-                        <span style={{ color: 'var(--paper-dim)', fontSize: '13px' }}>· Ô {inc.stallCode} ({inc.horseName})</span>
-                      </div>
-                      <span style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>{inc.reportedAt}</span>
-                    </div>
-
-                    <div style={{ fontSize: '12.5px', color: 'var(--paper)', background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', marginBottom: '10px', lineHeight: 1.45 }}>
-                      <b>Triệu chứng:</b> {inc.symptoms} — {inc.desc}
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                      <span style={{ color: 'var(--paper-dim)' }}>
-                        Trạng thái: <b style={{ color: 'var(--brass)' }}>{inc.statusText}</b>
-                      </span>
-                      <span style={{ color: 'var(--paper-dim)' }}>
-                        Người báo cáo: <b>{currentUser?.full_name || 'Lê Hoàng Nam'}</b>
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* TAB 2: CÔNG VIỆC HẰNG NGÀY (MY DAILY TASKS) */}
+          {activeTab === 'tasks' && (
+            <GroomTasksTab
+              tasks={tasks}
+              onUpdateTaskStatus={handleUpdateTaskStatus}
+              onAddTask={handleAddTask}
+            />
           )}
 
-          {/* ========================================================================= */}
-          {/* TAB 4: THỰC ĐƠN DINH DƯỠNG & KHẨU PHẦN ĂN */}
-          {/* ========================================================================= */}
-          {activeTab === 'nutrition' && (
-            <div className="tab-pane">
-              <div className="pane-header" style={{ marginBottom: '16px' }}>
-                <h2 className="pane-title">Thực Đơn Dinh Dưỡng & Khẩu Phần (Nutrition & Feeding)</h2>
-                <p className="pane-desc">Định lượng cỏ khô Alfalfa, yến mạch ngâm nở và theo dõi tỷ lệ ăn hết của từng chiến mã.</p>
-              </div>
-
-              <div className="facility-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase' }}>
-                      <th style={{ padding: '12px 16px' }}>Chiến mã (Ô chuồng)</th>
-                      <th style={{ padding: '12px 16px' }}>Cỏ khô Alfalfa</th>
-                      <th style={{ padding: '12px 16px' }}>Yến mạch & Cám</th>
-                      <th style={{ padding: '12px 16px' }}>Lượng nước</th>
-                      <th style={{ padding: '12px 16px' }}>Tỷ lệ ăn hết</th>
-                      <th style={{ padding: '12px 16px' }}>Ghi chú ca trực</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {feedLogs.map((f) => (
-                      <tr key={f.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--brass)' }}>{f.horse}</td>
-                        <td style={{ padding: '12px 16px', color: 'var(--paper)' }}>{f.hayKg}</td>
-                        <td style={{ padding: '12px 16px', color: 'var(--paper)' }}>{f.grainKg}</td>
-                        <td style={{ padding: '12px 16px', color: 'var(--paper-dim)' }}>{f.waterL}</td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            background: f.intakeRate.includes('100%') ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                            color: f.intakeRate.includes('100%') ? 'var(--brass)' : 'var(--paper-dim)',
-                            border: `1px solid ${f.intakeRate.includes('100%') ? 'var(--brass)' : 'var(--line)'}`
-                          }}>
-                            {f.intakeRate}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 16px', color: 'var(--paper-dim)', fontSize: '12px' }}>{f.note}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {/* TAB 3: QUẢN LÝ CHIẾN MÃ (HORSE MANAGEMENT) */}
+          {activeTab === 'horses' && (
+            <GroomHorsesTab
+              horses={confirmedHorses}
+              onOpenHorseModal={(h) => setSelectedHorseModal(h)}
+              onOpenReportModal={(prefill) => {
+                if (prefill) setReportFormData(prev => ({ ...prev, ...prefill }));
+                setShowReportModal(true);
+              }}
+            />
           )}
 
-          {/* ========================================================================= */}
-          {/* TAB 5: VẬT TƯ & DỤNG CỤ CHUỒNG TRẠI */}
-          {/* ========================================================================= */}
-          {activeTab === 'supplies' && (
-            <div className="tab-pane">
-              <div className="pane-header" style={{ marginBottom: '16px' }}>
-                <h2 className="pane-title">Vật Tư & Dụng Cụ Chuồng Trại (Tack & Grooming Kit)</h2>
-                <p className="pane-desc">Kiểm kê dụng cụ chải chuốt, đệm lót và yêu cầu cấp phát khi vật tư sắp hết.</p>
-              </div>
+          {/* TAB 4: CHĂM SÓC NGỰA (DAILY CARE) */}
+          {activeTab === 'care' && (
+            <GroomCareTab
+              stalls={stalls}
+              onCleanBedding={handleCleanBedding}
+              onOpenReportModal={(prefill) => {
+                if (prefill) setReportFormData(prev => ({ ...prev, ...prefill }));
+                setShowReportModal(true);
+              }}
+            />
+          )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-                {suppliesList.map((sup) => (
-                  <div key={sup.id} className="facility-card" style={{ padding: '18px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                      <b style={{ fontSize: '14.5px', color: 'var(--paper)' }}>{sup.name}</b>
-                      <span style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        background: sup.status === 'LOW' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                        color: sup.status === 'LOW' ? 'var(--brass)' : 'var(--paper-dim)',
-                        border: `1px solid ${sup.status === 'LOW' ? 'var(--brass)' : 'var(--line)'}`
-                      }}>
-                        {sup.statusLabel}
-                      </span>
-                    </div>
+          {/* TAB 5: THEO DÕI SỨC KHỎE (HEALTH MONITORING) */}
+          {activeTab === 'health' && (
+            <GroomHealthTab
+              horses={confirmedHorses}
+              onOpenReportModal={(prefill) => {
+                if (prefill) setReportFormData(prev => ({ ...prev, ...prefill }));
+                setShowReportModal(true);
+              }}
+            />
+          )}
 
-                    <div style={{ fontSize: '13px', color: 'var(--paper-dim)', marginBottom: '14px' }}>
-                      Tồn kho thực tế: <b style={{ color: 'var(--brass)' }}>{sup.qty}</b>
-                    </div>
+          {/* TAB 6: BÁO CÁO SỰ CỐ (INCIDENT REPORTS) */}
+          {activeTab === 'incidents' && (
+            <GroomIncidentsTab
+              incidents={activeAlerts}
+              onOpenReportModal={() => setShowReportModal(true)}
+            />
+          )}
 
-                    <button
-                      type="button"
-                      onClick={() => showToast(`Đã gửi yêu cầu cấp phát thêm ${sup.name} cho Quản lý!`, 'YÊU CẦU ĐÃ GỬI', 'info')}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        borderRadius: '6px',
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--paper)',
-                        border: '1px solid var(--line)',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      + Yêu cầu cấp phát thêm
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* TAB 7: CHỈ ĐỊNH THÚ Y (VETERINARY INSTRUCTIONS) */}
+          {activeTab === 'vet-instructions' && (
+            <GroomVetInstructionsTab
+              instructions={activeVetInstructions}
+              onConfirmInstruction={handleConfirmInstruction}
+            />
+          )}
+
+          {/* TAB 8: QUẢN LÝ VẬT TƯ (INVENTORY MANAGEMENT) */}
+          {activeTab === 'inventory' && (
+            <GroomInventoryTab
+              inventory={inventory}
+              onRequestSupply={handleRequestSupply}
+            />
+          )}
+
+          {/* TAB 9: BÁO CÁO HẰNG NGÀY (DAILY REPORTS) */}
+          {activeTab === 'reports' && (
+            <GroomReportsTab
+              onSubmitDailyReport={() => showToast('Đã lưu và bàn giao báo cáo ca trực!', 'BÁO CÁO CA TRỰC', 'success')}
+            />
+          )}
+
+          {/* TAB 10: THÔNG BÁO (NOTIFICATIONS) */}
+          {activeTab === 'notifications' && (
+            <GroomNotificationsTab />
+          )}
+
+          {/* TAB 11: HỒ SƠ CÁ NHÂN (MY PROFILE) */}
+          {activeTab === 'profile' && (
+            <GroomProfileTab currentUser={currentUser} />
           )}
         </main>
       </div>
 
-      {/* ========================================================================= */}
-      {/* MODAL: BÁO CÁO SỰ CỐ KHẨN CẤP CHO BÁC SĨ THÚ Y (COMPACT & CLEAN) */}
-      {/* ========================================================================= */}
+      {/* ===================== MODAL: BÁO CÁO SỰ CỐ KHẨN CẤP CHO BÁC SĨ THÚ Y ===================== */}
       {showReportModal && (
         <div className="modal-overlay" onClick={() => setShowReportModal(false)}>
           <div
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: '440px',
+              maxWidth: '460px',
               width: '90%',
-              padding: '20px 22px',
-              border: '1px solid var(--line-strong)',
-              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)'
+              padding: '22px 24px',
+              border: '1px solid rgba(239, 68, 68, 0.45)',
+              boxShadow: '0 16px 36px rgba(0, 0, 0, 0.55)'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--brass)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🚨 Báo Động Sự Cố Chuồng</span>
+              <h3 style={{ margin: 0, fontSize: '16.5px', fontWeight: 800, color: '#EF4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🚨 Phát Báo Động Sự Cố Sức Khỏe</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setShowReportModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '18px', cursor: 'pointer', lineHeight: 1 }}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
               >
                 ✕
               </button>
             </div>
 
-            <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 14px', lineHeight: 1.4 }}>
-              Thông báo sẽ chuyển trực tiếp lên Cổng Bác sĩ Thú Y ngay lập tức.
+            <p style={{ fontSize: '12px', color: 'var(--paper-dim)', margin: '0 0 14px', lineHeight: 1.4 }}>
+              Phiếu báo động này sẽ được đẩy trực tiếp lên màn hình của <b>Bác sĩ Thú Y trực</b> để thăm khám khẩn cấp.
             </p>
 
             <form onSubmit={handleSubmitReport}>
@@ -1456,28 +908,23 @@ export default function GroomPage() {
                     Ô chuồng:
                   </label>
                   <select
-                    value={reportData.stallCode}
+                    value={reportFormData.stallCode}
                     onChange={(e) => {
-                      const found = assignedStalls.find(s => s.code === e.target.value);
-                      setReportData({
-                        ...reportData,
+                      const h = confirmedHorses.find(item => item.stall.includes(e.target.value));
+                      setReportFormData({
+                        ...reportFormData,
                         stallCode: e.target.value,
-                        horseName: found ? found.horseName : ''
+                        horseName: h ? h.name : 'Chiến mã'
                       });
                     }}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid var(--line)',
-                      background: 'var(--bg-secondary)',
-                      color: 'var(--paper)',
-                      fontSize: '12.5px'
-                    }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)', fontSize: '12.5px' }}
                   >
-                    {assignedStalls.map(s => (
-                      <option key={s.code} value={s.code}>{s.code} - {s.horseName}</option>
-                    ))}
+                    <option value="A1">Ô A1</option>
+                    <option value="A2">Ô A2</option>
+                    <option value="A3">Ô A3</option>
+                    <option value="A4">Ô A4</option>
+                    <option value="A5">Ô A5</option>
+                    <option value="A6">Ô A6</option>
                   </select>
                 </div>
 
@@ -1486,57 +933,48 @@ export default function GroomPage() {
                     Mức độ nghiêm trọng:
                   </label>
                   <select
-                    value={reportData.severity}
-                    onChange={(e) => setReportData({ ...reportData, severity: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid var(--line)',
-                      background: 'var(--bg-secondary)',
-                      color: 'var(--paper)',
-                      fontSize: '12.5px'
-                    }}
+                    value={reportFormData.severity}
+                    onChange={(e) => setReportFormData({ ...reportFormData, severity: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)', fontSize: '12.5px' }}
                   >
-                    <option value="CRITICAL">Khẩn cấp (Critical)</option>
-                    <option value="HIGH">Cao (High - Cần khám ngay)</option>
-                    <option value="MEDIUM">Trung bình (Theo dõi)</option>
-                    <option value="LOW">Nhẹ (Trầy xước da)</option>
+                    <option value="CRITICAL">🚨 Khẩn cấp (Critical - Nguy cơ Colic/Sốt cao)</option>
+                    <option value="HIGH">⚠️ Cao (High - Khập khiễng, sưng chân)</option>
+                    <option value="MEDIUM">🟡 Trung bình (Bỏ ăn, hành vi lạ)</option>
+                    <option value="LOW">🟢 Nhẹ (Xước da ngoài)</option>
                   </select>
                 </div>
               </div>
 
               <div style={{ marginBottom: '10px' }}>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--paper)', marginBottom: '4px' }}>
-                  Triệu chứng phát hiện:
+                  Dấu hiệu / Triệu chứng phát hiện:
                 </label>
-                <input
-                  type="text"
-                  value={reportData.symptoms}
-                  onChange={(e) => setReportData({ ...reportData, symptoms: e.target.value })}
-                  placeholder="VD: Bỏ ăn, thở dốc, dậm chân, rạn móng..."
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--line)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--paper)',
-                    fontSize: '12.5px'
-                  }}
-                  required
-                />
+                <select
+                  value={reportFormData.symptoms}
+                  onChange={(e) => setReportFormData({ ...reportFormData, symptoms: e.target.value })}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)', fontSize: '12.5px' }}
+                >
+                  <option value="Ngựa bỏ ăn / Bỏ ăn trên 50%">Ngựa bỏ ăn / Bỏ ăn trên 50%</option>
+                  <option value="Hành vi bất thường (cắn gỗ, dậm chân liên tục)">Hành vi bất thường (cắn gỗ, dậm chân liên tục)</option>
+                  <option value="Có dấu hiệu đau bụng Colic (nằm lăn, ngoái nhìn sườn)">Có dấu hiệu đau bụng Colic (nằm lăn, ngoái nhìn sườn)</option>
+                  <option value="Đi khập khiễng / Bước chân ngắn gật đầu">Đi khập khiễng / Bước chân ngắn gật đầu</option>
+                  <option value="Chân bị sưng nóng / Khớp cổ chân căng cứng">Chân bị sưng nóng / Khớp cổ chân căng cứng</option>
+                  <option value="Có vết thương ngoài da hoặc rỉ máu">Có vết thương ngoài da hoặc rỉ máu</option>
+                  <option value="Sốt cao trên 38.8°C / Thở dốc">Sốt cao trên 38.8°C / Thở dốc</option>
+                  <option value="Khác">Dấu hiệu bất thường khác...</option>
+                </select>
               </div>
 
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--paper)', marginBottom: '4px' }}>
-                  Mô tả chi tiết:
+                  Mô tả cụ thể quan sát thực tế tại chuồng:
                 </label>
                 <textarea
-                  rows="2"
-                  value={reportData.desc}
-                  onChange={(e) => setReportData({ ...reportData, desc: e.target.value })}
-                  placeholder="Ghi nhận cụ thể tình trạng tại chuồng..."
+                  rows="3"
+                  required
+                  placeholder="Ghi nhận rõ tư thế đứng, phản xạ khi chạm vào, màu phân/nước tiểu..."
+                  value={reportFormData.desc}
+                  onChange={(e) => setReportFormData({ ...reportFormData, desc: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '8px 10px',
@@ -1548,7 +986,6 @@ export default function GroomPage() {
                     fontSize: '12.5px',
                     resize: 'none'
                   }}
-                  required
                 />
               </div>
 
@@ -1563,7 +1000,6 @@ export default function GroomPage() {
                     color: 'var(--paper-dim)',
                     border: '1px solid var(--line)',
                     fontSize: '12.5px',
-                    fontWeight: 600,
                     cursor: 'pointer'
                   }}
                 >
@@ -1574,27 +1010,29 @@ export default function GroomPage() {
                   style={{
                     padding: '7px 18px',
                     borderRadius: '6px',
-                    background: 'var(--brass)',
-                    color: '#0A0D14',
+                    background: '#EF4444',
+                    color: '#FFF',
                     fontWeight: 700,
                     border: 'none',
                     fontSize: '12.5px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
                   }}
                 >
-                  Gửi Thú Y ngay
+                  Gửi Bác Sĩ Thú Y Ngay
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-      {/* Modal Profile Chiến Mã của Chủ Sở Hữu khi Groom xác nhận */}
-      {confirmedHorseModal && (
+
+      {/* ===================== MODAL: PROFILE CHI TIẾT CHIẾN MÃ ===================== */}
+      {selectedHorseModal && (
         <ConfirmedHorseProfileModal
-          horse={confirmedHorseModal}
+          horse={selectedHorseModal}
           role="GROOM"
-          onClose={() => setConfirmedHorseModal(null)}
+          onClose={() => setSelectedHorseModal(null)}
         />
       )}
     </div>

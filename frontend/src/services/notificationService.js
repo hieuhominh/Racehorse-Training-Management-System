@@ -174,34 +174,96 @@ export function notifyTrainingRequested(horse, ownerUser, trainerSelection) {
 }
 
 /**
+ * Thông báo khi Chủ sở hữu chỉ định Chuyên viên chăm sóc (Groom):
+ * Gửi thông báo đến Groom chuyên trách và Admin
+ */
+export function notifyGroomAssignmentRequested(horse, ownerUser, groomSelection) {
+  const ownerName = ownerUser?.full_name || horse?.ownerName || horse?.owner || 'Chủ sở hữu';
+  const horseName = horse?.name || horse?.horseName || 'Chiến mã';
+  const microchip = horse?.microchip || '';
+  const stable = horse?.stable || horse?.stall || 'Ô A1';
+  const groomName = typeof groomSelection === 'string'
+    ? groomSelection
+    : (groomSelection?.name || horse?.groomName || horse?.groom || 'Lê Hoàng Nam');
+  const groomUsername = typeof groomSelection === 'object' ? groomSelection?.username : 'groom_nam';
+
+  return addSystemNotification({
+    type: 'GROOM_REQUEST',
+    title: 'YÊU CẦU TIẾP NHẬN CHĂM SÓC MỚI',
+    message: `Chủ sở hữu ${ownerName} đã gửi gắm và chỉ định ${groomName} phụ trách chăm sóc chiến mã "${horseName}"${microchip ? ` (Chip: ${microchip})` : ''}${stable ? ` tại ${stable}` : ''}. Vui lòng xác nhận trước khi bắt đầu phục vụ.`,
+    horseName,
+    horseId: horse?.id,
+    microchip,
+    stable,
+    ownerName,
+    ownerKey: ownerUser?.username || 'owner',
+    groomName,
+    recipientUsername: groomUsername,
+    recipientRoles: ['GROOM', 'ADMIN', 'ALL']
+  });
+}
+
+/**
  * Thông báo khi Huấn luyện viên / Bác sĩ / Groom xác nhận tiếp nhận phục vụ:
- * Gửi thông báo đến Chủ sở hữu, Huấn luyện viên và Admin
+ * Gửi thông báo trực tiếp đến Chủ sở hữu, chuyên viên và Admin
  */
 export function notifyServiceConfirmed(horseOrAsgn, staffUser, role = 'TRAINER') {
   const horseName = horseOrAsgn?.horseName || horseOrAsgn?.name || 'Chiến mã';
   const microchip = horseOrAsgn?.microchip || '';
-  const stable = horseOrAsgn?.stable || horseOrAsgn?.stall || 'Ô A4';
+  const stable = horseOrAsgn?.stable || horseOrAsgn?.stall || 'Ô A1';
   const ownerName = horseOrAsgn?.ownerName || horseOrAsgn?.owner || 'Chủ sở hữu';
-  const roleName = role === 'TRAINER' ? 'Huấn Luyện Viên' : role === 'VET' ? 'Bác Sĩ Thú Y' : 'Chuyên Viên Chăm Sóc';
+  const ownerKey = horseOrAsgn?.ownerKey || 'owner';
+  const roleName = role === 'TRAINER' ? 'Huấn Luyện Viên' : role === 'VET' ? 'Bác Sĩ Thú Y' : 'Chuyên Viên Chăm Sóc (Groom)';
   const staffName = staffUser?.full_name || staffUser?.name ||
     (role === 'TRAINER' ? (horseOrAsgn?.trainerName || 'Lê Trọng Nghĩa') :
      role === 'VET' ? (horseOrAsgn?.vetName || 'BS. Trần Minh Hoàng') :
-     (horseOrAsgn?.groomName || 'Vũ Tiến Dũng'));
+     (horseOrAsgn?.groomName || 'Lê Hoàng Nam'));
 
   const actionText = role === 'TRAINER' ? 'tiếp nhận huấn luyện' : role === 'VET' ? 'phụ trách y tế' : 'tiếp nhận chăm sóc';
+  const detailText = role === 'GROOM'
+    ? `Chuyên viên chăm sóc ${staffName} đã chính thức ĐỒNG Ý tiếp nhận chăm sóc cho chiến mã "${horseName}" của bạn tại chuồng trại. Quy trình khẩu phần ăn, vệ sinh ô chuồng và theo dõi thể chất đã chính thức bắt đầu!`
+    : `${roleName} ${staffName} đã chính thức xác nhận ${actionText} cho chiến mã "${horseName}"${microchip ? ` (Chip: ${microchip})` : ''}${stable ? ` tại ${stable}` : ''}. Chủ sở hữu và ban chuyên môn có thể bắt đầu theo dõi tiến độ.`;
 
   return addSystemNotification({
     type: 'SERVICE_CONFIRMED',
-    title: `${roleName.toUpperCase()} ĐÃ XÁC NHẬN PHỤC VỤ`,
-    message: `${roleName} ${staffName} đã chính thức xác nhận ${actionText} cho chiến mã "${horseName}"${microchip ? ` (Chip: ${microchip})` : ''}${stable ? ` tại ${stable}` : ''}. Chủ sở hữu và ban chuyên môn có thể bắt đầu theo dõi thể lực và giáo án.`,
+    title: `${roleName.toUpperCase()} ĐÃ ĐỒNG Ý PHỤC VỤ`,
+    message: detailText,
     horseName,
     horseId: horseOrAsgn?.id,
     microchip,
     stable,
     ownerName,
+    ownerKey,
     staffName,
     role,
     recipientRoles: ['OWNER', 'TRAINER', 'VET', 'GROOM', 'ADMIN', 'ALL']
+  });
+}
+
+/**
+ * Thông báo khi Chuyên viên chăm sóc (Groom) từ chối / không đồng ý phục vụ:
+ * Gửi thông báo đến Chủ sở hữu để chọn Groom khác
+ */
+export function notifyServiceRejected(horseOrAsgn, staffUser, role = 'GROOM', reason = '') {
+  const horseName = horseOrAsgn?.horseName || horseOrAsgn?.name || 'Chiến mã';
+  const microchip = horseOrAsgn?.microchip || '';
+  const ownerName = horseOrAsgn?.ownerName || horseOrAsgn?.owner || 'Chủ sở hữu';
+  const ownerKey = horseOrAsgn?.ownerKey || 'owner';
+  const roleName = role === 'GROOM' ? 'Chuyên Viên Chăm Sóc (Groom)' : role === 'TRAINER' ? 'Huấn Luyện Viên' : 'Bác Sĩ Thú Y';
+  const staffName = staffUser?.full_name || staffUser?.name || 'Lê Hoàng Nam';
+
+  return addSystemNotification({
+    type: 'SERVICE_REJECTED',
+    title: `${roleName.toUpperCase()} TỪ CHỐI TIẾP NHẬN PHỤC VỤ`,
+    message: `${roleName} ${staffName} không thể tiếp nhận chăm sóc cho chiến mã "${horseName}" của bạn vào lúc này${reason ? ` (Lý do: ${reason})` : ''}. Chiến mã đã được gỡ khỏi danh sách của Groom. Vui lòng vào mục Quản lý chiến mã để phân công chuyên viên khác.`,
+    horseName,
+    horseId: horseOrAsgn?.id,
+    microchip,
+    ownerName,
+    ownerKey,
+    staffName,
+    role,
+    recipientRoles: ['OWNER', 'ADMIN', 'ALL']
   });
 }
 

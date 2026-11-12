@@ -1,7 +1,12 @@
 // Quản lý việc Chủ sở hữu chỉ định Đội ngũ phục vụ (3 HLV, 3 BS Thú y, 3 Groom)
 // và Xác nhận phục vụ từ phía từng nhân sự chuyên trách
 import { saveServiceAssignmentApi, confirmServiceAssignmentApi as confirmApi } from './api';
-import { notifyTrainingRequested, notifyServiceConfirmed } from './notificationService';
+import {
+  notifyTrainingRequested,
+  notifyGroomAssignmentRequested,
+  notifyServiceConfirmed,
+  notifyServiceRejected
+} from './notificationService';
 
 const STORAGE_KEY = 'matruong_service_assignments';
 const EVENT_NAME = 'matruong_service_assignment_updated';
@@ -200,6 +205,14 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
         console.error('Error notifying training requested:', err);
       }
     }
+    // Gửi thông báo đến Chuyên viên chăm sóc (Groom) khi Chủ sở hữu chọn Groom
+    if (targetItem.groomStatus === 'PENDING') {
+      try {
+        notifyGroomAssignmentRequested(horse, ownerUser, targetItem.groomName);
+      } catch (err) {
+        console.error('Error notifying groom requested:', err);
+      }
+    }
   }
   return list;
 }
@@ -249,6 +262,99 @@ export function confirmServiceAssignment(horseIdentifier, roleType, staffUsernam
     }
   }
   return nextList;
+}
+
+// Groom hoặc chuyên viên từ chối / không đồng ý tiếp nhận chiến mã (Bị xóa khỏi danh sách chăm sóc)
+export function rejectServiceAssignment(horseIdentifier, roleType, staffUsername, reason = '') {
+  const list = getServiceAssignments();
+  const key = String(horseIdentifier || '').trim().toLowerCase();
+  const nowStr = new Date().toLocaleDateString('vi-VN');
+
+  let updated = false;
+  let rejectedItem = null;
+  const nextList = list.map(item => {
+    const match = (item.microchip && item.microchip.trim().toLowerCase() === key) ||
+                  (item.horseName && item.horseName.trim().toLowerCase() === key) ||
+                  (item.id && String(item.id) === key);
+    if (!match) return item;
+
+    updated = true;
+    if (roleType === 'GROOM') {
+      rejectedItem = {
+        ...item,
+        groomStatus: 'REJECTED',
+        groomRejectedAt: nowStr,
+        groomRejectedBy: staffUsername,
+        groomRejectReason: reason || 'Groom không đồng ý tiếp nhận chăm sóc'
+      };
+      return rejectedItem;
+    }
+    if (roleType === 'TRAINER') {
+      rejectedItem = {
+        ...item,
+        trainerStatus: 'REJECTED',
+        trainerRejectedAt: nowStr,
+        trainerRejectedBy: staffUsername
+      };
+      return rejectedItem;
+    }
+    if (roleType === 'VET') {
+      rejectedItem = {
+        ...item,
+        vetStatus: 'REJECTED',
+        vetRejectedAt: nowStr,
+        vetRejectedBy: staffUsername
+      };
+      return rejectedItem;
+    }
+    return item;
+  });
+
+  if (updated) {
+    saveServiceAssignments(nextList);
+    syncHorseConfirmationToLocalStorage(horseIdentifier, roleType, 'REJECTED');
+    if (rejectedItem) {
+      try {
+        notifyServiceRejected(rejectedItem, { username: staffUsername }, roleType, reason);
+      } catch (err) {
+        console.error('Error notifying service rejected:', err);
+      }
+    }
+  }
+  return nextList;
+}
+
+// Lọc danh sách chiến mã dành cho Groom theo thời gian thực:
+// - confirmed: CHỈ NHỮNG CHIẾN MÃ DO GROOM PHỤ TRÁCH ĐỒNG Ý
+// - pending: Các yêu cầu gửi gắm từ chủ sở hữu đang chờ Groom đồng ý
+// - rejected: Bị từ chối / Không đồng ý -> Xóa hết khỏi danh sách quản lý
+export function getGroomRealtimeHorses(groomUser, assignmentsList = null) {
+  const list = assignmentsList || getServiceAssignments();
+  const uName = (groomUser?.username || '').trim().toLowerCase();
+  const fName = (groomUser?.full_name || '').trim().toLowerCase();
+
+  const isMyGroom = (item) => {
+    if (!item) return false;
+    const gUser = (item.groomUsername || '').trim().toLowerCase();
+    const gName = (item.groomName || '').trim().toLowerCase();
+    return (
+      (uName && (gUser === uName || (uName === 'groom' && (gUser === 'groom_nam' || gName.includes('nam'))))) ||
+      (fName && gName === fName) ||
+      (!uName && !fName)
+    );
+  };
+
+  const myGroomAssignments = list.filter(isMyGroom);
+  const confirmed = myGroomAssignments.filter(a => a.groomStatus === 'CONFIRMED');
+  const pending = myGroomAssignments.filter(a => a.groomStatus === 'PENDING');
+  const rejected = myGroomAssignments.filter(a => a.groomStatus === 'REJECTED');
+
+  return {
+    all: myGroomAssignments,
+    confirmed, // Danh sách chiến mã được Groom đồng ý chăm sóc (DUY NHẤT ĐƯỢC HIỂN THỊ TRONG QUẢN LÝ)
+    pending,   // Danh sách chờ Groom đồng ý tiếp nhận
+    rejected   // Danh sách không đồng ý (Bị xóa hết khỏi giao diện quản lý)
+  };
 }
 
 // Chuyển đổi trạng thái phân công (CONFIRMED hoặc PENDING)

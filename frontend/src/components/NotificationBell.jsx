@@ -21,7 +21,11 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
   const myNotifications = notifications.filter(n => {
     if (n.recipientUsername && n.recipientUsername !== username) return false;
     if (!n.recipientRoles || !Array.isArray(n.recipientRoles)) return true;
-    return n.recipientRoles.includes(roleCode) || n.recipientRoles.includes('ALL');
+    return (
+      n.recipientRoles.includes(roleCode) ||
+      n.recipientRoles.includes('ALL') ||
+      (roleCode === 'OWNER' && (n.recipientRoles.includes('OWNER') || n.ownerKey === username))
+    );
   });
 
   const unreadCount = myNotifications.filter(n => !isNotificationRead(n, username)).length;
