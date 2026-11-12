@@ -51,4 +51,28 @@ public class IncidentDAO extends DBContext {
         memoryIncidents.add(0, incident);
         return incident;
     }
+
+    public Incident updateIncident(String id, String status, String description, String symptoms, String severity) {
+        if (id == null || id.trim().isEmpty()) return null;
+        synchronized (memoryIncidents) {
+            for (Incident inc : memoryIncidents) {
+                if (id.equalsIgnoreCase(inc.getId())) {
+                    if (status != null && !status.trim().isEmpty()) {
+                        inc.setStatus(SecurityUtil.sanitize(status));
+                    }
+                    if (description != null && !description.trim().isEmpty()) {
+                        inc.setDescription(SecurityUtil.sanitize(description));
+                    }
+                    if (symptoms != null && !symptoms.trim().isEmpty()) {
+                        inc.setSymptoms(SecurityUtil.sanitize(symptoms));
+                    }
+                    if (severity != null && !severity.trim().isEmpty()) {
+                        inc.setSeverity(SecurityUtil.sanitize(severity));
+                    }
+                    return inc;
+                }
+            }
+        }
+        return null;
+    }
 }

@@ -2214,6 +2214,357 @@ export async function requestSupplyRestockApi(supplyName, quantity) {
   return newReq;
 }
 
+// -------------------------------------------------------------------------
+// 10.1. NHẬT KÝ THEO DÕI SỨC KHỎE GROOM (GROOM HEALTH LOGS API)
+// -------------------------------------------------------------------------
+
+export async function getGroomHealthLogsApi() {
+  try {
+    const res = await fetch('/api/groom/health-logs', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setLocalData('matruong_groom_health_logs', data);
+        return data;
+      }
+    }
+  } catch {
+    // Fallback to local storage
+  }
+  return getLocalData('matruong_groom_health_logs', []);
+}
+
+export async function createGroomHealthLogApi(logData) {
+  try {
+    const res = await fetch('/api/groom/health-logs', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(logData)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = getLocalData('matruong_groom_health_logs', []);
+      const updated = [data, ...list.filter(item => item.id !== data.id)];
+      setLocalData('matruong_groom_health_logs', updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_health_logs_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+
+  const list = getLocalData('matruong_groom_health_logs', []);
+  const newLog = {
+    id: logData.id || `HL-${Date.now()}`,
+    userCreated: true,
+    ...logData
+  };
+  const updated = [newLog, ...list];
+  setLocalData('matruong_groom_health_logs', updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('matruong_health_logs_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return newLog;
+}
+
+export async function updateGroomHealthLogApi(logId, updatedData) {
+  try {
+    const res = await fetch(`/api/groom/health-logs/${logId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ id: logId, ...updatedData })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = getLocalData('matruong_groom_health_logs', []);
+      const updated = list.map(item => String(item.id) === String(logId) ? { ...item, ...data } : item);
+      setLocalData('matruong_groom_health_logs', updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_health_logs_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+
+  const list = getLocalData('matruong_groom_health_logs', []);
+  const updated = list.map(item => String(item.id) === String(logId) ? { ...item, ...updatedData } : item);
+  setLocalData('matruong_groom_health_logs', updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('matruong_health_logs_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return { id: logId, ...updatedData };
+}
+
+export async function deleteGroomHealthLogApi(logId = 'ALL') {
+  try {
+    const res = await fetch(`/api/groom/health-logs/${logId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(true),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      if (logId === 'ALL') {
+        setLocalData('matruong_groom_health_logs', []);
+      } else {
+        const list = getLocalData('matruong_groom_health_logs', []);
+        setLocalData('matruong_groom_health_logs', list.filter(item => String(item.id) !== String(logId)));
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_health_logs_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return true;
+    }
+  } catch {
+    // Fallback
+  }
+
+  if (logId === 'ALL') {
+    setLocalData('matruong_groom_health_logs', []);
+  } else {
+    const list = getLocalData('matruong_groom_health_logs', []);
+    setLocalData('matruong_groom_health_logs', list.filter(item => String(item.id) !== String(logId)));
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('matruong_health_logs_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return true;
+}
+
+// -------------------------------------------------------------------------
+// 10.2. YÊU CẦU CẤP PHÁT LƯƠNG THỰC & VẬT TƯ (SUPPLY REQUESTS API)
+// -------------------------------------------------------------------------
+
+export async function getSupplyRequestsApi() {
+  try {
+    const res = await fetch('/api/groom/supply-requests', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setLocalData('matruong_supply_requests', data);
+        return data;
+      }
+    }
+  } catch {
+    // Fallback
+  }
+  return getLocalData('matruong_supply_requests', []);
+}
+
+export async function createSupplyRequestApi(requestData) {
+  try {
+    const res = await fetch('/api/groom/supply-requests', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(requestData)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = getLocalData('matruong_supply_requests', []);
+      const updated = [data, ...list.filter(item => item.id !== data.id)];
+      setLocalData('matruong_supply_requests', updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_supply_requests_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+
+  const list = getLocalData('matruong_supply_requests', []);
+  const newReq = {
+    id: requestData.id || `SR-${Date.now().toString().slice(-4)}`,
+    status: 'PENDING_ADMIN',
+    requestedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - Hôm nay',
+    ...requestData
+  };
+  const updated = [newReq, ...list];
+  setLocalData('matruong_supply_requests', updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('matruong_supply_requests_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return newReq;
+}
+
+export async function updateSupplyRequestStatusApi(requestId, status, adminNote = '', approvedBy = 'Admin Quản Trị') {
+  try {
+    const res = await fetch(`/api/groom/supply-requests/${requestId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ id: requestId, status, adminNote, approvedBy })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = getLocalData('matruong_supply_requests', []);
+      const updated = list.map(item => String(item.id) === String(requestId) ? { ...item, ...data } : item);
+      setLocalData('matruong_supply_requests', updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_supply_requests_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+
+  const list = getLocalData('matruong_supply_requests', []);
+  const updated = list.map(item => String(item.id) === String(requestId) ? { ...item, status, adminNote, approvedBy } : item);
+  setLocalData('matruong_supply_requests', updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('matruong_supply_requests_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return { id: requestId, status, adminNote, approvedBy };
+}
+
+// -------------------------------------------------------------------------
+// 10.3. PHÂN CA & CÔNG VIỆC HẰNG NGÀY GROOM (GROOM TASKS API)
+// -------------------------------------------------------------------------
+
+export async function getGroomTasksApi() {
+  try {
+    const res = await fetch('/api/groom/tasks', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setLocalData(STORAGE_KEYS.TASKS, data);
+        return data;
+      }
+    }
+  } catch {
+    // Fallback
+  }
+  return getLocalData(STORAGE_KEYS.TASKS, []);
+}
+
+export async function createGroomTaskApi(taskData) {
+  try {
+    const res = await fetch('/api/groom/tasks', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify(taskData)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = getLocalData(STORAGE_KEYS.TASKS, []);
+      const updated = [data, ...list];
+      setLocalData(STORAGE_KEYS.TASKS, updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_tasks_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+
+  const list = getLocalData(STORAGE_KEYS.TASKS, []);
+  const newTask = {
+    id: taskData.id || `TASK-${Date.now()}`,
+    status: 'PENDING',
+    ...taskData
+  };
+  const updated = [newTask, ...list];
+  setLocalData(STORAGE_KEYS.TASKS, updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('matruong_tasks_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return newTask;
+}
+
+export async function updateGroomTaskStatusApi(taskId, status, completedAt = null) {
+  try {
+    const res = await fetch(`/api/groom/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ id: taskId, status, completedAt })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = getLocalData(STORAGE_KEYS.TASKS, []);
+      const updated = list.map(t => String(t.id) === String(taskId) ? { ...t, ...data } : t);
+      setLocalData(STORAGE_KEYS.TASKS, updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_tasks_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+
+  const list = getLocalData(STORAGE_KEYS.TASKS, []);
+  const updated = list.map(t => String(t.id) === String(taskId) ? { ...t, status, completedAt: status === 'COMPLETED' ? (completedAt || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })) : null } : t);
+  setLocalData(STORAGE_KEYS.TASKS, updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('matruong_tasks_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return { id: taskId, status, completedAt };
+}
+
+export async function deleteGroomTaskApi(taskId) {
+  try {
+    const res = await fetch(`/api/groom/tasks/${taskId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(true),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const list = getLocalData(STORAGE_KEYS.TASKS, []);
+      const updated = list.filter(t => String(t.id) !== String(taskId));
+      setLocalData(STORAGE_KEYS.TASKS, updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_tasks_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return true;
+    }
+  } catch {
+    // Fallback
+  }
+
+  const list = getLocalData(STORAGE_KEYS.TASKS, []);
+  const updated = list.filter(t => String(t.id) !== String(taskId));
+  setLocalData(STORAGE_KEYS.TASKS, updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('matruong_tasks_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return true;
+}
+
 
 // =========================================================================
 // 11. VAI TRÒ 5: CHỦ SỞ HỮU NGỰA (RACEHORSE OWNER API)

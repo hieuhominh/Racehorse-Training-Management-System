@@ -7,7 +7,14 @@ import NotificationBell from '../components/NotificationBell';
 import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
 import GroomIncidentReportModal from '../components/groom/GroomIncidentReportModal';
 import GroomScheduleModal from '../components/groom/GroomScheduleModal';
-import { reportIncidentApi } from '../services/api';
+import {
+  reportIncidentApi,
+  createSupplyRequestApi,
+  getGroomTasksApi,
+  createGroomTaskApi,
+  updateGroomTaskStatusApi,
+  deleteGroomTaskApi
+} from '../services/api';
 import { addSystemNotification, getSystemNotifications } from '../services/notificationService';
 import {
   getServiceAssignments,
@@ -483,11 +490,13 @@ export default function GroomPage() {
       return;
     }
 
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    updateGroomTaskStatusApi(taskId, newStatus, newStatus === 'COMPLETED' ? timeStr : null).catch(() => {});
+
     setTasks(prev => {
       const updated = prev.map(t => {
         if (t.id === taskId) {
-          const now = new Date();
-          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
           return { ...t, status: newStatus, completedAt: newStatus === 'COMPLETED' ? timeStr : t.completedAt };
         }
         return t;
@@ -505,6 +514,7 @@ export default function GroomPage() {
       showToast('Chỉ Chủ nhóm Groom mới có quyền phân ca và tạo lịch công việc!', 'TỪ CHỐI QUYỀN', 'error');
       return;
     }
+    createGroomTaskApi(newTask).catch(() => {});
     setTasks(prev => {
       const updated = [newTask, ...prev];
       try {
@@ -520,6 +530,7 @@ export default function GroomPage() {
       showToast('Chỉ Chủ nhóm Groom mới có quyền xóa lịch công việc!', 'TỪ CHỐI QUYỀN', 'error');
       return;
     }
+    deleteGroomTaskApi(taskId).catch(() => {});
     setTasks(prev => {
       const updated = prev.filter(t => t.id !== taskId);
       try {
@@ -563,21 +574,23 @@ export default function GroomPage() {
       });
     } catch {}
 
-    // 2. Lưu yêu cầu vào danh sách cấp phát LocalStorage để Admin dễ dàng quản lý
+    // 2. Gửi yêu cầu qua Backend API & Lưu vào danh sách cấp phát LocalStorage để Admin quản lý
+    const newReq = {
+      id: `SR-${Date.now().toString().slice(-4)}`,
+      supplyId,
+      supplyName,
+      category,
+      qty: currentQty,
+      percent,
+      requestedBy: groomName,
+      requestedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - Hôm nay',
+      status: 'PENDING_ADMIN'
+    };
+    createSupplyRequestApi(newReq).catch(() => {});
+
     try {
       const rawReq = localStorage.getItem('matruong_supply_requests');
       const reqList = rawReq ? JSON.parse(rawReq) : [];
-      const newReq = {
-        id: `SR-${Date.now().toString().slice(-4)}`,
-        supplyId,
-        supplyName,
-        category,
-        qty: currentQty,
-        percent,
-        requestedBy: groomName,
-        requestedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - Hôm nay',
-        status: 'PENDING_ADMIN'
-      };
       localStorage.setItem('matruong_supply_requests', JSON.stringify([newReq, ...(Array.isArray(reqList) ? reqList : [])]));
     } catch {}
 

@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useToast } from '../../context/ToastContext';
+import {
+  getGroomHealthLogsApi,
+  createGroomHealthLogApi,
+  updateGroomHealthLogApi,
+  deleteGroomHealthLogApi
+} from '../../services/api';
 
 export default function GroomHealthTab({ horses = [], onOpenReportModal }) {
   const toastContext = useToast();
@@ -20,21 +26,31 @@ export default function GroomHealthTab({ horses = [], onOpenReportModal }) {
     return [];
   });
 
-  // Tự động dọn sạch mọi dữ liệu sinh tự động cũ khỏi localStorage
+  // Tự động đồng bộ với Backend API khi khởi tạo và lắng nghe thay đổi thời gian thực
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('matruong_groom_health_logs');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          const userOnly = parsed.filter(log => log && log.userCreated === true);
-          if (userOnly.length !== parsed.length) {
-            localStorage.setItem('matruong_groom_health_logs', JSON.stringify(userOnly));
-            setHealthLogs(userOnly);
-          }
-        }
+    let isMounted = true;
+    getGroomHealthLogsApi().then(data => {
+      if (isMounted && Array.isArray(data) && data.length > 0) {
+        setHealthLogs(data.filter(log => log && log.userCreated === true));
       }
-    } catch {}
+    }).catch(() => {});
+
+    const handleUpdate = () => {
+      getGroomHealthLogsApi().then(data => {
+        if (isMounted && Array.isArray(data)) {
+          setHealthLogs(data.filter(log => log && log.userCreated === true));
+        }
+      }).catch(() => {});
+    };
+
+    window.addEventListener('matruong_health_logs_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('matruong_health_logs_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   const defaultHorseName = horses.length > 0 ? `${horses[0].name} (${horses[0].stall || 'Ô chuồng'})` : '';
@@ -159,12 +175,16 @@ export default function GroomHealthTab({ horses = [], onOpenReportModal }) {
     let updatedList = [];
     if (editingLogId) {
       // Chế độ chỉnh sửa - Chỉ lưu vào nhật ký theo dõi nội bộ của Groom, không gửi thông báo
+      const updatedItem = {
+        ...logPayload,
+        time: `${hh}:${mm} (Đã sửa)`
+      };
+      updateGroomHealthLogApi(editingLogId, updatedItem).catch(() => {});
       updatedList = healthLogs.map(item => {
         if (item.id === editingLogId) {
           return {
             ...item,
-            ...logPayload,
-            time: `${hh}:${mm} (Đã sửa)`
+            ...updatedItem
           };
         }
         return item;
@@ -179,6 +199,7 @@ export default function GroomHealthTab({ horses = [], onOpenReportModal }) {
         time: `${hh}:${mm}`,
         ...logPayload
       };
+      createGroomHealthLogApi(newLog).catch(() => {});
       updatedList = [newLog, ...healthLogs];
 
       showToast(`Đã lưu chỉ số sức khỏe của ${cleanName} vào nhật ký theo dõi ca trực!`, 'GHI NHẬN THÀNH CÔNG', 'success');
@@ -244,6 +265,7 @@ export default function GroomHealthTab({ horses = [], onOpenReportModal }) {
   };
 
   const handleDeleteLog = (logId) => {
+    deleteGroomHealthLogApi(logId).catch(() => {});
     const updated = healthLogs.filter(l => l.id !== logId);
     setHealthLogs(updated);
     try {
@@ -252,6 +274,7 @@ export default function GroomHealthTab({ horses = [], onOpenReportModal }) {
   };
 
   const handleClearAllLogs = () => {
+    deleteGroomHealthLogApi('ALL').catch(() => {});
     setHealthLogs([]);
     try {
       localStorage.setItem('matruong_groom_health_logs', JSON.stringify([]));

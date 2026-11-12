@@ -102,4 +102,70 @@ public class IncidentApiController extends HttpServlet {
                 "Lỗi máy chủ khi lưu báo cáo sự cố.");
         }
     }
+
+    @Override
+    protected void doPut(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        User authUser = SecurityUtil.requireRole(request, response, "GROOM", "VET", "TRAINER", "MANAGER");
+        if (authUser == null) {
+            return;
+        }
+
+        try {
+            JsonObject body = SecurityUtil.parseJsonObject(request);
+            if (body == null) {
+                SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "Dữ liệu cập nhật không hợp lệ.");
+                return;
+            }
+
+            String incidentId = "";
+            String pathInfo = request.getPathInfo();
+            if (pathInfo != null && pathInfo.length() > 1) {
+                incidentId = pathInfo.substring(1).trim();
+            } else {
+                incidentId = SecurityUtil.getString(body, "id", "");
+            }
+
+            if (incidentId.isEmpty()) {
+                SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "Thiếu mã sự cố cần cập nhật.");
+                return;
+            }
+
+            String status = SecurityUtil.getString(body, "status", "");
+            String description = SecurityUtil.getString(body, "description", SecurityUtil.getString(body, "desc", ""));
+            String symptoms = SecurityUtil.getString(body, "symptoms", "");
+            String severity = SecurityUtil.getString(body, "severity", "");
+
+            Incident updated = incidentDAO.updateIncident(incidentId, status, description, symptoms, severity);
+            if (updated == null) {
+                SecurityUtil.sendJsonError(response, HttpServletResponse.SC_NOT_FOUND,
+                    "Không tìm thấy sự cố với mã: " + incidentId);
+                return;
+            }
+
+            response.setStatus(HttpServletResponse.SC_OK);
+            try (PrintWriter out = response.getWriter()) {
+                out.print(gson.toJson(updated));
+                out.flush();
+            }
+        } catch (Exception e) {
+            SecurityUtil.sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                "Lỗi máy chủ khi cập nhật sự cố.");
+        }
+    }
+
+    @Override
+    protected void service(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+        if ("PATCH".equalsIgnoreCase(req.getMethod())) {
+            doPut(req, resp);
+        } else {
+            super.service(req, resp);
+        }
+    }
 }

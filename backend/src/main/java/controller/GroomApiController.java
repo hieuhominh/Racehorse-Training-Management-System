@@ -37,7 +37,13 @@ import java.util.Map;
     "/api/groom/routines",
     "/api/groom/routines/*",
     "/api/groom/stalls",
-    "/api/groom/stalls/*"
+    "/api/groom/stalls/*",
+    "/api/groom/health-logs",
+    "/api/groom/health-logs/*",
+    "/api/groom/supply-requests",
+    "/api/groom/supply-requests/*",
+    "/api/groom/tasks",
+    "/api/groom/tasks/*"
 })
 public class GroomApiController extends HttpServlet {
 
@@ -46,6 +52,9 @@ public class GroomApiController extends HttpServlet {
     private static final List<Map<String, Object>> memorySupplies = Collections.synchronizedList(new ArrayList<>());
     private static final List<Map<String, Object>> memoryRoutines = Collections.synchronizedList(new ArrayList<>());
     private static final List<Map<String, Object>> memoryStalls = Collections.synchronizedList(new ArrayList<>());
+    private static final List<Map<String, Object>> memoryHealthLogs = Collections.synchronizedList(new ArrayList<>());
+    private static final List<Map<String, Object>> memorySupplyRequests = Collections.synchronizedList(new ArrayList<>());
+    private static final List<Map<String, Object>> memoryTasks = Collections.synchronizedList(new ArrayList<>());
 
     static {
         Map<String, Object> f1 = new HashMap<>();
@@ -223,6 +232,31 @@ public class GroomApiController extends HttpServlet {
                     out.print(gson.toJson(memorySupplies));
                 }
                 out.flush();
+                return;
+            }
+
+            if ("/api/groom/health-logs".equals(path) || path.startsWith("/api/groom/health-logs")) {
+                synchronized (memoryHealthLogs) {
+                    out.print(gson.toJson(memoryHealthLogs));
+                }
+                out.flush();
+                return;
+            }
+
+            if ("/api/groom/supply-requests".equals(path) || path.startsWith("/api/groom/supply-requests")) {
+                synchronized (memorySupplyRequests) {
+                    out.print(gson.toJson(memorySupplyRequests));
+                }
+                out.flush();
+                return;
+            }
+
+            if ("/api/groom/tasks".equals(path) || path.startsWith("/api/groom/tasks")) {
+                synchronized (memoryTasks) {
+                    out.print(gson.toJson(memoryTasks));
+                }
+                out.flush();
+                return;
             }
         } catch (Exception e) {
             SecurityUtil.sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -294,6 +328,123 @@ public class GroomApiController extends HttpServlet {
                 res.addProperty("message", "Đã ghi nhận vệ sinh ô chuồng.");
                 try (PrintWriter out = response.getWriter()) {
                     out.print(gson.toJson(res));
+                    out.flush();
+                }
+                return;
+            }
+
+            if ("/api/groom/health-logs".equals(path) || path.startsWith("/api/groom/health-logs")) {
+                String horseName = SecurityUtil.getString(body, "horseName", "Chiến mã");
+                String temp = SecurityUtil.getString(body, "temp", "38.0°C");
+                String pulse = SecurityUtil.getString(body, "pulse", "38 bpm");
+                String respiration = SecurityUtil.getString(body, "respiration", "12 lần/phút");
+                String appetite = SecurityUtil.getString(body, "appetite", "Rất tốt");
+                String stool = SecurityUtil.getString(body, "stool", "Bình thường");
+                String observation = SecurityUtil.getString(body, "observation", "");
+                String time = SecurityUtil.getString(body, "time", "Vừa xong");
+                String id = SecurityUtil.getString(body, "id", "HL-" + System.currentTimeMillis());
+
+                Map<String, Object> log = new HashMap<>();
+                log.put("id", id);
+                log.put("horseName", SecurityUtil.sanitize(horseName));
+                log.put("temp", SecurityUtil.sanitize(temp));
+                log.put("pulse", SecurityUtil.sanitize(pulse));
+                log.put("respiration", SecurityUtil.sanitize(respiration));
+                log.put("appetite", SecurityUtil.sanitize(appetite));
+                log.put("stool", SecurityUtil.sanitize(stool));
+                log.put("observation", SecurityUtil.sanitize(observation));
+                log.put("time", SecurityUtil.sanitize(time));
+                log.put("userCreated", true);
+                log.put("recordedBy", authUser.getFullName());
+                log.put("createdAt", System.currentTimeMillis());
+
+                if (body.has("rawAppetite")) log.put("rawAppetite", body.get("rawAppetite").getAsString());
+                if (body.has("rawStool")) log.put("rawStool", body.get("rawStool").getAsString());
+                if (body.has("rawUrine")) log.put("rawUrine", body.get("rawUrine").getAsString());
+                if (body.has("mucous")) log.put("mucous", body.get("mucous").getAsString());
+                if (body.has("crt")) log.put("crt", body.get("crt").getAsString());
+                if (body.has("gutSounds")) log.put("gutSounds", body.get("gutSounds").getAsString());
+                if (body.has("gait")) log.put("gait", body.get("gait").getAsString());
+                if (body.has("tendon")) log.put("tendon", body.get("tendon").getAsString());
+
+                synchronized (memoryHealthLogs) {
+                    memoryHealthLogs.add(0, log);
+                }
+
+                response.setStatus(HttpServletResponse.SC_CREATED);
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(log));
+                    out.flush();
+                }
+                return;
+            }
+
+            if ("/api/groom/supply-requests".equals(path) || path.startsWith("/api/groom/supply-requests")) {
+                String supplyName = SecurityUtil.getString(body, "supplyName", "Lương thực / Vật tư");
+                String supplyId = SecurityUtil.getString(body, "supplyId", "INV-" + (System.currentTimeMillis() % 1000));
+                String category = SecurityUtil.getString(body, "category", "FEED");
+                String qty = SecurityUtil.getString(body, "qty", "Dưới 15%");
+                int percent = SecurityUtil.getInt(body, "percent", 12);
+                String requestedBy = SecurityUtil.getString(body, "requestedBy", authUser.getFullName());
+                String id = SecurityUtil.getString(body, "id", "SR-" + System.currentTimeMillis());
+
+                Map<String, Object> req = new HashMap<>();
+                req.put("id", id);
+                req.put("supplyId", SecurityUtil.sanitize(supplyId));
+                req.put("supplyName", SecurityUtil.sanitize(supplyName));
+                req.put("category", SecurityUtil.sanitize(category));
+                req.put("qty", SecurityUtil.sanitize(qty));
+                req.put("percent", percent);
+                req.put("requestedBy", SecurityUtil.sanitize(requestedBy));
+                req.put("requestedAt", "Hôm nay");
+                req.put("status", "PENDING_ADMIN");
+
+                synchronized (memorySupplyRequests) {
+                    memorySupplyRequests.add(0, req);
+                }
+
+                response.setStatus(HttpServletResponse.SC_CREATED);
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(req));
+                    out.flush();
+                }
+                return;
+            }
+
+            if ("/api/groom/tasks".equals(path) || path.startsWith("/api/groom/tasks")) {
+                String title = SecurityUtil.getString(body, "title", "Công việc chăm sóc");
+                String desc = SecurityUtil.getString(body, "desc", "");
+                String horseName = SecurityUtil.getString(body, "horseName", "Chiến mã");
+                String horseId = SecurityUtil.getString(body, "horseId", "");
+                String stall = SecurityUtil.getString(body, "stall", "Ô chuồng");
+                String groom = SecurityUtil.getString(body, "groom", authUser.getFullName());
+                String groomId = SecurityUtil.getString(body, "groomId", authUser.getUsername());
+                String time = SecurityUtil.getString(body, "time", "08:00");
+                String type = SecurityUtil.getString(body, "type", "DAILY_CARE");
+                String dateKey = SecurityUtil.getString(body, "dateKey", "TODAY");
+                String id = SecurityUtil.getString(body, "id", "TASK-" + System.currentTimeMillis());
+
+                Map<String, Object> taskItem = new HashMap<>();
+                taskItem.put("id", id);
+                taskItem.put("title", SecurityUtil.sanitize(title));
+                taskItem.put("desc", SecurityUtil.sanitize(desc));
+                taskItem.put("horseName", SecurityUtil.sanitize(horseName));
+                taskItem.put("horseId", SecurityUtil.sanitize(horseId));
+                taskItem.put("stall", SecurityUtil.sanitize(stall));
+                taskItem.put("groom", SecurityUtil.sanitize(groom));
+                taskItem.put("groomId", SecurityUtil.sanitize(groomId));
+                taskItem.put("time", SecurityUtil.sanitize(time));
+                taskItem.put("type", SecurityUtil.sanitize(type));
+                taskItem.put("dateKey", SecurityUtil.sanitize(dateKey));
+                taskItem.put("status", "PENDING");
+
+                synchronized (memoryTasks) {
+                    memoryTasks.add(0, taskItem);
+                }
+
+                response.setStatus(HttpServletResponse.SC_CREATED);
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(taskItem));
                     out.flush();
                 }
                 return;
@@ -420,6 +571,128 @@ public class GroomApiController extends HttpServlet {
                 return;
             }
 
+            if ("/api/groom/health-logs".equals(path) || path.startsWith("/api/groom/health-logs")) {
+                String id = "";
+                String pathInfo = request.getPathInfo();
+                if (pathInfo != null && pathInfo.length() > 1) {
+                    id = pathInfo.substring(1).trim();
+                } else {
+                    id = SecurityUtil.getString(body, "id", "");
+                }
+
+                Map<String, Object> target = null;
+                synchronized (memoryHealthLogs) {
+                    for (Map<String, Object> log : memoryHealthLogs) {
+                        if (String.valueOf(log.get("id")).equalsIgnoreCase(id)) {
+                            target = log;
+                            break;
+                        }
+                    }
+                }
+
+                if (target == null) {
+                    SecurityUtil.sendJsonError(response, HttpServletResponse.SC_NOT_FOUND, "Không tìm thấy bản ghi sức khỏe.");
+                    return;
+                }
+
+                if (body.has("temp")) target.put("temp", SecurityUtil.sanitize(body.get("temp").getAsString()));
+                if (body.has("pulse")) target.put("pulse", SecurityUtil.sanitize(body.get("pulse").getAsString()));
+                if (body.has("respiration")) target.put("respiration", SecurityUtil.sanitize(body.get("respiration").getAsString()));
+                if (body.has("appetite")) target.put("appetite", SecurityUtil.sanitize(body.get("appetite").getAsString()));
+                if (body.has("stool")) target.put("stool", SecurityUtil.sanitize(body.get("stool").getAsString()));
+                if (body.has("observation")) target.put("observation", SecurityUtil.sanitize(body.get("observation").getAsString()));
+                if (body.has("time")) target.put("time", SecurityUtil.sanitize(body.get("time").getAsString()));
+                if (body.has("rawAppetite")) target.put("rawAppetite", body.get("rawAppetite").getAsString());
+                if (body.has("rawStool")) target.put("rawStool", body.get("rawStool").getAsString());
+                if (body.has("rawUrine")) target.put("rawUrine", body.get("rawUrine").getAsString());
+                if (body.has("mucous")) target.put("mucous", body.get("mucous").getAsString());
+                if (body.has("crt")) target.put("crt", body.get("crt").getAsString());
+                if (body.has("gutSounds")) target.put("gutSounds", body.get("gutSounds").getAsString());
+                if (body.has("gait")) target.put("gait", body.get("gait").getAsString());
+                if (body.has("tendon")) target.put("tendon", body.get("tendon").getAsString());
+                target.put("updatedAt", System.currentTimeMillis());
+
+                response.setStatus(HttpServletResponse.SC_OK);
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(target));
+                    out.flush();
+                }
+                return;
+            }
+
+            if ("/api/groom/supply-requests".equals(path) || path.startsWith("/api/groom/supply-requests")) {
+                String id = "";
+                String pathInfo = request.getPathInfo();
+                if (pathInfo != null && pathInfo.length() > 1) {
+                    id = pathInfo.substring(1).trim();
+                } else {
+                    id = SecurityUtil.getString(body, "id", "");
+                }
+
+                Map<String, Object> target = null;
+                synchronized (memorySupplyRequests) {
+                    for (Map<String, Object> req : memorySupplyRequests) {
+                        if (String.valueOf(req.get("id")).equalsIgnoreCase(id)) {
+                            target = req;
+                            break;
+                        }
+                    }
+                }
+
+                if (target == null) {
+                    SecurityUtil.sendJsonError(response, HttpServletResponse.SC_NOT_FOUND, "Không tìm thấy yêu cầu cấp phát.");
+                    return;
+                }
+
+                if (body.has("status")) target.put("status", SecurityUtil.sanitize(body.get("status").getAsString()));
+                if (body.has("adminNote")) target.put("adminNote", SecurityUtil.sanitize(body.get("adminNote").getAsString()));
+                target.put("approvedBy", authUser.getFullName());
+                target.put("reviewedAt", System.currentTimeMillis());
+
+                response.setStatus(HttpServletResponse.SC_OK);
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(target));
+                    out.flush();
+                }
+                return;
+            }
+
+            if ("/api/groom/tasks".equals(path) || path.startsWith("/api/groom/tasks")) {
+                String id = "";
+                String pathInfo = request.getPathInfo();
+                if (pathInfo != null && pathInfo.length() > 1) {
+                    id = pathInfo.substring(1).trim();
+                } else {
+                    id = SecurityUtil.getString(body, "id", "");
+                }
+
+                Map<String, Object> target = null;
+                synchronized (memoryTasks) {
+                    for (Map<String, Object> t : memoryTasks) {
+                        if (String.valueOf(t.get("id")).equalsIgnoreCase(id)) {
+                            target = t;
+                            break;
+                        }
+                    }
+                }
+
+                if (target == null) {
+                    SecurityUtil.sendJsonError(response, HttpServletResponse.SC_NOT_FOUND, "Không tìm thấy công việc.");
+                    return;
+                }
+
+                if (body.has("status")) target.put("status", SecurityUtil.sanitize(body.get("status").getAsString()));
+                if (body.has("completedAt")) target.put("completedAt", SecurityUtil.sanitize(body.get("completedAt").getAsString()));
+                target.put("updatedAt", System.currentTimeMillis());
+
+                response.setStatus(HttpServletResponse.SC_OK);
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(target));
+                    out.flush();
+                }
+                return;
+            }
+
             int scheduleId = -1;
             String pathInfo = request.getPathInfo();
             if (pathInfo != null && pathInfo.length() > 1) {
@@ -469,6 +742,73 @@ public class GroomApiController extends HttpServlet {
         } catch (Exception e) {
             SecurityUtil.sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                 "Lỗi máy chủ khi cập nhật khẩu phần ăn.");
+        }
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        User authUser = SecurityUtil.requireRole(request, response, "GROOM", "TRAINER", "MANAGER", "ADMIN");
+        if (authUser == null) {
+            return;
+        }
+
+        String path = request.getServletPath();
+
+        try {
+            String pathInfo = request.getPathInfo();
+            String id = (pathInfo != null && pathInfo.length() > 1) ? pathInfo.substring(1).trim() : request.getParameter("id");
+
+            if ("/api/groom/health-logs".equals(path) || path.startsWith("/api/groom/health-logs")) {
+                synchronized (memoryHealthLogs) {
+                    if (id == null || id.isEmpty() || "ALL".equalsIgnoreCase(id)) {
+                        memoryHealthLogs.clear();
+                    } else {
+                        memoryHealthLogs.removeIf(log -> String.valueOf(log.get("id")).equalsIgnoreCase(id));
+                    }
+                }
+                JsonObject res = new JsonObject();
+                res.addProperty("success", true);
+                res.addProperty("message", "Đã xóa bản ghi sức khỏe.");
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(res));
+                    out.flush();
+                }
+                return;
+            }
+
+            if ("/api/groom/tasks".equals(path) || path.startsWith("/api/groom/tasks")) {
+                synchronized (memoryTasks) {
+                    if (id != null && !id.isEmpty()) {
+                        memoryTasks.removeIf(t -> String.valueOf(t.get("id")).equalsIgnoreCase(id));
+                    }
+                }
+                JsonObject res = new JsonObject();
+                res.addProperty("success", true);
+                res.addProperty("message", "Đã xóa công việc.");
+                try (PrintWriter out = response.getWriter()) {
+                    out.print(gson.toJson(res));
+                    out.flush();
+                }
+                return;
+            }
+
+            SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST, "Yêu cầu xóa không hợp lệ.");
+        } catch (Exception e) {
+            SecurityUtil.sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Lỗi máy chủ khi xóa dữ liệu.");
+        }
+    }
+
+    @Override
+    protected void service(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+        if ("PATCH".equalsIgnoreCase(req.getMethod())) {
+            doPut(req, resp);
+        } else {
+            super.service(req, resp);
         }
     }
 }
