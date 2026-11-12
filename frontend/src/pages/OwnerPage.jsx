@@ -2418,9 +2418,15 @@ export default function OwnerPage() {
 
     const draftNomination = {
       id: `RN-REG-${Date.now().toString().slice(-4)}`,
+      tournamentId: tournament.id,
+      tournamentType: tournament.tournamentType || 'INTERNAL',
+      isExternal: tournament.tournamentType === 'EXTERNAL',
+      organizerName: tournament.organizerName || 'Ban Tổ Chức Trường Đua Cát Thể Thao',
       raceName: tournament.name,
       track: tournament.track,
       horseName: isDelegated ? 'Chờ HLV chỉ định ngựa' : selectedHorse.name,
+      horseId: isDelegated ? null : (selectedHorse.id || selectedHorse.chipId),
+      horseMicrochip: isDelegated ? null : (selectedHorse.microchip || selectedHorse.chipId || 'RFID-VN-2026'),
       delegatedToTrainer: isDelegated,
       trainerAssigned: false,
       assignedHorseName: null,
@@ -2432,7 +2438,8 @@ export default function OwnerPage() {
       distance: `${tournament.distance} (${tournament.surface})`,
       date: tournament.date,
       estimatedPurse: tournament.totalPurse,
-      nominationStatus: isDelegated ? 'PENDING_TRAINER_SELECTION' : 'PENDING_TRAINER',
+      nominationStatus: 'CONFIRMED',
+      status: 'CONFIRMED',
       jockey: finalJockey,
       notes: isDelegated
         ? `Chủ sở hữu nhờ HLV chính (HLV ${activeMainTrainer}) thẩm định và tuyển chọn chiến mã phù hợp nhất. ${raceRegForm.notes || ''}`
@@ -2441,7 +2448,7 @@ export default function OwnerPage() {
       trainerFeedback: '',
       reviewedBy: null,
       reviewedAt: null,
-      entryFeePaid: false,
+      entryFeePaid: true,
       ownerFullName: (raceRegForm.ownerFullName || currentUser?.full_name || 'Chủ sở hữu').trim(),
       ownerPhone: cleanPhone,
       ownerIdCard: (raceRegForm.ownerIdCard || currentUser?.id_card || '').trim(),
@@ -2455,6 +2462,241 @@ export default function OwnerPage() {
     setShowRacePaymentModal(true); // CHUYỂN SANG PHẦN THANH TOÁN
   };
 
+  // State lưu trữ dữ liệu modal xem / in Giấy Xác Nhận Đăng Ký (PDF)
+  const [showRegistrationPdfModal, setShowRegistrationPdfModal] = useState(null);
+
+  // In / Tải file Giấy Xác Nhận Đăng Ký Thi Đấu (PDF)
+  const handlePrintOrDownloadCertificate = (nomination, tournament) => {
+    if (!nomination) return;
+    const tourn = tournament || (tournamentsList || OPEN_TOURNAMENTS).find(t => t.id === nomination.tournamentId || t.name === nomination.raceName) || {};
+    const certCode = nomination.id || `REG-${Date.now().toString().slice(-6)}`;
+    const regDate = nomination.registeredAt || new Date().toLocaleString('vi-VN');
+    const ownerName = nomination.ownerFullName || nomination.ownerName || currentUser?.name || 'Chủ sở hữu';
+    const ownerPhone = nomination.ownerPhone || currentUser?.phone || '0335299265';
+    const ownerIdCard = nomination.ownerIdCard || currentUser?.id_card || '079201008899';
+    const ownerEmail = nomination.ownerEmail || currentUser?.email || 'thuidchina09@gmail.com';
+    const horseName = nomination.horseName || 'Chiến mã';
+    const horseChip = nomination.horseMicrochip || nomination.chipId || 'RFID-VN-2026';
+    const tournName = tourn.name || nomination.raceName;
+    const tournTrack = tourn.track || nomination.track || 'Trường Đua Cát Thể Thao';
+    const tournDistance = tourn.distance || nomination.distance || '1.600m';
+    const organizer = tourn.organizerName || 'Ban Tổ Chức Giải Đua & Hiệp Hội Đua Ngựa';
+    const paymentMethodText = 'Chuyển khoản Ngân Hàng VietQR 24/7 (MB Bank - 5.000.000 ₫)';
+
+    const printHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>GIẤY XÁC NHẬN ĐĂNG KÝ THI ĐẤU - ${certCode}</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          body {
+            font-family: 'Times New Roman', serif;
+            color: #111;
+            background: #fff;
+            margin: 0;
+            padding: 20px;
+          }
+          .cert-container {
+            border: 5px double #1B4D3E;
+            padding: 30px;
+            position: relative;
+            background: #FCFCF9;
+          }
+          .header-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          .header-left { text-align: center; width: 45%; vertical-align: top; }
+          .header-right { text-align: center; width: 55%; vertical-align: top; }
+          .header-title-sub { font-size: 13px; font-weight: bold; text-transform: uppercase; }
+          .header-title-main { font-size: 12px; font-weight: bold; }
+          .divider { width: 120px; height: 1.5px; background: #333; margin: 5px auto; }
+          .cert-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            color: #1B4D3E;
+            margin: 20px 0 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          }
+          .cert-subtitle {
+            text-align: center;
+            font-size: 13px;
+            font-style: italic;
+            color: #555;
+            margin-bottom: 25px;
+          }
+          .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+          }
+          .info-table td {
+            padding: 9px 12px;
+            border-bottom: 1px dashed #ccc;
+          }
+          .label-col { width: 35%; font-weight: bold; color: #222; }
+          .value-col { width: 65%; color: #000; }
+          .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #E8F5E9;
+            color: #1B5E20;
+            border: 1px solid #4CAF50;
+            font-weight: bold;
+            font-size: 13px;
+            border-radius: 4px;
+          }
+          .footer-table {
+            width: 100%;
+            margin-top: 40px;
+            border-collapse: collapse;
+          }
+          .footer-table td {
+            text-align: center;
+            vertical-align: top;
+            width: 50%;
+            font-size: 13px;
+          }
+          .stamp-box {
+            margin-top: 15px;
+            display: inline-block;
+            border: 3px double #C62828;
+            color: #C62828;
+            padding: 10px 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 13px;
+            border-radius: 6px;
+            transform: rotate(-3deg);
+          }
+          @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; background: #fff; }
+            .cert-container { border: 4px double #000; background: #fff; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="no-print" style="margin-bottom: 16px; text-align: right;">
+          <button onclick="window.print()" style="padding: 10px 22px; background: #1B4D3E; color: #fff; font-weight: bold; font-size: 14px; border: none; border-radius: 5px; cursor: pointer;">
+            🖨️ In Giấy Xác Nhận / Lưu Dưới Dạng PDF
+          </button>
+        </div>
+
+        <div class="cert-container">
+          <table class="header-table">
+            <tr>
+              <td class="header-left">
+                <div class="header-title-sub">TRƯỜNG ĐUA NGỰA CÁT THỂ THAO</div>
+                <div class="header-title-main">BAN TỔ CHỨC GIẢI ĐẤU</div>
+                <div class="divider"></div>
+                <div style="font-size: 11px; color: #555; margin-top: 4px;">Số hiệu: <b>${certCode}</b></div>
+              </td>
+              <td class="header-right">
+                <div class="header-title-sub">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                <div class="header-title-main">Độc lập - Tự do - Hạnh phúc</div>
+                <div class="divider"></div>
+                <div style="font-size: 11px; color: #555; margin-top: 4px; font-style: italic;">Ngày cấp: ${regDate}</div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="cert-title">GIẤY XÁC NHẬN ĐĂNG KÝ THI ĐẤU CHÍNH THỨC</div>
+          <div class="cert-subtitle">OFFICIAL RACE ENTRY & ACCREDITATION CERTIFICATE</div>
+
+          <table class="info-table">
+            <tr>
+              <td class="label-col">Tên Giải Đấu:</td>
+              <td class="value-col"><b style="font-size: 15px; color: #1B4D3E;">${tournName}</b></td>
+            </tr>
+            <tr>
+              <td class="label-col">Đơn Vị Tổ Chức:</td>
+              <td class="value-col"><b>${organizer}</b></td>
+            </tr>
+            <tr>
+              <td class="label-col">Ngày Thi Đấu & Cự Ly:</td>
+              <td class="value-col"><b>${tourn.date || nomination.date}</b> · Cự ly: <b>${tournDistance}</b></td>
+            </tr>
+            <tr>
+              <td class="label-col">Địa Điểm Tổ Chức:</td>
+              <td class="value-col">${tournTrack}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Họ và Tên Chủ Sở Hữu:</td>
+              <td class="value-col"><b style="font-size: 14.5px;">${ownerName}</b></td>
+            </tr>
+            <tr>
+              <td class="label-col">Số Điện Thoại / CCCD:</td>
+              <td class="value-col">SĐT: <b>${ownerPhone}</b> &nbsp;|&nbsp; CCCD: <b>${ownerIdCard}</b></td>
+            </tr>
+            <tr>
+              <td class="label-col">Email Liên Hệ:</td>
+              <td class="value-col">${ownerEmail}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Chiến Mã Xuất Trận:</td>
+              <td class="value-col"><b style="font-size: 15px; color: #B45309;">${horseName}</b></td>
+            </tr>
+            <tr>
+              <td class="label-col">Mã Vi Chip Định Danh RFID:</td>
+              <td class="value-col"><span style="font-family: monospace; font-weight: bold; background: #eee; padding: 2px 6px; border-radius: 3px;">${horseChip}</span> (Đã kích hoạt)</td>
+            </tr>
+            <tr>
+              <td class="label-col">Huấn Luyện Viên / Kỵ Mã:</td>
+              <td class="value-col">${nomination.targetTrainer || nomination.trainerName || 'HLV chỉ định'} &nbsp;|&nbsp; Kỵ mã: ${nomination.jockey || 'Chủ nuôi bố trí'}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Lệ Phí Tham Gia Giải:</td>
+              <td class="value-col">
+                <span class="status-badge">✓ 5.000.000 ₫ — ĐÃ THANH TOÁN (100% HOÀN TẤT)</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="label-col">Hình Thức Thanh Toán:</td>
+              <td class="value-col">${paymentMethodText}</td>
+            </tr>
+            <tr>
+              <td class="label-col">Tình Trạng Hồ Sơ:</td>
+              <td class="value-col"><b style="color: #10B981;">HỢP LỆ — ĐÃ CẤP QUYỀN THI ĐẤU CHÍNH THỨC</b></td>
+            </tr>
+          </table>
+
+          <table class="footer-table">
+            <tr>
+              <td>
+                <b>ĐẠI DIỆN CHỦ SỞ HỮU</b><br/>
+                <i style="font-size: 11.5px; color: #555;">(Ký và ghi rõ họ tên)</i><br/><br/><br/>
+                <b>${ownerName}</b>
+              </td>
+              <td>
+                <b>TM. BAN TỔ CHỨC GIẢI ĐUA</b><br/>
+                <i style="font-size: 11.5px; color: #555;">(Đã ký điện tử & đóng dấu xác thực)</i><br/>
+                <div class="stamp-box">
+                  ★ BAN TỔ CHỨC GIẢI ĐUA ★<br/>
+                  ĐÃ XÁC NHẬN & ĐÃ THU LỆ PHÍ<br/>
+                  <span style="font-size: 10px; font-weight: normal;">HỆ THỐNG XÁC THỰC SỐ BẢO MẬT</span>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWin = window.open('', '_blank', 'width=880,height=960');
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(printHtml);
+      printWin.document.close();
+      printWin.focus();
+    } else {
+      showToast('Trình duyệt đã chặn popup! Vui lòng cho phép popup để xem và in giấy xác nhận thi đấu.', 'CHẶN POPUP', 'warning');
+    }
+  };
+
   // Xác nhận thanh toán lệ phí giải đua & Hoàn tất ghi danh
   const handleConfirmRacePayment = (method) => {
     if (!pendingRaceNominationDraft) return;
@@ -2464,7 +2706,7 @@ export default function OwnerPage() {
     const now = new Date();
     const timeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-    let isPaid = false;
+    let isPaid = true;
     let paymentMethodLabel = '';
 
     if (method === 'FUND') {
@@ -2499,7 +2741,7 @@ export default function OwnerPage() {
 
       showToast(`Đã thanh toán 5.000.000 ₫ bằng Quỹ hệ thống thành công! Số dư quỹ đã được trừ.`, 'THANH TOÁN THÀNH CÔNG', 'success');
 
-    } else if (method === 'BANK') {
+    } else {
       // THANH TOÁN BẰNG TÀI KHOẢN NGÂN HÀNG: KHÔNG BỊ TRỪ TIỀN BÊN TRONG HỆ THỐNG
       isPaid = true;
       paymentMethodLabel = 'Chuyển khoản Ngân hàng MB Bank (VietQR 24/7)';
@@ -2524,17 +2766,17 @@ export default function OwnerPage() {
       } catch {}
 
       showToast(`Xác nhận thanh toán 5.000.000 ₫ qua Ngân hàng thành công! Số dư quỹ hệ thống không bị trừ.`, 'THANH TOÁN NGÂN HÀNG', 'success');
-
-    } else {
-      // THANH TOÁN SAU
-      isPaid = false;
-      paymentMethodLabel = 'Chưa thanh toán (Thanh toán sau)';
-      showToast(`Đã ghi danh tham gia giải đua! Bạn có thể thanh toán lệ phí sau trước ngày thi đấu.`, 'GHI DANH THÀNH CÔNG', 'info');
     }
+
+    const isInternalTourn = pendingRaceNominationDraft.tournamentType === 'INTERNAL' || !pendingRaceNominationDraft.isExternal;
 
     const finalNomination = {
       ...pendingRaceNominationDraft,
-      entryFeePaid: isPaid,
+      entryFeePaid: true,
+      feeApproved: !isInternalTourn,
+      status: isInternalTourn ? 'PENDING' : 'CONFIRMED',
+      nominationStatus: isInternalTourn ? 'PENDING' : 'CONFIRMED',
+      registrationCode: `REG-2026-${Date.now().toString().slice(-6)}`,
       paymentMethod: method,
       paymentMethodLabel
     };
@@ -2543,6 +2785,22 @@ export default function OwnerPage() {
     setRaceNominations(prev => [finalNomination, ...prev]);
     setShowRacePaymentModal(false);
     setPendingRaceNominationDraft(null);
+
+    const selTourn = (tournamentsList || OPEN_TOURNAMENTS).find(t => t.id === finalNomination.tournamentId || t.name === finalNomination.raceName) || selectedTournamentToRegister;
+
+    if (isInternalTourn) {
+      showToast(
+        `Đã nộp lệ phí 5.000.000 ₫ giải "${tournamentName}" thành công! Vui lòng chờ Quản trị viên (Admin) xác nhận thu tiền để hoàn tất phê duyệt và cấp Giấy xác nhận đăng ký thi đấu (PDF).`,
+        'CHỜ ADMIN XÁC NHẬN PHÍ',
+        'info'
+      );
+    } else {
+      setShowRegistrationPdfModal({
+        nomination: finalNomination,
+        tournament: selTourn
+      });
+    }
+
     if (finalNomination.delegatedToTrainer) {
       showToast(`Đã gửi yêu cầu ủy thác đến Huấn luyện viên trưởng! HLV sẽ đối soát thể lực để chỉ định chiến mã tối ưu nhất.`, 'ỦY THÁC HLV THÀNH CÔNG', 'success');
     }
@@ -2853,17 +3111,32 @@ export default function OwnerPage() {
       } catch {}
     };
     window.addEventListener('matruong_owner_fund_updated', handleFundUpdate);
-    return () => window.removeEventListener('matruong_owner_fund_updated', handleFundUpdate);
+
+    const handlePaymentsUpdate = () => {
+      try {
+        const key = `matruong_owner_payments_${ownerKey}`;
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          setPaymentHistory(JSON.parse(stored));
+        }
+      } catch {}
+    };
+    window.addEventListener('matruong_owner_payments_updated', handlePaymentsUpdate);
+
+    return () => {
+      window.removeEventListener('matruong_owner_fund_updated', handleFundUpdate);
+      window.removeEventListener('matruong_owner_payments_updated', handlePaymentsUpdate);
+    };
   }, [ownerKey]);
 
   const netFundBalance = useMemo(() => {
     return ownerFundBalance + totalPrizeAll;
   }, [ownerFundBalance, totalPrizeAll]);
 
-  // Tính tổng số tiền chủ sở hữu đã thanh toán (chỉ tính chi phí / thanh toán, loại trừ các khoản thưởng PRIZE)
+  // Tính tổng số tiền chủ sở hữu đã thanh toán (chỉ tính chi phí / thanh toán, loại trừ các khoản thưởng PRIZE và nạp quỹ DEPOSIT)
   const totalPaidAmount = useMemo(() => {
     const cleanPayments = deduplicatePayments(Array.isArray(paymentHistory) ? paymentHistory : []);
-    return cleanPayments.filter(item => item?.type !== 'PRIZE').reduce((sum, item) => sum + (Number(item?.amount) || 0), 0);
+    return cleanPayments.filter(item => item?.type !== 'PRIZE' && item?.type !== 'DEPOSIT').reduce((sum, item) => sum + (Number(item?.amount) || 0), 0);
   }, [paymentHistory]);
 
   // Tìm kiếm nhật ký thanh toán
@@ -2933,16 +3206,6 @@ export default function OwnerPage() {
             <span className="portal-nav-badge" style={{ background: 'rgba(212, 175, 55, 0.15)', color: 'var(--brass)' }}>
               {jointSessions.length}
             </span>
-          </button>
-
-          <button
-            type="button"
-            className={`portal-nav-item ${activeTab === 'training' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('training'); setSidebarOpen(false); }}
-            title="Báo Cáo Huấn Luyện & Viễn Trắc Từ HLV"
-          >
-            <span className="portal-nav-icon"><IconChart size={18} /></span>
-            <span className="portal-nav-label">Tiến độ huấn luyện</span>
           </button>
 
           <button
@@ -3228,11 +3491,11 @@ export default function OwnerPage() {
           )}
 
           {/* ========================================================================= */}
-          {/* 3 THẺ CHỈ SỐ NHANH (KPI STATS - 1 HÀNG NGANG CÂN ĐỐI CHUẨN 3 MÀU CHỦ ĐẠO) */}
+          {/* 2 THẺ CHỈ SỐ NHANH (KPI STATS - 1 HÀNG NGANG CÂN ĐỐI) */}
           {/* ========================================================================= */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
             gap: '16px',
             marginBottom: '24px'
           }}>
@@ -3277,28 +3540,6 @@ export default function OwnerPage() {
               </div>
               <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
                 {myHorses.length === 0 ? 'Sẽ cập nhật sau khi thi đấu' : 'Tổng thưởng từ các giải chính thức'}
-              </div>
-            </div>
-
-            <div className="facility-card" style={{
-              padding: '18px 20px',
-              borderTop: '2px solid var(--line)',
-              background: 'var(--bg-card)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--paper-dim)', textTransform: 'uppercase' }}>
-                  SỐ DƯ QUỸ RÒNG
-                </div>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--paper-muted)' }} />
-              </div>
-              <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
-                {formatVND(netFundBalance)}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
-                {myHorses.length === 0 ? 'Chưa phát sinh giao dịch' : 'Khả dụng sau khi trừ chi phí nuôi & HLV'}
               </div>
             </div>
           </div>
@@ -4740,626 +4981,6 @@ export default function OwnerPage() {
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 3: TIẾN ĐỘ HUẤN LUYỆN (TRAINING & TELEMETRY) */}
-          {/* ========================================================================= */}
-          {activeTab === 'training' && (
-            <div className="tab-pane">
-              <div className="pane-header" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <div>
-                  <h2 className="pane-title">Chỉ Số Viễn Trắc & Lịch Huấn Luyện Chung (Training & Telemetry)</h2>
-                  <p className="pane-desc">Chủ sở hữu có thể đặt lịch tập luyện chung với HLV, theo dõi nhịp tim viễn trắc và nhận xét phong độ trực tiếp.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleOpenJointBookingModal()}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    background: 'var(--brass)',
-                    color: '#0A0D14',
-                    border: 'none',
-                    fontWeight: 700,
-                    fontSize: '12.5px',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                   + Đặt Lịch Tập Luyện Chung Với HLV
-                </button>
-              </div>
-
-              {/* KHỐI LỊCH HẸN TẬP LUYỆN CHUNG CÙNG HUẤN LUYỆN VIÊN */}
-              <div style={{
-                marginBottom: '20px',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--line)',
-                borderRadius: '12px',
-                padding: '18px 20px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '20px' }}></span>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--paper)', fontWeight: 700 }}>
-                        Lịch Hẹn Tập Luyện Chung Cùng HLV & Chiến Mã
-                      </h3>
-                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--paper-dim)' }}>
-                        Đồng hành trực tiếp tại trường đua cùng Huấn luyện viên để kiểm tra phản xạ, tốc độ nước rút và sự gắn kết với chiến mã.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).length === 0 ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    Bạn chưa có lịch hẹn tập luyện chung nào với Huấn luyện viên.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
-                    {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).map(session => {
-                      const isLocked = checkHorseVetLockStatus(session.microchip || session.horseName).isLocked;
-                      const isPending = session.status === 'PENDING';
-                      const isConfirmed = session.status === 'CONFIRMED';
-
-                      return (
-                        <div key={session.id} style={{
-                          background: 'var(--bg-primary)',
-                          border: isPending ? '1px solid rgba(245, 158, 11, 0.4)' : isConfirmed ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--line)',
-                          borderRadius: '8px',
-                          padding: '14px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between'
-                        }}>
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                <img
-                                  src={session.avatar || 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=300&q=80'}
-                                  alt={session.horseName}
-                                  style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }}
-                                />
-                                <div>
-                                  <h4 style={{ margin: 0, fontSize: '14px', color: 'var(--paper)', fontWeight: 700 }}>
-                                    {session.horseName}
-                                  </h4>
-                                  {session.isSubstitute || session.transferStatus === 'TRANSFERRED' ? (
-                                    <div style={{ fontSize: '11.5px', marginTop: '2px' }}>
-                                      <span style={{ color: '#38BDF8', fontWeight: 700 }}>
-                                        HLV Thay Thế: {session.substituteTrainerName || session.trainerName}
-                                      </span>
-                                      <span style={{ color: 'var(--paper-dim)', marginLeft: '4px', fontSize: '11px' }}>
-                                        (Thay HLV chính {session.originalTrainerName})
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <span style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
-                                      HLV: <b style={{ color: 'var(--brass)' }}>{session.trainerName}</b>
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <span style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                background: session.transferStatus === 'TRANSFERRED' ? 'rgba(56, 189, 248, 0.15)' : session.transferStatus === 'PENDING_TRANSFER' ? 'rgba(245, 158, 11, 0.15)' : isPending ? 'rgba(245, 158, 11, 0.15)' : isConfirmed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                color: session.transferStatus === 'TRANSFERRED' ? '#38BDF8' : session.transferStatus === 'PENDING_TRANSFER' ? '#F59E0B' : isPending ? '#F59E0B' : isConfirmed ? '#10B981' : '#EF4444',
-                                border: `1px solid ${session.transferStatus === 'TRANSFERRED' ? 'rgba(56, 189, 248, 0.4)' : session.transferStatus === 'PENDING_TRANSFER' ? 'rgba(245, 158, 11, 0.4)' : isPending ? 'rgba(245, 158, 11, 0.4)' : isConfirmed ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
-                              }}>
-                                {session.transferStatus === 'TRANSFERRED' ? '🤝 Có HLV Tập Thay' : session.transferStatus === 'PENDING_TRANSFER' ? '⏳ Đang Đổi HLV' : isPending ? 'Chờ HLV duyệt' : isConfirmed ? 'HLV Đã xác nhận' : 'HLV phản hồi'}
-                              </span>
-                            </div>
-
-                            {/* Cảnh báo chuyển giao HLV nếu có */}
-                            {session.transferStatus === 'PENDING_TRANSFER' && (
-                              <div style={{
-                                margin: '6px 0',
-                                padding: '8px 10px',
-                                borderRadius: '6px',
-                                background: 'rgba(56, 189, 248, 0.1)',
-                                border: '1px solid rgba(56, 189, 248, 0.35)',
-                                color: '#38BDF8',
-                                fontSize: '11.5px',
-                                lineHeight: 1.45
-                              }}>
-                                ⏳ <b>Thông báo đổi lịch:</b> HLV chính bận việc đột xuất và đang chuyển giao buổi tập sang HLV <b>{session.delegatedToTrainerName}</b>. Khi HLV này xác nhận, hệ thống sẽ thông báo ngay cho bạn!
-                              </div>
-                            )}
-
-                            {/* Hộp bài tập chỉ định do HLV chính giao để tập theo */}
-                            {session.assignedWorkout && (
-                              <div style={{
-                                margin: '8px 0',
-                                padding: '10px 12px',
-                                borderRadius: '6px',
-                                background: 'rgba(56, 189, 248, 0.12)',
-                                borderLeft: '3px solid #38BDF8',
-                                color: 'var(--paper)',
-                                fontSize: '12px',
-                                lineHeight: 1.5
-                              }}>
-                                <div style={{ fontWeight: 800, color: '#38BDF8', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  📋 BÀI TẬP CHỈ ĐỊNH TỪ HLV CHÍNH ({session.originalTrainerName}) ĐỂ BẠN & CHIẾN MÃ TẬP THEO:
-                                </div>
-                                <div style={{ whiteSpace: 'pre-line' }}>{session.assignedWorkout}</div>
-                                {session.substituteResponseNote && (
-                                  <div style={{ marginTop: '6px', fontSize: '11px', color: '#10B981', fontStyle: 'italic' }}>
-                                    Lời nhắn từ HLV thay thế ({session.substituteTrainerName}): "{session.substituteResponseNote}"
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Cảnh báo khóa y tế */}
-                            {isLocked && (
-                              <div style={{
-                                margin: '6px 0',
-                                padding: '6px 10px',
-                                borderRadius: '4px',
-                                background: 'rgba(239, 68, 68, 0.12)',
-                                border: '1px solid rgba(239, 68, 68, 0.4)',
-                                color: '#EF4444',
-                                fontSize: '11.5px',
-                                fontWeight: 600,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                              }}>
-                                <span>Chiến mã đang bị Thú Y khóa! Phải chờ Thú y mở khóa mới được tập.</span>
-                              </div>
-                            )}
-
-                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.5, margin: '8px 0' }}>
-                              <div><b>Thời gian:</b> <span style={{ color: 'var(--paper)' }}>{session.sessionDate}</span> ({session.sessionTime})</div>
-                              <div><b>Mục tiêu:</b> <span style={{ color: 'var(--brass)' }}>{session.goal}</span></div>
-                              {session.ownerNotes && (
-                                <div style={{ marginTop: '4px', fontStyle: 'italic' }}>
-                                  Ghi chú của bạn: "{session.ownerNotes}"
-                                </div>
-                              )}
-                              {session.trainerFeedback && (
-                                <div style={{ marginTop: '6px', padding: '6px 8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.03)', borderLeft: '3px solid #10B981', fontSize: '11.5px', color: 'var(--paper)' }}>
-                                  <b>Phản hồi từ HLV:</b> {session.trainerFeedback}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {isPending && (
-                            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleCancelJointSession(session.id)}
-                                style={{
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                  border: '1px solid var(--line)',
-                                  background: 'transparent',
-                                  color: 'var(--paper-dim)',
-                                  fontSize: '11px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Hủy yêu cầu
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* BANNER PHÂN BIỆT BÁO CÁO TÓM TẮT vs IOT REAL-TIME */}
-              {membershipTier !== 'PREMIUM' && (
-                <div style={{
-                  background: 'rgba(212, 175, 55, 0.08)',
-                  border: '1px solid rgba(212, 175, 55, 0.3)',
-                  borderRadius: '8px',
-                  padding: '12px 16px',
-                  marginBottom: '16px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '12px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '20px' }}></span>
-                    <div>
-                      <b style={{ fontSize: '13px', color: 'var(--brass)' }}>Chế Độ Báo Cáo Huấn Luyện Tóm Tắt (Gói 0 Đồng)</b>
-                      <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                        Bạn đang nhận bản tóm tắt phong độ định kỳ cuối tuần. Nâng cấp VIP để mở khóa cảm biến IoT Real-time đo gia tốc & nhịp tim từng mét chạy.
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setUpgradePromptModal({
-                      title: 'Mở Khóa Viễn Trắc IoT Real-Time',
-                      badge: 'ĐẶC QUYỀN VIP',
-                      message: 'Chỉ số viễn trắc IoT (tốc độ từng chặng, gia tốc kế, biểu đồ nhịp tim thời gian thực và phân tích sải chân) là công cụ độc quyền của Gói HORSE PREMIUM VIP.',
-                      benefit: '✨ HLV Trưởng có thể tinh chỉnh giáo án 1-kèm-1 và phát hiện sớm rủi ro quá tải thể lực của chiến mã.',
-                      actionText: 'Nâng Cấp Gói VIP Ngay'
-                    })}
-                    style={{
-                      padding: '7px 15px',
-                      borderRadius: '6px',
-                      background: 'var(--brass)',
-                      color: '#0A0D14',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      border: 'none',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                     Mở Khóa IoT Real-Time
-                  </button>
-                </div>
-              )}
-
-              {trainingTelemetry.length === 0 ? (
-                <div className="facility-card" style={{ padding: '40px 24px', textAlign: 'center' }}>
-                  <IconChart size={32} color="var(--paper-dim)" />
-                  <h3 style={{ fontSize: '16px', color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    Chưa Có Dữ Liệu Huấn Luyện
-                  </h3>
-                  <p style={{ fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '420px', margin: '0 auto 16px' }}>
-                    Khi bạn đăng ký chiến mã vào câu lạc bộ, HLV trưởng sẽ tiến hành các buổi chạy thử sân và ghi nhận chỉ số viễn trắc tại đây.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleOpenAddHorseModal}
-                    style={{
-                      padding: '8px 18px',
-                      borderRadius: '6px',
-                      background: 'var(--brass)',
-                      color: '#0A0D14',
-                      fontWeight: 700,
-                      border: 'none',
-                      fontSize: '12.5px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    + Đăng ký chiến mã ngay
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {(() => {
-                    const horsesToDisplay = myHorses.map((h, idx) => {
-                      const tele = trainingTelemetry.find(t =>
-                        (t.horseName && t.horseName.toLowerCase() === h.name.toLowerCase()) ||
-                        String(t.id) === String(h.id) ||
-                        String(t.horseId) === String(h.id)
-                      );
-                      return {
-                        id: tele?.id || h.id || idx,
-                        horseId: h.id,
-                        horseName: h.name,
-                        stable: h.stable || h.stall || tele?.stable || 'Ô A2',
-                        sessionDate: tele?.sessionDate || '4/11/2026',
-                        maxSpeed: tele?.maxSpeed || '52.0 km/h (Khởi điểm)',
-                        avgSpeed: tele?.avgSpeed || '46.5 km/h',
-                        peakHeartRate: tele?.peakHeartRate || '190 bpm',
-                        distanceMeters: tele?.distanceMeters || '1.200 m',
-                        readinessScore: tele?.readinessScore || '8.5 / 10',
-                        trainerFeedback: tele?.trainerFeedback || 'Chiến mã mới tiếp nhận vào chuồng. HLV Lê Trọng Nghĩa bắt đầu thiết lập giáo án thể lực.',
-                        matchedHorse: h
-                      };
-                    });
-
-                    return horsesToDisplay.map((t) => {
-                      const { matchedHorse } = t;
-                      const horseCleanName = (matchedHorse.name || t.horseName || '').trim().toLowerCase();
-
-                      // 1. Tìm các buổi tập của chiến mã này từ HLV trong matruong_training_telemetry
-                      const horseTrainerSessions = (trainerSessions || []).filter(s => {
-                        const sName = (s.horseName || s.horse || '').trim().toLowerCase();
-                        return sName === horseCleanName || sName.includes(horseCleanName) || horseCleanName.includes(sName);
-                      });
-
-                      // Các buổi tập đã hoàn thành của HLV
-                      const completedSessions = horseTrainerSessions.filter(s => s.status === 'COMPLETED' || s.status === 'Chạy nước rút');
-                      const latestSession = completedSessions.length > 0 ? completedSessions[0] : (horseTrainerSessions[0] || null);
-
-                      // 2. Tìm thông tin chiến mã trong danh sách HLV quản lý (matruong_trainer_horses_managed)
-                      const trainerHorse = (trainerManagedHorses || []).find(h => {
-                        const hName = (h.name || '').trim().toLowerCase();
-                        return hName === horseCleanName || hName.includes(horseCleanName) || horseCleanName.includes(hName);
-                      });
-
-                      // 3. Toàn bộ buổi tập hợp lệ
-                      const allEffectiveSessions = [...horseTrainerSessions, ...(jointSessions || [])];
-                      const telem = getHorseFitnessTelemetry(matchedHorse, allEffectiveSessions);
-
-                      // 4. KIỂM TRA ĐIỀU KIỆN: Bên Huấn luyện viên ĐÃ cho ngựa tập luyện chưa:
-                      // Chỉ hiện khi HLV đã thực hiện bài tập hoàn thành hoặc HLV đã cập nhật chỉ số tải ngắn hạn
-                      const isUpdatedByTrainer = Boolean(
-                        (completedSessions && completedSessions.length > 0) ||
-                        (trainerHorse && trainerHorse.shortTermLoad && trainerHorse.shortTermLoad !== '--') ||
-                        (trainerHorse && trainerHorse.isCalibrating === false) ||
-                        (telem && telem.workoutCount > 0 && telem.shortTermLoad && telem.shortTermLoad !== '--')
-                      );
-
-                      // Ngựa nào HLV chưa cho tập luyện thì chưa cập nhật (giữ nguyên trạng thái hiệu chuẩn khởi điểm)
-                      const isCalibrating = !isUpdatedByTrainer;
-
-                      // Tính toán giá trị hiển thị theo đúng cập nhật từ HLV
-                      const displaySessionDate = isUpdatedByTrainer && latestSession
-                        ? (latestSession.sessionDate || latestSession.time?.split(' ')[0] || t.sessionDate)
-                        : t.sessionDate;
-
-                      const displayDistance = isUpdatedByTrainer && latestSession?.distanceRun
-                        ? `${Number(latestSession.distanceRun).toLocaleString('vi-VN')} m`
-                        : t.distanceMeters;
-
-                      const displayMaxSpeed = isUpdatedByTrainer
-                        ? (latestSession?.maxSpeed ? `${latestSession.maxSpeed} km/h` : (telem?.maxSpeed ? `${telem.maxSpeed} km/h` : (trainerHorse?.maxSpeed ? `${trainerHorse.maxSpeed} km/h` : (t.maxSpeed?.includes('Khởi điểm') ? '62.5 km/h' : t.maxSpeed))))
-                        : t.maxSpeed;
-
-                      const displayAvgSpeed = isUpdatedByTrainer
-                        ? (latestSession?.avgSpeed ? `${latestSession.avgSpeed} km/h` : (telem?.speedZones?.z3Speed ? `${telem.speedZones.z3Speed} km/h` : '56.8 km/h'))
-                        : t.avgSpeed;
-
-                      const displayPeakHeartRate = isUpdatedByTrainer
-                        ? (latestSession?.maxHeartRate ? `${latestSession.maxHeartRate} bpm` : (telem?.maxHeartRate ? `${telem.maxHeartRate} bpm` : '196 bpm'))
-                        : t.peakHeartRate;
-
-                      const displayReadinessScore = isUpdatedByTrainer
-                        ? (latestSession?.score ? `${Number(latestSession.score).toFixed(1)} / 10` : (telem?.condition ? `${(parseFloat(telem.condition) / 10).toFixed(1)} / 10` : '9.0 / 10'))
-                        : t.readinessScore;
-
-                      const displayTrainerFeedback = isUpdatedByTrainer
-                        ? (latestSession?.feedback || latestSession?.notes || trainerHorse?.trainerFeedback || 'Chiến mã hoàn thành tốt giáo án thể lực của HLV Trưởng. Sức bền và cơ bắp thích ứng rất tốt, sải chân thanh thoát.')
-                        : t.trainerFeedback;
-
-                      return (
-                        <div key={t.id} className="facility-card" style={{ padding: '20px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-                            <div>
-                              <b style={{ fontSize: '16.5px', color: 'var(--brass)' }}>{t.horseName}</b>
-                              <span style={{ fontSize: '12.5px', color: 'var(--paper-dim)', marginLeft: '10px' }}>{t.stable} · Buổi tập: {displaySessionDate}</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span style={{
-                                padding: '4px 10px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                background: 'rgba(212, 175, 55, 0.15)',
-                                color: 'var(--brass)',
-                                border: '1px solid var(--brass)'
-                              }}>
-                                CỰ LY: {displayDistance}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setFitnessDetailModalHorse(matchedHorse)}
-                                style={{
-                                  padding: '6px 14px',
-                                  borderRadius: '6px',
-                                  background: 'var(--brass)',
-                                  color: '#0A0D14',
-                                  fontWeight: 800,
-                                  border: 'none',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                  boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)',
-                                  whiteSpace: 'nowrap'
-                                }}
-                                title="Xem chi tiết các biểu đồ thể lực, nhịp tim và tải luyện tập như bên Huấn Luyện Viên"
-                              >
-                                <span>Xem Thể Lực (EvoLab)</span>
-                              </button>
-                            </div>
-                          </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '14px' }}>
-                          {/* Box 1: Tốc độ bứt phá */}
-                          <div
-                            style={{
-                              background: 'var(--bg-secondary)',
-                              padding: '10px 12px',
-                              borderRadius: '6px',
-                              cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
-                            }}
-                            onClick={() => {
-                              if (membershipTier !== 'PREMIUM') {
-                                setUpgradePromptModal({
-                                  title: 'Mở Khóa Tốc Độ Bứt Phá Real-Time',
-                                  badge: 'ĐẶC QUYỀN VIP',
-                                  message: 'Cảm biến gia tốc IoT thời gian thực ghi nhận vận tốc tối đa tại từng khúc cua và cự ly bứt phá nước rút của chiến mã.',
-                                  benefit: '✨ Đặc quyền VIP: Xem đồ thị tốc độ chi tiết từng giây chạy và phân tích góc nghiêng chân tiếp đất.',
-                                  actionText: 'Nâng Cấp Gói VIP Ngay'
-                                });
-                              }
-                            }}
-                          >
-                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>TỐC ĐỘ BỨT PHÁ MAX</div>
-                            {membershipTier === 'PREMIUM' ? (
-                              <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{t.maxSpeed}</b>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}> VIP IoT</span>
-                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Box 2: Tốc độ trung bình */}
-                          <div
-                            style={{
-                              background: 'var(--bg-secondary)',
-                              padding: '10px 12px',
-                              borderRadius: '6px',
-                              cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
-                            }}
-                            onClick={() => {
-                              if (membershipTier !== 'PREMIUM') {
-                                setUpgradePromptModal({
-                                  title: 'Mở Khóa Vận Tốc Trung Bình Real-Time',
-                                  badge: 'ĐẶC QUYỀN VIP',
-                                  message: 'Tốc độ trung bình theo từng phân đoạn 400m được tính toán tự động qua chip định vị vệ tinh GPS đa băng tần.',
-                                  benefit: '✨ Đặc quyền VIP: Báo cáo phân tích chuyên sâu hiệu suất phân phối thể lực trong suốt hành trình đua.',
-                                  actionText: 'Nâng Cấp Gói VIP Ngay'
-                                });
-                              }
-                            }}
-                          >
-                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>TỐC ĐỘ TRUNG BÌNH</div>
-                            {membershipTier === 'PREMIUM' ? (
-                              <b style={{ fontSize: '16px', color: 'var(--paper)' }}>{displayAvgSpeed}</b>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}> VIP IoT</span>
-                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Box 3: Nhịp tim */}
-                          <div
-                            style={{
-                              background: 'var(--bg-secondary)',
-                              padding: '10px 12px',
-                              borderRadius: '6px',
-                              cursor: membershipTier === 'PREMIUM' ? 'default' : 'pointer'
-                            }}
-                            onClick={() => {
-                              if (membershipTier !== 'PREMIUM') {
-                                setUpgradePromptModal({
-                                  title: 'Mở Khóa Điện Tâm Đồ & Nhịp Tim Real-Time',
-                                  badge: 'ĐẶC QUYỀN VIP',
-                                  message: 'Vòng đeo đai ngực thông minh đo nhịp tim liên tục (bpm) khi vận động cực đại và thời gian phục hồi tim về mức nghỉ ngơi.',
-                                  benefit: '✨ Đặc quyền VIP: Cảnh báo sớm hội chứng quá tải cơ tim và phòng ngừa đột quỵ khi thi đấu cường độ cao.',
-                                  actionText: 'Nâng Cấp Gói VIP Ngay'
-                                });
-                              }
-                            }}
-                          >
-                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>NHỊP TIM ĐỈNH / HỒI PHỤC</div>
-                            {membershipTier === 'PREMIUM' ? (
-                              <b style={{ fontSize: '15px', color: 'var(--paper)' }}>{displayPeakHeartRate}</b>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                <span style={{ fontSize: '12px', color: 'var(--brass)', fontWeight: 700 }}> VIP IoT</span>
-                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>(Bấm mở khóa)</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Box 4: Điểm sẵn sàng thi đấu */}
-                          <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px' }}>
-                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>ĐIỂM SẴN SÀNG THI ĐẤU</div>
-                            <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{displayReadinessScore}</b>
-                          </div>
-                        </div>
-
-                        {/* KHỐI ĐỒNG BỘ THỂ LỰC & TẢI TẬP EVOLAB Y CHANG BÊN HLV */}
-                        <div style={{
-                          background: isCalibrating ? 'rgba(245, 158, 11, 0.04)' : 'var(--bg-secondary)',
-                          border: isCalibrating ? '1px dashed rgba(245, 158, 11, 0.35)' : '1px solid var(--line)',
-                          borderRadius: '8px',
-                          padding: '12px 14px',
-                          marginBottom: '14px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '10px'
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>�</span> CHỈ SỐ THỂ LỰC & TẢI TẬP LUYỆN EVOLAB (ĐỒNG BỘ TỪ HLV TRƯỞNG)
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setFitnessDetailModalHorse(matchedHorse)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--brass)',
-                                fontSize: '12px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                textDecoration: 'underline',
-                                padding: 0
-                              }}
-                            >
-                              Mở toàn bộ biểu đồ & nhật ký viễn trắc →
-                            </button>
-                          </div>
-
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', textAlign: 'center' }}>
-                            <div style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase' }}>Tải Ngắn Hạn (ATL)</div>
-                              <div style={{ fontSize: '14px', fontWeight: 800, color: isCalibrating ? '#64748B' : 'var(--paper)', marginTop: '2px' }}>
-                                {isCalibrating ? '-- TL' : `${telem?.shortTermLoad || trainerHorse?.shortTermLoad || 107} TL`}
-                              </div>
-                            </div>
-                            <div style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase' }}>Tải Dài Hạn (CTL)</div>
-                              <div style={{ fontSize: '14px', fontWeight: 800, color: isCalibrating ? '#64748B' : 'var(--paper)', marginTop: '2px' }}>
-                                {isCalibrating ? '-- TL' : `${telem?.longTermLoad || trainerHorse?.longTermLoad || 99} TL`}
-                              </div>
-                            </div>
-                            <div style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase' }}>Tỉ Lệ Tải (Load Ratio)</div>
-                              <div style={{ fontSize: '14px', fontWeight: 800, color: isCalibrating ? '#64748B' : '#10B981', marginTop: '2px' }}>
-                                {isCalibrating ? '-- %' : `${telem?.loadRatio || trainerHorse?.loadRatio || 108}%`}
-                              </div>
-                            </div>
-                            <div style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--paper-dim)', textTransform: 'uppercase' }}>Hồi Phục Thể Lực</div>
-                              <div style={{ fontSize: '14px', fontWeight: 800, color: '#10B981', marginTop: '2px' }}>
-                                {isCalibrating ? 'Đang hiệu chuẩn' : `${telem?.recoveryPercent || trainerHorse?.recoveryPercent || 92}% (Sung mãn)`}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div style={{ fontSize: '12.5px', color: 'var(--paper)', lineHeight: 1.45, background: 'rgba(212, 175, 55, 0.05)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-                          <b>Nhận xét của HLV Trưởng:</b>{' '}
-                          {membershipTier === 'PREMIUM' ? (
-                            displayTrainerFeedback
-                          ) : (
-                            <span>
-                              {displayTrainerFeedback}{' '}
-                              <button
-                                type="button"
-                                onClick={() => setUpgradePromptModal({
-                                  title: 'Giáo Án Huấn Luyện 1-Kèm-1 Với HLV Trưởng',
-                                  badge: 'ĐẶC QUYỀN VIP',
-                                  message: 'Chủ sở hữu gói VIP được trực tiếp trao đổi chiến thuật và nhận giáo án huấn luyện cá nhân hóa 1-kèm-1 trực tiếp từ HLV Chính Lê Trọng Nghĩa.',
-                                  benefit: '✨ Thiết lập bài tập chuyên biệt theo từng cự ly và trường đua để tối ưu cơ hội giật cúp vô địch.',
-                                  actionText: 'Nâng Cấp Gói VIP Ngay'
-                                })}
-                                style={{ background: 'none', border: 'none', color: 'var(--brass)', fontWeight: 700, padding: 0, textDecoration: 'underline', cursor: 'pointer', fontSize: '12.5px' }}
-                              >
-                                (Nâng cấp VIP để nhận giáo án 1-kèm-1)
-                              </button>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ========================================================================= */}
           {/* TAB 3: GIẢI ĐUA & ĐĂNG KÝ THI ĐẤU (RACES & NOMINATIONS) */}
           {/* ========================================================================= */}
           {activeTab === 'races' && (
@@ -5377,6 +4998,7 @@ export default function OwnerPage() {
               showToast={showToast}
               setShowExternalRecordModal={setShowExternalRecordModal}
               setExternalRecordForm={setExternalRecordForm}
+              handlePrintOrDownloadCertificate={handlePrintOrDownloadCertificate}
             />
           )}
 
@@ -5390,29 +5012,31 @@ export default function OwnerPage() {
                   <h2 className="pane-title">Giao Dịch, Thanh Toán & Đối Soát Tài Chính</h2>
                   <p className="pane-desc">Theo dõi nhật ký thanh toán các gói hội viên VIP, phí dịch vụ và bảng kê quyết toán định kỳ.</p>
                 </div>
-                {(!hasVipSubscription && membershipTier !== 'PREMIUM') && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPaymentModal(true)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      background: 'var(--brass)',
-                      color: '#0A0D14',
-                      fontWeight: 700,
-                      border: 'none',
-                      fontSize: '12.5px',
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)'
-                    }}
-                  >
-                    <IconReceipt size={16} color="#0A0D14" />
-                    <span>+ Thanh Toán Gói VIP Ngay</span>
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {(!hasVipSubscription && membershipTier !== 'PREMIUM') && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPaymentModal(true)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        background: 'var(--brass)',
+                        color: '#0A0D14',
+                        fontWeight: 700,
+                        border: 'none',
+                        fontSize: '12.5px',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(212, 175, 55, 0.25)'
+                      }}
+                    >
+                      <IconReceipt size={16} color="#0A0D14" />
+                      <span>+ Thanh Toán Gói VIP Ngay</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* TABS ĐIỀU HƯỚNG PHỤ: NHẬT KÝ GIAO DỊCH vs BẢNG KÊ QUYẾT TOÁN */}
@@ -5565,7 +5189,12 @@ export default function OwnerPage() {
                                       🏆 TIỀN THƯỞNG
                                     </span>
                                   )}
-                                  <b style={{ color: p.type === 'PRIZE' ? '#10B981' : 'var(--paper)', fontSize: '13.5px' }}>{p.packageName}</b>
+                                  {p.type === 'DEPOSIT' && (
+                                    <span style={{ fontSize: '10.5px', padding: '2px 7px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', fontWeight: 800, border: '1px solid rgba(59, 130, 246, 0.4)', whiteSpace: 'nowrap' }}>
+                                      💰 NẠP TIỀN QUỸ
+                                    </span>
+                                  )}
+                                  <b style={{ color: p.type === 'PRIZE' ? '#10B981' : (p.type === 'DEPOSIT' ? '#60A5FA' : 'var(--paper)'), fontSize: '13.5px' }}>{p.packageName}</b>
                                 </div>
                                 <span style={{ fontSize: '12px', color: 'var(--paper-dim)', display: 'block', whiteSpace: 'nowrap' }}>{p.billingCycle}</span>
                               </td>
@@ -5575,8 +5204,25 @@ export default function OwnerPage() {
                               <td style={{ padding: '12px 14px', color: 'var(--paper-dim)', fontSize: '12px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                                 {p.paidAt}
                               </td>
-                              <td style={{ padding: '12px 16px', fontWeight: 800, color: p.type === 'PRIZE' ? '#10B981' : 'var(--paper)', fontSize: '14px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
-                                {p.type === 'PRIZE' || String(p.amountFormatted).startsWith('+') ? `+${String(p.amountFormatted).replace('+', '')}` : p.amountFormatted}
+                              <td style={{
+                                padding: '12px 16px',
+                                fontWeight: 800,
+                                color: p.status === 'PENDING_APPROVAL'
+                                  ? '#F59E0B'
+                                  : p.type === 'PRIZE'
+                                    ? '#10B981'
+                                    : (p.type === 'DEPOSIT' ? '#60A5FA' : 'var(--paper)'),
+                                fontSize: '14px',
+                                whiteSpace: 'nowrap',
+                                fontVariantNumeric: 'tabular-nums',
+                                textAlign: 'right'
+                              }}>
+                                {p.type === 'PRIZE' || p.type === 'DEPOSIT' || String(p.amountFormatted).startsWith('+') ? `+${String(p.amountFormatted).replace('+', '')}` : p.amountFormatted}
+                                {p.status === 'PENDING_APPROVAL' && (
+                                  <span style={{ display: 'block', fontSize: '10.5px', color: '#F59E0B', fontWeight: 500 }}>
+                                    (Chờ duyệt)
+                                  </span>
+                                )}
                               </td>
                               <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                                 <span style={{
@@ -5586,11 +5232,31 @@ export default function OwnerPage() {
                                   fontWeight: 700,
                                   whiteSpace: 'nowrap',
                                   display: 'inline-block',
-                                  background: p.type === 'PRIZE' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(212, 175, 55, 0.15)',
-                                  color: p.type === 'PRIZE' ? '#10B981' : 'var(--brass)',
-                                  border: `1px solid ${p.type === 'PRIZE' ? '#10B981' : 'var(--brass)'}`
+                                  background: p.status === 'PENDING_APPROVAL'
+                                    ? 'rgba(245, 158, 11, 0.15)'
+                                    : p.status === 'REJECTED'
+                                      ? 'rgba(239, 68, 68, 0.15)'
+                                      : p.type === 'PRIZE'
+                                        ? 'rgba(16, 185, 129, 0.2)'
+                                        : 'rgba(212, 175, 55, 0.15)',
+                                  color: p.status === 'PENDING_APPROVAL'
+                                    ? '#F59E0B'
+                                    : p.status === 'REJECTED'
+                                      ? '#EF4444'
+                                      : p.type === 'PRIZE'
+                                        ? '#10B981'
+                                        : 'var(--brass)',
+                                  border: `1px solid ${
+                                    p.status === 'PENDING_APPROVAL'
+                                      ? '#F59E0B'
+                                      : p.status === 'REJECTED'
+                                        ? '#EF4444'
+                                        : p.type === 'PRIZE'
+                                          ? '#10B981'
+                                          : 'var(--brass)'
+                                  }`
                                 }}>
-                                  {p.status || 'THÀNH CÔNG (PAID)'}
+                                  {p.status === 'PENDING_APPROVAL' ? '⏳ CHỜ ADMIN DUYỆT' : p.status === 'REJECTED' ? '✕ ĐÃ TỪ CHỐI' : (p.status || 'THÀNH CÔNG (PAID)')}
                                 </span>
                               </td>
                               <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
@@ -8013,11 +7679,12 @@ export default function OwnerPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    {(tournamentsList.length > 0 ? tournamentsList : OPEN_TOURNAMENTS).filter(t => t.tournamentType === 'INTERNAL').map(t => {
+                    {(tournamentsList.length > 0 ? tournamentsList : OPEN_TOURNAMENTS).map(t => {
                       const tStatus = getTournamentTimeStatus(t);
+                      const prefix = t.tournamentType === 'EXTERNAL' ? '[GIẢI NGOÀI]' : '[NỘI BỘ]';
                       return (
                         <option key={t.id} value={t.id}>
-                          {t.name} ({t.distance} - {formatVND(t.totalPurse)}) {tStatus.isRegClosed ? '[ĐÃ ĐÓNG ĐĂNG KÝ]' : '[ĐANG MỞ]'}
+                          {prefix} {t.name} ({t.distance} - {formatVND(t.totalPurse)}) {tStatus.isRegClosed ? '[ĐÃ ĐÓNG ĐĂNG KÝ]' : '[ĐANG MỞ]'}
                         </option>
                       );
                     })}
@@ -8206,275 +7873,7 @@ export default function OwnerPage() {
                   </div>
                 )}
 
-      {/* ========================================================================= */}
-      {/* MODAL 2A: THANH TOÁN LỆ PHÍ THAM GIA GIẢI ĐUA (QUỸ vs NGÂN HÀNG) */}
-      {/* ========================================================================= */}
-      {showRacePaymentModal && pendingRaceNominationDraft && (
-        <div className="modal-overlay" onClick={() => setShowRacePaymentModal(false)}>
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'var(--bg-card)',
-              maxWidth: '540px',
-              width: '92%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              padding: '24px',
-              border: '1px solid var(--brass)',
-              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: 'var(--brass)' }}><IconReceipt size={22} /></span>
-                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--brass)' }}>
-                  Thanh Toán Lệ Phí Tham Gia Giải Đua
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowRacePaymentModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
-              >&times;</button>
-            </div>
 
-            {/* Thông tin tóm tắt giải & phí */}
-            <div style={{
-              padding: '14px',
-              borderRadius: '8px',
-              background: 'rgba(212, 175, 55, 0.08)',
-              border: '1px solid rgba(212, 175, 55, 0.25)',
-              marginBottom: '16px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                <div>
-                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Giải Đấu Đăng Ký
-                  </div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
-                    {pendingRaceNominationDraft.raceName}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                    Chiến mã: <strong style={{ color: 'var(--brass)' }}>{pendingRaceNominationDraft.horseName}</strong> • Cự ly: {pendingRaceNominationDraft.distance}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Lệ Phí Tham Gia
-                  </div>
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--brass)', marginTop: '2px' }}>
-                    5.000.000 ₫
-                  </div>
-                </div>
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', borderTop: '1px dashed rgba(212, 175, 55, 0.2)', paddingTop: '6px' }}>
-                Chủ sở hữu: <b>{pendingRaceNominationDraft.ownerFullName}</b> • SĐT: <b>{pendingRaceNominationDraft.ownerPhone}</b>
-              </div>
-            </div>
-
-            {/* Chọn phương thức thanh toán */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--paper)', display: 'block', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                Chọn Phương Thức Thanh Toán
-              </label>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {/* 1. Thanh toán bằng Quỹ */}
-                <div
-                  onClick={() => setChosenRacePaymentMethod('FUND')}
-                  style={{
-                    padding: '14px',
-                    borderRadius: '8px',
-                    border: `1.5px solid ${chosenRacePaymentMethod === 'FUND' ? 'var(--brass)' : 'var(--line)'}`,
-                    background: chosenRacePaymentMethod === 'FUND' ? 'rgba(212, 175, 55, 0.12)' : 'var(--bg-secondary)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <input
-                        type="radio"
-                        checked={chosenRacePaymentMethod === 'FUND'}
-                        onChange={() => setChosenRacePaymentMethod('FUND')}
-                        style={{ accentColor: 'var(--brass)' }}
-                      />
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)' }}>
-                          🏦 Thanh Toán Bằng Quỹ Tích Lũy Hệ Thống
-                        </div>
-                        <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                          Số dư quỹ khả dụng: <b style={{ color: netFundBalance >= 5000000 ? '#10B981' : '#EF4444' }}>{formatVND(netFundBalance)}</b>
-                        </div>
-                      </div>
-                    </div>
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      background: netFundBalance >= 5000000 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                      color: netFundBalance >= 5000000 ? '#10B981' : '#EF4444',
-                      border: `1px solid ${netFundBalance >= 5000000 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
-                    }}>
-                      {netFundBalance >= 5000000 ? 'Đủ Số Dư' : 'Không Đủ'}
-                    </span>
-                  </div>
-
-                  {chosenRacePaymentMethod === 'FUND' && (
-                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(212, 175, 55, 0.2)', fontSize: '12px', color: '#10B981' }}>
-                      ✓ Hệ thống sẽ <b>trừ trực tiếp 5.000.000 ₫</b> từ số dư Quỹ của bạn. Sau khi thanh toán, số dư còn lại: <b>{formatVND(Math.max(0, netFundBalance - 5000000))}</b>.
-                    </div>
-                  )}
-                </div>
-
-                {/* 2. Thanh toán bằng Ngân hàng */}
-                <div
-                  onClick={() => setChosenRacePaymentMethod('BANK')}
-                  style={{
-                    padding: '14px',
-                    borderRadius: '8px',
-                    border: `1.5px solid ${chosenRacePaymentMethod === 'BANK' ? 'var(--brass)' : 'var(--line)'}`,
-                    background: chosenRacePaymentMethod === 'BANK' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-secondary)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      type="radio"
-                      checked={chosenRacePaymentMethod === 'BANK'}
-                      onChange={() => setChosenRacePaymentMethod('BANK')}
-                      style={{ accentColor: 'var(--brass)' }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)' }}>
-                        💳 Thanh Toán Bằng Tài Khoản Ngân Hàng (VietQR 24/7)
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: '#60A5FA', marginTop: '2px', fontWeight: 600 }}>
-                        ★ Chuyển khoản ngân hàng — <b>KHÔNG bị trừ tiền trong quỹ hệ thống</b>
-                      </div>
-                    </div>
-                  </div>
-
-                  {chosenRacePaymentMethod === 'BANK' && (
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '12px',
-                      borderRadius: '6px',
-                      background: 'rgba(0, 0, 0, 0.3)',
-                      border: '1px solid var(--line)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
-                      fontSize: '12px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--paper-dim)' }}>Ngân hàng thụ hưởng:</span>
-                        <b style={{ color: 'var(--paper)' }}>MB Bank (Ngân Hàng Quân Đội)</b>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--paper-dim)' }}>Số tài khoản:</span>
-                        <b style={{ color: 'var(--brass)', fontSize: '14px', letterSpacing: '0.05em' }}>9999 8888 7777</b>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--paper-dim)' }}>Chủ tài khoản:</span>
-                        <b style={{ color: 'var(--paper)' }}>TRUONG DUA NGUA CAT THE THAO</b>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--paper-dim)' }}>Số tiền chuyển khoản:</span>
-                        <b style={{ color: '#10B981', fontSize: '13px' }}>5.000.000 ₫</b>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--paper-dim)' }}>Nội dung chuyển khoản:</span>
-                        <b style={{ color: '#F59E0B' }}>DANGKY {pendingRaceNominationDraft.horseName.toUpperCase().replace(/\s+/g, '')} {pendingRaceNominationDraft.ownerPhone}</b>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontStyle: 'italic', marginTop: '4px' }}>
-                        * Bấm "Xác Nhận Thanh Toán Ngân Hàng" bên dưới để hoàn tất ghi danh mà không ảnh hưởng số dư quỹ.
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. Thanh toán sau */}
-                <div
-                  onClick={() => setChosenRacePaymentMethod('LATER')}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: '8px',
-                    border: `1.5px solid ${chosenRacePaymentMethod === 'LATER' ? '#F59E0B' : 'var(--line)'}`,
-                    background: chosenRacePaymentMethod === 'LATER' ? 'rgba(245, 158, 11, 0.1)' : 'var(--bg-secondary)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      type="radio"
-                      checked={chosenRacePaymentMethod === 'LATER'}
-                      onChange={() => setChosenRacePaymentMethod('LATER')}
-                      style={{ accentColor: '#F59E0B' }}
-                    />
-                    <div>
-                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--paper)' }}>
-                        ⏳ Thanh Toán Sau (Chưa Đóng Phí Ngay)
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                        Ghi danh trước, đóng phí sau trước ngày thi đấu. Bạn vẫn có thể hủy đơn đăng ký nếu đổi ý.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Nút hành động */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowRacePaymentModal(false);
-                  setShowRaceRegisterModal(true);
-                }}
-                style={{
-                  padding: '9px 16px',
-                  borderRadius: '6px',
-                  background: 'transparent',
-                  color: 'var(--paper-dim)',
-                  border: '1px solid var(--line)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                ← Quay Lại
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleConfirmRacePayment(chosenRacePaymentMethod)}
-                style={{
-                  padding: '9px 22px',
-                  borderRadius: '6px',
-                  background: chosenRacePaymentMethod === 'LATER' ? '#F59E0B' : 'var(--brass)',
-                  color: '#0A0D14',
-                  fontWeight: 700,
-                  border: 'none',
-                  fontSize: '13px',
-                  cursor: 'pointer'
-                }}
-              >
-                {chosenRacePaymentMethod === 'FUND'
-                  ? 'Xác Nhận Trừ Quỹ (5.000.000 ₫)'
-                  : chosenRacePaymentMethod === 'BANK'
-                    ? 'Xác Nhận Thanh Toán Ngân Hàng'
-                    : 'Xác Nhận Ghi Danh (Thanh Toán Sau)'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
                 <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -8734,6 +8133,360 @@ export default function OwnerPage() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2A: THANH TOÁN LỆ PHÍ THAM GIA GIẢI ĐUA (CHUYỂN KHOẢN NGÂN HÀNG) */}
+      {/* ========================================================================= */}
+      {showRacePaymentModal && pendingRaceNominationDraft && (
+        <div className="modal-overlay" onClick={() => setShowRacePaymentModal(false)}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              maxWidth: '540px',
+              width: '92%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              border: '1px solid var(--brass)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--brass)' }}><IconReceipt size={22} /></span>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--brass)' }}>
+                  Thanh Toán Lệ Phí Tham Gia Giải Đua
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRacePaymentModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+              >&times;</button>
+            </div>
+
+            {/* Thông tin tóm tắt giải & phí */}
+            <div style={{
+              padding: '14px',
+              borderRadius: '8px',
+              background: 'rgba(212, 175, 55, 0.08)',
+              border: '1px solid rgba(212, 175, 55, 0.25)',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Giải Đấu Đăng Ký
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                    {pendingRaceNominationDraft.raceName}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                    Chiến mã: <strong style={{ color: 'var(--brass)' }}>{pendingRaceNominationDraft.horseName}</strong> • Cự ly: {pendingRaceNominationDraft.distance}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Lệ Phí Tham Gia
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--brass)', marginTop: '2px' }}>
+                    5.000.000 ₫
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', borderTop: '1px dashed rgba(212, 175, 55, 0.2)', paddingTop: '6px' }}>
+                Chủ sở hữu: <b>{pendingRaceNominationDraft.ownerFullName}</b> • SĐT: <b>{pendingRaceNominationDraft.ownerPhone}</b>
+              </div>
+            </div>
+
+            {/* Phương Thức Thanh Toán Lệ Phí */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--paper)', display: 'block', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Phương Thức Thanh Toán Lệ Phí
+              </label>
+
+              <div style={{
+                padding: '14px',
+                borderRadius: '8px',
+                border: '1.5px solid var(--brass)',
+                background: 'rgba(59, 130, 246, 0.08)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '20px' }}>💳</span>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)' }}>
+                      Chuyển Khoản Ngân Hàng VietQR 24/7 (MB Bank)
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#60A5FA', marginTop: '2px', fontWeight: 600 }}>
+                      Quét mã QR hoặc chuyển khoản nhanh qua ứng dụng ngân hàng
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  marginTop: '12px',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  border: '1px solid var(--line)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  fontSize: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--paper-dim)' }}>Ngân hàng thụ hưởng:</span>
+                    <b style={{ color: 'var(--paper)' }}>MB Bank (Ngân Hàng Quân Đội)</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--paper-dim)' }}>Số tài khoản:</span>
+                    <b style={{ color: 'var(--brass)', fontSize: '14px', letterSpacing: '0.05em' }}>9999 8888 7777</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--paper-dim)' }}>Chủ tài khoản:</span>
+                    <b style={{ color: 'var(--paper)' }}>TRUONG DUA NGUA CAT THE THAO</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--paper-dim)' }}>Số tiền chuyển khoản:</span>
+                    <b style={{ color: '#10B981', fontSize: '13px' }}>5.000.000 ₫</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--paper-dim)' }}>Nội dung chuyển khoản:</span>
+                    <b style={{ color: '#F59E0B' }}>DANGKY {pendingRaceNominationDraft.horseName.toUpperCase().replace(/\s+/g, '')} {pendingRaceNominationDraft.ownerPhone}</b>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontStyle: 'italic', marginTop: '4px' }}>
+                    * Bấm "Xác Nhận Đã Chuyển Khoản 5.000.000 ₫" bên dưới để hoàn tất đăng ký.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Nút hành động */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRacePaymentModal(false);
+                  setShowRaceRegisterModal(true);
+                }}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  color: 'var(--paper-dim)',
+                  border: '1px solid var(--line)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                ← Quay Lại
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleConfirmRacePayment('BANK')}
+                style={{
+                  padding: '9px 22px',
+                  borderRadius: '6px',
+                  background: 'var(--brass)',
+                  color: '#0A0D14',
+                  fontWeight: 700,
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Xác Nhận Đã Chuyển Khoản (5.000.000 ₫)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+{/* MODAL 2C: GIẤY XÁC NHẬN ĐĂNG KÝ THI ĐẤU CHÍNH THỨC (PDF / BẰNG CHỨNG GHI DANH) */}
+      {/* ========================================================================= */}
+      {showRegistrationPdfModal && (
+        <div className="modal-overlay" onClick={() => setShowRegistrationPdfModal(null)} style={{ zIndex: 9999999 }}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#0D1117',
+              maxWidth: '640px',
+              width: '92%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              borderRadius: '12px',
+              border: '2px solid rgba(16, 185, 129, 0.5)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)'
+            }}
+          >
+            {/* Tiêu đề & Đóng */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '22px' }}>📄</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#10B981' }}>
+                    GIẤY XÁC NHẬN ĐĂNG KÝ THI ĐẤU CHÍNH THỨC
+                  </h3>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                    OFFICIAL RACE ENTRY & ACCREDITATION CERTIFICATE
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRegistrationPdfModal(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}
+              >&times;</button>
+            </div>
+
+            {/* Giấy chứng nhận đồ họa */}
+            <div style={{
+              background: '#FCFCF9',
+              color: '#111827',
+              borderRadius: '8px',
+              padding: '20px',
+              border: '3px double #1B4D3E',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+              marginBottom: '18px'
+            }}>
+              {/* Header giấy */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #1B4D3E', paddingBottom: '10px', marginBottom: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#1B4D3E', textTransform: 'uppercase' }}>TRƯỜNG ĐUA NGỰA CÁT THỂ THAO</div>
+                  <div style={{ fontSize: '10px', color: '#4B5563' }}>BAN TỔ CHỨC GIẢI ĐUA CHÍNH THỨC</div>
+                  <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '2px' }}>Số hiệu: <b>{showRegistrationPdfModal.nomination.id || 'REG-2026-CONFIRMED'}</b></div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#111827' }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                  <div style={{ fontSize: '9.5px', fontStyle: 'italic', color: '#4B5563' }}>Độc lập - Tự do - Hạnh phúc</div>
+                  <div style={{ fontSize: '9.5px', color: '#6B7280', marginTop: '2px' }}>Ngày cấp: {showRegistrationPdfModal.nomination.registeredAt || new Date().toLocaleDateString('vi-VN')}</div>
+                </div>
+              </div>
+
+              {/* Tên chứng chỉ */}
+              <div style={{ textAlign: 'center', margin: '14px 0 16px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 900, color: '#1B4D3E', letterSpacing: '0.04em' }}>
+                  GIẤY XÁC NHẬN ĐĂNG KÝ THI ĐẤU
+                </div>
+                <div style={{ fontSize: '11px', color: '#4B5563', fontStyle: 'italic' }}>
+                  Xác nhận chiến mã và chủ sở hữu đã hoàn tất thủ tục ghi danh và nộp lệ phí
+                </div>
+              </div>
+
+              {/* Bảng thông tin */}
+              <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '7px', background: '#F9FAFB', padding: '12px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#4B5563' }}>Giải đấu tham dự:</span>
+                  <b style={{ color: '#1B4D3E', fontSize: '13px' }}>{showRegistrationPdfModal.nomination.raceName}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#4B5563' }}>Đơn vị tổ chức:</span>
+                  <b>{showRegistrationPdfModal.tournament?.organizerName || 'Hiệp Hội & Ban Tổ Chức Giải Đua'}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#4B5563' }}>Ngày thi đấu & Cự ly:</span>
+                  <b>{showRegistrationPdfModal.nomination.date || showRegistrationPdfModal.tournament?.date} · {showRegistrationPdfModal.nomination.distance || showRegistrationPdfModal.tournament?.distance}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #D1D5DB', paddingTop: '6px' }}>
+                  <span style={{ color: '#4B5563' }}>Họ tên chủ sở hữu:</span>
+                  <b style={{ color: '#111827' }}>{showRegistrationPdfModal.nomination.ownerFullName || showRegistrationPdfModal.nomination.ownerName}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#4B5563' }}>Số điện thoại & CCCD:</span>
+                  <b>{showRegistrationPdfModal.nomination.ownerPhone} · CCCD: {showRegistrationPdfModal.nomination.ownerIdCard || '079201008899'}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #D1D5DB', paddingTop: '6px' }}>
+                  <span style={{ color: '#4B5563' }}>Chiến mã xuất chiến:</span>
+                  <b style={{ color: '#B45309', fontSize: '13px' }}>{showRegistrationPdfModal.nomination.horseName}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#4B5563' }}>Mã RFID Vi Chip:</span>
+                  <b style={{ fontFamily: 'monospace', color: '#1F2937' }}>{showRegistrationPdfModal.nomination.horseMicrochip || 'RFID-VN-2026-CHIP'}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#4B5563' }}>Huấn luyện viên / Kỵ mã:</span>
+                  <b>{showRegistrationPdfModal.nomination.targetTrainer || 'HLV chỉ định'} · {showRegistrationPdfModal.nomination.jockey || 'Chủ nuôi chỉ định'}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ECFDF5', padding: '6px 10px', borderRadius: '4px', border: '1px solid #A7F3D0', marginTop: '4px' }}>
+                  <span style={{ color: '#065F46', fontWeight: 700 }}>Lệ phí tham gia:</span>
+                  <b style={{ color: '#047857', fontSize: '13px' }}>✓ 5.000.000 ₫ — ĐÃ THANH TOÁN 100%</b>
+                </div>
+              </div>
+
+              {/* Dấu mộc & Xác nhận */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '16px' }}>
+                <div style={{ fontSize: '11px', color: '#6B7280' }}>
+                  <div>Trạng thái hồ sơ: <b style={{ color: '#059669' }}>ĐỦ ĐIỀU KIỆN XUẤT PHÁT</b></div>
+                  <div style={{ fontStyle: 'italic', marginTop: '2px' }}>Xuất trình giấy này tại cổng kiểm định trường đua</div>
+                </div>
+                <div style={{
+                  border: '2px dashed #DC2626',
+                  color: '#DC2626',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  textAlign: 'center',
+                  transform: 'rotate(-4deg)',
+                  background: 'rgba(254, 226, 226, 0.4)'
+                }}>
+                  ★ BAN TỔ CHỨC GIẢI ĐUA ★<br/>
+                  <span style={{ fontSize: '9.5px', fontWeight: 600 }}>ĐÃ XÁC NHẬN & THU PHÍ</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Nút hành động */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => handlePrintOrDownloadCertificate(showRegistrationPdfModal.nomination, showRegistrationPdfModal.tournament)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '6px',
+                  background: '#10B981',
+                  color: '#0A0D14',
+                  fontWeight: 800,
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                <span>🖨️</span>
+                <span>Tải / In Giấy Xác Nhận (PDF)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowRegistrationPdfModal(null)}
+                style={{
+                  padding: '10px 22px',
+                  borderRadius: '6px',
+                  background: 'var(--brass)',
+                  color: '#0A0D14',
+                  fontWeight: 700,
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Hoàn Tất
+              </button>
+            </div>
           </div>
         </div>
       )}

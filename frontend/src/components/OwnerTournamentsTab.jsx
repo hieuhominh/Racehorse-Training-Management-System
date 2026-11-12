@@ -14,7 +14,8 @@ export default function OwnerTournamentsTab({
   handleToggleNomination,
   showToast,
   setShowExternalRecordModal,
-  setExternalRecordForm
+  setExternalRecordForm,
+  handlePrintOrDownloadCertificate
 }) {
   const [subTab, setSubTab] = useState('INTERNAL'); // 'INTERNAL' | 'EXTERNAL' | 'MY_RACES'
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'APPROVED' | 'PENDING' | 'REJECTED'
@@ -200,6 +201,11 @@ export default function OwnerTournamentsTab({
           <div className="portal-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
             {internalTournaments.map(tourn => {
               const timeStatus = getTournamentTimeStatus(tourn);
+              const userNomination = (raceNominations || []).find(r => 
+                (r.tournamentId && String(r.tournamentId) === String(tourn.id)) ||
+                (r.raceName && r.raceName.toLowerCase().trim() === (tourn.name || '').toLowerCase().trim())
+              );
+              const isPendingAdminFee = userNomination && (userNomination.status === 'PENDING' || userNomination.nominationStatus === 'PENDING' || !userNomination.feeApproved) && userNomination.status !== 'REJECTED';
               return (
                 <div
                   key={tourn.id}
@@ -229,36 +235,51 @@ export default function OwnerTournamentsTab({
                         {tourn.name}
                       </b>
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          fontSize: '10.5px',
-                          fontWeight: 700,
-                          background: timeStatus.isRaceStarted
-                            ? 'rgba(16, 185, 129, 0.15)'
-                            : timeStatus.isRegClosed
-                              ? 'rgba(239, 68, 68, 0.15)'
-                              : 'rgba(16, 185, 129, 0.15)',
-                          color: timeStatus.isRaceStarted
-                            ? '#10B981'
-                            : timeStatus.isRegClosed
-                              ? '#EF4444'
-                              : '#10B981',
-                          border: `1px solid ${
-                            timeStatus.isRaceStarted
+                        {userNomination ? (
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            background: isPendingAdminFee ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                            color: isPendingAdminFee ? '#F59E0B' : '#10B981',
+                            border: `1px solid ${isPendingAdminFee ? '#F59E0B' : '#10B981'}`,
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {isPendingAdminFee ? '⏳ CHỜ ADMIN DUYỆT PHÍ' : '✓ ĐÃ DUYỆT ĐĂNG KÝ'}
+                          </span>
+                        ) : (
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            background: timeStatus.isRaceStarted
+                              ? 'rgba(16, 185, 129, 0.15)'
+                              : timeStatus.isRegClosed
+                                ? 'rgba(239, 68, 68, 0.15)'
+                                : 'rgba(16, 185, 129, 0.15)',
+                            color: timeStatus.isRaceStarted
                               ? '#10B981'
                               : timeStatus.isRegClosed
                                 ? '#EF4444'
-                                : '#10B981'
-                          }`,
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {timeStatus.isRaceStarted
-                            ? '🏁 ĐANG DIỄN RA / HOÀN THÀNH'
-                            : timeStatus.isRegClosed
-                              ? '🔒 ĐÃ ĐÓNG ĐĂNG KÝ'
-                              : '🟢 ĐANG MỞ ĐĂNG KÝ'}
-                        </span>
+                                : '#10B981',
+                            border: `1px solid ${
+                              timeStatus.isRaceStarted
+                                ? '#10B981'
+                                : timeStatus.isRegClosed
+                                  ? '#EF4444'
+                                  : '#10B981'
+                            }`,
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {timeStatus.isRaceStarted
+                              ? '🏁 ĐANG DIỄN RA / HOÀN THÀNH'
+                              : timeStatus.isRegClosed
+                                ? '🔒 ĐÃ ĐÓNG ĐĂNG KÝ'
+                                : '🟢 ĐANG MỞ ĐĂNG KÝ'}
+                          </span>
+                        )}
                         <span style={{
                           padding: '3px 8px',
                           borderRadius: '4px',
@@ -350,29 +371,72 @@ export default function OwnerTournamentsTab({
 
                   <div style={{ marginTop: 'auto' }}>
                     {(() => {
-                      const userNomination = raceNominations.find(r => 
-                        (r.tournamentId && String(r.tournamentId) === String(tourn.id)) ||
-                        (r.raceName && r.raceName.toLowerCase().trim() === (tourn.name || '').toLowerCase().trim())
-                      );
-
                       if (userNomination) {
+                        if (isPendingAdminFee) {
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                              <div style={{
+                                padding: '8px 10px',
+                                borderRadius: '6px',
+                                background: 'rgba(245, 158, 11, 0.12)',
+                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                color: '#F59E0B',
+                                textAlign: 'center'
+                              }}>
+                                ⏳ ĐÃ NỘP PHÍ — CHỜ ADMIN XÁC NHẬN
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 500, marginTop: '2px' }}>
+                                  Chiến mã: <span style={{ color: 'var(--brass)', fontWeight: 700 }}>{userNomination.horseName || 'Chiến mã của bạn'}</span>
+                                </div>
+                                <div style={{ fontSize: '10.5px', color: '#F59E0B', fontWeight: 500, marginTop: '2px' }}>
+                                  Lệ phí: 5.000.000 ₫ (Chờ Admin duyệt để cấp PDF)
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setSelectedTournInfoModal({ tournament: tourn, nomination: userNomination })}
+                                style={{
+                                  width: '100%',
+                                  height: '40px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  color: '#F59E0B',
+                                  fontWeight: 700,
+                                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <span>ℹ️</span>
+                                <span>Xem Thông Tin & Trạng Thái Duyệt</span>
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        // Khi Admin đã duyệt
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                             <div style={{
                               padding: '7px 10px',
                               borderRadius: '6px',
-                              background: userNomination.entryFeePaid ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                              border: `1px solid ${userNomination.entryFeePaid ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              border: '1px solid rgba(16, 185, 129, 0.35)',
                               fontSize: '11.5px',
                               fontWeight: 700,
-                              color: userNomination.entryFeePaid ? '#10B981' : '#F59E0B',
+                              color: '#10B981',
                               textAlign: 'center'
                             }}>
                               {userNomination.status === 'TRANSFERRED' || userNomination.nominationStatus === 'TRANSFERRED'
                                 ? `🔄 ĐÃ CHUYỂN NHƯỢNG (${userNomination.transferredTo || 'Người nhận'})`
-                                : userNomination.entryFeePaid
-                                  ? '✓ ĐÃ ĐĂNG KÝ (ĐÃ ĐÓNG PHÍ)'
-                                  : '⏳ ĐÃ ĐĂNG KÝ (CHỜ ĐÓNG PHÍ)'}
+                                : '✓ ĐÃ ĐĂNG KÝ (ADMIN ĐÃ DUYỆT PHÍ)'}
                               <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 500, marginTop: '2px' }}>
                                 Chiến mã: <span style={{ color: 'var(--brass)', fontWeight: 700 }}>{userNomination.horseName || 'Chiến mã của bạn'}</span>
                               </div>
@@ -526,70 +590,12 @@ export default function OwnerTournamentsTab({
       {/* SUB-TAB 2: MÔ HÌNH A - GIẢI ĐẤU NGOÀI ĐỘC LẬP */}
       {subTab === 'EXTERNAL' && (
         <div>
-          <div style={{
-            background: 'rgba(16, 185, 129, 0.08)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
-            borderRadius: '8px',
-            padding: '14px 16px',
-            marginBottom: '18px',
-            fontSize: '12.5px',
-            lineHeight: 1.5,
-            color: 'var(--paper)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            <div style={{ maxWidth: '750px' }}>
-              <b style={{ color: '#10B981', fontSize: '13px' }}>🌐 Thể lệ & Quy tắc Doanh thu Giải Ngoài:</b>
-              <p style={{ margin: '4px 0 0', color: 'var(--paper-dim)' }}>
-                Chủ sở hữu tự do tìm kiếm, đăng ký và thanh toán trực tiếp với Ban tổ chức bên ngoài. <b>Nền tảng cam kết TUYỆT ĐỐI KHÔNG thu hoa hồng (0% phí hoa hồng)</b>. Chủ ngựa nhận trọn vẹn 100% tiền thưởng và được quyền lưu trữ, cập nhật thành tích chiến mã vào hệ thống.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const firstHorse = myHorses[0];
-                if (setExternalRecordForm) {
-                  setExternalRecordForm({
-                    raceName: '',
-                    organizerName: '',
-                    horseId: firstHorse ? String(firstHorse.id) : '',
-                    track: '',
-                    surface: 'Sân cát tự nhiên',
-                    distance: '1.600m',
-                    date: '',
-                    jockey: '',
-                    rank: 'Hạng 1',
-                    grossPrize: 100000000,
-                    notes: ''
-                  });
-                }
-                if (setShowExternalRecordModal) setShowExternalRecordModal(true);
-              }}
-              style={{
-                padding: '9px 18px',
-                borderRadius: '6px',
-                background: '#10B981',
-                color: '#0A0D14',
-                fontWeight: 700,
-                border: 'none',
-                fontSize: '12.5px',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              + Khai Báo Thành Tích Giải Ngoài
-            </button>
-          </div>
-
           <div className="portal-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
             {externalTournaments.map(tourn => {
-              const timeStatus = getTournamentTimeStatus(tourn.date);
-              const existingExtRecord = (raceNominations || []).find(r => 
-                (r.tournamentType === 'EXTERNAL' || r.isExternal) && 
-                r.raceName === tourn.name
+              const timeStatus = getTournamentTimeStatus(tourn);
+              const userNomination = (raceNominations || []).find(r => 
+                (r.tournamentId && String(r.tournamentId) === String(tourn.id)) ||
+                (r.raceName && r.raceName.toLowerCase().trim() === (tourn.name || '').toLowerCase().trim())
               );
 
               return (
@@ -603,14 +609,14 @@ export default function OwnerTournamentsTab({
                     justifyContent: 'space-between',
                     height: '100%',
                     boxSizing: 'border-box',
-                    border: existingExtRecord
-                      ? '1px solid rgba(245, 158, 11, 0.4)'
+                    border: userNomination
+                      ? '1px solid rgba(16, 185, 129, 0.4)'
                       : timeStatus.isRegNotOpenYet
                         ? '1px solid rgba(245, 158, 11, 0.25)'
                         : timeStatus.isRegClosed && !timeStatus.isRaceStarted
                           ? '1px solid rgba(239, 68, 68, 0.25)'
                           : '1px solid rgba(16, 185, 129, 0.3)',
-                    background: existingExtRecord ? 'rgba(245, 158, 11, 0.02)' : undefined
+                    background: userNomination ? 'rgba(16, 185, 129, 0.03)' : undefined
                   }}
                 >
                   <div>
@@ -628,19 +634,19 @@ export default function OwnerTournamentsTab({
                       }}>
                         {tourn.name}
                       </b>
-                      {existingExtRecord ? (
+                      {userNomination ? (
                         <span style={{
                           flexShrink: 0,
                           padding: '3px 8px',
                           borderRadius: '4px',
                           fontSize: '10.5px',
                           fontWeight: 700,
-                          background: 'rgba(245, 158, 11, 0.15)',
-                          color: '#F59E0B',
-                          border: '1px solid #F59E0B',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10B981',
+                          border: '1px solid #10B981',
                           whiteSpace: 'nowrap'
                         }}>
-                          {existingExtRecord.rank?.includes('Đăng Ký') ? '✓ ĐÃ ĐĂNG KÝ THAM GIA' : `✓ ĐÃ GHI NHẬN: ${existingExtRecord.rank?.split('(')[0]?.trim() || 'Thành tích'}`}
+                          ✓ ĐÃ ĐĂNG KÝ
                         </span>
                       ) : timeStatus.isRegNotOpenYet ? (
                         <span style={{
@@ -783,18 +789,16 @@ export default function OwnerTournamentsTab({
                             <div style={{
                               padding: '7px 10px',
                               borderRadius: '6px',
-                              background: userNomination.entryFeePaid ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                              border: `1px solid ${userNomination.entryFeePaid ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              border: '1px solid rgba(16, 185, 129, 0.35)',
                               fontSize: '11.5px',
                               fontWeight: 700,
-                              color: userNomination.entryFeePaid ? '#10B981' : '#F59E0B',
+                              color: '#10B981',
                               textAlign: 'center'
                             }}>
                               {userNomination.status === 'TRANSFERRED' || userNomination.nominationStatus === 'TRANSFERRED'
                                 ? `🔄 ĐÃ CHUYỂN NHƯỢNG (${userNomination.transferredTo || 'Người nhận'})`
-                                : userNomination.entryFeePaid
-                                  ? '✓ ĐÃ ĐĂNG KÝ (ĐÃ ĐÓNG PHÍ)'
-                                  : '⏳ ĐÃ ĐĂNG KÝ (CHỜ ĐÓNG PHÍ)'}
+                                : '✓ ĐÃ ĐĂNG KÝ (ĐÃ ĐÓNG PHÍ)'}
                               <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 500, marginTop: '2px' }}>
                                 Chiến mã: <span style={{ color: 'var(--brass)', fontWeight: 700 }}>{userNomination.horseName || 'Chiến mã của bạn'}</span>
                               </div>
@@ -854,174 +858,92 @@ export default function OwnerTournamentsTab({
                         );
                       }
 
-                      return null;
-                    })() || (existingExtRecord ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const matchedHorse = myHorses.find(h => h.name === existingExtRecord.horseName || String(h.id) === String(existingExtRecord.horseId)) || myHorses[0];
-                          if (setExternalRecordForm) {
-                            setExternalRecordForm({
-                              recordId: existingExtRecord.id,
-                              isEditing: true,
-                              raceName: tourn.name,
-                              organizerName: tourn.organizerName || existingExtRecord.organizerName,
-                              horseId: matchedHorse ? String(matchedHorse.id) : '',
-                              track: tourn.track || existingExtRecord.track,
-                              surface: tourn.surface || existingExtRecord.surface,
-                              distance: tourn.distance || existingExtRecord.distance,
-                              date: tourn.date || existingExtRecord.date,
-                              jockey: existingExtRecord.jockey || '',
-                              rank: existingExtRecord.rank || (timeStatus.isRaceStarted ? 'Hạng 1 (Giải Nhất - 50% Quỹ)' : 'Đăng Ký Tham Gia (Chờ Thi Đấu)'),
-                              basePurse: tourn.totalPurse || existingExtRecord.basePurse,
-                              grossPrize: existingExtRecord.grossPrize !== undefined ? existingExtRecord.grossPrize : (timeStatus.isRaceStarted ? Math.round((tourn.totalPurse || 0) * 0.5) : 0),
-                              notes: existingExtRecord.notes || ''
-                            });
-                          }
-                          if (setShowExternalRecordModal) setShowExternalRecordModal(true);
-                        }}
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(245, 158, 11, 0.15)',
-                          color: '#F59E0B',
-                          fontWeight: 700,
-                          border: '1px solid #F59E0B',
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <span>✏️</span>
-                        <span>{timeStatus.isRaceStarted ? 'Thay Đổi Ghi Nhận Thành Tích' : 'Thay Đổi Đăng Ký Tham Gia'}</span>
-                      </button>
-                    ) : timeStatus.isRegNotOpenYet ? (
-                      <button
-                        type="button"
-                        disabled={true}
-                        title={`Giải đấu sẽ mở cổng đăng ký từ ngày ${timeStatus.regOpenDeadlineFormatted} (mở trước 1 tháng, đóng trước 1 tuần trước ngày thi đấu).`}
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(255, 255, 255, 0.04)',
-                          color: 'var(--paper-dim)',
-                          fontWeight: 600,
-                          border: '1px solid var(--line)',
-                          fontSize: '12px',
-                          cursor: 'not-allowed',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          opacity: 0.6
-                        }}
-                      >
-                        <span>⏳</span>
-                        <span>Chưa Mở Đăng Ký (Mở từ {timeStatus.regOpenDeadlineFormatted})</span>
-                      </button>
-                    ) : timeStatus.isRegClosed && !timeStatus.isRaceStarted ? (
-                      <button
-                        type="button"
-                        disabled={true}
-                        title={`Giải đấu đã đóng đăng ký tham gia (đóng trước 1 tuần). Ngày thi đấu: ${tourn.date}.`}
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(255, 255, 255, 0.04)',
-                          color: 'var(--paper-dim)',
-                          fontWeight: 600,
-                          border: '1px solid var(--line)',
-                          fontSize: '12px',
-                          cursor: 'not-allowed',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          opacity: 0.6
-                        }}
-                      >
-                        <span>🔒</span>
-                        <span>Đã Đóng Đăng Ký (Chờ ngày đua: {tourn.date})</span>
-                      </button>
-                    ) : timeStatus.isRegOpen ? (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenRaceRegister && handleOpenRaceRegister(tourn)}
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          color: '#10B981',
-                          fontWeight: 700,
-                          border: '1px solid #10B981',
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <span>🌐</span>
-                        <span>+ Đăng Ký Tham Gia Giải Này</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const firstHorse = myHorses[0];
-                          if (setExternalRecordForm) {
-                            setExternalRecordForm({
-                              recordId: '',
-                              isEditing: false,
-                              raceName: tourn.name,
-                              organizerName: tourn.organizerName,
-                              horseId: firstHorse ? String(firstHorse.id) : '',
-                              track: tourn.track,
-                              surface: tourn.surface,
-                              distance: tourn.distance,
-                              date: tourn.date,
-                              jockey: '',
-                              rank: 'Hạng 1 (Giải Nhất - 50% Quỹ)',
-                              basePurse: tourn.totalPurse,
-                              grossPrize: tourn.totalPurse ? Math.round(tourn.totalPurse * 0.5) : 150000000,
-                              notes: 'Ghi nhận thành tích giải ngoài độc lập'
-                            });
-                          }
-                          if (setShowExternalRecordModal) setShowExternalRecordModal(true);
-                        }}
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 12px',
-                          borderRadius: '6px',
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          color: '#10B981',
-                          fontWeight: 700,
-                          border: '1px solid #10B981',
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <span>🌐</span>
-                        <span>+ Ghi Nhận Thành Tích Giải Này</span>
-                      </button>
-                    ))}
+                      if (timeStatus.isRegNotOpenYet) {
+                        return (
+                          <button
+                            type="button"
+                            disabled={true}
+                            title={`Giải đấu sẽ mở cổng đăng ký từ ngày ${timeStatus.regOpenDeadlineFormatted}`}
+                            style={{
+                              width: '100%',
+                              height: '42px',
+                              padding: '0 12px',
+                              borderRadius: '6px',
+                              background: 'rgba(255, 255, 255, 0.04)',
+                              color: 'var(--paper-dim)',
+                              fontWeight: 600,
+                              border: '1px solid var(--line)',
+                              fontSize: '12px',
+                              cursor: 'not-allowed',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              opacity: 0.6
+                            }}
+                          >
+                            <span>⏳</span>
+                            <span>Chưa Mở Đăng Ký (Mở từ {timeStatus.regOpenDeadlineFormatted})</span>
+                          </button>
+                        );
+                      }
+
+                      if (timeStatus.isRegClosed && !timeStatus.isRaceStarted) {
+                        return (
+                          <button
+                            type="button"
+                            disabled={true}
+                            title={`Giải đấu đã đóng đăng ký tham gia. Ngày thi đấu: ${tourn.date}.`}
+                            style={{
+                              width: '100%',
+                              height: '42px',
+                              padding: '0 12px',
+                              borderRadius: '6px',
+                              background: 'rgba(255, 255, 255, 0.04)',
+                              color: 'var(--paper-dim)',
+                              fontWeight: 600,
+                              border: '1px solid var(--line)',
+                              fontSize: '12px',
+                              cursor: 'not-allowed',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              opacity: 0.6
+                            }}
+                          >
+                            <span>🔒</span>
+                            <span>Đã Đóng Đăng Ký (Chờ ngày đua: {tourn.date})</span>
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRaceRegister && handleOpenRaceRegister(tourn)}
+                          style={{
+                            width: '100%',
+                            height: '42px',
+                            padding: '0 12px',
+                            borderRadius: '6px',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10B981',
+                            fontWeight: 700,
+                            border: '1px solid #10B981',
+                            fontSize: '12.5px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <span>🌐</span>
+                          <span>+ Đăng Ký Tham Gia Giải Này</span>
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               );
@@ -1399,28 +1321,83 @@ export default function OwnerTournamentsTab({
               </div>
             </div>
 
-            {selectedTournInfoModal.nomination && (
-              <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '14px 16px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.3)', marginBottom: '16px' }}>
-                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#10B981', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>✓</span> THÔNG TIN CHIẾN MÃ CỦA BẠN ĐÃ ĐĂNG KÝ
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
-                  <div><span style={{ color: 'var(--paper-dim)' }}>Chiến mã xuất chiến:</span> <b style={{ color: 'var(--paper)' }}>{selectedTournInfoModal.nomination.horseName}</b></div>
-                  <div><span style={{ color: 'var(--paper-dim)' }}>Mã vi chip:</span> <b style={{ color: 'var(--brass)', fontFamily: 'monospace' }}>{selectedTournInfoModal.nomination.horseMicrochip || selectedTournInfoModal.nomination.chipId || 'Đã liên kết RFID'}</b></div>
-                  <div><span style={{ color: 'var(--paper-dim)' }}>Huấn luyện viên:</span> <b style={{ color: 'var(--paper)' }}>{selectedTournInfoModal.nomination.trainerName || 'HLV chỉ định'}</b></div>
-                  <div><span style={{ color: 'var(--paper-dim)' }}>Kỵ mã (Jockey):</span> <b style={{ color: 'var(--paper)' }}>{selectedTournInfoModal.nomination.jockey || 'Chủ nuôi chỉ định'}</b></div>
-                  <div><span style={{ color: 'var(--paper-dim)' }}>Tình trạng lệ phí:</span> <b style={{ color: selectedTournInfoModal.nomination.entryFeePaid ? '#10B981' : '#F59E0B' }}>{selectedTournInfoModal.nomination.entryFeePaid ? 'Đã Thanh Toán (5.000.000 ₫)' : 'Chưa Thanh Toán'}</b></div>
-                  <div><span style={{ color: 'var(--paper-dim)' }}>Ngày đăng ký:</span> <b style={{ color: 'var(--paper)' }}>{selectedTournInfoModal.nomination.registrationDate || 'Mới nhất'}</b></div>
-                </div>
-                {selectedTournInfoModal.nomination.transferredTo && (
-                  <div style={{ marginTop: '8px', padding: '6px 10px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', fontSize: '11.5px' }}>
-                    🔄 Suất tham gia này đã được chuyển nhượng cho: <b>{selectedTournInfoModal.nomination.transferredTo}</b> ({selectedTournInfoModal.nomination.transferredPhone})
-                  </div>
-                )}
-              </div>
-            )}
+            {selectedTournInfoModal.nomination && (() => {
+              const nom = selectedTournInfoModal.nomination;
+              const isTournInternal = selectedTournInfoModal.tournament?.tournamentType === 'INTERNAL' || !selectedTournInfoModal.tournament?.isExternal;
+              const isPendingFee = isTournInternal && (nom.status === 'PENDING' || nom.nominationStatus === 'PENDING' || !nom.feeApproved) && nom.status !== 'REJECTED';
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              return (
+                <div style={{ background: isPendingFee ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)', padding: '14px 16px', borderRadius: '8px', border: `1px solid ${isPendingFee ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`, marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: isPendingFee ? '#F59E0B' : '#10B981', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>{isPendingFee ? '⏳' : '✓'}</span> THÔNG TIN CHIẾN MÃ CỦA BẠN ĐÃ ĐĂNG KÝ
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                    <div><span style={{ color: 'var(--paper-dim)' }}>Chiến mã xuất chiến:</span> <b style={{ color: 'var(--paper)' }}>{nom.horseName}</b></div>
+                    <div><span style={{ color: 'var(--paper-dim)' }}>Mã vi chip:</span> <b style={{ color: 'var(--brass)', fontFamily: 'monospace' }}>{nom.horseMicrochip || nom.chipId || 'Đã liên kết RFID'}</b></div>
+                    <div><span style={{ color: 'var(--paper-dim)' }}>Huấn luyện viên:</span> <b style={{ color: 'var(--paper)' }}>{nom.trainerName || nom.targetTrainer || 'HLV chỉ định'}</b></div>
+                    <div><span style={{ color: 'var(--paper-dim)' }}>Kỵ mã (Jockey):</span> <b style={{ color: 'var(--paper)' }}>{nom.jockey || 'Chủ nuôi chỉ định'}</b></div>
+                    <div>
+                      <span style={{ color: 'var(--paper-dim)' }}>Tình trạng lệ phí:</span>{' '}
+                      {isPendingFee ? (
+                        <b style={{ color: '#F59E0B' }}>Đã nộp 5.000.000 ₫ (Chờ Admin xác nhận)</b>
+                      ) : (
+                        <b style={{ color: '#10B981' }}>✓ Đã Thanh Toán & Admin Đã Duyệt (5.000.000 ₫)</b>
+                      )}
+                    </div>
+                    <div><span style={{ color: 'var(--paper-dim)' }}>Ngày đăng ký:</span> <b style={{ color: 'var(--paper)' }}>{nom.registrationDate || nom.registeredAt || 'Mới nhất'}</b></div>
+                  </div>
+                  {nom.transferredTo && (
+                    <div style={{ marginTop: '8px', padding: '6px 10px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', fontSize: '11.5px' }}>
+                      🔄 Suất tham gia này đã được chuyển nhượng cho: <b>{nom.transferredTo}</b> ({nom.transferredPhone})
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {(() => {
+                const nom = selectedTournInfoModal.nomination;
+                const isTournInternal = selectedTournInfoModal.tournament?.tournamentType === 'INTERNAL' || !selectedTournInfoModal.tournament?.isExternal;
+                const isPendingFee = isTournInternal && (nom?.status === 'PENDING' || nom?.nominationStatus === 'PENDING' || !nom?.feeApproved) && nom?.status !== 'REJECTED';
+
+                if (isPendingFee) {
+                  return (
+                    <div style={{ fontSize: '11.5px', color: '#F59E0B', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>⏳</span>
+                      <span>Giấy xác nhận đăng ký (PDF) sẽ được cấp sau khi Admin duyệt thu phí.</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (handlePrintOrDownloadCertificate) {
+                        handlePrintOrDownloadCertificate(selectedTournInfoModal.nomination, selectedTournInfoModal.tournament);
+                      }
+                    }}
+                    style={{
+                      padding: '9px 16px',
+                      borderRadius: '6px',
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10B981',
+                      fontWeight: 700,
+                      border: '1px solid #10B981',
+                      fontSize: '12.5px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>📄</span>
+                    <span>Tải / In Giấy Xác Nhận (PDF)</span>
+                  </button>
+                );
+              })()}
+
               <button
                 type="button"
                 onClick={() => setSelectedTournInfoModal(null)}

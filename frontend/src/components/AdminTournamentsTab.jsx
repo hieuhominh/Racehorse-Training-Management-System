@@ -111,7 +111,7 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
   }, []);
 
   const pendingNominationsCount = useMemo(() => {
-    return adminNominations.filter(n => n.status === 'PENDING').length;
+    return adminNominations.filter(n => (n.status === 'PENDING' || n.status === 'PENDING_APPROVAL' || !n.feeApproved) && n.status !== 'REJECTED').length;
   }, [adminNominations]);
 
   const totalCommissionEarned = useMemo(() => {
@@ -184,8 +184,8 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
   // Handler duyệt đơn
   const handleApproveNomination = async (nomId) => {
     await approveTournamentNominationApi(nomId);
-    setAdminNominations(prev => prev.map(n => n.id === nomId ? { ...n, status: 'APPROVED', nominationStatus: 'APPROVED' } : n));
-    if (showToast) showToast('Đã phê duyệt đơn đăng ký thi đấu của chiến mã!', 'PHÊ DUYỆT THÀNH CÔNG', 'success');
+    setAdminNominations(prev => prev.map(n => n.id === nomId ? { ...n, status: 'CONFIRMED', nominationStatus: 'CONFIRMED', feeApproved: true, approvedAt: new Date().toLocaleString('vi-VN') } : n));
+    if (showToast) showToast('Đã xác nhận thu 5.000.000 ₫ và phê duyệt đơn thi đấu của chiến mã! Giấy xác nhận thi đấu (PDF) đã được kích hoạt cho Chủ sở hữu.', 'XÁC NHẬN THU PHÍ THÀNH CÔNG', 'success');
   };
 
   // Handler từ chối đơn
@@ -232,6 +232,12 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
   // Lọc danh sách đăng ký theo trạng thái
   const filteredNominations = useMemo(() => {
     if (statusFilter === 'ALL') return adminNominations;
+    if (statusFilter === 'PENDING') {
+      return adminNominations.filter(n => (n.status === 'PENDING' || n.status === 'PENDING_APPROVAL' || !n.feeApproved) && n.status !== 'REJECTED');
+    }
+    if (statusFilter === 'CONFIRMED') {
+      return adminNominations.filter(n => (n.status === 'CONFIRMED' || n.status === 'APPROVED' || n.feeApproved) && n.status !== 'REJECTED');
+    }
     return adminNominations.filter(n => n.status === statusFilter);
   }, [adminNominations, statusFilter]);
 
@@ -440,22 +446,53 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'center', verticalAlign: 'middle' }}>
                     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '170px',
-                        height: '24px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        background: 'rgba(16, 185, 129, 0.12)',
-                        color: '#10B981',
-                        border: '1px solid rgba(16, 185, 129, 0.3)',
-                        boxSizing: 'border-box'
-                      }}>
-                        Đang Mở Đăng Ký
-                      </span>
+                      {(() => {
+                        const tournPendingCount = adminNominations.filter(n => (n.tournamentId === tourn.id || n.raceName === tourn.name) && (n.status === 'PENDING' || n.status === 'PENDING_APPROVAL' || !n.feeApproved) && n.status !== 'REJECTED').length;
+                        if (tournPendingCount > 0) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => { setTournTab('NOMINATIONS'); setStatusFilter('PENDING'); }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '170px',
+                                height: '24px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                color: '#F59E0B',
+                                border: '1px solid #F59E0B',
+                                boxSizing: 'border-box',
+                                cursor: 'pointer'
+                              }}
+                              title="Bấm để xem và duyệt thu phí các đơn đăng ký giải này"
+                            >
+                              ⏳ {tournPendingCount} đơn chờ duyệt phí
+                            </button>
+                          );
+                        }
+                        return (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '170px',
+                            height: '24px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background: 'rgba(16, 185, 129, 0.12)',
+                            color: '#10B981',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            boxSizing: 'border-box'
+                          }}>
+                            Đang Mở Đăng Ký
+                          </span>
+                        );
+                      })()}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
                         <button
                           type="button"
@@ -573,7 +610,7 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                 transition: 'all 0.2s ease'
               }}
             >
-              <span>Chờ duyệt</span>
+              <span>Chờ duyệt thu phí</span>
               <span style={{
                 fontSize: '11px',
                 padding: '1px 7px',
@@ -582,7 +619,7 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                 color: statusFilter === 'PENDING' ? '#0A0D14' : '#F59E0B',
                 fontWeight: 800
               }}>
-                {adminNominations.filter(n => n.status === 'PENDING').length}
+                {pendingNominationsCount}
               </span>
             </button>
 
@@ -797,42 +834,49 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                                 (Admin không can thiệp)
                               </span>
                             </div>
-                          ) : nom.status === 'PENDING' ? (
-                            <div style={{ display: 'inline-flex', gap: '6px' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleApproveNomination(nom.id)}
-                                style={{
-                                  padding: '5px 12px',
-                                  background: '#10B981',
-                                  color: '#0A0D14',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  fontSize: '11.5px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Phê Duyệt
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setRejectModalData({ isOpen: true, nomination: nom, reason: '' })}
-                                style={{
-                                  padding: '5px 10px',
-                                  background: 'rgba(239, 68, 68, 0.12)',
-                                  color: '#EF4444',
-                                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                                  borderRadius: '6px',
-                                  fontSize: '11.5px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Từ Chối
-                              </button>
+                          ) : (nom.status === 'PENDING' || nom.status === 'PENDING_APPROVAL' || (!nom.feeApproved && nom.status !== 'REJECTED')) ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                              <div style={{ fontSize: '11px', color: '#F59E0B', fontWeight: 700 }}>
+                                {nom.paymentMethod === 'BANK' ? '💳 CK VietQR (5.000.000 ₫)' : '🏦 Quỹ hệ thống (5.000.000 ₫)'}
+                              </div>
+                              <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveNomination(nom.id)}
+                                  style={{
+                                    padding: '6px 12px',
+                                    background: '#10B981',
+                                    color: '#0A0D14',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '11.5px',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)'
+                                  }}
+                                  title="Xác nhận số tiền đã nộp 5.000.000 ₫ và duyệt cấp PDF thi đấu"
+                                >
+                                  ✓ Duyệt Thu Phí & Cấp PDF
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRejectModalData({ isOpen: true, nomination: nom, reason: '' })}
+                                  style={{
+                                    padding: '6px 10px',
+                                    background: 'rgba(239, 68, 68, 0.12)',
+                                    color: '#EF4444',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    borderRadius: '6px',
+                                    fontSize: '11.5px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Từ Chối
+                                </button>
+                              </div>
                             </div>
-                          ) : (nom.status === 'APPROVED' || nom.status === 'CONFIRMED') ? (
+                          ) : (nom.status === 'APPROVED' || nom.status === 'CONFIRMED' || nom.feeApproved) ? (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                               <span style={{
                                 display: 'inline-flex',

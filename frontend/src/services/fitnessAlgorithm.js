@@ -444,11 +444,25 @@ function calculateNocturnalHRVAndSleep(recoveryPercent, isCompleted) {
 }
 
 export function parseSessionDate(session) {
-  if (!session) return new Date(Date.now() - 86400000);
+  if (!session) return new Date();
   
-  // 1. Ưu tiên phân tích từ time / date / completedAt trước
-  const timeField = session.time || session.date || session.completedAt || session.createdAt;
+  // 1. Kiểm tra timestamp hoặc id số hợp lệ
+  if (session.timestamp && typeof session.timestamp === 'number' && !isNaN(session.timestamp)) {
+    return new Date(session.timestamp);
+  }
+  if (typeof session.id === 'number' && session.id > 1600000000000 && session.id < 2500000000000) {
+    return new Date(session.id);
+  }
+
+  // 2. Kiểm tra các trường chuỗi thời gian
+  const timeField = session.time || session.date || session.completedAt || session.completedDate || session.createdAt;
   if (timeField && typeof timeField === 'string') {
+    // 2.1. Định dạng chuẩn ISO YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}/.test(timeField)) {
+      const parts = timeField.split(/[-T\s]/);
+      return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+    // 2.2. Tách chuỗi theo dấu cách hoặc dấu phẩy
     const parts = timeField.split(/[\s,]+/);
     for (const p of parts) {
       if (p.includes('/')) {
@@ -472,13 +486,7 @@ export function parseSessionDate(session) {
     if (!isNaN(parsedIso.getTime())) return parsedIso;
   }
 
-  // 2. Tiếp theo kiểm tra timestamp
-  if (session.timestamp && typeof session.timestamp === 'number') {
-    return new Date(session.timestamp);
-  }
-
-  // 3. Fallback lùi 1 ngày để không tự động biến bài tập cũ thành 'Hôm nay'
-  return new Date(Date.now() - 86400000);
+  return new Date();
 }
 
 export function isSessionToday(session) {
@@ -563,56 +571,72 @@ export function calculateWeeklyDistributionAndTotals(horseName, sessionsList = [
 export function getHorse7DaySprintHistory(horseName, sessionsList = [], todaySession = null) {
   const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'Sat'];
   const now = new Date();
-  const labels = [];
-  const history = [0, 0, 0, 0, 0, 0, 0];
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+  // Tạo đúng danh sách nhãn 7 ngày kết thúc tại Hôm nay
+  const labels = [];
   for (let i = 6; i >= 1; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
+    const d = new Date(todayMidnight);
+    d.setDate(todayMidnight.getDate() - i);
     labels.push(dayNames[d.getDay()]);
   }
   labels.push('Hôm nay');
 
-  const name = (horseName || '').toLowerCase();
+  const history = [0, 0, 0, 0, 0, 0, 0];
+  const name = (horseName || '').trim().toLowerCase();
 
-  // Tìm session hôm nay từ todaySession hoặc từ sessionsList
-  let activeTodaySession = todaySession;
-  if (!activeTodaySession) {
-    activeTodaySession = (sessionsList || []).find(s => {
-      if ((s.horseName || '').toLowerCase() !== name) return false;
-      const sDate = parseSessionDate(s);
-      return sDate.toDateString() === now.toDateString();
-    });
-  }
+  // Gom toàn bộ buổi tập đã hoàn thành/thực hiện của chiến mã này
+  const allSessions = deduplicateSessions(todaySession ? [todaySession, ...(sessionsList || [])] : (sessionsList || []));
+  const horseSessions = allSessions.filter(s => {
+    const sName = (s.horseName || s.horse || '').trim().toLowerCase();
+    return sName === name;
+  });
 
-  let todayPerf = 0;
-  if (activeTodaySession) {
-    const avgSpeed = Number(activeTodaySession.avgSpeed) || 58.6;
-    const score = Number(activeTodaySession.score) || 9.0;
-    const isCompleted = activeTodaySession.status === 'COMPLETED';
-    if (isCompleted) {
-      todayPerf = Math.min(125, Math.max(90, Math.round(100 + (avgSpeed - 60) * 1.5 + (score - 8) * 4)));
-      if (todayPerf < 98) todayPerf = 102;
-    } else {
-      todayPerf = Math.max(50, Math.min(78, Math.round(70 - Math.random() * 8)));
-    }
-  }
-  history[6] = todayPerf;
+  // Gom các buổi tập theo từng ngày trong 7 ngày (0 = 6 ngày trước, ..., 6 = Hôm nay)
+  const sessionsByDay = [[], [], [], [], [], [], []];
+  const seenIds = new Set();
 
-  for (const s of (sessionsList || [])) {
-    if ((s.horseName || '').toLowerCase() !== name) continue;
-    if (activeTodaySession && s.id === activeTodaySession.id) continue;
+  for (const s of horseSessions) {
+    if (s.id && seenIds.has(s.id)) continue;
+    if (s.id) seenIds.add(s.id);
+
     const sDate = parseSessionDate(s);
-    const diffDays = Math.round((now - sDate) / (1000 * 60 * 60 * 24));
-    if (diffDays >= 1 && diffDays <= 6) {
+    const sMidnight = new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate());
+    const diffDays = Math.round((todayMidnight.getTime() - sMidnight.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Chỉ tính các bài tập diễn ra trong 7 ngày qua (từ 0 ngày trước đến 6 ngày trước)
+    if (diffDays >= 0 && diffDays <= 6) {
       const idx = 6 - diffDays;
-      const spd = Number(s.avgSpeed) || 58.6;
-      const sc = Number(s.score) || 8.5;
-      const p = Math.min(125, Math.max(80, Math.round(100 + (spd - 60) * 1.5 + (sc - 8) * 4)));
-      history[idx] = p;
+      sessionsByDay[idx].push(s);
     }
   }
 
+  // Tính hiệu suất cho từng ngày: Chỉ thứ/ngày nào CÓ bài tập thực tế mới hiện giá trị > 0, ngày không tập giữ nguyên 0
+  for (let idx = 0; idx <= 6; idx++) {
+    const daySessions = sessionsByDay[idx];
+    if (!daySessions || daySessions.length === 0) {
+      history[idx] = 0;
+      continue;
+    }
+
+    let bestDayPerf = 0;
+    for (const s of daySessions) {
+      const spd = Number(s.avgSpeed) || 58.6;
+      const sc = Number(s.score) || 9.0;
+      const isComp = s.status === 'COMPLETED';
+      let p;
+      if (isComp) {
+        p = Math.min(125, Math.max(90, Math.round(100 + (spd - 60) * 1.5 + (sc - 8) * 4)));
+        if (p < 98) p = 102;
+      } else {
+        p = Math.max(50, Math.min(78, Math.round(70 - Math.random() * 8)));
+      }
+      if (p > bestDayPerf) bestDayPerf = p;
+    }
+    history[idx] = bestDayPerf;
+  }
+
+  const todayPerf = history[6] || 0;
   const rating = todayPerf > 0 
     ? (todayPerf >= 100 ? 'Xuất sắc' : (todayPerf >= 90 ? 'Tốt' : 'Cần phục hồi'))
     : 'Chờ bài tập';
@@ -904,8 +928,10 @@ export function getHorseFitnessTelemetry(horse, sessionsList = []) {
     merged.trendPercent = '+4.2%';
     merged.recoveryPercent = 100;
     merged.hoursTo100Percent = 0;
-    merged.performanceToday = 102;
-    merged.performanceRating = 'Xuất sắc';
+    if (sprintData.performanceToday > 0) {
+      merged.performanceToday = sprintData.performanceToday;
+      merged.performanceRating = sprintData.performanceRating;
+    }
     merged.shortTermLoad = 118;
     merged.longTermLoad = 108;
     merged.loadRatio = 109;
@@ -914,10 +940,11 @@ export function getHorseFitnessTelemetry(horse, sessionsList = []) {
     merged.speedThreshold = 92.5;
     merged.racingSpeedScore = 93.0;
     merged.sprintBurstScore = 94.2;
-    // Cập nhật biểu đồ 7 ngày đều đạt chuẩn đua xuất sắc
-    merged.performanceHistory7Days = [98, 100, 102, 101, 104, 102, 102];
+    // Cập nhật biểu đồ 7 ngày chỉ hiện các thứ có bài tập thực tế
+    merged.performanceHistory7Days = sprintData.history;
   }
 
+  saveTelemetryToCache(horse, merged);
   return merged;
 }
 

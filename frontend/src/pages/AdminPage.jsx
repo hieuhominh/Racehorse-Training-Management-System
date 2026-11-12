@@ -286,6 +286,122 @@ export default function AdminPage() {
     showToast('Đã xóa bản ghi khiếu nại.', 'ĐÃ XÓA', 'info');
   };
 
+  // State: Quản lý & Phê Duyệt Nạp Tiền Quỹ Chủ Sở Hữu (Custody Fund Escrow)
+  const [pendingDeposits, setPendingDeposits] = useState(() => {
+    try {
+      const stored = localStorage.getItem('matruong_pending_deposits');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const handleSyncDeposits = () => {
+      try {
+        const stored = localStorage.getItem('matruong_pending_deposits');
+        setPendingDeposits(stored ? JSON.parse(stored) : []);
+      } catch {}
+    };
+    window.addEventListener('matruong_pending_deposits_updated', handleSyncDeposits);
+    window.addEventListener('storage', handleSyncDeposits);
+    return () => {
+      window.removeEventListener('matruong_pending_deposits_updated', handleSyncDeposits);
+      window.removeEventListener('storage', handleSyncDeposits);
+    };
+  }, []);
+
+  const handleApproveDeposit = (dep) => {
+    const targetKey = dep.ownerKey || 'default';
+    const fundKey = `matruong_owner_fund_${targetKey}`;
+    const currentBal = Number(localStorage.getItem(fundKey) || 50000000);
+    const newBal = currentBal + Number(dep.amount);
+    localStorage.setItem(fundKey, String(newBal));
+
+    // Cập nhật pendingDeposits
+    const pendingKey = 'matruong_pending_deposits';
+    const allPending = JSON.parse(localStorage.getItem(pendingKey) || '[]');
+    const updatedPending = allPending.map(item => {
+      if (item.transactionId === dep.transactionId) {
+        return {
+          ...item,
+          status: 'THÀNH CÔNG (PAID)',
+          statusLabel: 'Đã Duyệt (Admin)',
+          approvedBy: currentUser?.name || currentUser?.full_name || 'Admin Ban Quản Trị',
+          approvedAt: new Date().toLocaleString('vi-VN')
+        };
+      }
+      return item;
+    });
+    localStorage.setItem(pendingKey, JSON.stringify(updatedPending));
+    setPendingDeposits(updatedPending);
+
+    // Cập nhật vào lịch sử thanh toán của chủ sở hữu
+    const ownerPayKey = `matruong_owner_payments_${targetKey}`;
+    const ownerPays = JSON.parse(localStorage.getItem(ownerPayKey) || '[]');
+    const updatedOwnerPays = ownerPays.map(p => {
+      if (p.transactionId === dep.transactionId) {
+        return {
+          ...p,
+          status: 'THÀNH CÔNG (PAID)',
+          statusLabel: 'Thành Công (Admin đã duyệt)',
+          approvedAt: new Date().toLocaleString('vi-VN')
+        };
+      }
+      return p;
+    });
+    localStorage.setItem(ownerPayKey, JSON.stringify(updatedOwnerPays));
+
+    // Phát sự kiện đồng bộ
+    window.dispatchEvent(new Event('matruong_owner_fund_updated'));
+    window.dispatchEvent(new Event('matruong_owner_payments_updated'));
+    window.dispatchEvent(new Event('matruong_pending_deposits_updated'));
+
+    showToast(`Đã duyệt nạp ${dep.amountFormatted || (Number(dep.amount).toLocaleString('vi-VN') + ' ₫')} cho chủ sở hữu ${dep.ownerName}! Tiền đã xuất hiện trong Số Dư Quỹ Ròng của chủ ngựa.`, 'DUYỆT NẠP TIỀN THÀNH CÔNG', 'success');
+  };
+
+  const handleRejectDeposit = (dep) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn từ chối yêu cầu nạp tiền ${dep.transactionId} của chủ sở hữu ${dep.ownerName}?`)) return;
+
+    const targetKey = dep.ownerKey || 'default';
+    const pendingKey = 'matruong_pending_deposits';
+    const allPending = JSON.parse(localStorage.getItem(pendingKey) || '[]');
+    const updatedPending = allPending.map(item => {
+      if (item.transactionId === dep.transactionId) {
+        return {
+          ...item,
+          status: 'REJECTED',
+          statusLabel: 'Từ Chối (Admin)',
+          rejectedBy: currentUser?.name || currentUser?.full_name || 'Admin Ban Quản Trị',
+          rejectedAt: new Date().toLocaleString('vi-VN')
+        };
+      }
+      return item;
+    });
+    localStorage.setItem(pendingKey, JSON.stringify(updatedPending));
+    setPendingDeposits(updatedPending);
+
+    const ownerPayKey = `matruong_owner_payments_${targetKey}`;
+    const ownerPays = JSON.parse(localStorage.getItem(ownerPayKey) || '[]');
+    const updatedOwnerPays = ownerPays.map(p => {
+      if (p.transactionId === dep.transactionId) {
+        return {
+          ...p,
+          status: 'REJECTED',
+          statusLabel: 'Từ Chối (Admin)',
+          rejectedAt: new Date().toLocaleString('vi-VN')
+        };
+      }
+      return p;
+    });
+    localStorage.setItem(ownerPayKey, JSON.stringify(updatedOwnerPays));
+
+    window.dispatchEvent(new Event('matruong_owner_payments_updated'));
+    window.dispatchEvent(new Event('matruong_pending_deposits_updated'));
+
+    showToast(`Đã từ chối yêu cầu nạp tiền ${dep.transactionId}.`, 'ĐÃ TỪ CHỐI', 'info');
+  };
+
   // State danh sách ngựa quản lý
   const [horses, setHorses] = useState([]);
 

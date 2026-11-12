@@ -3247,10 +3247,11 @@ export async function registerRaceTournamentApi(ownerKey, nominationData) {
   const newNom = {
     ...nominationData,
     id: nominationData.id || `RN-REG-${Date.now().toString().slice(-4)}`,
-    nominationStatus: 'PENDING_TRAINER',
+    nominationStatus: nominationData.nominationStatus || nominationData.status || 'PENDING',
+    status: nominationData.status || nominationData.nominationStatus || 'PENDING',
     ownerKey: String(ownerKey)
   };
-  setLocalData(key, [newNom, ...list]);
+  setLocalData(key, [newNom, ...list.filter(s => s.id !== newNom.id)]);
 
   const systemList = await getSystemTournamentNominationsApi();
   setLocalData(SYSTEM_NOMINATIONS_KEY, [newNom, ...systemList.filter(s => s.id !== newNom.id)]);
@@ -3310,22 +3311,59 @@ export async function approveTournamentNominationApi(nominationId) {
   } catch {}
 
   const systemList = await getSystemTournamentNominationsApi();
+  let matchedNom = null;
   const updated = systemList.map(item => {
     if (item.id === nominationId) {
-      return {
+      matchedNom = {
         ...item,
-        status: 'APPROVED',
-        nominationStatus: 'APPROVED',
+        status: 'CONFIRMED',
+        nominationStatus: 'CONFIRMED',
+        feeApproved: true,
+        feeApprovalStatus: 'APPROVED',
         approvedAt: new Date().toLocaleString('vi-VN')
       };
+      return matchedNom;
     }
     return item;
   });
   setLocalData(SYSTEM_NOMINATIONS_KEY, updated);
 
+  // Đồng bộ sang kho lưu trữ của Chủ sở hữu
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('matruong_owner_races_')) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const oList = JSON.parse(raw);
+          if (Array.isArray(oList)) {
+            let oChanged = false;
+            const nextOList = oList.map(item => {
+              if (item.id === nominationId) {
+                oChanged = true;
+                return {
+                  ...item,
+                  status: 'CONFIRMED',
+                  nominationStatus: 'CONFIRMED',
+                  feeApproved: true,
+                  feeApprovalStatus: 'APPROVED',
+                  approvedAt: matchedNom?.approvedAt || new Date().toLocaleString('vi-VN')
+                };
+              }
+              return item;
+            });
+            if (oChanged) {
+              localStorage.setItem(k, JSON.stringify(nextOList));
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
-      detail: { nominationId, status: 'APPROVED' }
+      detail: { nominationId, status: 'CONFIRMED' }
     }));
   }
   return true;
@@ -3346,19 +3384,56 @@ export async function rejectTournamentNominationApi(nominationId, reason = 'Khô
   } catch {}
 
   const systemList = await getSystemTournamentNominationsApi();
+  let matchedNom = null;
   const updated = systemList.map(item => {
     if (item.id === nominationId) {
-      return {
+      matchedNom = {
         ...item,
         status: 'REJECTED',
         nominationStatus: 'REJECTED',
+        feeApproved: false,
+        feeApprovalStatus: 'REJECTED',
         rejectionReason: reason,
         rejectedAt: new Date().toLocaleString('vi-VN')
       };
+      return matchedNom;
     }
     return item;
   });
   setLocalData(SYSTEM_NOMINATIONS_KEY, updated);
+
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('matruong_owner_races_')) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const oList = JSON.parse(raw);
+          if (Array.isArray(oList)) {
+            let oChanged = false;
+            const nextOList = oList.map(item => {
+              if (item.id === nominationId) {
+                oChanged = true;
+                return {
+                  ...item,
+                  status: 'REJECTED',
+                  nominationStatus: 'REJECTED',
+                  feeApproved: false,
+                  feeApprovalStatus: 'REJECTED',
+                  rejectionReason: reason,
+                  rejectedAt: matchedNom?.rejectedAt || new Date().toLocaleString('vi-VN')
+                };
+              }
+              return item;
+            });
+            if (oChanged) {
+              localStorage.setItem(k, JSON.stringify(nextOList));
+            }
+          }
+        }
+      }
+    }
+  } catch {}
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
