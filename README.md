@@ -168,3 +168,86 @@ Trình duyệt sẽ mở tại địa chỉ: **`http://localhost:3000`**
    - Cấu hình máy chủ **Apache Tomcat 9.0.x** (hoặc Tomcat 10 với `javax.servlet`).
    - Bấm **Run** để khởi động máy chủ.
    - Endpoint kiểm tra: `http://localhost:8080/racehorse-backend/api/horses`
+
+---
+
+## 🌿 Quy Trình Phân Nhánh Git & Làm Việc Nhóm (Git Workflow)
+
+Để đảm bảo website luôn hoạt động ổn định 100%, không bị lỗi hay gián đoạn khi có thành viên nộp code, nhóm áp dụng mô hình phân nhánh chuẩn **Gitflow (Main & Dev)**:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                        NHÁNH MAIN (PRODUCTION)                         │
+│  - Luôn là phiên bản sạch, ổn định 100%, dùng để demo / chấm điểm      │
+│  - TUYỆT ĐỐI KHÔNG PUSH TRỰC TIẾP LÊN MAIN                             │
+└────────────────────────────────────▲───────────────────────────────────┘
+                                     │ (Chỉ Trưởng nhóm review, test xong mới gộp)
+┌────────────────────────────────────┴───────────────────────────────────┐
+│                       NHÁNH DEV (DEVELOPMENT)                          │
+│  - Nhánh làm việc chung của tất cả thành viên trong nhóm               │
+│  - Mọi tính năng mới, sửa lỗi đều tích hợp vào đây trước               │
+└────────────────────────────────────▲───────────────────────────────────┘
+                                     │ Push / Pull Request
+                     ┌───────────────┴───────────────┐
+                     │                               │
+             ┌───────┴───────┐               ┌───────┴───────┐
+             │ feature/chuc- │               │ feature/chuc- │
+             │   nang-A      │               │   nang-B      │
+             └───────────────┘               └───────────────┘
+```
+
+### 1. Quy tắc bắt buộc cho Thành viên nhóm:
+1. **Tuyệt đối không push trực tiếp lên `main`**: Nhánh `main` đã được cài đặt chế độ bảo vệ.
+2. **Luôn bắt đầu từ `dev`**: Trước khi code, luôn cập nhật code mới nhất từ nhánh `dev`.
+3. **Tạo nhánh riêng khi làm tính năng**: Đặt tên theo cú pháp `feature/ten-tinh-nang` hoặc `fix/ten-loi`.
+
+### 2. Các lệnh Git thành viên sử dụng hằng ngày:
+
+```bash
+# Bước 1: Chuyển về nhánh dev và cập nhật code mới nhất
+git checkout dev
+git pull origin dev
+
+# Bước 2: Tạo nhánh riêng để làm việc
+git checkout -b feature/tinh-nang-moi
+
+# Bước 3: Viết code, kiểm tra build trước khi commit
+cd frontend && npm run build   # Đảm bảo không có lỗi cú pháp
+git add .
+git commit -m "feat: mô tả công việc vừa làm"
+
+# Bước 4: Đẩy nhánh lên GitHub và tạo Pull Request (PR) vào nhánh dev
+git push origin feature/tinh-nang-moi
+```
+> Sau khi push, vào GitHub bấm **"Compare & pull request"** để gửi yêu cầu gộp vào nhánh `dev` cho Trưởng nhóm duyệt.
+
+---
+
+### 3. Quy trình Trưởng nhóm Kiểm tra & Gộp code sang `main`:
+
+Khi thành viên hoàn thành công việc và push lên `dev`:
+
+1. **Trưởng nhóm kéo `dev` về máy để test cục bộ:**
+   ```bash
+   git checkout dev
+   git pull origin dev
+   cd frontend && npm run build   # Kiểm tra tính toàn vẹn
+   ```
+
+2. **Nếu có xung đột (conflict) hoặc lỗi:**
+   - Trưởng nhóm sửa trực tiếp trên máy, test chạy thử mượt mà.
+   - Commit và push cập nhật lại lên `dev`:
+     ```bash
+     git add .
+     git commit -m "fix: giải quyết xung đột code nhánh dev"
+     git push origin dev
+     ```
+
+3. **Khi nhánh `dev` đã hoàn toàn ổn định, gộp an toàn vào `main`:**
+   ```bash
+   git checkout main
+   git pull origin main
+   git merge dev
+   git push origin main
+   ```
+   *(Lúc này nhánh `main` nhận code mới mà không bao giờ sợ bị lỗi hay sập trang web).*
