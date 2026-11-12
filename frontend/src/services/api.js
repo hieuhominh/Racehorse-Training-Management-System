@@ -2009,9 +2009,9 @@ export async function getVaccinationSchedulesApi() {
   }
 
   return getLocalData('matruong_vet_vaccines', [
-    { id: 1, horseName: 'Xích Thố', vaccineType: 'Cúm ngựa (Equine Influenza) liều 2', scheduledDate: '15/11/2026', status: 'SCHEDULED' },
-    { id: 2, horseName: 'Hắc Phong', vaccineType: 'Phòng uốn ván (Tetanus Toxoid)', scheduledDate: '20/11/2026', status: 'SCHEDULED' },
-    { id: 3, horseName: 'Bạch Long', vaccineType: 'Viêm não ngựa (EHV-1)', scheduledDate: '05/12/2026', status: 'PENDING' }
+    { id: 1, horseName: 'Xích Thố', vaccineType: 'Cúm ngựa (Equine Influenza) liều 2', scheduledDate: '15/11/2026', dueDate: '15/11/2026', dose: '2.0 ml (Tiêm bắp)', status: 'DUE_SOON', vetInCharge: 'BS. Nguyễn An' },
+    { id: 2, horseName: 'Hắc Phong', vaccineType: 'Phòng uốn ván (Tetanus Toxoid)', scheduledDate: '20/11/2026', dueDate: '20/11/2026', dose: '1.5 ml (Tiêm dưới da)', status: 'SCHEDULED', vetInCharge: 'BS. Nguyễn An' },
+    { id: 3, horseName: 'Bạch Long', vaccineType: 'Viêm não ngựa (EHV-1)', scheduledDate: '05/12/2026', dueDate: '05/12/2026', dose: '2.0 ml (Tiêm bắp)', status: 'SCHEDULED', vetInCharge: 'BS. Nguyễn An' }
   ]);
 }
 
