@@ -843,7 +843,7 @@ export default function VetPage() {
     setVaccines(prev => {
       const next = prev.map(v => {
         if (v.id === vacId) {
-          return { ...v, status: 'UP_TO_DATE', dueDate: '15/04/2027' };
+          return { ...v, status: 'UP_TO_DATE', dueDate: '15/04/2027', dose: v.dose || '2.0 ml', vetInCharge: v.vetInCharge || (currentUser?.full_name || 'Bác sĩ Thú y') };
         }
         return v;
       });
@@ -1149,7 +1149,7 @@ export default function VetPage() {
               }}>
                 <div style={{
                   background: 'var(--bg-secondary)',
-                  border: '1px solid var(--line)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
                   borderRadius: '8px',
                   padding: '12px 16px'
                 }}>
@@ -1163,7 +1163,7 @@ export default function VetPage() {
 
                 <div style={{
                   background: 'var(--bg-secondary)',
-                  border: '1px solid var(--line)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
                   borderRadius: '8px',
                   padding: '12px 16px'
                 }}>
@@ -1177,7 +1177,7 @@ export default function VetPage() {
 
                 <div style={{
                   background: 'var(--bg-secondary)',
-                  border: '1px solid var(--line)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
                   borderRadius: '8px',
                   padding: '12px 16px'
                 }}>
@@ -1191,7 +1191,7 @@ export default function VetPage() {
 
                 <div style={{
                   background: 'var(--bg-secondary)',
-                  border: '1px solid var(--line)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
                   borderRadius: '8px',
                   padding: '12px 16px'
                 }}>
@@ -1227,10 +1227,10 @@ export default function VetPage() {
                       <div
                         key={asgn.id || asgn.microchip}
                         style={{
-                          background: 'var(--bg-secondary)',
+                          background: 'rgba(255, 255, 255, 0.06)',
                           border: '1px solid rgba(16, 185, 129, 0.25)',
                           borderRadius: '6px',
-                          padding: '10px 14px',
+                          padding: '14px 18px',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '6px'
@@ -1253,7 +1253,7 @@ export default function VetPage() {
                                 setConfirmedHorseModal(full || asgn);
                               }}
                               style={{
-                                background: 'transparent',
+              
                                 color: 'var(--brass)',
                                 border: '1px solid rgba(212, 175, 55, 0.4)',
                                 padding: '4px 8px',
@@ -1299,7 +1299,7 @@ export default function VetPage() {
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--line)',
                 borderRadius: '8px',
-                padding: '10px 14px',
+                padding: '14px 18px',
                 marginBottom: '16px',
                 display: 'flex',
                 flexWrap: 'wrap',
@@ -1315,9 +1315,9 @@ export default function VetPage() {
                     placeholder="Tìm theo tên ngựa, mã chip, chủ sở hữu, chuồng..."
                     style={{
                       width: '100%',
-                      background: 'transparent',
+    
                       border: 'none',
-                      color: 'var(--paper)',
+                      color: '#FFFFFF',
                       fontSize: '12.5px',
                       outline: 'none'
                     }}
@@ -1394,9 +1394,12 @@ export default function VetPage() {
                       style={{
                         padding: '4px 8px',
                         borderRadius: '6px',
-                        border: '1px solid var(--line)',
+                        border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                    lineHeight: 1.55,
+                    outline: 'none',
+                    minHeight: '85px',
                         background: 'var(--bg-primary)',
-                        color: 'var(--paper)',
+                        color: '#FFFFFF',
                         fontSize: '11.5px',
                         outline: 'none',
                         cursor: 'pointer'
@@ -1461,7 +1464,7 @@ export default function VetPage() {
                       <div
                         key={h.id || h.microchip}
                         style={{
-                          background: 'var(--bg-secondary)',
+                          background: 'rgba(255, 255, 255, 0.06)',
                           border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.35)' : 'var(--line)'}`,
                           borderRadius: '10px',
                           padding: '14px 16px',
@@ -1563,7 +1566,10 @@ export default function VetPage() {
                           {/* Dòng máu & Phả hệ tóm tắt */}
                           <div style={{
                             background: 'rgba(0, 0, 0, 0.2)',
-                            border: '1px solid var(--line)',
+                            border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                    lineHeight: 1.55,
+                    outline: 'none',
+                    minHeight: '85px',
                             borderRadius: '6px',
                             padding: '8px 10px',
                             fontSize: '11.5px',
@@ -1610,9 +1616,9 @@ export default function VetPage() {
                               flex: 1,
                               padding: '7px 8px',
                               borderRadius: '5px',
-                              background: 'transparent',
+            
                               border: '1px solid var(--line-strong, #334155)',
-                              color: 'var(--paper)',
+                              color: '#FFFFFF',
                               fontSize: '11.5px',
                               fontWeight: 600,
                               cursor: 'pointer',
@@ -1788,7 +1794,7 @@ export default function VetPage() {
                         <div
                           key={asgn.id || asgn.microchip}
                           style={{
-                            background: 'var(--bg-secondary)',
+                            background: 'rgba(255, 255, 255, 0.06)',
                             border: '1px solid rgba(16, 185, 129, 0.4)',
                             borderRadius: '10px',
                             padding: '14px 18px',
@@ -1805,7 +1811,7 @@ export default function VetPage() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '6px' }}>
                               <b
                                 style={{
-                                  color: 'var(--paper)',
+                                  color: '#FFFFFF',
                                   fontSize: '15px',
                                   whiteSpace: 'nowrap',
                                   overflow: 'hidden',
@@ -1852,12 +1858,12 @@ export default function VetPage() {
                                   setConfirmedHorseModal(full || asgn);
                                 }}
                                 style={{
-                                  background: 'transparent',
+                
                                   color: 'var(--brass)',
                                   border: '1px solid rgba(212, 175, 55, 0.4)',
                                   padding: '5px 10px',
                                   borderRadius: '5px',
-                                  fontSize: '11.5px',
+                                  fontSize: '11px',
                                   fontWeight: 700,
                                   cursor: 'pointer',
                                   whiteSpace: 'nowrap'
@@ -1874,7 +1880,7 @@ export default function VetPage() {
                                   border: 'none',
                                   padding: '5px 12px',
                                   borderRadius: '5px',
-                                  fontSize: '11.5px',
+                                  fontSize: '11px',
                                   fontWeight: 800,
                                   cursor: 'pointer',
                                   boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
@@ -1990,7 +1996,9 @@ export default function VetPage() {
                   textAlign: 'center',
                   background: 'var(--bg-card)',
                   border: '1.5px dashed var(--line-strong)',
-                  borderRadius: '12px',
+                  borderRadius: '16px',
+              background: 'var(--bg-card, #20362B)',
+              padding: '26px 30px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -2136,8 +2144,11 @@ export default function VetPage() {
                       {/* Chỉ số sinh tồn sơ bộ do Groom ghi nhận */}
                       {inc.vitalSigns && (
                         <div style={{
-                          background: 'var(--bg-secondary)',
-                          border: '1px solid var(--line)',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                    lineHeight: 1.55,
+                    outline: 'none',
+                    minHeight: '85px',
                           borderRadius: '6px',
                           padding: '8px 10px',
                           marginBottom: '10px',
@@ -2227,9 +2238,10 @@ export default function VetPage() {
                             color: isPending ? '#000000' : 'var(--paper)',
                             fontWeight: 700,
                             borderRadius: '6px',
-                            border: '1px solid var(--line)',
+                            border: isPending ? 'none' : '1px solid var(--line)',
                             cursor: 'pointer',
-                            fontSize: '12.5px'
+                            fontSize: '12.5px',
+                            whiteSpace: 'nowrap'
                           }}
                         >
                           {isPending ? 'Xác Nhận & Thăm Khám' : 'Cập nhật diễn biến'}
@@ -2244,12 +2256,13 @@ export default function VetPage() {
                           style={{
                             padding: '8px 12px',
                             background: 'var(--bg-secondary)',
-                            color: 'var(--paper)',
+                            color: 'var(--paper-dim)',
+                            border: '1px solid var(--line)',
                             fontWeight: 600,
                             borderRadius: '6px',
-                            border: '1px solid var(--line)',
                             cursor: 'pointer',
-                            fontSize: '12px'
+                            fontSize: '12px',
+                            whiteSpace: 'nowrap'
                           }}
                           title="Kích hoạt lệnh cấm tập nặng ngay lập tức"
                         >
@@ -2337,7 +2350,7 @@ export default function VetPage() {
                     Hồ sơ Điều trị: <span style={{ color: 'var(--brass)' }}>{selectedAnatomy?.nameVi}</span>
                   </h3>
 
-                  <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '18px 20px', borderRadius: '12px', border: '1px solid rgba(232, 237, 232, 0.15)', marginBottom: '20px' }}>
                     <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>Mô tả bệnh học thể thao:</div>
                     <div style={{ fontSize: '13.5px', color: 'var(--paper)', margin: '6px 0', lineHeight: '1.45' }}>
                       {selectedAnatomy?.descVi}
@@ -2385,9 +2398,10 @@ export default function VetPage() {
                     }}
                     style={{
                       width: '100%',
-                      padding: '10px',
+                      padding: '12px 16px',
                       background: 'var(--brass)',
-                      color: '#000',
+                      color: '#0A0D14',
+                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)',
                       fontWeight: 700,
                       borderRadius: '6px',
                       border: 'none',
@@ -2423,9 +2437,12 @@ export default function VetPage() {
                     style={{
                       padding: '8px 12px',
                       borderRadius: '6px',
-                      border: '1px solid var(--line)',
-                      background: 'var(--bg-secondary)',
-                      color: 'var(--paper)',
+                      border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                    lineHeight: 1.55,
+                    outline: 'none',
+                    minHeight: '85px',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      color: '#FFFFFF',
                       fontSize: '13px',
                       width: '240px'
                     }}
@@ -2434,18 +2451,18 @@ export default function VetPage() {
               </div>
 
               {/* Bảng danh sách khóa y tế */}
-              <div className="facility-card" style={{ padding: 0, overflowX: 'auto', border: '1px solid var(--line)', borderRadius: '10px' }}>
-                <table style={{ width: '100%', minWidth: '1150px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <div className="facility-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--line)', borderRadius: '10px', width: '100%' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', tableLayout: 'auto' }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <th style={{ padding: '14px 16px', minWidth: '170px', whiteSpace: 'nowrap' }}>Chiến mã</th>
-                      <th style={{ padding: '14px 16px', minWidth: '140px', whiteSpace: 'nowrap' }}>Chủ sở hữu</th>
-                      <th style={{ padding: '14px 16px', minWidth: '145px', whiteSpace: 'nowrap' }}>Mã Chip RFID</th>
-                      <th style={{ padding: '14px 16px', minWidth: '95px', whiteSpace: 'nowrap' }}>Ô Chuồng</th>
-                      <th style={{ padding: '14px 16px', minWidth: '150px', whiteSpace: 'nowrap' }}>Sinh hiệu nghỉ</th>
-                      <th style={{ padding: '14px 16px', minWidth: '160px', whiteSpace: 'nowrap' }}>Tình trạng Khóa Y Tế</th>
-                      <th style={{ padding: '14px 16px', minWidth: '220px' }}>Lý do / Phác đồ</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'right', minWidth: '220px', whiteSpace: 'nowrap' }}>Thao tác Bác sĩ</th>
+                      <th style={{ padding: '12px 14px', width: '16%' }}>Chiến mã</th>
+                      <th style={{ padding: '12px 10px', width: '13%' }}>Chủ sở hữu</th>
+                      <th style={{ padding: '12px 10px', width: '11%' }}>Mã Chip RFID</th>
+                      <th style={{ padding: '12px 10px', width: '8%' }}>Ô Chuồng</th>
+                      <th style={{ padding: '12px 10px', width: '11%' }}>Sinh hiệu</th>
+                      <th style={{ padding: '12px 10px', width: '13%' }}>Tình trạng</th>
+                      <th style={{ padding: '12px 10px', width: '14%' }}>Lý do / Phác đồ</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right', width: '14%' }}>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2476,7 +2493,7 @@ export default function VetPage() {
                               </div>
                             </div>
                           </td>
-                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
                             <b style={{ color: 'var(--brass)', fontSize: '13px', whiteSpace: 'nowrap' }}>{h.owner || h.ownerName || 'Chủ sở hữu'}</b>
                           </td>
                           <td style={{ padding: '14px 16px', fontFamily: 'monospace', color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle', fontSize: '12.5px' }}>
@@ -2489,7 +2506,7 @@ export default function VetPage() {
                             <div style={{ whiteSpace: 'nowrap' }}>Nhịp tim: <b style={{ color: 'var(--paper)' }}>{h.restingHeartRate || '38 bpm'}</b></div>
                             <div style={{ whiteSpace: 'nowrap', marginTop: '2px' }}>Thân nhiệt: <b style={{ color: 'var(--paper)' }}>{h.tempCelsius || '38.0'}°C</b></div>
                           </td>
-                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
                             <span style={{
                               padding: '4px 10px',
                               borderRadius: '4px',
@@ -2513,7 +2530,7 @@ export default function VetPage() {
                               <span style={{ color: 'var(--paper-dim)' }}>Sinh hiệu bình thường, không có lệnh cấm.</span>
                             )}
                           </td>
-                          <td style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '12px 14px', textAlign: 'right', verticalAlign: 'middle' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
                               <button
                                 type="button"
@@ -2522,16 +2539,17 @@ export default function VetPage() {
                                   setConfirmedHorseModal(full);
                                 }}
                                 style={{
-                                  width: '92px',
-                                  height: '32px',
+                                  width: '84px',
+                                  height: '30px',
+                
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   borderRadius: '5px',
                                   fontWeight: 700,
-                                  fontSize: '11.5px',
+                                  fontSize: '11px',
                                   cursor: 'pointer',
-                                  background: 'transparent',
+                
                                   color: 'var(--brass)',
                                   border: '1px solid var(--brass)',
                                   whiteSpace: 'nowrap',
@@ -2547,14 +2565,15 @@ export default function VetPage() {
                                 type="button"
                                 onClick={() => handleOpenLockModal(h)}
                                 style={{
-                                  width: '138px',
-                                  height: '32px',
+                                  width: '124px',
+                                  height: '30px',
+                
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   borderRadius: '5px',
                                   fontWeight: 700,
-                                  fontSize: '11.5px',
+                                  fontSize: '11px',
                                   cursor: 'pointer',
                                   background: isLocked ? 'var(--brass)' : 'var(--bg-secondary)',
                                   color: isLocked ? '#0A0D14' : 'var(--paper)',
@@ -2591,33 +2610,37 @@ export default function VetPage() {
                 </div>
               </div>
 
-              <div className="facility-card" style={{ padding: 0, overflowX: 'auto', border: '1px solid var(--line)', borderRadius: '10px' }}>
-                <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <div className="facility-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--line)', borderRadius: '10px', width: '100%' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', tableLayout: 'auto' }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <th style={{ padding: '14px 16px', minWidth: '150px', whiteSpace: 'nowrap' }}>Chiến mã</th>
-                      <th style={{ padding: '14px 16px', minWidth: '180px', whiteSpace: 'nowrap' }}>Loại Vaccine / Dịch vụ</th>
-                      <th style={{ padding: '14px 16px', minWidth: '140px', whiteSpace: 'nowrap' }}>Liều lượng chỉ định</th>
-                      <th style={{ padding: '14px 16px', minWidth: '130px', whiteSpace: 'nowrap' }}>Hạn tiêm kế tiếp</th>
-                      <th style={{ padding: '14px 16px', minWidth: '130px', whiteSpace: 'nowrap' }}>Tình trạng</th>
-                      <th style={{ padding: '14px 16px', minWidth: '140px', whiteSpace: 'nowrap' }}>Bác sĩ phụ trách</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'right', minWidth: '140px', whiteSpace: 'nowrap' }}>Xác nhận</th>
+                      <th style={{ padding: '12px 14px', width: '15%' }}>Chiến mã</th>
+                      <th style={{ padding: '12px 14px', width: '25%' }}>Loại Vaccine / Dịch vụ</th>
+                      <th style={{ padding: '12px 10px', width: '13%' }}>Liều lượng</th>
+                      <th style={{ padding: '12px 10px', width: '13%' }}>Hạn tiêm kế tiếp</th>
+                      <th style={{ padding: '12px 10px', width: '12%' }}>Tình trạng</th>
+                      <th style={{ padding: '12px 10px', width: '11%' }}>Bác sĩ phụ trách</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right', width: '11%' }}>Xác nhận</th>
                     </tr>
                   </thead>
                   <tbody>
                     {vaccines.map((v) => {
+                      const isCompleted = v.status === 'UP_TO_DATE' || v.status === 'COMPLETED';
                       const isOverdue = v.status === 'OVERDUE';
                       const isDueSoon = v.status === 'DUE_SOON';
                       const needsAttention = isOverdue || isDueSoon;
-                      const statusText = isOverdue ? 'QUÁ HẠN TIÊM' : isDueSoon ? 'SẮP ĐẾN HẠN' : 'ĐÃ HOÀN TẤT';
+                      const statusText = isCompleted ? 'ĐÃ HOÀN TẤT' : isOverdue ? 'QUÁ HẠN TIÊM' : isDueSoon ? 'SẮP ĐẾN HẠN' : 'CHỜ TIÊM';
+                      const badgeBg = isCompleted ? 'rgba(16, 185, 129, 0.12)' : isOverdue ? 'rgba(239, 68, 68, 0.12)' : isDueSoon ? 'rgba(245, 158, 11, 0.12)' : 'rgba(59, 130, 246, 0.12)';
+                      const badgeColor = isCompleted ? '#10B981' : isOverdue ? '#EF4444' : isDueSoon ? '#F59E0B' : '#60A5FA';
+                      const badgeBorder = isCompleted ? 'rgba(16, 185, 129, 0.35)' : isOverdue ? 'rgba(239, 68, 68, 0.35)' : isDueSoon ? 'rgba(245, 158, 11, 0.35)' : 'rgba(59, 130, 246, 0.35)';
 
                       return (
                         <tr key={v.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--brass)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.horseName}</td>
-                          <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.vaccineType}</td>
-                          <td style={{ padding: '14px 16px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.dose}</td>
-                          <td style={{ padding: '14px 16px', fontWeight: 700, color: needsAttention ? 'var(--brass)' : 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.dueDate}</td>
-                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}><b style={{ color: 'var(--brass)', fontSize: '13.5px' }}>{v.horseName}</b></td>
+                          <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--paper)', verticalAlign: 'middle', lineHeight: 1.35 }}>{v.vaccineType}</td>
+                          <td style={{ padding: '12px 10px', color: 'var(--paper-dim)', verticalAlign: 'middle', fontSize: '12.5px' }}>{v.dose || '2.0 ml (Tiêm bắp)'}</td>
+                          <td style={{ padding: '12px 10px', fontWeight: 600, color: (isOverdue || isDueSoon) ? 'var(--brass)' : 'var(--paper)', verticalAlign: 'middle', fontSize: '12.5px' }}>{v.dueDate || v.scheduledDate || '15/11/2026'}</td>
+                          <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
                             <span style={{
                               padding: '3px 8px',
                               borderRadius: '4px',
@@ -2625,32 +2648,33 @@ export default function VetPage() {
                               fontWeight: 700,
                               whiteSpace: 'nowrap',
                               display: 'inline-block',
-                              background: needsAttention ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                              color: needsAttention ? 'var(--brass)' : 'var(--paper-dim)',
-                              border: `1px solid ${needsAttention ? 'var(--brass)' : 'var(--line)'}`
+                              background: badgeBg,
+                              color: badgeColor,
+                              border: `1px solid ${badgeBorder}`
                             }}>
                               {statusText}
                             </span>
                           </td>
-                          <td style={{ padding: '14px 16px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{v.vetInCharge}</td>
-                          <td style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-                            {v.status !== 'UP_TO_DATE' ? (
+                          <td style={{ padding: '12px 10px', color: 'var(--paper-dim)', verticalAlign: 'middle', fontSize: '12px' }}>{v.vetInCharge || currentUser?.full_name || 'BS. Nguyễn An'}</td>
+                          <td style={{ padding: '12px 14px', textAlign: 'right', verticalAlign: 'middle' }}>
+                            {!isCompleted ? (
                               <button
                                 type="button"
                                 onClick={() => handleMarkVaccineDone(v.id)}
                                 style={{
-                                  padding: '6px 12px',
+                                  padding: '5px 10px',
                                   borderRadius: '5px',
                                   background: 'var(--brass)',
-                                  color: '#000',
+                                  color: '#0A0D14',
+                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)',
                                   fontWeight: 700,
-                                  fontSize: '11.5px',
+                                  fontSize: '11px',
                                   border: 'none',
                                   cursor: 'pointer',
                                   whiteSpace: 'nowrap'
                                 }}
                               >
-                                ✓ Xác nhận đã tiêm
+                                ✓ Xác nhận tiêm
                               </button>
                             ) : (
                               <span style={{ color: '#10B981', fontWeight: 700, fontSize: '11.5px', whiteSpace: 'nowrap' }}>✓ Hợp lệ</span>
@@ -2682,7 +2706,8 @@ export default function VetPage() {
                     padding: '9px 16px',
                     borderRadius: '6px',
                     background: 'var(--brass)',
-                    color: '#000',
+                    color: '#0A0D14',
+                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)',
                     fontWeight: 700,
                     border: 'none',
                     cursor: 'pointer'
@@ -2744,17 +2769,17 @@ export default function VetPage() {
                 </div>
               </div>
 
-              <div className="facility-card" style={{ padding: 0, overflowX: 'auto', border: '1px solid var(--line)', borderRadius: '10px' }}>
-                <table style={{ width: '100%', minWidth: '1050px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <div className="facility-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--line)', borderRadius: '10px', width: '100%' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', tableLayout: 'auto' }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <th style={{ padding: '14px 16px', minWidth: '150px', whiteSpace: 'nowrap' }}>Chiến mã</th>
-                      <th style={{ padding: '14px 16px', minWidth: '220px', whiteSpace: 'nowrap' }}>Giải Đua Đăng Ký</th>
-                      <th style={{ padding: '14px 16px', minWidth: '90px', whiteSpace: 'nowrap' }}>Cự ly</th>
-                      <th style={{ padding: '14px 16px', minWidth: '110px', whiteSpace: 'nowrap' }}>Ngày đua</th>
-                      <th style={{ padding: '14px 16px', minWidth: '180px', whiteSpace: 'nowrap' }}>Trạng thái Phê duyệt</th>
-                      <th style={{ padding: '14px 16px', minWidth: '220px' }}>Kết luận Bác sĩ Thú y</th>
-                      <th style={{ padding: '14px 16px', textAlign: 'right', minWidth: '170px', whiteSpace: 'nowrap' }}>Hành động</th>
+                      <th style={{ padding: '12px 14px', width: '15%' }}>Chiến mã</th>
+                      <th style={{ padding: '12px 14px', width: '23%' }}>Giải Đua Đăng Ký</th>
+                      <th style={{ padding: '12px 10px', width: '8%' }}>Cự ly</th>
+                      <th style={{ padding: '12px 10px', width: '10%' }}>Ngày đua</th>
+                      <th style={{ padding: '12px 10px', width: '16%' }}>Trạng thái Phê duyệt</th>
+                      <th style={{ padding: '12px 12px', width: '17%' }}>Kết luận Bác sĩ Thú y</th>
+                      <th style={{ padding: '12px 14px', textAlign: 'right', width: '12%' }}>Hành động</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2766,11 +2791,11 @@ export default function VetPage() {
 
                       return (
                         <tr key={rc.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--brass)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{rc.horseName}</td>
-                          <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--paper)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{rc.raceName}</td>
-                          <td style={{ padding: '14px 16px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{rc.distance}</td>
-                          <td style={{ padding: '14px 16px', color: 'var(--paper-dim)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{rc.date}</td>
-                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--brass)', verticalAlign: 'middle' }}>{rc.horseName}</td>
+                          <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--paper)', verticalAlign: 'middle', lineHeight: 1.35 }}>{rc.raceName}</td>
+                          <td style={{ padding: '12px 10px', color: 'var(--paper-dim)', verticalAlign: 'middle' }}>{rc.distance}</td>
+                          <td style={{ padding: '12px 10px', color: 'var(--paper-dim)', verticalAlign: 'middle' }}>{rc.date}</td>
+                          <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
                             <span style={{
                               padding: '4px 8px',
                               borderRadius: '4px',
@@ -2785,16 +2810,16 @@ export default function VetPage() {
                               {statusLabel}
                             </span>
                           </td>
-                          <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--paper)', maxWidth: '280px', verticalAlign: 'middle', lineHeight: 1.45 }}>
+                          <td style={{ padding: '12px 12px', fontSize: '12px', color: 'var(--paper)', verticalAlign: 'middle', lineHeight: 1.45 }}>
                             {rc.notes}
                           </td>
-                          <td style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '12px 14px', textAlign: 'right', verticalAlign: 'middle' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', whiteSpace: 'nowrap' }}>
                               <button
                                 type="button"
                                 onClick={() => handleApproveClearance(rc)}
                                 style={{
-                                  padding: '6px 12px',
+                                  padding: '5px 10px',
                                   borderRadius: '4px',
                                   background: 'var(--brass)',
                                   color: '#0A0D14',
@@ -2810,11 +2835,14 @@ export default function VetPage() {
                                 type="button"
                                 onClick={() => handleRejectClearance(rc)}
                                 style={{
-                                  padding: '6px 12px',
+                                  padding: '5px 10px',
                                   borderRadius: '4px',
-                                  background: 'var(--bg-secondary)',
-                                  color: 'var(--paper)',
-                                  border: '1px solid var(--line)',
+                                  background: 'rgba(255, 255, 255, 0.06)',
+                                  color: '#FFFFFF',
+                                  border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                    lineHeight: 1.55,
+                    outline: 'none',
+                    minHeight: '85px',
                                   fontWeight: 600,
                                   cursor: 'pointer',
                                   fontSize: '11.5px'
@@ -2844,16 +2872,18 @@ export default function VetPage() {
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: '680px',
+              maxWidth: '720px',
               width: '92%',
               maxHeight: '90vh',
               overflowY: 'auto',
-              borderRadius: '12px',
-              border: selectedIncidentModal.severity === 'CRITICAL' ? '1px solid #EF4444' : '1px solid var(--line)',
-              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.75)'
+              borderRadius: '16px',
+              background: 'var(--bg-card, #20362B)',
+              padding: '26px 30px',
+              border: selectedIncidentModal.severity === 'CRITICAL' ? '1.5px solid #EF4444' : '1.5px solid rgba(232, 107, 44, 0.45)',
+              boxShadow: '0 25px 70px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08)'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(232, 237, 232, 0.15)', paddingBottom: '16px', marginBottom: '20px' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <h3 style={{ margin: 0, fontSize: '16px', color: '#FFFFFF', fontWeight: 800, textTransform: 'uppercase' }}>
@@ -2879,13 +2909,18 @@ export default function VetPage() {
                 type="button"
                 onClick={() => setSelectedIncidentModal(null)}
                 style={{
-                  background: 'transparent',
-                  border: '1px solid var(--line)',
-                  color: 'var(--paper-dim)',
-                  width: '30px',
-                  height: '30px',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
                 }}
               >
                 ✕
@@ -2893,12 +2928,12 @@ export default function VetPage() {
             </div>
 
             {/* Thông tin Groom ghi nhận tại hiện trường */}
-            <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', fontSize: '12.5px', marginBottom: '10px' }}>
-                <div>Chiến mã: <b style={{ color: 'var(--paper)' }}>{selectedIncidentModal.horseName}</b></div>
-                <div>Vị trí: <b style={{ color: 'var(--brass)' }}>{selectedIncidentModal.stall || `Ô chuồng ${selectedIncidentModal.stallCode}`}</b></div>
-                <div>Người lập báo động: <b style={{ color: 'var(--paper)' }}>{selectedIncidentModal.reportedBy}</b></div>
-                <div>Trạng thái hiện tại: <b style={{ color: selectedIncidentModal.status === 'resolved' ? '#10B981' : '#F59E0B' }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '18px 20px', borderRadius: '12px', border: '1px solid rgba(232, 237, 232, 0.15)', marginBottom: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px', fontSize: '13px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ color: 'rgba(232, 237, 232, 0.7)' }}>Chiến mã:</span><b style={{ color: 'var(--brass)', fontSize: '14.5px' }}>{selectedIncidentModal.horseName}</b></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ color: 'rgba(232, 237, 232, 0.7)' }}>Vị trí:</span><b style={{ color: '#FFFFFF', background: 'rgba(255, 255, 255, 0.08)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.15)' }}>{selectedIncidentModal.stall || `Ô chuồng ${selectedIncidentModal.stallCode}`}</b></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ color: 'rgba(232, 237, 232, 0.7)' }}>Người lập báo động:</span><b style={{ color: '#FFFFFF' }}>{selectedIncidentModal.reportedBy}</b></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ color: 'rgba(232, 237, 232, 0.7)' }}>Trạng thái:</span><b style={{ color: selectedIncidentModal.status === 'resolved' ? '#10B981' : '#FBBF24', background: selectedIncidentModal.status === 'resolved' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '4px', border: `1px solid ${selectedIncidentModal.status === 'resolved' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`, fontSize: '12px' }}>
                   {selectedIncidentModal.status === 'resolved' ? 'Đã hoàn tất khám' : (selectedIncidentModal.status === 'in_review' ? 'Đang tiếp nhận thăm khám' : 'Chờ Bác sĩ khám')}
                 </b></div>
               </div>
@@ -2906,38 +2941,38 @@ export default function VetPage() {
               {/* Chỉ số sinh tồn nếu có */}
               {selectedIncidentModal.vitalSigns && (
                 <div style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--line)',
-                  borderRadius: '6px',
-                  padding: '8px 12px',
-                  marginBottom: '10px',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '14px',
                   display: 'grid',
                   gridTemplateColumns: 'repeat(4, 1fr)',
-                  gap: '8px',
-                  fontSize: '11px'
+                  gap: '12px',
+                  fontSize: '12px'
                 }}>
                   <div>
-                    <span style={{ color: 'var(--paper-dim)' }}>Thân nhiệt:</span>
-                    <div style={{ fontWeight: 700, color: '#EF4444' }}>{selectedIncidentModal.vitalSigns.temp}</div>
+                    <span style={{ color: 'rgba(232, 237, 232, 0.7)', fontSize: '11px' }}>Thân nhiệt:</span>
+                    <div style={{ fontWeight: 700, color: '#EF4444', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.temp}</div>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--paper-dim)' }}>Nhịp thở:</span>
-                    <div style={{ fontWeight: 700, color: 'var(--paper)' }}>{selectedIncidentModal.vitalSigns.respRate}</div>
+                    <span style={{ color: 'rgba(232, 237, 232, 0.7)', fontSize: '11px' }}>Nhịp thở:</span>
+                    <div style={{ fontWeight: 700, color: '#FFFFFF', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.respRate}</div>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--paper-dim)' }}>Niêm mạc:</span>
-                    <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{selectedIncidentModal.vitalSigns.mucousColor}</div>
+                    <span style={{ color: 'rgba(232, 237, 232, 0.7)', fontSize: '11px' }}>Niêm mạc:</span>
+                    <div style={{ fontWeight: 600, color: '#FFFFFF', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.mucousColor}</div>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--paper-dim)' }}>Nhu động ruột:</span>
-                    <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{selectedIncidentModal.vitalSigns.gutSounds}</div>
+                    <span style={{ color: 'rgba(232, 237, 232, 0.7)', fontSize: '11px' }}>Nhu động ruột:</span>
+                    <div style={{ fontWeight: 600, color: '#FFFFFF', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.gutSounds}</div>
                   </div>
                 </div>
               )}
 
               {/* Triệu chứng và sơ cứu */}
-              <div style={{ fontSize: '12px', color: 'var(--paper)', marginBottom: '8px' }}>
-                <b>Triệu chứng:</b> {Array.isArray(selectedIncidentModal.symptoms) ? selectedIncidentModal.symptoms.join(', ') : selectedIncidentModal.symptoms}
+              <div style={{ fontSize: '13px', color: '#FFFFFF', marginBottom: '10px' }}>
+                <span style={{ color: 'rgba(232, 237, 232, 0.7)', marginRight: '6px' }}>Triệu chứng:</span><span style={{ background: 'rgba(232, 107, 44, 0.15)', color: 'var(--brass)', padding: '2px 10px', borderRadius: '4px', border: '1px solid rgba(232, 107, 44, 0.35)', fontWeight: 700, fontSize: '12.5px' }}>{Array.isArray(selectedIncidentModal.symptoms) ? selectedIncidentModal.symptoms.join(' · ') : selectedIncidentModal.symptoms}</span>
               </div>
 
               {selectedIncidentModal.firstAidActions && selectedIncidentModal.firstAidActions.length > 0 && (
@@ -2946,35 +2981,36 @@ export default function VetPage() {
                 </div>
               )}
 
-              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.45, borderTop: '1px dashed var(--line)', paddingTop: '8px' }}>
-                <b>Mô tả của Groom:</b> {selectedIncidentModal.description}
+              <div style={{ fontSize: '13px', color: '#E8EDE8', lineHeight: 1.55, background: 'rgba(0, 0, 0, 0.25)', padding: '12px 16px', borderRadius: '8px', borderLeft: '3px solid var(--brass)', marginTop: '12px' }}>
+                <b style={{ color: 'var(--brass)' }}>Mô tả của Groom:</b> {selectedIncidentModal.description}
               </div>
             </div>
 
             {/* Thanh xác nhận tiếp nhận nhanh */}
             {selectedIncidentModal.status === 'pending_vet' && (
               <div style={{
-                background: 'rgba(245, 158, 11, 0.08)',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1.5px solid rgba(245, 158, 11, 0.45)',
                 borderRadius: '8px',
-                padding: '10px 14px',
+                padding: '14px 18px',
                 marginBottom: '16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '12px'
               }}>
-                <div style={{ fontSize: '12px', color: '#F59E0B' }}>
+                <div style={{ fontSize: '13px', color: '#FBBF24', lineHeight: 1.45, fontWeight: 500 }}>
                   Xác nhận tiếp nhận thông tin để Groom và Chủ sở hữu biết Bác sĩ đang trực tiếp đến ô chuồng.
                 </div>
                 <button
                   type="button"
                   onClick={() => handleAcceptIncident(selectedIncidentModal)}
                   style={{
-                    padding: '7px 14px',
+                    padding: '8px 16px',
                     borderRadius: '6px',
                     background: '#F59E0B',
-                    color: '#000',
+                    color: '#0A0D14',
+                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)',
                     fontWeight: 700,
                     border: 'none',
                     fontSize: '11.5px',
@@ -2989,7 +3025,7 @@ export default function VetPage() {
 
             <form onSubmit={handleResolveIncident}>
               <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--paper)', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '8px' }}>
                   Chẩn đoán lâm sàng của Bác sĩ Thú y: <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <textarea
@@ -2999,11 +3035,14 @@ export default function VetPage() {
                   placeholder="Ví dụ: Đau bụng nhẹ do ăn quá nhanh / Viêm bao gân cổ chân độ 1 / Trầy xước mô mềm không tổn thương khớp..."
                   style={{
                     width: '100%',
-                    padding: '10px',
+                    padding: '12px 16px',
                     borderRadius: '6px',
-                    border: '1px solid var(--line)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--paper)',
+                    border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                    lineHeight: 1.55,
+                    outline: 'none',
+                    minHeight: '85px',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    color: '#FFFFFF',
                     fontSize: '13px',
                     boxSizing: 'border-box'
                   }}
@@ -3012,7 +3051,7 @@ export default function VetPage() {
               </div>
 
               <div style={{ marginBottom: '18px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--paper)', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '8px' }}>
                   Biện pháp xử lý, Phác đồ điều trị & Y lệnh cho Groom: <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <textarea
@@ -3022,11 +3061,14 @@ export default function VetPage() {
                   placeholder="Ví dụ: Tiêm giảm đau chống co thắt Buscopan 20ml, cho nhịn ăn tinh 12h, Groom tiếp tục dắt đi bộ chậm 15 phút mỗi 2 tiếng và theo dõi nhu động ruột..."
                   style={{
                     width: '100%',
-                    padding: '10px',
+                    padding: '12px 16px',
                     borderRadius: '6px',
-                    border: '1px solid var(--line)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--paper)',
+                    border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                    lineHeight: 1.55,
+                    outline: 'none',
+                    minHeight: '85px',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    color: '#FFFFFF',
                     fontSize: '13px',
                     boxSizing: 'border-box'
                   }}
@@ -3034,17 +3076,17 @@ export default function VetPage() {
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid var(--line)', paddingTop: '12px' }}>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', borderTop: '1px solid rgba(232, 237, 232, 0.15)', paddingTop: '18px', marginTop: '10px' }}>
                 <button
                   type="button"
                   onClick={() => setSelectedIncidentModal(null)}
-                  style={{ padding: '8px 18px', borderRadius: '6px', background: 'transparent', color: 'var(--paper-dim)', border: '1px solid var(--line)', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600 }}
+                  style={{ padding: '10px 22px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.08)', color: '#E8EDE8', border: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s ease' }}
                 >
                   Đóng
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: '8px 22px', borderRadius: '6px', background: 'var(--brass)', color: '#000', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '12.5px' }}
+                  style={{ padding: '10px 24px', borderRadius: '8px', background: 'var(--brass)', color: '#0A0D14', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '13px', letterSpacing: '0.02em', boxShadow: '0 4px 14px rgba(232, 107, 44, 0.4)', transition: 'all 0.2s ease' }}
                 >
                   XÁC NHẬN & BAN HÀNH PHÁC ĐỒ ĐIỀU TRỊ
                 </button>
@@ -3058,72 +3100,90 @@ export default function VetPage() {
       {/* MODAL 2: KHÓA AN TOÀN Y TẾ (COMPACT & CLEAN) */}
       {/* ========================================================================= */}
       {lockModalTarget && (
-        <div className="modal-overlay" onClick={() => setLockModalTarget(null)}>
+        <div className="modal-overlay" onClick={() => setLockModalTarget(null)} style={{ zIndex: 1150 }}>
           <div
             className="modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: '440px',
-              width: '90%',
-              padding: '20px 22px',
-              border: '1px solid var(--line-strong)',
-              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)'
+              maxWidth: '480px',
+              width: '92%',
+              padding: '24px 28px',
+              borderRadius: '16px',
+              background: 'var(--bg-card, #20362B)',
+              border: '1.5px solid #EF4444',
+              boxShadow: '0 25px 70px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(239, 68, 68, 0.2)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--brass)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(232, 237, 232, 0.15)', paddingBottom: '14px', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#EF4444', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase' }}>
                 <span>🔒 Khóa Y Tế · {lockModalTarget.name}</span>
-                <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 600 }}>Ô {lockModalTarget.stable}</span>
+                <span style={{ fontSize: '12px', color: '#FFFFFF', background: 'rgba(255, 255, 255, 0.12)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.2)' }}>
+                  Ô {lockModalTarget.stable}
+                </span>
               </h3>
               <button
                 type="button"
                 onClick={() => setLockModalTarget(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '18px', cursor: 'pointer', lineHeight: 1 }}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
+                }}
               >
                 ✕
               </button>
             </div>
 
-            <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 14px', lineHeight: 1.4 }}>
-              Đình chỉ tập luyện và cấm thi đấu ngay lập tức.
-            </p>
+            <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', color: '#FCA5A5', fontSize: '13px', lineHeight: 1.5 }}>
+              ⚠️ <b>Quyền phủ quyết Y tế:</b> Lệnh này sẽ đình chỉ việc tập luyện và cấm thi đấu ngay lập tức trên toàn hệ thống cho đến khi Thú y gỡ khóa.
+            </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--paper)', marginBottom: '6px' }}>
-                Lý do khóa:
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '8px' }}>
+                Lý do kích hoạt khóa y tế: <span style={{ color: '#EF4444' }}>*</span>
               </label>
               <textarea
-                rows="2"
+                rows="3"
                 value={lockReasonInput}
                 onChange={(e) => setLockReasonInput(e.target.value)}
-                placeholder="Nhập lý do chấn thương hoặc cách ly..."
+                placeholder="Nhập lý do chấn thương hoặc cách ly y tế..."
                 style={{
                   width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--line)',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--paper)',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  color: '#FFFFFF',
                   fontFamily: 'inherit',
-                  fontSize: '12.5px',
-                  lineHeight: 1.45,
-                  resize: 'none'
+                  fontSize: '13px',
+                  lineHeight: 1.5,
+                  resize: 'none',
+                  boxSizing: 'border-box'
                 }}
                 required
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(232, 237, 232, 0.15)', paddingTop: '16px' }}>
               <button
                 type="button"
                 onClick={() => setLockModalTarget(null)}
                 style={{
-                  padding: '7px 14px',
-                  borderRadius: '6px',
-                  background: 'transparent',
-                  color: 'var(--paper-dim)',
-                  border: '1px solid var(--line)',
-                  fontSize: '12.5px',
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: '#FFFFFF',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  fontSize: '13px',
                   fontWeight: 600,
                   cursor: 'pointer'
                 }}
@@ -3134,17 +3194,18 @@ export default function VetPage() {
                 type="button"
                 onClick={() => handleToggleLock(lockModalTarget, lockReasonInput)}
                 style={{
-                  padding: '7px 18px',
-                  borderRadius: '6px',
-                  background: 'var(--brass)',
-                  color: '#0A0D14',
-                  fontWeight: 700,
+                  padding: '9px 20px',
+                  borderRadius: '8px',
+                  background: '#EF4444',
+                  color: '#FFFFFF',
+                  fontWeight: 800,
                   border: 'none',
-                  fontSize: '12.5px',
-                  cursor: 'pointer'
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
                 }}
               >
-                Xác nhận khóa
+                Xác nhận khóa y tế
               </button>
             </div>
           </div>
@@ -3155,102 +3216,229 @@ export default function VetPage() {
       {/* MODAL 3: KÊ ĐƠN THUỐC MỚI */}
       {/* ========================================================================= */}
       {showAddRxModal && (
-        <div className="modal-overlay" onClick={() => setShowAddRxModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px', width: '90%' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', color: 'var(--brass)' }}>
-              Kê Đơn Thuốc & Phác Đồ Điều Trị Mới (Rx)
-            </h3>
+        <div className="modal-overlay" onClick={() => setShowAddRxModal(false)} style={{ zIndex: 1100 }}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '580px',
+              width: '92%',
+              borderRadius: '16px',
+              background: 'var(--bg-card, #20362B)',
+              padding: '26px 30px',
+              border: '1.5px solid rgba(232, 107, 44, 0.45)',
+              boxShadow: '0 25px 70px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(232, 237, 232, 0.15)', paddingBottom: '14px', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, fontSize: '17px', color: '#FFFFFF', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--brass)' }}>💊</span> Kê Đơn Thuốc & Phác Đồ Điều Trị Mới (Rx)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddRxModal(false)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
             <form onSubmit={handleCreatePrescription}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '4px' }}>Chiến mã:</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '6px' }}>
+                    Chiến mã: <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <select
                     value={newRxData.horseName}
                     onChange={(e) => {
                       const h = horses.find(item => item.name === e.target.value);
                       setNewRxData({ ...newRxData, horseName: e.target.value, stall: h ? `Ô ${h.stable}` : 'Ô A1' });
                     }}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      color: '#FFFFFF',
+                      fontSize: '13px',
+                      boxSizing: 'border-box'
+                    }}
                   >
                     {horses.map(h => (
-                      <option key={h.id} value={h.name}>{h.name} (Ô {h.stable})</option>
+                      <option key={h.id} value={h.name} style={{ background: '#1B2C24', color: '#FFFFFF' }}>
+                        {h.name} (Ô {h.stable})
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '4px' }}>Tên thuốc / Chế phẩm:</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '6px' }}>
+                    Tên thuốc / Chế phẩm: <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <input
                     type="text"
                     value={newRxData.medication}
                     onChange={(e) => setNewRxData({ ...newRxData, medication: e.target.value })}
                     placeholder="VD: Phenylbutazone 20%"
                     required
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      color: '#FFFFFF',
+                      fontSize: '13px',
+                      boxSizing: 'border-box'
+                    }}
                   />
                 </div>
               </div>
 
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '4px' }}>Chẩn đoán:</label>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '6px' }}>
+                  Chẩn đoán: <span style={{ color: '#EF4444' }}>*</span>
+                </label>
                 <input
                   type="text"
                   value={newRxData.diagnosis}
                   onChange={(e) => setNewRxData({ ...newRxData, diagnosis: e.target.value })}
                   placeholder="VD: Viêm màng hoạt dịch khớp gối trái"
                   required
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)' }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    boxSizing: 'border-box'
+                  }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '4px' }}>Liều dùng:</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '6px' }}>
+                    Liều dùng: <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <input
                     type="text"
                     value={newRxData.dosage}
                     onChange={(e) => setNewRxData({ ...newRxData, dosage: e.target.value })}
                     placeholder="VD: 10ml tiêm bắp"
                     required
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      color: '#FFFFFF',
+                      fontSize: '13px',
+                      boxSizing: 'border-box'
+                    }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '4px' }}>Tần suất:</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '6px' }}>
+                    Tần suất: <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <select
                     value={newRxData.frequency}
                     onChange={(e) => setNewRxData({ ...newRxData, frequency: e.target.value })}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      color: '#FFFFFF',
+                      fontSize: '13px',
+                      boxSizing: 'border-box'
+                    }}
                   >
-                    <option value="1 lần/ngày">1 lần/ngày</option>
-                    <option value="2 lần/ngày (sáng/tối)">2 lần/ngày (sáng/tối)</option>
-                    <option value="3 lần/ngày">3 lần/ngày</option>
-                    <option value="Cách ngày 1 lần">Cách ngày 1 lần</option>
+                    <option value="1 lần/ngày" style={{ background: '#1B2C24', color: '#FFFFFF' }}>1 lần/ngày</option>
+                    <option value="2 lần/ngày (sáng/tối)" style={{ background: '#1B2C24', color: '#FFFFFF' }}>2 lần/ngày (sáng/tối)</option>
+                    <option value="3 lần/ngày" style={{ background: '#1B2C24', color: '#FFFFFF' }}>3 lần/ngày</option>
+                    <option value="Cách ngày 1 lần" style={{ background: '#1B2C24', color: '#FFFFFF' }}>Cách ngày 1 lần</option>
                   </select>
                 </div>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper-dim)', marginBottom: '4px' }}>Chế độ vận động & Lưu ý:</label>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '6px' }}>
+                  Chế độ vận động & Lưu ý y lệnh:
+                </label>
                 <textarea
-                  rows="2"
+                  rows="3"
                   value={newRxData.restrictions}
                   onChange={(e) => setNewRxData({ ...newRxData, restrictions: e.target.value })}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-secondary)', color: 'var(--paper)' }}
+                  placeholder="Ghi chú về chế độ vận động, cấm tập nặng hoặc cách ly..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1.5px solid rgba(232, 237, 232, 0.22)',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    lineHeight: 1.5,
+                    boxSizing: 'border-box',
+                    resize: 'none'
+                  }}
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', borderTop: '1px solid rgba(232, 237, 232, 0.15)', paddingTop: '18px' }}>
                 <button
                   type="button"
                   onClick={() => setShowAddRxModal(false)}
-                  style={{ padding: '8px 16px', borderRadius: '6px', background: 'transparent', color: 'var(--paper-dim)', border: '1px solid var(--line)', cursor: 'pointer' }}
+                  style={{
+                    padding: '10px 22px',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: '#E8EDE8',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: '8px 18px', borderRadius: '6px', background: 'var(--brass)', color: '#000', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '8px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    fontWeight: 800,
+                    border: 'none',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    letterSpacing: '0.02em',
+                    boxShadow: '0 4px 14px rgba(232, 107, 44, 0.4)',
+                    transition: 'all 0.2s ease'
+                  }}
                 >
                   Lưu & Xuất Đơn Thuốc
                 </button>
