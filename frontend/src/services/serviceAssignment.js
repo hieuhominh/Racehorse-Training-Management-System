@@ -84,18 +84,88 @@ export function getServiceAssignments() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed.filter(item =>
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const valid = parsed.filter(item =>
           item.ownerKey !== 'owner_thanh' &&
           item.ownerName !== 'Phạm Tiến Thành' &&
           item.ownerName !== 'Trần Đình Thanh' &&
           !EXCLUDED_MOCK_NAMES.some(ex => (item.horseName || '').toLowerCase().includes(ex))
         );
+        if (valid.length > 0) return valid;
       }
     }
   } catch { }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ASSIGNMENTS));
-  return INITIAL_ASSIGNMENTS;
+
+  // Tự động thu thập phân công từ kho ngựa của chủ sở hữu
+  const collected = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('matruong_owner_horses_')) {
+        const hRaw = localStorage.getItem(k);
+        if (hRaw) {
+          const horses = JSON.parse(hRaw);
+          if (Array.isArray(horses)) {
+            horses.forEach(h => {
+              if (h && h.name && !EXCLUDED_MOCK_NAMES.some(ex => (h.name || '').toLowerCase().includes(ex))) {
+                const trObj = FIXED_TRAINERS_LIST.find(t => t.username === h.trainerUsername || t.name === h.trainer) || FIXED_TRAINERS_LIST[0];
+                const vtObj = FIXED_VETS_LIST.find(v => v.username === h.vetUsername || v.name === h.vet) || FIXED_VETS_LIST[0];
+                collected.push({
+                  id: h.id || Date.now(),
+                  horseName: h.name,
+                  microchip: h.microchip || 'MC-VN-2026-092',
+                  ownerName: h.ownerName || h.owner || 'Hồ Minh Hiếu',
+                  ownerKey: k.replace('matruong_owner_horses_', ''),
+                  stable: h.stable || h.stall || 'Ô A1',
+                  breed: h.breed || 'Quarter Horse',
+                  trainerUsername: trObj.username,
+                  trainerName: trObj.name,
+                  trainerStatus: 'CONFIRMED',
+                  trainerConfirmedAt: new Date().toLocaleDateString('vi-VN'),
+                  vetUsername: vtObj.username,
+                  vetName: vtObj.name,
+                  vetStatus: 'CONFIRMED',
+                  groomUsername: 'groom_team',
+                  groomName: 'Bộ phận Chăm sóc (Groom)',
+                  groomStatus: 'CONFIRMED'
+                });
+              }
+            });
+          }
+        }
+      }
+    }
+  } catch {}
+
+  if (collected.length > 0) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collected));
+    return collected;
+  }
+
+  // Fallback mặc định chuẩn 100% cho Huấn luyện viên
+  const fallbackList = [
+    {
+      id: 101,
+      horseName: 'Quarter Horse',
+      microchip: 'MC-VN-2026-092',
+      ownerName: 'Hồ Minh Hiếu',
+      ownerKey: 'owner_hieu',
+      stable: 'Ô A1',
+      breed: 'Quarter Horse',
+      trainerUsername: 'trainer_truong',
+      trainerName: 'Trần Văn Hùng',
+      trainerStatus: 'CONFIRMED',
+      trainerConfirmedAt: new Date().toLocaleDateString('vi-VN'),
+      vetUsername: 'vet_an',
+      vetName: 'BS. Nguyễn An',
+      vetStatus: 'CONFIRMED',
+      groomUsername: 'groom_team',
+      groomName: 'Bộ phận Chăm sóc (Groom)',
+      groomStatus: 'CONFIRMED'
+    }
+  ];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(fallbackList));
+  return fallbackList;
 }
 
 export function saveServiceAssignments(list) {

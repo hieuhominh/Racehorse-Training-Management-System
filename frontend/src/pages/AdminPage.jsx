@@ -363,6 +363,13 @@ export default function AdminPage() {
   // Modal xem chi tiết chiến mã
   const [viewingHorseDetail, setViewingHorseDetail] = useState(null);
 
+  // Modal đổi trạng thái ô chuồng (AVAILABLE / MAINTENANCE / OCCUPIED)
+  const [showStallStatusModal, setShowStallStatusModal] = useState(false);
+  const [statusTargetStall, setStatusTargetStall] = useState(null);
+  const [chosenStallStatus, setChosenStallStatus] = useState('MAINTENANCE');
+  const [chosenMaintDuration, setChosenMaintDuration] = useState(30);
+  const [chosenMaintReason, setChosenMaintReason] = useState('Vệ sinh khử khuẩn & khử mùi chuồng trại định kỳ');
+
   // Modal thêm ngựa mới
   const [showAddHorseModal, setShowAddHorseModal] = useState(false);
   const [newHorseData, setNewHorseData] = useState({
@@ -974,6 +981,11 @@ export default function AdminPage() {
   // Thêm nhân sự mới
   const handleCreateUser = (e) => {
     e.preventDefault();
+    const phoneRegex = /^0[35789]\d{8}$/;
+    if (!phoneRegex.test((newUserData.phone || '').trim())) {
+      showToast('Số điện thoại không hợp lệ! Vui lòng nhập đúng 10 số (bắt đầu bằng 03, 05, 07, 08, 09).', 'LỖI ĐỊNH DẠNG SĐT', 'error');
+      return;
+    }
     const roleMap = {
       TRAINER: 'Huấn luyện viên',
       VET: 'Bác sĩ Thú y',
@@ -1187,6 +1199,11 @@ export default function AdminPage() {
       showToast('Vui lòng điền đầy đủ các thông tin bắt buộc!', 'CẢNH BÁO DỮ LIỆU', 'warning');
       return;
     }
+    const phoneRegex = /^0[35789]\d{8}$/;
+    if (!phoneRegex.test((editUserData.phone || '').trim())) {
+      showToast('Số điện thoại không hợp lệ! Vui lòng nhập đúng 10 số (bắt đầu bằng 03, 05, 07, 08, 09).', 'LỖI ĐỊNH DẠNG SĐT', 'error');
+      return;
+    }
     setShowConfirmEditModal(true);
   };
 
@@ -1376,6 +1393,242 @@ export default function AdminPage() {
     ]);
     setShowAddHorseModal(false);
     setNewHorseData({ name: '', microchip: '', breed: 'Thoroughbred', gender: 'Ngựa đực (Stallion)', stable: 'B6', owner: '' });
+  };
+
+  // Mở modal đổi trạng thái ô chuồng
+  const handleOpenStallStatusModal = (stall) => {
+    setStatusTargetStall(stall);
+    setChosenStallStatus(stall.status === 'MAINTENANCE' ? (stall.horse && stall.horse !== '(Trống)' ? 'OCCUPIED' : 'AVAILABLE') : 'MAINTENANCE');
+    setChosenMaintDuration(30);
+    setChosenMaintReason('Vệ sinh khử khuẩn & khử mùi chuồng trại định kỳ');
+    setShowStallStatusModal(true);
+  };
+
+  // Áp dụng thay đổi trạng thái ô chuồng từ Modal
+  const handleApplyStallStatusChange = (e) => {
+    if (e) e.preventDefault();
+    if (!statusTargetStall) return;
+
+    const stallCode = statusTargetStall.stall_code;
+    const target = stables.find(s => s.stall_code === stallCode) || statusTargetStall;
+    const activeMap = getActiveStallMaintenances();
+    const hasAssignedHorse = Boolean(target.horse && target.horse !== '(Trống)');
+
+    if (chosenStallStatus === 'MAINTENANCE') {
+      if (hasAssignedHorse) {
+        const availableTempStall = stables.find(s =>
+          s.stall_code !== stallCode &&
+          s.status === 'AVAILABLE' &&
+          (!s.horse || s.horse === '(Trống)') &&
+          !activeMap[s.stall_code]
+        );
+
+        if (!availableTempStall) {
+          showToast(
+            'Không thể bảo dưỡng: Hiện không còn ô chuồng trống nào để điều chuyển tạm thời cho chiến mã!',
+            'KHÔNG CÒN CHUỒNG TRỐNG',
+            'warning'
+          );
+          return;
+        }
+
+        const tempCode = availableTempStall.stall_code;
+        const durationMinutes = Number(chosenMaintDuration) || 30;
+        const startTime = Date.now();
+        const endTime = startTime + durationMinutes * 60 * 1000;
+
+        const maintRecord = {
+          stallCode: target.stall_code,
+          tempStallCode: tempCode,
+          horseName: target.horse,
+          horseBreed: target.breed || 'Thuần chủng',
+          horseAvatar: target.horse_avatar || null,
+          startTime,
+          durationMs: durationMinutes * 60 * 1000,
+          endTime,
+          reason: chosenMaintReason
+        };
+        activeMap[target.stall_code] = maintRecord;
+        saveActiveStallMaintenances(activeMap);
+
+        notifyStallMaintenanceStarted(target.stall_code, tempCode, target.horse, durationMinutes);
+
+        setAuditLogs(prev => [
+          {
+            id: Date.now() + Math.random(),
+            time: new Date().toLocaleString('vi-VN'),
+            user: `${currentUser?.username || 'admin'} (Admin)`,
+            action: `BẢO DƯỠNG Ô CHUỒNG (${durationMinutes} PHÚT)`,
+            detail: `Bắt đầu bảo dưỡng ô ${target.stall_code} trong ${durationMinutes} phút. Lý do: ${chosenMaintReason}. Chiến mã "${target.horse}" tạm chuyển sang ${tempCode}.`
+          },
+          ...prev
+        ]);
+
+        const updatedStalls = stables.map(s => {
+          if (s.stall_code === target.stall_code) {
+            return {
+              ...s,
+              status: 'MAINTENANCE',
+              horse: target.horse,
+              temp_relocated_to: tempCode,
+              maintenance_start: startTime,
+              maintenance_end: endTime,
+              maintenance_reason: chosenMaintReason
+            };
+          }
+          if (s.stall_code === tempCode) {
+            return {
+              ...s,
+              status: 'OCCUPIED',
+              horse: target.horse,
+              breed: target.breed || 'Thuần chủng',
+              horse_avatar: target.horse_avatar || null,
+              is_temp_stall: true,
+              temp_for_stall: target.stall_code,
+              maintenance_end: endTime
+            };
+          }
+          return s;
+        });
+
+        setStables(updatedStalls);
+        try {
+          localStorage.setItem('racehorse_api_stables', JSON.stringify(updatedStalls));
+          localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+          window.dispatchEvent(new Event('matruong_stables_updated'));
+        } catch {}
+
+        showToast(
+          `Đã chuyển ô ${target.stall_code} sang Bảo dưỡng (${durationMinutes} phút). Lý do: ${chosenMaintReason}. Chiến mã "${target.horse}" tạm chuyển sang ${tempCode}!`,
+          'BẢO TRÌ Ô CHUỒNG',
+          'success'
+        );
+      } else {
+        const durationMinutes = Number(chosenMaintDuration) || 30;
+        const startTime = Date.now();
+        const endTime = startTime + durationMinutes * 60 * 1000;
+
+        const updatedStalls = stables.map(s => {
+          if (s.stall_code === target.stall_code) {
+            return {
+              ...s,
+              status: 'MAINTENANCE',
+              maintenance_start: startTime,
+              maintenance_end: endTime,
+              maintenance_reason: chosenMaintReason
+            };
+          }
+          return s;
+        });
+
+        setStables(updatedStalls);
+        try {
+          localStorage.setItem('racehorse_api_stables', JSON.stringify(updatedStalls));
+          localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+          window.dispatchEvent(new Event('matruong_stables_updated'));
+        } catch {}
+
+        showToast(`Đã chuyển ô ${target.stall_code} sang Bảo trì (${durationMinutes} phút). Lý do: ${chosenMaintReason}.`, 'BẢO TRÌ Ô CHUỒNG', 'success');
+      }
+    } else if (chosenStallStatus === 'AVAILABLE') {
+      const record = activeMap[target.stall_code];
+      const tempCode = record ? record.tempStallCode : target.temp_relocated_to;
+
+      if (record) {
+        delete activeMap[target.stall_code];
+        saveActiveStallMaintenances(activeMap);
+      }
+
+      if (tempCode && hasAssignedHorse) {
+        notifyStallMaintenanceCompleted(target.stall_code, tempCode, target.horse);
+      }
+
+      const updatedStalls = stables.map(s => {
+        if (s.stall_code === target.stall_code) {
+          return {
+            ...s,
+            status: 'AVAILABLE',
+            horse: '(Trống)',
+            breed: 'Vacant',
+            horse_avatar: null,
+            temp_relocated_to: null,
+            maintenance_start: null,
+            maintenance_end: null
+          };
+        }
+        if (tempCode && s.stall_code === tempCode) {
+          return {
+            ...s,
+            status: 'AVAILABLE',
+            horse: '(Trống)',
+            breed: 'Vacant',
+            horse_avatar: null,
+            is_temp_stall: false,
+            temp_for_stall: null,
+            maintenance_end: null
+          };
+        }
+        return s;
+      });
+
+      setStables(updatedStalls);
+      try {
+        localStorage.setItem('racehorse_api_stables', JSON.stringify(updatedStalls));
+        localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+        window.dispatchEvent(new Event('matruong_stables_updated'));
+      } catch {}
+
+      showToast(`Đã chuyển ô ${target.stall_code} về trạng thái Còn trống (AVAILABLE).`, 'TRẠNG THÁI Ô CHUỒNG', 'info');
+    } else if (chosenStallStatus === 'OCCUPIED') {
+      const record = activeMap[target.stall_code];
+      const tempCode = record ? record.tempStallCode : target.temp_relocated_to;
+
+      if (record) {
+        delete activeMap[target.stall_code];
+        saveActiveStallMaintenances(activeMap);
+      }
+
+      if (tempCode && hasAssignedHorse) {
+        notifyStallMaintenanceCompleted(target.stall_code, tempCode, target.horse);
+      }
+
+      const updatedStalls = stables.map(s => {
+        if (s.stall_code === target.stall_code) {
+          return {
+            ...s,
+            status: 'OCCUPIED',
+            temp_relocated_to: null,
+            maintenance_start: null,
+            maintenance_end: null
+          };
+        }
+        if (tempCode && s.stall_code === tempCode) {
+          return {
+            ...s,
+            status: 'AVAILABLE',
+            horse: '(Trống)',
+            breed: 'Vacant',
+            horse_avatar: null,
+            is_temp_stall: false,
+            temp_for_stall: null,
+            maintenance_end: null
+          };
+        }
+        return s;
+      });
+
+      setStables(updatedStalls);
+      try {
+        localStorage.setItem('racehorse_api_stables', JSON.stringify(updatedStalls));
+        localStorage.setItem('matruong_stables_timestamp', String(Date.now()));
+        window.dispatchEvent(new Event('matruong_stables_updated'));
+      } catch {}
+
+      showToast(`Đã chuyển ô ${target.stall_code} sang Đang nuôi dưỡng (OCCUPIED).`, 'TRẠNG THÁI Ô CHUỒNG', 'success');
+    }
+
+    setShowStallStatusModal(false);
+    setStatusTargetStall(null);
   };
 
   // Thay đổi trạng thái chuồng
@@ -3167,8 +3420,9 @@ export default function AdminPage() {
                 const stdStallsList = filteredStables.filter(s => !isVipStall(s));
 
                 const renderStallCard = (s) => {
-                  const isOccupied = s.status === 'OCCUPIED';
-                  const isAvailable = s.status === 'AVAILABLE';
+                  const pendingReq = stallRequests.find(r => r.status === 'PENDING' && (r.requestedStall === s.stall_code || r.targetStall === s.stall_code));
+                  const isOccupied = s.status === 'OCCUPIED' && !pendingReq;
+                  const isAvailable = s.status === 'AVAILABLE' && !pendingReq;
                   const isVip = isVipStall(s);
                   const badgeClass = isOccupied ? 'badge-gold' : 'badge-slate';
 
@@ -3433,16 +3687,18 @@ export default function AdminPage() {
                             className="price-value"
                             style={{
                               fontSize: '14.5px',
-                              color: isOccupied ? (s.is_temp_stall ? '#3B82F6' : 'var(--brass)') : isAvailable ? '#10B981' : '#E86B2C'
+                              color: pendingReq ? '#F59E0B' : (isOccupied ? (s.is_temp_stall ? '#3B82F6' : 'var(--brass)') : isAvailable ? '#10B981' : '#E86B2C')
                             }}
                           >
-                            {isOccupied
-                              ? (s.is_temp_stall
-                                  ? (lang === 'en' ? 'Temporary Housing' : 'Lưu trú tạm thời')
-                                  : (lang === 'en' ? 'Currently Occupied' : 'Đang nuôi dưỡng'))
-                              : isAvailable
-                                ? (lang === 'en' ? 'Available & Ready' : 'Còn trống sẵn sàng')
-                                : (lang === 'en' ? 'Under Maintenance (30m)' : 'Bảo dưỡng định kỳ (30p)')}
+                            {pendingReq
+                              ? 'Chờ Duyệt Vô Chuồng'
+                              : (isOccupied
+                                  ? (s.is_temp_stall
+                                      ? (lang === 'en' ? 'Temporary Housing' : 'Lưu trú tạm thời')
+                                      : (lang === 'en' ? 'Currently Occupied' : 'Đang nuôi dưỡng'))
+                                  : isAvailable
+                                    ? (lang === 'en' ? 'Available & Ready' : 'Còn trống sẵn sàng')
+                                    : (lang === 'en' ? 'Under Maintenance' : 'Đang bảo dưỡng định kỳ'))}
                           </div>
                         </div>
                         <span style={{
@@ -3450,29 +3706,103 @@ export default function AdminPage() {
                           fontWeight: 700,
                           padding: '3px 8px',
                           borderRadius: '4px',
-                          background: isOccupied
-                            ? (s.is_temp_stall ? 'rgba(59, 130, 246, 0.15)' : 'rgba(212, 175, 55, 0.12)')
-                            : isAvailable
-                              ? 'rgba(16, 185, 129, 0.12)'
-                              : 'rgba(232, 107, 44, 0.15)',
-                          color: isOccupied
-                            ? (s.is_temp_stall ? '#3B82F6' : 'var(--brass)')
-                            : isAvailable
-                              ? '#10B981'
-                              : '#E86B2C',
-                          border: isOccupied
-                            ? (s.is_temp_stall ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(212, 175, 55, 0.3)')
-                            : isAvailable
-                              ? '1px solid rgba(16, 185, 129, 0.3)'
-                              : '1px solid rgba(232, 107, 44, 0.4)'
+                          background: pendingReq
+                            ? 'rgba(245, 158, 11, 0.15)'
+                            : (isOccupied
+                                ? (s.is_temp_stall ? 'rgba(59, 130, 246, 0.15)' : 'rgba(212, 175, 55, 0.12)')
+                                : isAvailable
+                                  ? 'rgba(16, 185, 129, 0.12)'
+                                  : 'rgba(232, 107, 44, 0.15)'),
+                          color: pendingReq
+                            ? '#F59E0B'
+                            : (isOccupied
+                                ? (s.is_temp_stall ? '#3B82F6' : 'var(--brass)')
+                                : isAvailable
+                                  ? '#10B981'
+                                  : '#E86B2C'),
+                          border: pendingReq
+                            ? '1px solid rgba(245, 158, 11, 0.4)'
+                            : (isOccupied
+                                ? (s.is_temp_stall ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(212, 175, 55, 0.3)')
+                                : isAvailable
+                                  ? '1px solid rgba(16, 185, 129, 0.3)'
+                                  : '1px solid rgba(232, 107, 44, 0.4)')
                         }}>
-                          {isOccupied
-                            ? (s.is_temp_stall ? (lang === 'en' ? 'TEMP STALL' : 'CHUỒNG TẠM') : (lang === 'en' ? 'OCCUPIED' : 'LẤP ĐẦY'))
-                            : isAvailable
-                              ? (lang === 'en' ? 'VACANT' : 'TRỐNG')
-                              : (lang === 'en' ? 'MAINTENANCE (30M)' : 'BẢO TRÌ (30P)')}
+                          {pendingReq
+                            ? 'CHỜ DUYỆT'
+                            : (isOccupied
+                                ? (s.is_temp_stall ? (lang === 'en' ? 'TEMP STALL' : 'CHUỒNG TẠM') : (lang === 'en' ? 'OCCUPIED' : 'LẤP ĐẦY'))
+                                : isAvailable
+                                  ? (lang === 'en' ? 'VACANT' : 'TRỐNG')
+                                  : (lang === 'en' ? 'MAINTENANCE' : 'BẢO TRÌ'))}
                         </span>
                       </div>
+
+                      {/* Khối Thông Báo & Phê Duyệt Nhanh Khi Có Ngựa Chờ Nhập Chuồng */}
+                      {pendingReq && (
+                        <div style={{
+                          marginTop: '10px',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          background: 'rgba(245, 158, 11, 0.1)',
+                          border: '1px solid rgba(245, 158, 11, 0.35)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 800, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                              ⏳ Đơn Xin Vô Ô Này
+                            </span>
+                            <span style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '3px', background: '#F59E0B', color: '#14100A', fontWeight: 700 }}>
+                              {pendingReq.type === 'CHANGE' ? 'ĐỔI CHUỒNG' : 'NHẬP CHUỒNG'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12.5px', color: 'var(--paper)' }}>
+                            Chiến mã: <strong style={{ color: 'var(--brass)' }}>{pendingReq.horseName}</strong>
+                            <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                              Chủ: {pendingReq.ownerName || pendingReq.ownerUsername || 'Chủ sở hữu'} • {pendingReq.reason || 'Đăng ký mới'}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleApproveStallRequest(pendingReq.id); }}
+                              style={{
+                                flex: 1,
+                                padding: '6px 8px',
+                                borderRadius: '4px',
+                                background: '#10B981',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                fontWeight: 700,
+                                fontSize: '11px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              ✓ Duyệt Vô Chuồng
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleOpenRejectModal(pendingReq); }}
+                              style={{
+                                padding: '6px 10px',
+                                borderRadius: '4px',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                color: '#EF4444',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                fontWeight: 600,
+                                fontSize: '11px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              ✕ Từ Chối
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Đồng hồ đếm ngược thời gian thực cho bảo dưỡng và chuồng tạm */}
                       {s.maintenance_end && (
@@ -3515,9 +3845,9 @@ export default function AdminPage() {
                         <div className="actions-left" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <button
                             className="facility-btn-action"
-                            onClick={() => handleToggleStable(s.stall_code)}
+                            onClick={() => handleOpenStallStatusModal(s)}
                           >
-                            {lang === 'en' ? 'Toggle Status' : 'Đổi trạng thái'}
+                            {lang === 'en' ? 'Change Status' : 'Đổi trạng thái'}
                           </button>
                           <button
                             className="facility-btn-action"
@@ -3550,8 +3880,9 @@ export default function AdminPage() {
 
                 const renderTableRows = (list) => {
                   return list.map(s => {
-                    const isOccupied = s.status === 'OCCUPIED';
-                    const isAvailable = s.status === 'AVAILABLE';
+                    const pendingReq = stallRequests.find(r => r.status === 'PENDING' && (r.requestedStall === s.stall_code || r.targetStall === s.stall_code));
+                    const isOccupied = s.status === 'OCCUPIED' && !pendingReq;
+                    const isAvailable = s.status === 'AVAILABLE' && !pendingReq;
                     const isVip = isVipStall(s);
                     return (
                       <tr key={s.stall_code} style={{ borderBottom: '1px solid var(--line)' }}>
@@ -3617,38 +3948,69 @@ export default function AdminPage() {
                           </div>
                         </td>
                         <td style={{ padding: '14px 18px' }}>
-                          <span style={{
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                            background: isOccupied
-                              ? (s.is_temp_stall ? 'rgba(59, 130, 246, 0.15)' : 'rgba(212, 175, 55, 0.12)')
-                              : isAvailable
-                                ? 'rgba(16, 185, 129, 0.12)'
-                                : 'rgba(232, 107, 44, 0.15)',
-                            color: isOccupied
-                              ? (s.is_temp_stall ? '#3B82F6' : 'var(--brass)')
-                              : isAvailable
-                                ? '#10B981'
-                                : '#E86B2C',
-                            border: isOccupied
-                              ? (s.is_temp_stall ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(212, 175, 55, 0.3)')
-                              : isAvailable
-                                ? '1px solid rgba(16, 185, 129, 0.3)'
-                                : '1px solid rgba(232, 107, 44, 0.4)'
-                          }}>
-                            {isOccupied
-                              ? (s.is_temp_stall ? (lang === 'en' ? 'TEMP STALL' : 'CHUỒNG TẠM') : (lang === 'en' ? 'Occupied' : 'Đang nuôi dưỡng'))
-                              : isAvailable
-                                ? (lang === 'en' ? 'Available' : 'Còn trống')
-                                : (lang === 'en' ? 'Maintenance (30m)' : 'Bảo dưỡng (30p)')}
-                          </span>
+                          {pendingReq ? (
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: 'rgba(245, 158, 11, 0.15)',
+                              color: '#F59E0B',
+                              border: '1px solid rgba(245, 158, 11, 0.4)'
+                            }}>
+                              ⏳ CHỜ DUYỆT ({pendingReq.horseName})
+                            </span>
+                          ) : (
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              background: isOccupied
+                                ? (s.is_temp_stall ? 'rgba(59, 130, 246, 0.15)' : 'rgba(212, 175, 55, 0.12)')
+                                : isAvailable
+                                  ? 'rgba(16, 185, 129, 0.12)'
+                                  : 'rgba(232, 107, 44, 0.15)',
+                              color: isOccupied
+                                ? (s.is_temp_stall ? '#3B82F6' : 'var(--brass)')
+                                : isAvailable
+                                  ? '#10B981'
+                                  : '#E86B2C',
+                              border: isOccupied
+                                ? (s.is_temp_stall ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(212, 175, 55, 0.3)')
+                                : isAvailable
+                                  ? '1px solid rgba(16, 185, 129, 0.3)'
+                                  : '1px solid rgba(232, 107, 44, 0.4)'
+                            }}>
+                              {isOccupied
+                                ? (s.is_temp_stall ? (lang === 'en' ? 'TEMP STALL' : 'CHUỒNG TẠM') : (lang === 'en' ? 'Occupied' : 'Đang nuôi dưỡng'))
+                                : isAvailable
+                                  ? (lang === 'en' ? 'Available' : 'Còn trống')
+                                  : (lang === 'en' ? 'Maintenance' : 'Đang bảo dưỡng')}
+                            </span>
+                          )}
                         </td>
                         <td style={{ padding: '14px 18px' }}>
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {pendingReq && (
+                              <button
+                                onClick={() => handleApproveStallRequest(pendingReq.id)}
+                                style={{
+                                  padding: '5px 10px',
+                                  background: '#10B981',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  color: '#FFFFFF',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✓ Duyệt Vô Chuồng
+                              </button>
+                            )}
                             <button
-                              onClick={() => handleToggleStable(s.stall_code)}
+                              onClick={() => handleOpenStallStatusModal(s)}
                               style={{
                                 padding: '5px 10px',
                                 background: 'var(--bg-secondary)',
@@ -3659,7 +4021,7 @@ export default function AdminPage() {
                                 cursor: 'pointer'
                               }}
                             >
-                              {lang === 'en' ? 'Toggle' : 'Đổi trạng thái'}
+                              {lang === 'en' ? 'Change Status' : 'Đổi trạng thái'}
                             </button>
                             <button
                               onClick={() => handleOpenChangeHorse(s)}
@@ -4642,22 +5004,6 @@ export default function AdminPage() {
                                   >
                                     Thẩm Tra & Xử Lý
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteReport(report.id)}
-                                    style={{
-                                      padding: '6px 10px',
-                                      background: 'rgba(239, 68, 68, 0.1)',
-                                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                                      color: '#EF4444',
-                                      borderRadius: '6px',
-                                      fontSize: '12px',
-                                      cursor: 'pointer'
-                                    }}
-                                    title="Xóa bản ghi khiếu nại"
-                                  >
-                                    Xóa
-                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -5022,17 +5368,19 @@ export default function AdminPage() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                         <div>
                           <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
-                            {lang === 'en' ? 'RBAC Role *' : 'Vai trò RBAC *'}
+                            {lang === 'en' ? 'RBAC Role (Locked)' : 'Vai trò RBAC (Khóa cố định)'}
                           </label>
                           <select
                             value={editUserData.role}
-                            onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
-                            style={{ width: '100%', padding: '7px 8px', background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '5px', boxSizing: 'border-box', fontSize: '12px' }}
+                            disabled={true}
+                            title="Vai trò được quản lý cố định theo phân quyền hệ thống, không được thay đổi"
+                            style={{ width: '100%', padding: '7px 8px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper-dim)', borderRadius: '5px', boxSizing: 'border-box', fontSize: '12px', cursor: 'not-allowed', opacity: 0.7 }}
                           >
                             <option value="TRAINER">{lang === 'en' ? 'Trainer' : 'HLV Trưởng'}</option>
                             <option value="VET">{lang === 'en' ? 'Veterinarian' : 'Bác sĩ Thú y'}</option>
                             <option value="GROOM">{lang === 'en' ? 'Groom' : 'Chăm sóc (Groom)'}</option>
                             <option value="MANAGER">{lang === 'en' ? 'Club Manager' : 'Ban Quản lý'}</option>
+                            <option value="OWNER">{lang === 'en' ? 'Horse Owner' : 'Chủ sở hữu'}</option>
                           </select>
                         </div>
                         <div>
@@ -6340,6 +6688,214 @@ export default function AdminPage() {
                 Xác Nhận Từ Chối
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== MODAL ĐỔI TRẠNG THÁI Ô CHUỒNG (BẢO TRÌ / CÒN TRỐNG / NUÔI DƯỠNG) ===================== */}
+      {showStallStatusModal && statusTargetStall && (
+        <div
+          onClick={() => { setShowStallStatusModal(false); setStatusTargetStall(null); }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.78)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            zIndex: 1000000,
+            cursor: 'pointer'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--brass)',
+              borderRadius: '12px',
+              maxWidth: '500px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+              cursor: 'default'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <h3 style={{ margin: 0, fontSize: '17px', color: 'var(--brass)', fontWeight: 700 }}>
+                Cập Nhật Trạng Thái Ô Chuồng {statusTargetStall.stall_code}
+              </h3>
+              <button
+                type="button"
+                onClick={() => { setShowStallStatusModal(false); setStatusTargetStall(null); }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--paper-dim)', fontSize: '18px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--paper-dim)' }}>
+              {statusTargetStall.block} • {statusTargetStall.tier} • Trạng thái hiện tại: <strong>{statusTargetStall.status}</strong>
+              {statusTargetStall.horse && statusTargetStall.horse !== '(Trống)' && ` (${statusTargetStall.horse})`}
+            </p>
+
+            <form onSubmit={handleApplyStallStatusChange} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '8px' }}>
+                  Chọn trạng thái mới:
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setChosenStallStatus('MAINTENANCE')}
+                    style={{
+                      padding: '10px 8px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: chosenStallStatus === 'MAINTENANCE' ? '1.5px solid #F59E0B' : '1px solid var(--line)',
+                      background: chosenStallStatus === 'MAINTENANCE' ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg-secondary)',
+                      color: chosenStallStatus === 'MAINTENANCE' ? '#F59E0B' : 'var(--paper)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🛠️ Đang Bảo Trì
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChosenStallStatus('AVAILABLE')}
+                    style={{
+                      padding: '10px 8px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: chosenStallStatus === 'AVAILABLE' ? '1.5px solid #10B981' : '1px solid var(--line)',
+                      background: chosenStallStatus === 'AVAILABLE' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-secondary)',
+                      color: chosenStallStatus === 'AVAILABLE' ? '#10B981' : 'var(--paper)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🟢 Còn Trống
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChosenStallStatus('OCCUPIED')}
+                    style={{
+                      padding: '10px 8px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: chosenStallStatus === 'OCCUPIED' ? '1.5px solid #3B82F6' : '1px solid var(--line)',
+                      background: chosenStallStatus === 'OCCUPIED' ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-secondary)',
+                      color: chosenStallStatus === 'OCCUPIED' ? '#3B82F6' : 'var(--paper)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🏇 Nuôi Dưỡng
+                  </button>
+                </div>
+              </div>
+
+              {chosenStallStatus === 'MAINTENANCE' && (
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div>
+                    <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                      Thời gian bảo trì:
+                    </label>
+                    <select
+                      value={chosenMaintDuration}
+                      onChange={(e) => setChosenMaintDuration(Number(e.target.value))}
+                      style={{
+                        width: '100%',
+                        padding: '7px 10px',
+                        borderRadius: '5px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px'
+                      }}
+                    >
+                      <option value={30}>30 phút (Tiêu chuẩn)</option>
+                      <option value={60}>1 giờ (Bảo dưỡng kỹ)</option>
+                      <option value={120}>2 giờ (Sửa chữa kết cấu)</option>
+                      <option value={1440}>24 giờ (Khử trùng toàn diện)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                      Lý do bảo dưỡng / bảo trì:
+                    </label>
+                    <select
+                      value={chosenMaintReason}
+                      onChange={(e) => setChosenMaintReason(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '7px 10px',
+                        borderRadius: '5px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px'
+                      }}
+                    >
+                      <option value="Vệ sinh khử khuẩn & khử mùi chuồng trại định kỳ">Vệ sinh khử khuẩn & khử mùi chuồng trại định kỳ</option>
+                      <option value="Sửa chữa máng ăn & hệ thống cấp nước tự động">Sửa chữa máng ăn & hệ thống cấp nước tự động</option>
+                      <option value="Thay mới toàn bộ lớp đệm lót rơm / mùn cưa">Thay mới toàn bộ lớp đệm lót rơm / mùn cưa</option>
+                      <option value="Kiểm tra an toàn kết cấu cửa chuồng & quạt thông gió">Kiểm tra an toàn kết cấu cửa chuồng & quạt thông gió</option>
+                    </select>
+                  </div>
+
+                  {statusTargetStall.horse && statusTargetStall.horse !== '(Trống)' && (
+                    <div style={{ fontSize: '11.5px', color: '#F59E0B', fontStyle: 'italic', marginTop: '2px' }}>
+                      ℹ️ Ô chuồng đang nuôi dưỡng chiến mã <strong>{statusTargetStall.horse}</strong>. Hệ thống sẽ tự động chuyển tạm chiến mã sang một ô trống và tự động hoàn trả khi hết thời gian!
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setShowStallStatusModal(false); setStatusTargetStall(null); }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: 'transparent',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper-dim)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '6px',
+                    background: 'var(--brass)',
+                    border: 'none',
+                    color: '#0A0D14',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Xác Nhận Cập Nhật
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

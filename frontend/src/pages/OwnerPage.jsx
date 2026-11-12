@@ -1547,32 +1547,18 @@ export default function OwnerPage() {
   };
 
   const handleToggleRoleConfirm = (horse, roleType, staffName) => {
-    const asgn = serviceAssignments.find(a =>
-      (horse.microchip && a.microchip && a.microchip.trim().toLowerCase() === horse.microchip.trim().toLowerCase()) ||
-      (horse.name && a.horseName && a.horseName.trim().toLowerCase() === horse.name.trim().toLowerCase()) ||
-      (horse.id && a.id && String(a.id) === String(horse.id))
+    showToast(
+      'Chủ sở hữu không có quyền tự phê duyệt. Trạng thái chỉ được xác nhận bởi chính Huấn luyện viên / Bác sĩ / Groom phụ trách.',
+      'KHÔNG THỂ TỰ DUYỆT',
+      'warning'
     );
-
-    let currentStatus = 'PENDING';
-    if (roleType === 'TRAINER') currentStatus = asgn?.trainerStatus || horse.trainerStatus;
-    else if (roleType === 'VET') currentStatus = asgn?.vetStatus || horse.vetStatus;
-    else if (roleType === 'GROOM') currentStatus = asgn?.groomStatus || horse.groomStatus;
-
-    const roleLabel = roleType === 'TRAINER' ? 'HLV' : roleType === 'VET' ? 'Bác sĩ Thú Y' : 'Groom Chăm Sóc';
-
-    if (currentStatus === 'CONFIRMED') {
-      const updated = setServiceAssignmentStatus(horse.name || horse.microchip, roleType, 'PENDING');
-      setServiceAssignments(updated);
-      showToast(`Đã chuyển trạng thái ${roleLabel} (${staffName}) của "${horse.name}" về Chờ xác nhận.`, 'CẬP NHẬT TRẠNG THÁI', 'info');
-    } else {
-      const updated = confirmServiceAssignment(horse.name || horse.microchip, roleType, currentUser?.username || 'admin');
-      setServiceAssignments(updated);
-      showToast(`Đã xác nhận vai trò ${roleLabel} (${staffName}) phụ trách "${horse.name}" thành công! Trạng thái: Đã xác nhận.`, 'XÁC NHẬN THÀNH CÔNG', 'success');
-    }
   };
 
   const [showAddHorseModal, setShowAddHorseModal] = useState(false);
   const [showRaceRegisterModal, setShowRaceRegisterModal] = useState(false);
+  const [showRacePaymentModal, setShowRacePaymentModal] = useState(false);
+  const [pendingRaceNominationDraft, setPendingRaceNominationDraft] = useState(null);
+  const [chosenRacePaymentMethod, setChosenRacePaymentMethod] = useState('FUND'); // 'FUND' | 'BANK' | 'LATER'
   const [selectedTournamentToRegister, setSelectedTournamentToRegister] = useState(null);
   const [upgradePromptModal, setUpgradePromptModal] = useState(null); // Modal gợi ý nâng cấp VIP khi chạm giới hạn
   const [showExternalRecordModal, setShowExternalRecordModal] = useState(false);
@@ -1921,7 +1907,12 @@ export default function OwnerPage() {
     trainerName: 'HLV Lê Trọng Nghĩa',
     jockey: 'Chủ sở hữu tự bố trí kỵ mã',
     targetPace: 'Chạy giữ nhịp & bứt phá 300m cuối',
-    notes: 'Cam kết tuân thủ 100% điều lệ trường đua.'
+    notes: 'Cam kết tuân thủ 100% điều lệ trường đua.',
+    ownerFullName: '',
+    ownerPhone: '',
+    ownerIdCard: '',
+    ownerEmail: '',
+    payEntryFeeNow: true
   });
 
   // Mở modal đăng ký giải đấu
@@ -1936,6 +1927,10 @@ export default function OwnerPage() {
     const defaultTrainer = getHorsePrimaryTrainer(defaultHorse);
 
     setSelectedTournamentToRegister(t);
+    const rawUserPhone = (currentUser?.phone || '').trim();
+    const cleanPhoneInit = rawUserPhone.replace(/^\+84\s?0?/, '0').replace(/[^0-9]/g, '');
+    const defaultPhone = cleanPhoneInit ? (cleanPhoneInit.startsWith('0') ? cleanPhoneInit : `0${cleanPhoneInit}`) : '0335299265';
+
     setRaceRegForm({
       tournamentId: t.id,
       selectionMode: 'OWNER_CHOICE',
@@ -1943,7 +1938,12 @@ export default function OwnerPage() {
       trainerName: `HLV ${defaultTrainer}`,
       jockey: 'Chủ sở hữu tự bố trí kỵ mã',
       targetPace: 'Chạy giữ nhịp & bứt phá 300m cuối',
-      notes: 'Cam kết tuân thủ 100% điều lệ trường đua.'
+      notes: 'Cam kết tuân thủ 100% điều lệ trường đua.',
+      ownerFullName: currentUser?.name || currentUser?.full_name || 'Hồ Minh Nhi',
+      ownerPhone: defaultPhone,
+      ownerIdCard: currentUser?.id_card || '079201008899',
+      ownerEmail: currentUser?.email || 'thuidchina09@gmail.com',
+      payEntryFeeNow: true
     });
     setShowRaceRegisterModal(true);
   };
@@ -2075,24 +2075,6 @@ export default function OwnerPage() {
       } catch {}
       return next;
     });
-
-    // Tạo bản ghi theo dõi thể lực khởi điểm
-    setTrainingTelemetry(prev => [
-      {
-        id: Date.now(),
-        horseName: newHorse.name,
-        stable: newHorse.stable,
-        sessionDate: new Date().toLocaleDateString('vi-VN'),
-        maxSpeed: '52.0 km/h (Khởi điểm)',
-        avgSpeed: '46.5 km/h',
-        peakHeartRate: '190 bpm',
-        recoveryHeartRate: '80 bpm',
-        distanceMeters: '1.200 m',
-        readinessScore: '8.5 / 10',
-        trainerFeedback: `Chiến mã mới tiếp nhận vào chuồng. HLV ${horseForm.trainer.split('(')[0]} bắt đầu thiết lập giáo án thể lực.`
-      },
-      ...prev
-    ]);
 
     // Tạo bản ghi y tế tiếp nhận chuồng
     setHealthLogs(prev => [
@@ -2368,6 +2350,22 @@ export default function OwnerPage() {
       return;
     }
 
+    // Xác thực thông tin cá nhân của chủ sở hữu
+    if (!raceRegForm.ownerFullName?.trim()) {
+      showToast('Vui lòng nhập họ và tên chủ sở hữu!', 'THIẾU THÔNG TIN', 'warning');
+      return;
+    }
+    let cleanPhone = (raceRegForm.ownerPhone || '').trim().replace(/^\+84\s?0?/, '0').replace(/[^0-9]/g, '');
+    if (!cleanPhone.startsWith('0') && cleanPhone.length === 9) cleanPhone = '0' + cleanPhone;
+    if (cleanPhone.length !== 10 || !cleanPhone.startsWith('0')) {
+      showToast('Số điện thoại không hợp lệ! Vui lòng nhập đúng 10 chữ số (ví dụ: 0335299265).', 'LỖI ĐỊNH DẠNG SĐT', 'error');
+      return;
+    }
+    if (!raceRegForm.ownerIdCard?.trim()) {
+      showToast('Vui lòng nhập số CCCD / CMND của chủ sở hữu!', 'THIẾU THÔNG TIN', 'warning');
+      return;
+    }
+
     const isDelegated = raceRegForm.selectionMode === 'DELEGATE_TRAINER';
     const selectedHorse = isDelegated ? null : (myHorses.find(h => String(h.id) === String(raceRegForm.horseId)) || myHorses[0]);
     const tournament = (tournamentsList || OPEN_TOURNAMENTS).find(t => t.id === raceRegForm.tournamentId) || selectedTournamentToRegister || tournamentsList[0] || OPEN_TOURNAMENTS[0];
@@ -2418,7 +2416,7 @@ export default function OwnerPage() {
       ? `HLV chính (${activeMainTrainer}) chỉ định kỵ mã phù hợp nhất`
       : (raceRegForm.jockey?.includes('HLV') ? 'Chủ sở hữu tự bố trí kỵ mã' : (raceRegForm.jockey || 'Chủ sở hữu tự bố trí kỵ mã'));
 
-    const newNomination = {
+    const draftNomination = {
       id: `RN-REG-${Date.now().toString().slice(-4)}`,
       raceName: tournament.name,
       track: tournament.track,
@@ -2429,7 +2427,7 @@ export default function OwnerPage() {
       assignedHorseId: null,
       assignedHorseStall: null,
       targetTrainer: `HLV ${activeMainTrainer}`,
-      ownerName: currentUser?.full_name || 'Chủ sở hữu',
+      ownerName: (raceRegForm.ownerFullName || currentUser?.full_name || 'Chủ sở hữu').trim(),
       ownerKey: String(ownerKey),
       distance: `${tournament.distance} (${tournament.surface})`,
       date: tournament.date,
@@ -2442,18 +2440,111 @@ export default function OwnerPage() {
       registeredAt: timeStr,
       trainerFeedback: '',
       reviewedBy: null,
-      reviewedAt: null
+      reviewedAt: null,
+      entryFeePaid: false,
+      ownerFullName: (raceRegForm.ownerFullName || currentUser?.full_name || 'Chủ sở hữu').trim(),
+      ownerPhone: cleanPhone,
+      ownerIdCard: (raceRegForm.ownerIdCard || currentUser?.id_card || '').trim(),
+      ownerEmail: (raceRegForm.ownerEmail || currentUser?.email || '').trim(),
+      feeAmount: 5000000
     };
 
-    // Gọi API Ghi danh giải đấu của Chủ sở hữu
-    registerRaceTournamentApi(ownerKey, newNomination).catch(() => {});
-
-    setRaceNominations(prev => [newNomination, ...prev]);
+    setPendingRaceNominationDraft(draftNomination);
     setShowRaceRegisterModal(false);
-    if (isDelegated) {
-      showToast(`Đã gửi yêu cầu ủy thác đến Huấn luyện viên trưởng! HLV sẽ đối soát thể lực để chỉ định chiến mã tối ưu nhất.`, 'ỦY THÁC HLV THÀNH CÔNG', 'success');
+    setChosenRacePaymentMethod('FUND');
+    setShowRacePaymentModal(true); // CHUYỂN SANG PHẦN THANH TOÁN
+  };
+
+  // Xác nhận thanh toán lệ phí giải đua & Hoàn tất ghi danh
+  const handleConfirmRacePayment = (method) => {
+    if (!pendingRaceNominationDraft) return;
+
+    const tournamentName = pendingRaceNominationDraft.raceName;
+    const horseName = pendingRaceNominationDraft.horseName;
+    const now = new Date();
+    const timeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    let isPaid = false;
+    let paymentMethodLabel = '';
+
+    if (method === 'FUND') {
+      if (netFundBalance < 5000000) {
+        showToast('Số dư Quỹ hệ thống của bạn không đủ (hiện có: ' + formatVND(netFundBalance) + '). Vui lòng chọn Thanh toán bằng Tài khoản Ngân hàng!', 'SỐ DƯ QUỸ KHÔNG ĐỦ', 'warning');
+        return;
+      }
+      // TRỪ TIỀN BÊN TRONG HỆ THỐNG
+      saveOwnerFundBalance(ownerFundBalance - 5000000);
+      isPaid = true;
+      paymentMethodLabel = 'Quỹ tích lũy hệ thống (Đã trừ số dư)';
+
+      // Ghi nhận vào nhật ký giao dịch tài chính
+      const fundTxn = {
+        transactionId: `TXN-ENTRY-${Date.now().toString().slice(-6)}`,
+        packageName: `Lệ phí tham gia giải đua: ${tournamentName}`,
+        billingCycle: 'Giải đua Cát Thể Thao',
+        amount: 5000000,
+        amountFormatted: '-5.000.000 ₫',
+        method: 'Trừ trực tiếp từ Quỹ tích lũy hệ thống',
+        paidAt: timeStr,
+        ownerName: pendingRaceNominationDraft.ownerName,
+        status: 'THÀNH CÔNG (PAID)',
+        type: 'EXPENSE'
+      };
+      setPaymentHistory(prev => [fundTxn, ...prev]);
+      try {
+        const key = `matruong_owner_payments_${ownerKey}`;
+        const cur = JSON.parse(localStorage.getItem(key) || '[]');
+        localStorage.setItem(key, JSON.stringify([fundTxn, ...cur]));
+      } catch {}
+
+      showToast(`Đã thanh toán 5.000.000 ₫ bằng Quỹ hệ thống thành công! Số dư quỹ đã được trừ.`, 'THANH TOÁN THÀNH CÔNG', 'success');
+
+    } else if (method === 'BANK') {
+      // THANH TOÁN BẰNG TÀI KHOẢN NGÂN HÀNG: KHÔNG BỊ TRỪ TIỀN BÊN TRONG HỆ THỐNG
+      isPaid = true;
+      paymentMethodLabel = 'Chuyển khoản Ngân hàng MB Bank (VietQR 24/7)';
+
+      const bankTxn = {
+        transactionId: `TXN-BANK-${Date.now().toString().slice(-6)}`,
+        packageName: `Lệ phí tham gia giải đua: ${tournamentName}`,
+        billingCycle: 'Giải đua Cát Thể Thao',
+        amount: 5000000,
+        amountFormatted: '5.000.000 ₫',
+        method: 'Chuyển khoản Ngân hàng (VietQR 24/7)',
+        paidAt: timeStr,
+        ownerName: pendingRaceNominationDraft.ownerName,
+        status: 'THÀNH CÔNG (PAID)',
+        type: 'EXPENSE_BANK'
+      };
+      setPaymentHistory(prev => [bankTxn, ...prev]);
+      try {
+        const key = `matruong_owner_payments_${ownerKey}`;
+        const cur = JSON.parse(localStorage.getItem(key) || '[]');
+        localStorage.setItem(key, JSON.stringify([bankTxn, ...cur]));
+      } catch {}
+
+      showToast(`Xác nhận thanh toán 5.000.000 ₫ qua Ngân hàng thành công! Số dư quỹ hệ thống không bị trừ.`, 'THANH TOÁN NGÂN HÀNG', 'success');
+
     } else {
-      showToast(`Đã gửi đơn ghi danh chiến mã "${selectedHorse.name}"! Đang chờ Huấn luyện viên trưởng phê duyệt.`, 'GHI DANH GIẢI ĐUA', 'info');
+      // THANH TOÁN SAU
+      isPaid = false;
+      paymentMethodLabel = 'Chưa thanh toán (Thanh toán sau)';
+      showToast(`Đã ghi danh tham gia giải đua! Bạn có thể thanh toán lệ phí sau trước ngày thi đấu.`, 'GHI DANH THÀNH CÔNG', 'info');
+    }
+
+    const finalNomination = {
+      ...pendingRaceNominationDraft,
+      entryFeePaid: isPaid,
+      paymentMethod: method,
+      paymentMethodLabel
+    };
+
+    registerRaceTournamentApi(ownerKey, finalNomination).catch(() => {});
+    setRaceNominations(prev => [finalNomination, ...prev]);
+    setShowRacePaymentModal(false);
+    setPendingRaceNominationDraft(null);
+    if (finalNomination.delegatedToTrainer) {
+      showToast(`Đã gửi yêu cầu ủy thác đến Huấn luyện viên trưởng! HLV sẽ đối soát thể lực để chỉ định chiến mã tối ưu nhất.`, 'ỦY THÁC HLV THÀNH CÔNG', 'success');
     }
     setActiveTab('races');
   };
@@ -2536,13 +2627,15 @@ export default function OwnerPage() {
       commissionRate: 0.00,
       commissionAmount: 0,
       netPayout: prize,
-      nominationStatus: 'CONFIRMED',
-      status: 'CONFIRMED',
-      paymentStatus: 'EXEMPT',
+      nominationStatus: 'PENDING',
+      status: 'PENDING',
+      isSettled: false,
+      evidenceFile: externalRecordForm.evidenceFile || null,
+      paymentStatus: 'PENDING_APPROVAL',
       ownerAgreedTerms: true,
-      notes: externalRecordForm.notes || (isRaceStarted ? 'Chủ ngựa tự cập nhật thành tích & nhận 100% tiền thưởng từ BTC bên ngoài.' : 'Chủ ngựa đăng ký tham gia giải đấu bên ngoài.'),
+      notes: externalRecordForm.notes || 'Chủ sở hữu khai báo thành tích giải ngoài, chờ Ban Quản Trị thẩm định minh chứng.',
       registeredAt: existingRecord?.registeredAt || timeStr,
-      settledAt: isRaceStarted ? timeStr : (existingRecord?.settledAt || null),
+      settledAt: null,
       updatedAt: timeStr
     };
 
@@ -2550,12 +2643,18 @@ export default function OwnerPage() {
       await recordExternalTournamentResultApi(ownerKey, recordToSave);
     } catch {}
 
-    // 1. Cập nhật danh sách giải đấu raceNominations (duy nhất 1 bản ghi, không nhân đôi)
+    // 1. Cập nhật danh sách giải đấu raceNominations ở trạng thái PENDING chờ Admin duyệt
     if (isEditMode) {
       setRaceNominations(prev => deduplicateNominations(prev.map(r => r.id === targetId ? recordToSave : r)));
     } else {
       setRaceNominations(prev => deduplicateNominations([recordToSave, ...prev]));
     }
+
+    // Tiền thưởng chỉ được cộng khi Quản trị viên (Admin) phê duyệt khớp với thành tích thực tế
+    showToast(`Đã gửi khai báo thành tích chiến mã "${selectedHorse.name}"! Vui lòng chờ Ban Quản Trị thẩm tra minh chứng để cộng quỹ tích lũy.`, 'HỒ SƠ ĐÃ GỬI CHỜ DUYỆT', 'info');
+    setShowExternalRecordModal(false);
+    setActiveTab('races');
+    return;
 
     // 2. Cập nhật chiến mã: điều chỉnh số tiền thưởng chính xác (lấy số hiện tại - oldPrize + prize mới)
     setMyHorses(prev => {
@@ -2722,9 +2821,44 @@ export default function OwnerPage() {
     return prizeFromRaces;
   }, [raceNominations, paymentHistory]);
 
+  // Quỹ tích lũy hệ thống của Chủ sở hữu
+  const [ownerFundBalance, setOwnerFundBalance] = useState(() => {
+    try {
+      const key = `matruong_owner_fund_${ownerKey}`;
+      const stored = localStorage.getItem(key);
+      if (stored !== null && !isNaN(Number(stored))) return Number(stored);
+      // Mặc định ban đầu cấp sẵn 50.000.000 ₫ quỹ nội bộ hệ thống để chủ sở hữu giao dịch
+      return 50000000;
+    } catch {
+      return 50000000;
+    }
+  });
+
+  const saveOwnerFundBalance = (newBal) => {
+    const safeBal = Math.max(0, Number(newBal) || 0);
+    setOwnerFundBalance(safeBal);
+    try {
+      localStorage.setItem(`matruong_owner_fund_${ownerKey}`, String(safeBal));
+      window.dispatchEvent(new Event('matruong_owner_fund_updated'));
+    } catch {}
+  };
+
+  useEffect(() => {
+    const handleFundUpdate = () => {
+      try {
+        const stored = localStorage.getItem(`matruong_owner_fund_${ownerKey}`);
+        if (stored !== null && !isNaN(Number(stored))) {
+          setOwnerFundBalance(Number(stored));
+        }
+      } catch {}
+    };
+    window.addEventListener('matruong_owner_fund_updated', handleFundUpdate);
+    return () => window.removeEventListener('matruong_owner_fund_updated', handleFundUpdate);
+  }, [ownerKey]);
+
   const netFundBalance = useMemo(() => {
-    return totalPrizeAll;
-  }, [totalPrizeAll]);
+    return ownerFundBalance + totalPrizeAll;
+  }, [ownerFundBalance, totalPrizeAll]);
 
   // Tính tổng số tiền chủ sở hữu đã thanh toán (chỉ tính chi phí / thanh toán, loại trừ các khoản thưởng PRIZE)
   const totalPaidAmount = useMemo(() => {
@@ -3535,9 +3669,7 @@ export default function OwnerPage() {
                                   <span style={{ color: 'var(--paper-dim)', width: '54px', flexShrink: 0, fontSize: '11.5px' }}>HLV:</span>
                                   <b style={{ color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trName}</b>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleRoleConfirm(h, 'TRAINER', trName)}
+                                <div
                                   style={{
                                     fontSize: '10px',
                                     fontWeight: 700,
@@ -3551,17 +3683,16 @@ export default function OwnerPage() {
                                     borderRadius: '4px',
                                     whiteSpace: 'nowrap',
                                     flexShrink: 0,
-                                    cursor: 'pointer',
+                                    cursor: 'default',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    transition: 'all 0.2s ease',
                                     boxSizing: 'border-box'
                                   }}
-                                  title={trOk ? 'HLV đã xác nhận phục vụ. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ HLV xác nhận. Bấm để duyệt xác nhận ngay.'}
+                                  title={trOk ? 'HLV đã xác nhận phụ trách chiến mã.' : 'Đang chờ HLV phụ trách xác nhận tiếp nhận. Chủ sở hữu không được tự duyệt.'}
                                 >
                                   {trOk ? 'Đã xác nhận' : 'Chờ HLV duyệt'}
-                                </button>
+                                </div>
                               </div>
 
                               {/* Bác sĩ */}
@@ -3570,9 +3701,7 @@ export default function OwnerPage() {
                                   <span style={{ color: 'var(--paper-dim)', width: '54px', flexShrink: 0, fontSize: '11.5px' }}>Bác sĩ:</span>
                                   <b style={{ color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vtName}</b>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleRoleConfirm(h, 'VET', vtName)}
+                                <div
                                   style={{
                                     fontSize: '10px',
                                     fontWeight: 700,
@@ -3586,17 +3715,16 @@ export default function OwnerPage() {
                                     borderRadius: '4px',
                                     whiteSpace: 'nowrap',
                                     flexShrink: 0,
-                                    cursor: 'pointer',
+                                    cursor: 'default',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    transition: 'all 0.2s ease',
                                     boxSizing: 'border-box'
                                   }}
-                                  title={vtOk ? 'Bác sĩ thú y đã xác nhận phụ trách. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ BS xác nhận. Bấm để duyệt xác nhận ngay.'}
+                                  title={vtOk ? 'Bác sĩ thú y đã xác nhận phụ trách y tế.' : 'Đang chờ Bác sĩ Thú y duyệt tiếp nhận. Chủ sở hữu không được tự duyệt.'}
                                 >
                                   {vtOk ? 'Đã xác nhận' : 'Chờ BS duyệt'}
-                                </button>
+                                </div>
                               </div>
 
                               {/* Groom */}
@@ -3605,9 +3733,7 @@ export default function OwnerPage() {
                                   <span style={{ color: 'var(--paper-dim)', width: '54px', flexShrink: 0, fontSize: '11.5px' }}>Groom:</span>
                                   <b style={{ color: 'var(--paper)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{gmName}</b>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleRoleConfirm(h, 'GROOM', gmName)}
+                                <div
                                   style={{
                                     fontSize: '10px',
                                     fontWeight: 700,
@@ -3621,17 +3747,16 @@ export default function OwnerPage() {
                                     borderRadius: '4px',
                                     whiteSpace: 'nowrap',
                                     flexShrink: 0,
-                                    cursor: 'pointer',
+                                    cursor: 'default',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    transition: 'all 0.2s ease',
                                     boxSizing: 'border-box'
                                   }}
-                                  title={gmRejected ? 'Groom từ chối tiếp nhận. Vui lòng bấm Đổi Đội Ngũ để chọn Groom khác.' : gmOk ? 'Groom đã đồng ý và xác nhận phục vụ. Bấm để chuyển về Chờ xác nhận nếu muốn.' : 'Đang chờ Groom xác nhận trước khi phục vụ. Bấm để duyệt xác nhận ngay.'}
+                                  title={gmRejected ? 'Groom từ chối tiếp nhận.' : gmOk ? 'Groom đã đồng ý và xác nhận phục vụ.' : 'Đang chờ Groom duyệt tiếp nhận. Chủ sở hữu không được tự duyệt.'}
                                 >
                                   {gmRejected ? 'Groom từ chối' : gmOk ? 'Đã xác nhận' : 'Chờ Groom duyệt'}
-                                </button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -4264,9 +4389,11 @@ export default function OwnerPage() {
                             onChange={(e) => setJointBookingForm({ ...jointBookingForm, trainerUsername: e.target.value })}
                             style={{ width: '100%', boxSizing: 'border-box', padding: '9px 10px', fontSize: '12px', borderRadius: '8px', background: 'rgba(0, 0, 0, 0.35)', border: '1px solid rgba(255, 255, 255, 0.12)', color: 'var(--paper)' }}
                           >
-                            <option value="trainer_nghia">
-                              HLV chính: Lê Trọng Nghĩa
-                            </option>
+                            {FIXED_TRAINERS_LIST.map(t => (
+                              <option key={t.username} value={t.username}>
+                                HLV: {t.name} ({t.title.split('-')[0].trim()})
+                              </option>
+                            ))}
                           </select>
                         </div>
                         <div>
@@ -4663,27 +4790,11 @@ export default function OwnerPage() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenJointBookingModal()}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: '5px',
-                      background: 'rgba(212, 175, 55, 0.12)',
-                      border: '1px solid rgba(212, 175, 55, 0.4)',
-                      color: 'var(--brass)',
-                      fontSize: '11.5px',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    + Đặt Lịch Mới
-                  </button>
                 </div>
 
                 {jointSessions.filter(s => String(s.ownerKey) === String(ownerKey) || s.ownerName === currentUser?.full_name).length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: 'var(--paper-dim)', fontSize: '13px' }}>
-                    Bạn chưa có lịch hẹn tập luyện chung nào. Bấm <b>"+ Đặt Lịch Mới"</b> để đăng ký một buổi ra sân cùng Huấn luyện viên!
+                    Bạn chưa có lịch hẹn tập luyện chung nào với Huấn luyện viên.
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
@@ -5255,6 +5366,7 @@ export default function OwnerPage() {
             <OwnerTournamentsTab
               OPEN_TOURNAMENTS={tournamentsList}
               raceNominations={raceNominations}
+              setRaceNominations={setRaceNominations}
               myHorses={myHorses}
               ownerKey={ownerKey}
               currentUser={currentUser}
@@ -5868,7 +5980,7 @@ export default function OwnerPage() {
                         <span style={{ fontSize: '11px', color: '#10B981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>Ưu đãi đặc quyền -60%</span>
                       </div>
                       <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--brass)', fontFamily: 'var(--display)' }}>
-                        35.000.000 VNĐ <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--paper-dim)' }}>/ NĂM</span>
+                        75.000.000 VNĐ <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--paper-dim)' }}>/ NĂM</span>
                       </div>
                     </div>
 
@@ -6466,7 +6578,7 @@ export default function OwnerPage() {
             </div>
 
             <p style={{ fontSize: '12.5px', color: 'var(--paper-dim)', margin: '0 0 16px', lineHeight: 1.4 }}>
-              Hệ thống sẽ cấp mã định danh vi chip RFID, bố trí ô chuồng và chỉ định Huấn luyện viên trưởng chăm sóc.
+              Hệ thống sẽ cấp mã định danh vi chip RFID.
             </p>
 
             <form onSubmit={handleCreateHorseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -6671,12 +6783,14 @@ export default function OwnerPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Mã vi chip định danh RFID
+                    Mã vi chip định danh RFID (Hệ thống tự cấp)
                   </label>
                   <input
                     type="text"
-                    value={horseForm.microchip}
-                    onChange={(e) => setHorseForm({ ...horseForm, microchip: e.target.value })}
+                    readOnly
+                    disabled
+                    value={horseForm.microchip || 'MC-VN-2026-AUTO'}
+                    title="Hệ thống sẽ tự động cấp phát mã vi chip RFID, không được chỉnh sửa"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -6685,14 +6799,16 @@ export default function OwnerPage() {
                       borderRadius: '6px',
                       color: 'var(--brass)',
                       fontFamily: 'monospace',
-                      fontSize: '13px'
+                      fontSize: '13px',
+                      cursor: 'not-allowed',
+                      opacity: 0.8
                     }}
                   />
                 </div>
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Tỷ lệ cổ phần sở hữu (%)
+                    Tỷ lệ cổ phần sở hữu (%) <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 400 }}>(100% nếu là chủ duy nhất / % nếu Syndicate)</span>
                   </label>
                   <input
                     type="number"
@@ -6713,7 +6829,7 @@ export default function OwnerPage() {
                 </div>
               </div>
 
-              {/* Đội ngũ phục vụ chuyên trách: 3 HLV, 3 BS, 3 Groom */}
+              {/* Đội ngũ phục vụ chuyên trách: HLV và BS (Groom do trường đua điều phối tự động) */}
               <div style={{
                 background: 'rgba(212, 175, 55, 0.05)',
                 padding: '12px',
@@ -6724,10 +6840,10 @@ export default function OwnerPage() {
                 gap: '10px'
               }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Chỉ Định Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
+                  Chỉ Định Đội Ngũ Phục Vụ (Huấn Luyện Viên & Bác Sĩ Thú Y)
                 </div>
 
-                <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'flex-start' }}>
+                <div className="modal-responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', alignItems: 'flex-start' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       Huấn Luyện Viên
@@ -6748,9 +6864,11 @@ export default function OwnerPage() {
                         cursor: 'pointer'
                       }}
                     >
-                      <option value="HLV Lê Trọng Nghĩa">
-                        HLV Lê Trọng Nghĩa (HLV Chính Phụ Trách)
-                      </option>
+                      {FIXED_TRAINERS_LIST.map(t => (
+                        <option key={t.username} value={t.name}>
+                          {t.name} ({t.title.split('-')[0].trim()})
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -6781,37 +6899,9 @@ export default function OwnerPage() {
                       ))}
                     </select>
                   </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      Người Chăm Sóc
-                    </label>
-                    <select
-                      value={horseForm.groom}
-                      onChange={(e) => setHorseForm({ ...horseForm, groom: e.target.value })}
-                      style={{
-                        width: '100%',
-                        height: '38px',
-                        boxSizing: 'border-box',
-                        padding: '0 8px',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--line)',
-                        borderRadius: '6px',
-                        color: 'var(--paper)',
-                        fontSize: '12px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {FIXED_GROOMS_LIST.map(g => (
-                        <option key={g.username} value={g.name}>
-                          {g.name} ({g.title.split('&')[0].trim()})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
                 <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', fontStyle: 'italic' }}>
-                  * Nhân sự được chọn sẽ nhận yêu cầu xác nhận phục vụ trong cổng quản trị chuyên môn của họ.
+                  * HLV và Bác sĩ sẽ nhận yêu cầu xác nhận phục vụ. Đội ngũ Groom chăm sóc chuồng trại được trường đua tự động phân bổ đồng bộ.
                 </div>
               </div>
 
@@ -7419,12 +7509,14 @@ export default function OwnerPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Mã vi chip định danh RFID
+                    Mã vi chip định danh RFID (Cố định)
                   </label>
                   <input
                     type="text"
+                    readOnly
+                    disabled
                     value={editHorseForm.microchip}
-                    onChange={(e) => setEditHorseForm({ ...editHorseForm, microchip: e.target.value })}
+                    title="Mã vi chip định danh do hệ thống cấp cố định, không được chỉnh sửa"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
@@ -7433,14 +7525,16 @@ export default function OwnerPage() {
                       borderRadius: '6px',
                       color: 'var(--brass)',
                       fontFamily: 'monospace',
-                      fontSize: '13px'
+                      fontSize: '13px',
+                      cursor: 'not-allowed',
+                      opacity: 0.8
                     }}
                   />
                 </div>
 
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Tỷ lệ cổ phần sở hữu (%)
+                    Tỷ lệ cổ phần sở hữu (%) <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 400 }}>(100% nếu là chủ duy nhất / % nếu Syndicate)</span>
                   </label>
                   <input
                     type="number"
@@ -7461,7 +7555,7 @@ export default function OwnerPage() {
                 </div>
               </div>
 
-              {/* Đội ngũ phục vụ chuyên trách: 3 HLV, 3 BS, 3 Groom */}
+              {/* Đội ngũ phục vụ chuyên trách: HLV và BS (Groom do trường đua điều phối tự động) */}
               <div style={{
                 background: 'rgba(212, 175, 55, 0.05)',
                 padding: '12px',
@@ -7472,10 +7566,10 @@ export default function OwnerPage() {
                 gap: '10px'
               }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                   Thay Đổi Đội Ngũ Phục Vụ (3 HLV, 3 Bác Sĩ, 3 Groom Cố Định)
+                   Thay Đổi Đội Ngũ Phục Vụ (Huấn Luyện Viên & Bác Sĩ Thú Y)
                 </div>
 
-                <div className="modal-responsive-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'flex-start' }}>
+                <div className="modal-responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', alignItems: 'flex-start' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       <span></span> Huấn Luyện Viên
@@ -7496,9 +7590,11 @@ export default function OwnerPage() {
                         cursor: 'pointer'
                       }}
                     >
-                      <option value="HLV Lê Trọng Nghĩa">
-                        HLV Lê Trọng Nghĩa (HLV Chính Phụ Trách)
-                      </option>
+                      {FIXED_TRAINERS_LIST.map(t => (
+                        <option key={t.username} value={t.name}>
+                          {t.name} ({t.title.split('-')[0].trim()})
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -7529,34 +7625,9 @@ export default function OwnerPage() {
                       ))}
                     </select>
                   </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: '4px', height: '18px', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span></span> Người Chăm Sóc
-                    </label>
-                    <select
-                      value={editHorseForm.groom}
-                      onChange={(e) => setEditHorseForm({ ...editHorseForm, groom: e.target.value })}
-                      style={{
-                        width: '100%',
-                        height: '38px',
-                        boxSizing: 'border-box',
-                        padding: '0 8px',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--line)',
-                        borderRadius: '6px',
-                        color: 'var(--paper)',
-                        fontSize: '12px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {FIXED_GROOMS_LIST.map(g => (
-                        <option key={g.username} value={g.name}>
-                          {g.name} ({g.title.split('&')[0].trim()})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                </div>
+                <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)', fontStyle: 'italic' }}>
+                  * HLV và Bác sĩ sẽ nhận yêu cầu xác nhận phục vụ. Đội ngũ Groom chăm sóc chuồng trại được trường đua tự động phân bổ đồng bộ.
                 </div>
               </div>
 
@@ -7869,8 +7940,10 @@ export default function OwnerPage() {
             onClick={(e) => e.stopPropagation()}
             style={{
               background: 'var(--bg-card)',
-              maxWidth: '520px',
+              maxWidth: '540px',
               width: '92%',
+              maxHeight: '88vh',
+              overflowY: 'auto',
               padding: '24px',
               border: '1px solid var(--line-strong)',
               boxShadow: '0 16px 40px rgba(0, 0, 0, 0.5)'
@@ -8133,6 +8206,276 @@ export default function OwnerPage() {
                   </div>
                 )}
 
+      {/* ========================================================================= */}
+      {/* MODAL 2A: THANH TOÁN LỆ PHÍ THAM GIA GIẢI ĐUA (QUỸ vs NGÂN HÀNG) */}
+      {/* ========================================================================= */}
+      {showRacePaymentModal && pendingRaceNominationDraft && (
+        <div className="modal-overlay" onClick={() => setShowRacePaymentModal(false)}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              maxWidth: '540px',
+              width: '92%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              border: '1px solid var(--brass)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--brass)' }}><IconReceipt size={22} /></span>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--brass)' }}>
+                  Thanh Toán Lệ Phí Tham Gia Giải Đua
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRacePaymentModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}
+              >&times;</button>
+            </div>
+
+            {/* Thông tin tóm tắt giải & phí */}
+            <div style={{
+              padding: '14px',
+              borderRadius: '8px',
+              background: 'rgba(212, 175, 55, 0.08)',
+              border: '1px solid rgba(212, 175, 55, 0.25)',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Giải Đấu Đăng Ký
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)', marginTop: '2px' }}>
+                    {pendingRaceNominationDraft.raceName}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                    Chiến mã: <strong style={{ color: 'var(--brass)' }}>{pendingRaceNominationDraft.horseName}</strong> • Cự ly: {pendingRaceNominationDraft.distance}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Lệ Phí Tham Gia
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--brass)', marginTop: '2px' }}>
+                    5.000.000 ₫
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--paper-dim)', borderTop: '1px dashed rgba(212, 175, 55, 0.2)', paddingTop: '6px' }}>
+                Chủ sở hữu: <b>{pendingRaceNominationDraft.ownerFullName}</b> • SĐT: <b>{pendingRaceNominationDraft.ownerPhone}</b>
+              </div>
+            </div>
+
+            {/* Chọn phương thức thanh toán */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--paper)', display: 'block', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Chọn Phương Thức Thanh Toán
+              </label>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* 1. Thanh toán bằng Quỹ */}
+                <div
+                  onClick={() => setChosenRacePaymentMethod('FUND')}
+                  style={{
+                    padding: '14px',
+                    borderRadius: '8px',
+                    border: `1.5px solid ${chosenRacePaymentMethod === 'FUND' ? 'var(--brass)' : 'var(--line)'}`,
+                    background: chosenRacePaymentMethod === 'FUND' ? 'rgba(212, 175, 55, 0.12)' : 'var(--bg-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <input
+                        type="radio"
+                        checked={chosenRacePaymentMethod === 'FUND'}
+                        onChange={() => setChosenRacePaymentMethod('FUND')}
+                        style={{ accentColor: 'var(--brass)' }}
+                      />
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)' }}>
+                          🏦 Thanh Toán Bằng Quỹ Tích Lũy Hệ Thống
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                          Số dư quỹ khả dụng: <b style={{ color: netFundBalance >= 5000000 ? '#10B981' : '#EF4444' }}>{formatVND(netFundBalance)}</b>
+                        </div>
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: netFundBalance >= 5000000 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      color: netFundBalance >= 5000000 ? '#10B981' : '#EF4444',
+                      border: `1px solid ${netFundBalance >= 5000000 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                    }}>
+                      {netFundBalance >= 5000000 ? 'Đủ Số Dư' : 'Không Đủ'}
+                    </span>
+                  </div>
+
+                  {chosenRacePaymentMethod === 'FUND' && (
+                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(212, 175, 55, 0.2)', fontSize: '12px', color: '#10B981' }}>
+                      ✓ Hệ thống sẽ <b>trừ trực tiếp 5.000.000 ₫</b> từ số dư Quỹ của bạn. Sau khi thanh toán, số dư còn lại: <b>{formatVND(Math.max(0, netFundBalance - 5000000))}</b>.
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Thanh toán bằng Ngân hàng */}
+                <div
+                  onClick={() => setChosenRacePaymentMethod('BANK')}
+                  style={{
+                    padding: '14px',
+                    borderRadius: '8px',
+                    border: `1.5px solid ${chosenRacePaymentMethod === 'BANK' ? 'var(--brass)' : 'var(--line)'}`,
+                    background: chosenRacePaymentMethod === 'BANK' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input
+                      type="radio"
+                      checked={chosenRacePaymentMethod === 'BANK'}
+                      onChange={() => setChosenRacePaymentMethod('BANK')}
+                      style={{ accentColor: 'var(--brass)' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--paper)' }}>
+                        💳 Thanh Toán Bằng Tài Khoản Ngân Hàng (VietQR 24/7)
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#60A5FA', marginTop: '2px', fontWeight: 600 }}>
+                        ★ Chuyển khoản ngân hàng — <b>KHÔNG bị trừ tiền trong quỹ hệ thống</b>
+                      </div>
+                    </div>
+                  </div>
+
+                  {chosenRacePaymentMethod === 'BANK' && (
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '12px',
+                      borderRadius: '6px',
+                      background: 'rgba(0, 0, 0, 0.3)',
+                      border: '1px solid var(--line)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      fontSize: '12px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>Ngân hàng thụ hưởng:</span>
+                        <b style={{ color: 'var(--paper)' }}>MB Bank (Ngân Hàng Quân Đội)</b>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>Số tài khoản:</span>
+                        <b style={{ color: 'var(--brass)', fontSize: '14px', letterSpacing: '0.05em' }}>9999 8888 7777</b>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>Chủ tài khoản:</span>
+                        <b style={{ color: 'var(--paper)' }}>TRUONG DUA NGUA CAT THE THAO</b>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>Số tiền chuyển khoản:</span>
+                        <b style={{ color: '#10B981', fontSize: '13px' }}>5.000.000 ₫</b>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--paper-dim)' }}>Nội dung chuyển khoản:</span>
+                        <b style={{ color: '#F59E0B' }}>DANGKY {pendingRaceNominationDraft.horseName.toUpperCase().replace(/\s+/g, '')} {pendingRaceNominationDraft.ownerPhone}</b>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontStyle: 'italic', marginTop: '4px' }}>
+                        * Bấm "Xác Nhận Thanh Toán Ngân Hàng" bên dưới để hoàn tất ghi danh mà không ảnh hưởng số dư quỹ.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Thanh toán sau */}
+                <div
+                  onClick={() => setChosenRacePaymentMethod('LATER')}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    border: `1.5px solid ${chosenRacePaymentMethod === 'LATER' ? '#F59E0B' : 'var(--line)'}`,
+                    background: chosenRacePaymentMethod === 'LATER' ? 'rgba(245, 158, 11, 0.1)' : 'var(--bg-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input
+                      type="radio"
+                      checked={chosenRacePaymentMethod === 'LATER'}
+                      onChange={() => setChosenRacePaymentMethod('LATER')}
+                      style={{ accentColor: '#F59E0B' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--paper)' }}>
+                        ⏳ Thanh Toán Sau (Chưa Đóng Phí Ngay)
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                        Ghi danh trước, đóng phí sau trước ngày thi đấu. Bạn vẫn có thể hủy đơn đăng ký nếu đổi ý.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Nút hành động */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRacePaymentModal(false);
+                  setShowRaceRegisterModal(true);
+                }}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  color: 'var(--paper-dim)',
+                  border: '1px solid var(--line)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                ← Quay Lại
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleConfirmRacePayment(chosenRacePaymentMethod)}
+                style={{
+                  padding: '9px 22px',
+                  borderRadius: '6px',
+                  background: chosenRacePaymentMethod === 'LATER' ? '#F59E0B' : 'var(--brass)',
+                  color: '#0A0D14',
+                  fontWeight: 700,
+                  border: 'none',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                {chosenRacePaymentMethod === 'FUND'
+                  ? 'Xác Nhận Trừ Quỹ (5.000.000 ₫)'
+                  : chosenRacePaymentMethod === 'BANK'
+                    ? 'Xác Nhận Thanh Toán Ngân Hàng'
+                    : 'Xác Nhận Ghi Danh (Thanh Toán Sau)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
                 <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--paper-dim)' }}>Cự ly & Địa điểm:</span>
@@ -8179,6 +8522,137 @@ export default function OwnerPage() {
                   );
                 })()}
 
+                {/* Khối Thông Tin Cá Nhân Của Chủ Sở Hữu */}
+                <div style={{
+                  padding: '12px 14px',
+                  background: 'rgba(212, 175, 55, 0.05)',
+                  border: '1px solid rgba(212, 175, 55, 0.25)',
+                  borderRadius: '8px'
+                }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px' }}>
+                    Thông Tin Cá Nhân Chủ Sở Hữu Đăng Ký
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
+                        Họ và tên chủ sở hữu *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={raceRegForm.ownerFullName}
+                        onChange={(e) => setRaceRegForm({ ...raceRegForm, ownerFullName: e.target.value })}
+                        placeholder="Nguyễn Văn A"
+                        style={{
+                          width: '100%',
+                          padding: '7px 9px',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '5px',
+                          color: 'var(--paper)',
+                          fontSize: '12.5px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
+                        Số điện thoại liên hệ *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={raceRegForm.ownerPhone}
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/^\+84\s?0?/, '0').replace(/[^0-9]/g, '');
+                          if (val.length > 10) val = val.slice(0, 10);
+                          setRaceRegForm({ ...raceRegForm, ownerPhone: val });
+                        }}
+                        placeholder="0335299265"
+                        maxLength={10}
+                        style={{
+                          width: '100%',
+                          padding: '7px 9px',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '5px',
+                          color: 'var(--paper)',
+                          fontSize: '12.5px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
+                        Số CCCD / CMND *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={raceRegForm.ownerIdCard}
+                        onChange={(e) => setRaceRegForm({ ...raceRegForm, ownerIdCard: e.target.value })}
+                        placeholder="079201008899"
+                        style={{
+                          width: '100%',
+                          padding: '7px 9px',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '5px',
+                          color: 'var(--paper)',
+                          fontSize: '12.5px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11.5px', color: 'var(--paper-dim)', display: 'block', marginBottom: '3px', fontWeight: 600 }}>
+                        Email liên hệ
+                      </label>
+                      <input
+                        type="email"
+                        value={raceRegForm.ownerEmail}
+                        onChange={(e) => setRaceRegForm({ ...raceRegForm, ownerEmail: e.target.value })}
+                        placeholder="owner@example.com"
+                        style={{
+                          width: '100%',
+                          padding: '7px 9px',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '5px',
+                          color: 'var(--paper)',
+                          fontSize: '12.5px',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Khối Lệ Phí Tham Gia Giải Đua */}
+                <div style={{
+                  padding: '12px 14px',
+                  background: 'rgba(212, 175, 55, 0.08)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--paper)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Lệ Phí Tham Gia Giải Đua
+                    </span>
+                    <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                      Chọn phương thức thanh toán (Quỹ hoặc Ngân hàng) ở bước tiếp theo
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--brass)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    5.000.000 ₫
+                  </span>
+                </div>
+
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
                     Ghi chú chiến thuật của Chủ sở hữu
@@ -8200,12 +8674,23 @@ export default function OwnerPage() {
                   />
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <div style={{
+                  display: 'flex',
+                  gap: '10px',
+                  justifyContent: 'flex-end',
+                  marginTop: '14px',
+                  position: 'sticky',
+                  bottom: '-24px',
+                  background: 'var(--bg-card)',
+                  padding: '12px 0 4px',
+                  borderTop: '1px solid var(--line)',
+                  zIndex: 2
+                }}>
                   <button
                     type="button"
                     onClick={() => setShowRaceRegisterModal(false)}
                     style={{
-                      padding: '8px 16px',
+                      padding: '9px 16px',
                       borderRadius: '6px',
                       background: 'transparent',
                       color: 'var(--paper-dim)',
@@ -8229,17 +8714,20 @@ export default function OwnerPage() {
                         type="submit"
                         disabled={isLocked || isRegClosed}
                         style={{
-                          padding: '8px 20px',
+                          padding: '9px 22px',
                           borderRadius: '6px',
                           background: (isLocked || isRegClosed) ? 'rgba(255, 255, 255, 0.1)' : 'var(--brass)',
                           color: (isLocked || isRegClosed) ? 'var(--paper-dim)' : '#0A0D14',
                           fontWeight: 700,
                           border: 'none',
                           fontSize: '13px',
-                          cursor: (isLocked || isRegClosed) ? 'not-allowed' : 'pointer'
+                          cursor: (isLocked || isRegClosed) ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
                         }}
                       >
-                        {isRegClosed ? '🔒 Đã Đóng Đăng Ký' : isLocked ? ' Đang Khóa Y Tế (Cấm Thi Đấu)' : 'Xác Nhận Ghi Danh Thi Đấu'}
+                        {isRegClosed ? '🔒 Đã Đóng Đăng Ký' : isLocked ? ' Đang Khóa Y Tế (Cấm Thi Đấu)' : 'Xác Nhận Đăng Ký → Chuyển Sang Thanh Toán'}
                       </button>
                     );
                   })()}
@@ -8313,155 +8801,25 @@ export default function OwnerPage() {
             <form onSubmit={handleExternalRecordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                  Chọn giải đấu ngoài hoặc tự nhập
-                </label>
-                <select
-                  value={OPEN_TOURNAMENTS.find(t => t.name === externalRecordForm.raceName)?.id || 'CUSTOM'}
-                  onChange={(e) => {
-                    const selId = e.target.value;
-                    const found = OPEN_TOURNAMENTS.find(t => t.id === selId);
-                    if (found) {
-                      // Kiểm tra xem giải này đã được ghi nhận trước đó chưa
-                      const alreadyNom = raceNominations.find(r => 
-                        (r.tournamentType === 'EXTERNAL' || r.isExternal) && 
-                        r.raceName === found.name
-                      );
-
-                      if (alreadyNom) {
-                        setExternalRecordForm(prev => ({
-                          ...prev,
-                          recordId: alreadyNom.id,
-                          isEditing: true,
-                          raceName: found.name,
-                          organizerName: found.organizerName,
-                          track: found.track,
-                          distance: found.distance,
-                          date: found.date,
-                          horseId: alreadyNom.horseId ? String(alreadyNom.horseId) : prev.horseId,
-                          rank: alreadyNom.rank || 'Hạng 1 (Giải Nhất - 50% Quỹ)',
-                          grossPrize: alreadyNom.grossPrize !== undefined ? alreadyNom.grossPrize : 0,
-                          basePurse: found.totalPurse || 300000000,
-                          notes: alreadyNom.notes || ''
-                        }));
-                      } else {
-                        const basePurse = Number(found.totalPurse) || 300000000;
-                        let initialGross = Math.round(basePurse * 0.5);
-                        if (externalRecordForm.rank?.includes('2')) initialGross = Math.round(basePurse * 0.25);
-                        else if (externalRecordForm.rank?.includes('3')) initialGross = Math.round(basePurse * 0.15);
-                        else if (externalRecordForm.rank?.includes('5')) initialGross = Math.round(basePurse * 0.05);
-                        else if (externalRecordForm.rank?.includes('Không')) initialGross = 0;
-
-                        setExternalRecordForm(prev => ({
-                          ...prev,
-                          recordId: '',
-                          isEditing: false,
-                          raceName: found.name,
-                          organizerName: found.organizerName,
-                          track: found.track,
-                          distance: found.distance,
-                          date: found.date,
-                          grossPrize: initialGross,
-                          basePurse
-                        }));
-                      }
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--line)',
-                    borderRadius: '6px',
-                    color: 'var(--brass)',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    marginBottom: '8px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {OPEN_TOURNAMENTS.filter(t => t.tournamentType === 'EXTERNAL').map(t => {
-                    const tStatus = getTournamentTimeStatus(t.date);
-                    return (
-                      <option key={t.id} value={t.id}>
-                        {t.name} (Quỹ: {formatVND(t.totalPurse)}) {tStatus.isUpcoming ? `[Chưa tới ngày: ${t.date}]` : `[Đang diễn ra/Hoàn thành]`}
-                      </option>
-                    );
-                  })}
-                  <option value="CUSTOM">-- Tự nhập tên giải đấu bên ngoài khác --</option>
-                </select>
-
-                {(() => {
-                  const matchedExtTourn = OPEN_TOURNAMENTS.find(t => t.name === externalRecordForm.raceName);
-                  const raceDateStr = externalRecordForm.date || matchedExtTourn?.date;
-                  const tStatus = getTournamentTimeStatus(raceDateStr);
-                  if (tStatus.isRegNotOpenYet) {
-                    return (
-                      <div style={{
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        background: 'rgba(245, 158, 11, 0.12)',
-                        border: '1px solid rgba(245, 158, 11, 0.4)',
-                        color: '#F59E0B',
-                        fontSize: '12px',
-                        lineHeight: 1.45,
-                        marginBottom: '8px'
-                      }}>
-                        <b>⏳ Chưa tới thời gian mở đăng ký:</b> Giải "{externalRecordForm.raceName}" sẽ mở cổng đăng ký từ ngày <b>{tStatus.regOpenDeadlineFormatted}</b> (trước ngày thi đấu 1 tháng).
-                      </div>
-                    );
-                  }
-                  if (tStatus.isRegClosed && !tStatus.isRaceStarted) {
-                    return (
-                      <div style={{
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        background: 'rgba(239, 68, 68, 0.12)',
-                        border: '1px solid rgba(239, 68, 68, 0.4)',
-                        color: '#EF4444',
-                        fontSize: '12px',
-                        lineHeight: 1.45,
-                        marginBottom: '8px'
-                      }}>
-                        <b>🔒 Đã đóng đăng ký:</b> Giải "{externalRecordForm.raceName}" đã đóng đăng ký tham gia (đóng trước 1 tuần). Ngày khởi tranh: <b>{tStatus.raceDateFormatted}</b>.
-                      </div>
-                    );
-                  }
-                  if (tStatus.isRegOpen && !tStatus.isRaceStarted) {
-                    return (
-                      <div style={{
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        background: 'rgba(16, 185, 129, 0.12)',
-                        border: '1px solid rgba(16, 185, 129, 0.4)',
-                        color: '#10B981',
-                        fontSize: '12px',
-                        lineHeight: 1.45,
-                        marginBottom: '8px'
-                      }}>
-                        <b>🟢 Đang mở cổng đăng ký tham gia:</b> Bạn đang đăng ký chiến mã vào giải "{externalRecordForm.raceName}" (Hạn chót: <b>{tStatus.regDeadlineFormatted}</b>). Sau khi giải đấu khởi tranh vào ngày <b>{tStatus.raceDateFormatted}</b>, bạn sẽ cập nhật thứ hạng và nhận tiền thưởng!
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                  Tên giải đấu bên ngoài <span style={{ color: '#EF4444' }}>*</span>
+                  Tên giải đấu bên ngoài <span style={{ color: 'var(--brass)' }}>* (Cố định theo giải)</span>
                 </label>
                 <input
                   type="text"
                   required
+                  readOnly
+                  disabled
                   value={externalRecordForm.raceName}
-                  onChange={e => setExternalRecordForm({ ...externalRecordForm, raceName: e.target.value })}
                   placeholder="VD: Giải Đua Ngựa Truyền Thống Bắc Hà 2026..."
                   style={{
                     width: '100%',
                     padding: '8px 10px',
-                    background: 'var(--bg-secondary)',
+                    background: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid var(--line)',
                     borderRadius: '6px',
                     color: 'var(--paper)',
-                    fontSize: '13px'
+                    fontSize: '13px',
+                    cursor: 'not-allowed',
+                    opacity: 0.85
                   }}
                 />
               </div>
@@ -8469,21 +8827,24 @@ export default function OwnerPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Đơn vị tổ chức bên ngoài
+                    Đơn vị tổ chức bên ngoài (Cố định)
                   </label>
                   <input
                     type="text"
+                    readOnly
+                    disabled
                     value={externalRecordForm.organizerName}
-                    onChange={e => setExternalRecordForm({ ...externalRecordForm, organizerName: e.target.value })}
                     placeholder="VD: Sở VHTTDL Lào Cai"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
-                      background: 'var(--bg-secondary)',
+                      background: 'rgba(255, 255, 255, 0.05)',
                       border: '1px solid var(--line)',
                       borderRadius: '6px',
                       color: 'var(--paper)',
-                      fontSize: '13px'
+                      fontSize: '13px',
+                      cursor: 'not-allowed',
+                      opacity: 0.85
                     }}
                   />
                 </div>
@@ -8515,21 +8876,24 @@ export default function OwnerPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Cự ly thi đấu
+                    Cự ly thi đấu (Cố định)
                   </label>
                   <input
                     type="text"
+                    readOnly
+                    disabled
                     value={externalRecordForm.distance}
-                    onChange={e => setExternalRecordForm({ ...externalRecordForm, distance: e.target.value })}
                     placeholder="VD: 1.600m"
                     style={{
                       width: '100%',
                       padding: '8px 10px',
-                      background: 'var(--bg-secondary)',
+                      background: 'rgba(255, 255, 255, 0.05)',
                       border: '1px solid var(--line)',
                       borderRadius: '6px',
                       color: 'var(--paper)',
-                      fontSize: '13px'
+                      fontSize: '13px',
+                      cursor: 'not-allowed',
+                      opacity: 0.85
                     }}
                   />
                 </div>
@@ -8577,88 +8941,80 @@ export default function OwnerPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                    Tiền thưởng nhận (VNĐ)
+                    Tiền thưởng nhận (Cố định)
                   </label>
                   <input
                     type="number"
-                    min="0"
-                    step="1000000"
+                    readOnly
+                    disabled
                     value={externalRecordForm.grossPrize}
-                    onChange={e => setExternalRecordForm({ ...externalRecordForm, grossPrize: e.target.value })}
                     style={{
                       width: '100%',
                       padding: '8px 10px',
-                      background: 'var(--bg-secondary)',
+                      background: 'rgba(255, 255, 255, 0.05)',
                       border: '1px solid var(--line)',
                       borderRadius: '6px',
                       color: Number(externalRecordForm.grossPrize) > 0 ? '#10B981' : 'var(--paper-dim)',
                       fontWeight: 800,
-                      fontSize: '13px'
+                      fontSize: '13px',
+                      cursor: 'not-allowed',
+                      opacity: 0.85
                     }}
                   />
                 </div>
               </div>
 
-              {/* BẢNG TÍNH THỰC NHẬN CỦA CHỦ NGỰA */}
-              <div style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--line)',
-                borderRadius: '6px',
-                padding: '10px 12px',
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
-                gap: '8px',
-                textAlign: 'center'
-              }}>
-                <div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>Tổng Thưởng Khai Báo</div>
-                  <b style={{ color: 'var(--paper)', fontSize: '13px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                    {formatVND(Number(externalRecordForm.grossPrize) || 0)}
-                  </b>
-                </div>
-                <div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>Hoa Hồng Nền Tảng (0%)</div>
-                  <b style={{ color: '#10B981', fontSize: '13px' }}>0 ₫ (Miễn thu)</b>
-                </div>
-                <div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>Chủ Ngựa Thực Nhận (100%)</div>
-                  <b style={{ color: '#10B981', fontSize: '14px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                    {formatVND(Number(externalRecordForm.grossPrize) || 0)}
-                  </b>
-                </div>
-              </div>
-
-              <div style={{
-                fontSize: '11.5px',
-                color: Number(externalRecordForm.grossPrize) > 0 ? '#10B981' : 'var(--paper-dim)',
-                background: Number(externalRecordForm.grossPrize) > 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.03)',
-                padding: '6px 10px',
-                borderRadius: '4px'
-              }}>
-                {Number(externalRecordForm.grossPrize) > 0
-                  ? `✨ Tiền thưởng thực nhận +${formatVND(Number(externalRecordForm.grossPrize) || 0)} sẽ được cộng vào quỹ tích lũy và cập nhật vào lịch sử giao dịch tài chính.`
-                  : 'ℹ️ Không đạt giải (0 ₫): Hệ thống chỉ lưu lịch sử tham gia thi đấu, số dư tiền thưởng và lịch sử giao dịch sẽ giữ nguyên.'}
-              </div>
-
+              {/* Minnh chứng kết quả: File PDF hoặc Hình ảnh chứng nhận */}
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                  Ghi chú / Minh chứng kết quả
+                  Minh chứng kết quả thi đấu (File PDF hoặc Hình ảnh chứng nhận) <span style={{ color: '#EF4444' }}>*</span>
                 </label>
-                <input
-                  type="text"
-                  value={externalRecordForm.notes}
-                  onChange={e => setExternalRecordForm({ ...externalRecordForm, notes: e.target.value })}
-                  placeholder="Ghi chú về nài ngựa, thời gian xuất phát hoặc đường dẫn chứng nhận..."
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--line)',
-                    borderRadius: '6px',
-                    color: 'var(--paper)',
-                    fontSize: '13px'
-                  }}
-                />
+                <div style={{
+                  border: '1px dashed var(--line-strong)',
+                  borderRadius: '6px',
+                  padding: '12px',
+                  background: 'var(--bg-secondary)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setExternalRecordForm(prev => ({
+                          ...prev,
+                          evidenceFileName: file.name,
+                          evidenceFileSize: `${(file.size / 1024).toFixed(1)} KB`
+                        }));
+                      }
+                    }}
+                    style={{ fontSize: '12.5px', color: 'var(--paper)' }}
+                  />
+                  {externalRecordForm.evidenceFileName && (
+                    <div style={{ fontSize: '11.5px', color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>📄 Đã đính kèm:</span> <b>{externalRecordForm.evidenceFileName}</b> ({externalRecordForm.evidenceFileSize})
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    value={externalRecordForm.notes}
+                    onChange={e => setExternalRecordForm({ ...externalRecordForm, notes: e.target.value })}
+                    placeholder="Ghi chú thêm về nài ngựa, chứng từ xác thực..."
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '5px',
+                      color: 'var(--paper)',
+                      fontSize: '12.5px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
@@ -9678,7 +10034,7 @@ export default function OwnerPage() {
                       </span>
                     </div>
                     <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--brass)', fontFamily: 'var(--display)' }}>
-                      {billingCycle === 'year' ? '35.000.000 VNĐ' : '3.500.000 VNĐ'}
+                      {billingCycle === 'year' ? '75.000.000 VNĐ' : '7.500.000 VNĐ'}
                       <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper-dim)' }}>{billingCycle === 'year' ? ' / NĂM' : ' / THÁNG'}</span>
                     </div>
                   </div>
@@ -9688,7 +10044,7 @@ export default function OwnerPage() {
                     <div>Chuồng VIP Block A/B đệm rơm khử khuẩn</div>
                     <div><b>Viễn trắc IoT Real-time từng mét bứt tốc</b></div>
                     <div>Chỉ định HLV Trưởng & giáo án 1-kèm-1</div>
-                    <div><b style={{ color: 'var(--brass)' }}>Hoa hồng thưởng chỉ 5% (Chủ nhận 95%)</b></div>
+                    <div><b style={{ color: 'var(--brass)' }}>Ưu tiên suất đua đặc cách các giải lớn</b></div>
                     <div><b>Giảm 15% tổng chi phí lưu chuồng</b></div>
                     <div>Bác sĩ thú y trưởng trực tiếp hội chẩn</div>
                     <div>Thẻ VIP Lounge & Vào khu cách ly Paddock</div>
@@ -9759,7 +10115,7 @@ export default function OwnerPage() {
           id: 'PREMIUM',
           name: 'Horse Premium VIP',
           cycle: billingCycle,
-          amount: billingCycle === 'year' ? 35000000 : 3500000
+          amount: billingCycle === 'year' ? 75000000 : 7500000
         }}
         ownerInfo={{
           name: currentUser?.full_name || 'Chủ Sở Hữu Ngựa',
@@ -10196,7 +10552,7 @@ export default function OwnerPage() {
                     <td style={{ padding: '10px 6px', textAlign: 'center', color: 'var(--paper)' }}>01</td>
                     <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--paper-dim)', textDecoration: 'line-through' }}>89.000.000 đ</td>
                     <td style={{ padding: '10px 8px', textAlign: 'right', color: '#10B981', fontWeight: 600 }}>-54.000.000 đ</td>
-                    <td style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 800, color: 'var(--paper)', fontSize: '13px' }}>35.000.000 đ</td>
+                    <td style={{ padding: '10px 10px', textAlign: 'right', fontWeight: 800, color: 'var(--paper)', fontSize: '13px' }}>75.000.000 đ</td>
                   </tr>
                 </tbody>
               </table>
@@ -10608,9 +10964,11 @@ export default function OwnerPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  <option value="trainer_nghia">
-                    Lê Trọng Nghĩa — HLV Trưởng Phụ Trách Chính (Độc Quyền)
-                  </option>
+                  {FIXED_TRAINERS_LIST.map(tr => (
+                    <option key={tr.username} value={tr.username}>
+                      {tr.name} — {tr.title}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -10790,9 +11148,11 @@ export default function OwnerPage() {
                     onChange={(e) => setJointBookingForm({ ...jointBookingForm, trainerUsername: e.target.value })}
                     style={{ width: '100%', boxSizing: 'border-box' }}
                   >
-                    <option value="trainer_nghia">
-                      Lê Trọng Nghĩa (HLV Trưởng Phụ Trách Chính)
-                    </option>
+                    {FIXED_TRAINERS_LIST.map(t => (
+                      <option key={t.username} value={t.username}>
+                        {t.name} ({t.title})
+                      </option>
+                    ))}
                   </select>
                   {(() => {
                     const selHorse = myHorses.find(h => String(h.id) === String(jointBookingForm.horseId));
@@ -11365,8 +11725,6 @@ export default function OwnerPage() {
                 alignItems: 'flex-start',
                 gap: '10px'
               }}>
-                HÓA ĐƠN GIÁ TRỊ GIA TĂNG (ĐIỆN TỬ)
-     
                 <div style={{ fontSize: '11.5px', color: '#94A3B8', lineHeight: '1.5' }}>
                   <b style={{ color: '#38BDF8' }}>Quy trình xử lý bảo mật:</b> Báo cáo được chuyển trực tiếp tới hộp thư Ban Quản Trị (Admin). Admin sẽ tiến hành trích xuất dữ liệu camera ô chuồng, kiểm tra viễn trắc huấn luyện và yêu cầu nhân sự giải trình minh bạch.
                 </div>

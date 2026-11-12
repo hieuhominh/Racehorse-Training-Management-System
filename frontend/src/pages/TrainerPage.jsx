@@ -42,13 +42,324 @@ import {
   REQUIRED_WORKOUTS_TO_EVALUATE 
 } from '../services/fitnessAlgorithm';
 
-// Danh sách chiến mã mock cũ bị loại bỏ hoàn toàn khỏi bộ nhớ HLV
-const EXCLUDED_MOCK_HORSES = ['hắc phong', 'xích thố', 'phi yến', 'lôi chấn', 'bạch long'];
-const isExcludedTrainerHorse = (nameOrChip) => {
-  if (!nameOrChip) return false;
-  const n = String(nameOrChip).trim().toLowerCase();
-  return EXCLUDED_MOCK_HORSES.some(ex => n.includes(ex));
+// Danh sách chiến mã mặc định đầy đủ của HLV (Đầy đủ 5 chiến mã chuẩn, phong độ cao)
+const EXCLUDED_MOCK_HORSES = [];
+const isExcludedTrainerHorse = () => false;
+
+export const DEFAULT_TRAINER_HORSES = [
+  {
+    id: 1,
+    name: 'Hắc Phong',
+    microchip: 'MC-VN-2022-001',
+    stall: 'Ô A3',
+    breed: 'Thoroughbred',
+    age: '4 tuổi',
+    owner: 'Hồ Minh Hiếu',
+    ownerName: 'Hồ Minh Hiếu',
+    status: 'WATCH',
+    statusText: 'Cần theo dõi',
+    isLockedByVet: false,
+    avgHeartRate: 118,
+    maxSpeed: 64.5,
+    totalDistanceKm: 184,
+    condition: '92%',
+    trainingProgram: 'Tăng tốc nước rút 1.600m sân cát',
+    desc: 'Chiến mã cự ly 1.600m, đang tập thích ứng nhịp chạy nước rút cao.'
+  },
+  {
+    id: 2,
+    name: 'Xích Thố',
+    microchip: 'MC-VN-2021-014',
+    stall: 'Ô A1',
+    breed: 'Arabian',
+    age: '5 tuổi',
+    owner: 'Hồ Minh Hiếu',
+    ownerName: 'Hồ Minh Hiếu',
+    status: 'READY',
+    statusText: 'Sẵn sàng thi đấu',
+    isLockedByVet: false,
+    avgHeartRate: 108,
+    maxSpeed: 68.2,
+    totalDistanceKm: 260,
+    condition: '98%',
+    trainingProgram: 'Xây dựng thể lực nền sức bền 2.400m',
+    desc: 'Phong độ đỉnh cao, thể lực ổn định ở cự ly 2.400m sân cỏ.'
+  },
+  {
+    id: 3,
+    name: 'Phi Yến',
+    microchip: 'MC-VN-2023-009',
+    stall: 'Ô A5',
+    breed: 'Thoroughbred',
+    age: '3 tuổi',
+    owner: 'Hồ Minh Hiếu',
+    ownerName: 'Hồ Minh Hiếu',
+    status: 'INJURED',
+    statusText: 'Khóa tập bởi Thú y',
+    isLockedByVet: true,
+    vetNotice: 'Giãn gân chân trái - Cấm bài tập chạy nước rút và tải nặng!',
+    avgHeartRate: 136,
+    maxSpeed: 42.0,
+    totalDistanceKm: 98,
+    condition: '58%',
+    trainingProgram: 'Phục hồi chức năng & thả lỏng cơ khớp',
+    desc: 'Đang theo phác đồ vật lý trị liệu & đi bộ thả lỏng theo lệnh Bác sĩ Thú y.'
+  },
+  {
+    id: 4,
+    name: 'Lôi Chấn',
+    microchip: 'MC-VN-2022-088',
+    stall: 'Ô B2',
+    breed: 'Quarter Horse',
+    age: '4 tuổi',
+    owner: 'Hồ Minh Hiếu',
+    ownerName: 'Hồ Minh Hiếu',
+    status: 'WATCH',
+    statusText: 'Cách ly theo dõi',
+    isLockedByVet: false,
+    avgHeartRate: 122,
+    maxSpeed: 59.8,
+    totalDistanceKm: 142,
+    condition: '84%',
+    trainingProgram: 'Kỹ thuật mở máy xuất phát & chuyển làn',
+    desc: 'Chiến mã cơ bắp, đang rèn kỹ thuật xuất phát máy và chuyển làn an toàn.'
+  },
+  {
+    id: 5,
+    name: 'Bạch Long',
+    microchip: 'MC-VN-2024-003',
+    stall: 'Ô A2',
+    breed: 'Thoroughbred',
+    age: '2 tuổi',
+    owner: 'Hồ Minh Hiếu',
+    ownerName: 'Hồ Minh Hiếu',
+    status: 'READY',
+    statusText: 'Đang phát triển tốt',
+    isLockedByVet: false,
+    avgHeartRate: 112,
+    maxSpeed: 62.0,
+    totalDistanceKm: 115,
+    condition: '90%',
+    trainingProgram: 'Làm quen nhịp chạy cự ly ngắn 1.000m',
+    desc: 'Chiến mã trẻ tiếp thu nhanh, thể lực phát triển vượt kỳ vọng.'
+  }
+];
+
+export const MOCK_HORSE_NAMES = ['hắc phong', 'xích thố', 'phi yến', 'lôi chấn', 'bạch long'];
+export const isMockHorseName = (name) => {
+  if (!name) return false;
+  const n = String(name).trim().toLowerCase();
+  return MOCK_HORSE_NAMES.some(m => n.includes(m));
 };
+
+export const DEFAULT_TRAINING_PROGRAMS = [];
+
+export const DEFAULT_TRAINING_SESSIONS = [
+  // XÍCH THỐ (3 bài tập đã hoàn thành -> Đủ dữ liệu đánh giá)
+  {
+    id: 101,
+    time: '10/10/2026 06:30',
+    horseName: 'Xích Thố',
+    programTitle: 'Xây dựng thể lực nền sức bền 2.400m',
+    distanceRun: 2400,
+    avgSpeed: 64.2,
+    maxHeartRate: 198,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 9.5,
+    feedback: 'Sải chân cực kỳ đều đặn, nhịp thở ổn định khi qua khúc cua số 3, hoàn thành xuất sắc bài tập.'
+  },
+  {
+    id: 102,
+    time: '08/10/2026 07:00',
+    horseName: 'Xích Thố',
+    programTitle: 'Bứt phá nước rút 1.600m sân cỏ',
+    distanceRun: 1600,
+    avgSpeed: 66.5,
+    maxHeartRate: 204,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 9.2,
+    feedback: 'Khả năng bung sức đoạn 400m cuối đạt đỉnh phong độ.'
+  },
+  {
+    id: 103,
+    time: '06/10/2026 06:15',
+    horseName: 'Xích Thố',
+    programTitle: 'Phi nước kiệu dẻo dai 3.200m',
+    distanceRun: 3200,
+    avgSpeed: 52.0,
+    maxHeartRate: 185,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 9.0,
+    feedback: 'Giữ nhịp tim vùng hiếu khí hoàn hảo.'
+  },
+
+  // HẮC PHONG (3 bài tập -> Đủ dữ liệu)
+  {
+    id: 104,
+    time: '09/10/2026 17:00',
+    horseName: 'Hắc Phong',
+    programTitle: 'Tăng tốc nước rút 1.600m sân cát',
+    distanceRun: 1600,
+    avgSpeed: 62.8,
+    maxHeartRate: 216,
+    isOverLimit: true,
+    status: 'INCOMPLETE',
+    score: 6.5,
+    feedback: 'Tăng tốc tốt ở 400m cuối nhưng nhịp tim lên 216 bpm vượt ngưỡng. Đã cho dừng sớm để bảo đảm an toàn cơ bắp.'
+  },
+  {
+    id: 105,
+    time: '07/10/2026 06:45',
+    horseName: 'Hắc Phong',
+    programTitle: 'Rèn sức bền kỵ khí 2.000m',
+    distanceRun: 2000,
+    avgSpeed: 61.5,
+    maxHeartRate: 202,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 8.5,
+    feedback: 'Tương tác tốt với nài ngựa, thích nghi đường cát ẩm.'
+  },
+  {
+    id: 106,
+    time: '05/10/2026 07:30',
+    horseName: 'Hắc Phong',
+    programTitle: 'Tập xuất phát máy & tăng tốc 1.200m',
+    distanceRun: 1200,
+    avgSpeed: 63.8,
+    maxHeartRate: 199,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 9.0,
+    feedback: 'Bật cửa máy nhanh nhất đội.'
+  },
+
+  // BẠCH LONG (3 bài tập -> Đủ dữ liệu)
+  {
+    id: 107,
+    time: '09/10/2026 07:15',
+    horseName: 'Bạch Long',
+    programTitle: 'Làm quen nhịp chạy cự ly ngắn',
+    distanceRun: 1000,
+    avgSpeed: 58.0,
+    maxHeartRate: 192,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 8.8,
+    feedback: 'Chiến mã trẻ tiếp thu bài rất nhanh, giữ thẳng lái tốt khi gặp áp lực bên cánh phải.'
+  },
+  {
+    id: 108,
+    time: '07/10/2026 08:00',
+    horseName: 'Bạch Long',
+    programTitle: 'Phi nước kiệu nhịp đều 2.400m',
+    distanceRun: 2400,
+    avgSpeed: 50.5,
+    maxHeartRate: 182,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 8.6,
+    feedback: 'Nhịp thở thông thoáng, bước chân dứt khoát.'
+  },
+  {
+    id: 109,
+    time: '05/10/2026 06:30',
+    horseName: 'Bạch Long',
+    programTitle: 'Bứt tốc nước rút 1.400m',
+    distanceRun: 1400,
+    avgSpeed: 62.0,
+    maxHeartRate: 196,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 8.9,
+    feedback: 'Đáp ứng tốt bài tăng tải cự ly trung bình.'
+  },
+
+  // LÔI CHẤN (3 bài tập -> Đủ dữ liệu)
+  {
+    id: 110,
+    time: '09/10/2026 16:30',
+    horseName: 'Lôi Chấn',
+    programTitle: 'Tăng cường sức mạnh cơ hông 1.800m',
+    distanceRun: 1800,
+    avgSpeed: 60.0,
+    maxHeartRate: 195,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 8.5,
+    feedback: 'Cơ bắp phát triển săn chắc, giữ thăng bằng tốt.'
+  },
+  {
+    id: 111,
+    time: '07/10/2026 16:00',
+    horseName: 'Lôi Chấn',
+    programTitle: 'Tập chạy dốc & đường cát lún 2.000m',
+    distanceRun: 2000,
+    avgSpeed: 56.5,
+    maxHeartRate: 199,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 8.4,
+    feedback: 'Độ chịu lực của khớp gối và móng tốt.'
+  },
+  {
+    id: 112,
+    time: '05/10/2026 15:30',
+    horseName: 'Lôi Chấn',
+    programTitle: 'Chạy biến tốc 1.600m',
+    distanceRun: 1600,
+    avgSpeed: 61.2,
+    maxHeartRate: 194,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 8.7,
+    feedback: 'Hoàn thành bài tập đúng thời gian chỉ định.'
+  },
+
+  // PHI YẾN (3 bài tập -> Đủ dữ liệu, chấn thương đang theo dõi)
+  {
+    id: 113,
+    time: '08/10/2026 08:00',
+    horseName: 'Phi Yến',
+    programTitle: 'Phục hồi chức năng & thả lỏng cơ khớp',
+    distanceRun: 800,
+    avgSpeed: 38.5,
+    maxHeartRate: 165,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 7.0,
+    feedback: 'Bài đi bộ thả lỏng theo đúng phác đồ bác sĩ thú y. Khớp gối trái đã bớt sưng đỏ.'
+  },
+  {
+    id: 114,
+    time: '06/10/2026 08:30',
+    horseName: 'Phi Yến',
+    programTitle: 'Thủy trị liệu & đi bộ máy',
+    distanceRun: 600,
+    avgSpeed: 25.0,
+    maxHeartRate: 140,
+    isOverLimit: false,
+    status: 'COMPLETED',
+    score: 7.5,
+    feedback: 'Đáp ứng tốt với liệu trình giảm tải.'
+  },
+  {
+    id: 115,
+    time: '04/10/2026 09:00',
+    horseName: 'Phi Yến',
+    programTitle: 'Chạy nhẹ trên thảm cỏ nhân tạo',
+    distanceRun: 1000,
+    avgSpeed: 42.0,
+    maxHeartRate: 172,
+    isOverLimit: false,
+    status: 'INCOMPLETE',
+    score: 6.0,
+    feedback: 'Có dấu hiệu nhói chân ở mét thứ 700, đã yêu cầu dừng bài tập lập tức.'
+  }
+];
 
 // Loại bỏ trùng lặp giáo án huấn luyện (Deduplicate)
 export const deduplicatePrograms = (list) => {
@@ -781,105 +1092,94 @@ export default function TrainerPage() {
   const [trainerHorses, setTrainerHorses] = useState(() => {
     try {
       let uName = '';
-      let fName = '';
       const authRaw = sessionStorage.getItem('matruong_auth_user');
       if (authRaw) {
         const parsedAuth = JSON.parse(authRaw);
         uName = (parsedAuth.username || '').trim().toLowerCase();
-        fName = (parsedAuth.full_name || '').trim().toLowerCase();
       }
-      if (!uName) return [];
 
-      const asgns = getServiceAssignments() || [];
-      const userKey = `matruong_trainer_horses_managed_${uName}`;
-      const saved = localStorage.getItem(userKey);
+      const userKey = uName ? `matruong_trainer_horses_managed_${uName}` : 'matruong_trainer_horses_managed';
+      const saved = localStorage.getItem(userKey) || localStorage.getItem('matruong_trainer_horses_managed');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(h =>
-            !isExcludedTrainerHorse(h.name) &&
-            !isExcludedTrainerHorse(h.horseName) &&
-            !isExcludedTrainerHorse(h.microchip) &&
-            isHorseOfCurrentTrainer(h, uName, fName, asgns)
-          );
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
         }
       }
     } catch {}
-    return [];
+    return DEFAULT_TRAINER_HORSES;
   });
 
-  // Tự động đồng bộ các chiến mã đã xác nhận huấn luyện vào Thể lực tàu ngựa của ĐÚNG HLV phụ trách chính
+  // Tự động đồng bộ các chiến mã đã xác nhận huấn luyện vào Thể lực tàu ngựa của HLV
   useEffect(() => {
     const uName = (currentUser?.username || '').trim().toLowerCase();
     const fName = (currentUser?.full_name || '').trim().toLowerCase();
-    if (!uName) return;
 
     const isMyHorse = (a) => (
+      !uName ||
       (a.trainerUsername && a.trainerUsername.trim().toLowerCase() === uName) ||
       (!a.trainerUsername && a.trainerName && a.trainerName.trim().toLowerCase() === fName)
     );
     const myConfirmedAssignments = (serviceAssignments || []).filter(a =>
-      isMyHorse(a) && a.trainerStatus === 'CONFIRMED' && !isExcludedTrainerHorse(a.horseName)
+      isMyHorse(a) && a.trainerStatus === 'CONFIRMED'
     );
 
-    // Nếu HLV này không có chiến mã nào được phân công chính thức, danh sách phải TRỐNG (0 con)
     if (myConfirmedAssignments.length === 0) {
-      setTrainerHorses([]);
-      try {
-        localStorage.setItem(`matruong_trainer_horses_managed_${uName}`, JSON.stringify([]));
-      } catch {}
+      // Khi chưa có chiến mã gán thêm, giữ nguyên đội hình 5 chiến mã mặc định đầy đủ
+      setTrainerHorses(prev => (prev && prev.length > 0 ? prev : DEFAULT_TRAINER_HORSES));
       return;
     }
 
     const allTel = getAllHorsesTelemetry();
-    const cleanFleet = myConfirmedAssignments.map(asgn => {
-      const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
-      const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
-      const tel = allTel[asgn.microchip] || allTel[asgn.id] || allTel[asgn.horseName];
+    setTrainerHorses(prev => {
+      let next = (prev && prev.length > 0) ? [...prev] : [...DEFAULT_TRAINER_HORSES];
+      let changed = false;
 
-      const baseHorse = {
-        id: full?.id || asgn.id || Date.now(),
-        name: asgn.horseName,
-        microchip: asgn.microchip || 'MC-VN-2026-001',
-        stall: stallCode,
-        breed: full?.breed || 'Thoroughbred',
-        age: full?.age || '3 tuổi',
-        owner: asgn.ownerName || 'Chủ sở hữu',
-        ownerName: asgn.ownerName || 'Chủ sở hữu',
-        status: 'READY',
-        statusText: 'Sẵn sàng thi đấu',
-        isLockedByVet: false,
-        avgHeartRate: 112,
-        maxSpeed: 58.5,
-        totalDistanceKm: 120,
-        condition: '98%',
-        trainingProgram: 'Nâng cao thể lực & Tốc độ',
-        desc: `Chiến mã của chủ sở hữu ${asgn.ownerName || 'Chủ sở hữu'}`,
-        avatar: full?.avatar,
-        trainerUsername: uName,
-        trainerName: fName
-      };
+      myConfirmedAssignments.forEach(asgn => {
+        const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+        const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : 'Ô A1';
+        const targetName = (asgn.horseName || '').toLowerCase();
+        const targetChip = (asgn.microchip || '').toLowerCase();
+        const foundIndex = next.findIndex(h =>
+          (h.name && h.name.toLowerCase() === targetName) ||
+          (targetChip && h.microchip && h.microchip.toLowerCase() === targetChip)
+        );
 
-      if (tel && !tel.isCalibrating) {
-        baseHorse.condition = tel.condition !== undefined ? (String(tel.condition).includes('%') ? tel.condition : `${tel.condition}%`) : baseHorse.condition;
-        baseHorse.trend = tel.trend || baseHorse.trend;
-        baseHorse.trendPercent = tel.trendPercent || baseHorse.trendPercent;
-        baseHorse.shortTermLoad = tel.shortTermLoad || baseHorse.shortTermLoad;
-        baseHorse.longTermLoad = tel.longTermLoad || baseHorse.longTermLoad;
-        baseHorse.loadRatio = tel.loadRatio || baseHorse.loadRatio;
-        baseHorse.recoveryPercent = tel.recoveryPercent || baseHorse.recoveryPercent;
-        baseHorse.performanceToday = tel.performanceToday || baseHorse.performanceToday;
-        if (tel.maxSpeed) baseHorse.maxSpeed = tel.maxSpeed;
-        baseHorse.status = tel.status === 'READY' ? 'READY' : (parseFloat(tel.condition) < 80 ? 'WATCH' : baseHorse.status);
+        const tel = allTel[asgn.microchip] || allTel[asgn.id] || allTel[asgn.horseName];
+        if (foundIndex === -1) {
+          changed = true;
+          next.unshift({
+            id: full?.id || asgn.id || Date.now(),
+            name: asgn.horseName,
+            microchip: asgn.microchip || 'MC-VN-2026-092',
+            stall: stallCode,
+            breed: full?.breed || 'Quarter Horse',
+            age: full?.age || '3 tuổi',
+            owner: asgn.ownerName || 'Hồ Minh Hiếu',
+            ownerName: asgn.ownerName || 'Hồ Minh Hiếu',
+            status: 'READY',
+            statusText: 'Đã hoàn thành xuất sắc giáo án',
+            isLockedByVet: false,
+            avgHeartRate: 112,
+            maxSpeed: 64.5,
+            totalDistanceKm: 120,
+            condition: tel?.condition ? (String(tel.condition).includes('%') ? tel.condition : `${tel.condition}%`) : '98%',
+            trainingProgram: 'Nâng cao thể lực & Tốc độ bứt phá',
+            desc: `Chiến mã của chủ sở hữu ${asgn.ownerName || 'Hồ Minh Hiếu'}`,
+            avatar: full?.avatar,
+            trainerUsername: uName,
+            trainerName: fName
+          });
+        }
+      });
+
+      if (changed && uName) {
+        try {
+          localStorage.setItem(`matruong_trainer_horses_managed_${uName}`, JSON.stringify(next));
+        } catch {}
       }
-      return baseHorse;
-    });
-
-    setTrainerHorses(cleanFleet);
-    try {
-      localStorage.setItem(`matruong_trainer_horses_managed_${uName}`, JSON.stringify(cleanFleet));
-    } catch {}
-  }, [serviceAssignments, currentUser]);
+      return next;
+    });  }, [serviceAssignments, currentUser]);
 
   useEffect(() => {
     const uName = (currentUser?.username || '').trim().toLowerCase();
@@ -907,15 +1207,6 @@ export default function TrainerPage() {
         }
       }
 
-      const savedProg = localStorage.getItem('matruong_trainer_programs');
-      if (savedProg) {
-        const parsed = JSON.parse(savedProg);
-        if (Array.isArray(parsed)) {
-          const filtered = deduplicatePrograms(parsed.filter(p => !isExcludedTrainerHorse(p.horseName)));
-          localStorage.setItem('matruong_trainer_programs', JSON.stringify(filtered));
-          setPrograms(filtered);
-        }
-      }
       const savedSess = localStorage.getItem('matruong_training_telemetry');
       if (savedSess) {
         const parsed = JSON.parse(savedSess);
@@ -948,10 +1239,8 @@ export default function TrainerPage() {
       const saved = localStorage.getItem('matruong_trainer_programs');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleaned = cleanExpiredProgramsAfterMidnight(deduplicatePrograms(parsed));
-          localStorage.setItem('matruong_trainer_programs', JSON.stringify(cleaned));
-          return cleaned;
+        if (Array.isArray(parsed)) {
+          return parsed;
         }
       }
     } catch {}
@@ -974,7 +1263,7 @@ export default function TrainerPage() {
     };
 
     checkMidnightCleanup();
-    const interval = setInterval(checkMidnightCleanup, 60000); // Mỗi 1 phút kiểm tra 1 lần
+    const interval = setInterval(checkMidnightCleanup, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -984,8 +1273,7 @@ export default function TrainerPage() {
       try {
         localStorage.setItem('matruong_trainer_programs', JSON.stringify(programs));
       } catch {}
-    }
-  }, [programs]);
+    }  }, [programs]);
 
   // Nạp giáo án & danh sách chiến mã từ API Backend khi khởi động
   useEffect(() => {
@@ -1050,14 +1338,14 @@ export default function TrainerPage() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const cleaned = deduplicateSessions(parsed);
-          if (cleaned.length !== parsed.length) {
+          if (cleaned.length > 0) {
             localStorage.setItem('matruong_training_telemetry', JSON.stringify(cleaned));
+            return cleaned;
           }
-          return cleaned;
         }
       }
     } catch {}
-    return [];
+    return DEFAULT_TRAINING_SESSIONS;
   });
 
   // Tự động kiểm tra và dọn dẹp các buổi tập trùng lặp trong localStorage khi mount
@@ -1081,11 +1369,9 @@ export default function TrainerPage() {
   useEffect(() => {
     if (sessions && sessions.length > 0) {
       try {
-        const cleaned = deduplicateSessions(sessions);
-        localStorage.setItem('matruong_training_telemetry', JSON.stringify(cleaned));
+        localStorage.setItem('matruong_training_telemetry', JSON.stringify(sessions));
       } catch {}
-    }
-  }, [sessions]);
+    }  }, [sessions]);
 
   // Đồng bộ telemetry từ Backend không ghi đè dữ liệu người dùng
   useEffect(() => {
@@ -1162,13 +1448,43 @@ export default function TrainerPage() {
   const [isSubmittingProgram, setIsSubmittingProgram] = useState(false);
   const [newProgramData, setNewProgramData] = useState(() => ({
     title: '',
-    horseName: 'Hắc Phong',
+    horseName: '',
     phase: 'Nước rút (Sprint)',
     targetDistance: 1600,
     surface: 'SAND (Sân cát)',
     startDate: new Date().toISOString().split('T')[0],
-    endDate: ''
+    endDate: '',
+    targetHeartRate: '< 205 bpm',
+    jockeyNotes: ''
   }));
+
+  // Đồng bộ horseName với chiến mã đầu tiên trong đội hình thực tế
+  useEffect(() => {
+    if (trainerHorses && trainerHorses.length > 0) {
+      setNewProgramData(prev => {
+        if (!prev.horseName || !trainerHorses.some(h => h.name === prev.horseName)) {
+          return { ...prev, horseName: trainerHorses[0].name };
+        }
+        return prev;
+      });
+    }
+  }, [trainerHorses]);
+
+  const handleOpenAddProgramModal = () => {
+    const defaultHorse = (trainerHorses && trainerHorses[0]?.name) || '';
+    setNewProgramData({
+      title: '',
+      horseName: defaultHorse,
+      phase: 'Nước rút (Sprint)',
+      targetDistance: 1600,
+      surface: 'SAND (Sân cát)',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: '',
+      targetHeartRate: '< 205 bpm',
+      jockeyNotes: ''
+    });
+    setShowAddProgramModal(true);
+  };
 
   // Modal ghi nhận buổi tập mới
   const [showAddSessionModal, setShowAddSessionModal] = useState(false);
@@ -1372,52 +1688,46 @@ export default function TrainerPage() {
       return;
     }
 
+    const assignedHorse = (newProgramData.horseName || (trainerHorses && trainerHorses[0]?.name) || 'Chiến mã').trim();
     setIsSubmittingProgram(true);
 
     const newProg = {
       id: Date.now(),
       title: cleanTitle,
-      horseName: newProgramData.horseName,
-      phase: newProgramData.phase,
-      targetDistance: Number(newProgramData.targetDistance),
-      surface: newProgramData.surface,
-      startDate: newProgramData.startDate,
+      horseName: assignedHorse,
+      horse: assignedHorse,
+      phase: newProgramData.phase || 'Nước rút (Sprint)',
+      targetDistance: Number(newProgramData.targetDistance) || 1600,
+      surface: newProgramData.surface || 'SAND (Sân cát)',
+      startDate: newProgramData.startDate || new Date().toISOString().split('T')[0],
       endDate: newProgramData.endDate || 'Chưa định',
+      targetHeartRate: newProgramData.targetHeartRate || '< 205 bpm',
+      jockeyNotes: newProgramData.jockeyNotes || '',
       status: 'ACTIVE'
     };
 
     setPrograms(prev => {
-      // Chống thêm trùng lặp giáo án
-      const isAlreadyExisted = prev.some(p =>
-        (p.id && String(p.id) === String(newProg.id)) ||
-        ((p.title || '').trim().toLowerCase() === newProg.title.toLowerCase() &&
-         (p.horseName || '').trim().toLowerCase() === newProg.horseName.toLowerCase() &&
-         (p.phase || '').trim().toLowerCase() === newProg.phase.toLowerCase() &&
-         Number(p.targetDistance) === Number(newProg.targetDistance))
-      );
-      if (isAlreadyExisted) return prev;
-      const updatedPrograms = deduplicatePrograms([newProg, ...prev]);
+      const currentList = Array.isArray(prev) ? prev : [];
+      const updated = [newProg, ...currentList.filter(p => String(p.id) !== String(newProg.id))];
       try {
-        localStorage.setItem('matruong_trainer_programs', JSON.stringify(updatedPrograms));
+        localStorage.setItem('matruong_trainer_programs', JSON.stringify(updated));
       } catch {}
-      return updatedPrograms;
+      return updated;
     });
+
+    try {
+      const rawSaved = localStorage.getItem('matruong_trainer_programs');
+      const curList = rawSaved ? JSON.parse(rawSaved) : [];
+      const merged = [newProg, ...curList.filter(p => String(p.id) !== String(newProg.id))];
+      localStorage.setItem('matruong_trainer_programs', JSON.stringify(merged));
+    } catch {}
 
     saveTrainingProgramApi(newProg).catch(() => {});
-    window.dispatchEvent(new CustomEvent('trainer-programs-updated', { detail: { horseName: newProgramData.horseName, program: newProg } }));
+    window.dispatchEvent(new CustomEvent('trainer-programs-updated', { detail: { horseName: assignedHorse, program: newProg } }));
 
-    showToast(`Đã tạo giáo án mới cho ${newProgramData.horseName}`);
+    showToast(`Đã lưu giáo án mới cho ${assignedHorse}!`, 'THÀNH CÔNG', 'success');
     setShowAddProgramModal(false);
     setIsSubmittingProgram(false);
-    setNewProgramData({
-      title: '',
-      horseName: 'Hắc Phong',
-      phase: 'Nước rút (Sprint)',
-      targetDistance: 1600,
-      surface: 'SAND (Sân cát)',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: ''
-    });
   };
 
   // State & Handler xóa giáo án bài tập
@@ -1477,6 +1787,14 @@ export default function TrainerPage() {
 
     showToast(`Đã xóa bài tập "${progTitle}" của chiến mã ${progHorse}!`, 'ĐÃ XÓA BÀI TẬP', 'info');
     setDeleteTargetProgram(null);
+  };
+
+  const handleClearAllPrograms = () => {
+    setPrograms([]);
+    try {
+      localStorage.setItem('matruong_trainer_programs', JSON.stringify([]));
+    } catch {}
+    showToast('Đã xóa sạch toàn bộ danh sách giáo án huấn luyện.', 'ĐÃ XÓA TẤT CẢ', 'info');
   };
 
   const handleDeleteProgramDirect = (prog, index) => {
@@ -1746,6 +2064,20 @@ setTrainerHorses(prev => {
             <span className="portal-nav-icon"><IconClipboard size={18} /></span>
             <span className="portal-nav-label">{t('trainerTabPrograms')}</span>
             <span className="portal-nav-badge">{programs.length}</span>
+          </button>
+
+          <button
+            className={`portal-nav-item ${activeTab === 'joint_training' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('joint_training'); setSidebarOpen(false); }}
+            style={{ position: 'relative' }}
+          >
+            <span className="portal-nav-icon"><IconCalendar size={18} color={activeTab === 'joint_training' ? 'var(--brass)' : 'currentColor'} /></span>
+            <span className="portal-nav-label">{lang === 'en' ? 'Joint Schedule' : 'Lịch Hẹn Tập Chung'}</span>
+            {pendingJointCount > 0 && (
+              <span className="portal-nav-badge" style={{ background: '#F59E0B', color: '#0A0D14', fontWeight: 800 }}>
+                {pendingJointCount}
+              </span>
+            )}
           </button>
 
           <button
@@ -3134,16 +3466,68 @@ setTrainerHorses(prev => {
                     {lang === 'en' ? 'Curriculums List' : 'Bảng Danh Sách'}
                   </button>
                   <button
-                    onClick={() => setShowAddProgramModal(true)}
+                    onClick={handleOpenAddProgramModal}
                     className="portal-view-btn"
                     style={{ background: 'var(--brass)', color: '#14100A', borderColor: 'var(--brass)', fontWeight: 700 }}
                   >
                     {t('trainerBtnAddProgram')}
                   </button>
+                  {programs.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllPrograms}
+                      className="portal-view-btn"
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        color: '#EF4444',
+                        borderColor: 'rgba(239, 68, 68, 0.3)',
+                        fontWeight: 600,
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {lang === 'en' ? `Clear All (${programs.length})` : `Xóa tất cả (${programs.length})`}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {viewMode === 'cards' ? (
+              {programs.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '50px 24px',
+                  background: 'var(--bg-card)',
+                  border: '1px dashed var(--line)',
+                  borderRadius: '12px',
+                  margin: '16px 0',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--paper)', marginBottom: '8px' }}>
+                    {lang === 'en' ? 'No Training Curriculums Available' : 'Chưa Có Giáo Án Huấn Luyện Nào'}
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '440px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+                    {lang === 'en'
+                      ? 'All sample horse curriculums have been removed. Click the button below to create a tailored curriculum for your assigned racehorse.'
+                      : 'Toàn bộ giáo án của các chiến mã mẫu đã được xóa sạch. Bấm nút bên dưới để lập giáo án huấn luyện mới cho chiến mã của bạn.'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddProgramModal}
+                    style={{
+                      padding: '10px 24px',
+                      background: 'var(--brass)',
+                      color: '#0A0D14',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + {lang === 'en' ? 'Create New Curriculum' : 'Lập Giáo Án Huấn Luyện Mới'}
+                  </button>
+                </div>
+              ) : viewMode === 'cards' ? (
                 <div className="portal-cards-grid">
                   {programs.map((prog, progIdx) => (
                     <div key={prog.id || `prog-${progIdx}`} className="facility-card">
@@ -4761,131 +5145,201 @@ setTrainerHorses(prev => {
         </main>
       </div>
 
-      {/* ===================== MODAL THÊM GIÁO ÁN MỚI ===================== */}
+      {/* ===================== MODAL THÊM GIÁO ÁN MỚI CHUYÊN NGHIỆP, GỌN GÀNG, KHÔNG ICON (THEO MẪU THIẾT KẾ) ===================== */}
       {showAddProgramModal && (
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
+          background: 'rgba(5, 10, 8, 0.82)',
+          backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '20px',
+          padding: '16px',
           zIndex: 999999
-        }}>
+        }} onClick={() => setShowAddProgramModal(false)}>
           <div style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--line)',
+            background: '#13211b',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
             borderRadius: '12px',
             width: '100%',
-            maxWidth: '480px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '28px',
-            color: 'var(--paper)',
-            boxShadow: 'var(--shadow)'
-          }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--paper)' }}>
-              {lang === 'en' ? 'Create New Training Curriculum' : 'Lập Giáo Án Huấn Luyện Mới'}
+            maxWidth: '500px',
+            padding: '24px',
+            boxShadow: '0 24px 50px rgba(0, 0, 0, 0.6)',
+            boxSizing: 'border-box'
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{
+              margin: '0 0 18px',
+              fontSize: '18px',
+              fontWeight: 700,
+              color: '#FFFFFF',
+              letterSpacing: '0.2px'
+            }}>
+              Lập Giáo Án Huấn Luyện Mới
             </h3>
-            <form onSubmit={handleCreateProgram} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+            <form onSubmit={handleCreateProgram} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Curriculum Title' : 'Tên giáo án'}
+                <label style={{ fontSize: '13px', fontWeight: 600, color: '#94A3B8', display: 'block', marginBottom: '6px' }}>
+                  Tên giáo án
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder={lang === 'en' ? 'e.g. Mid-distance Endurance 1,800m' : 'Ví dụ: Rèn thể lực cự ly trung bình 1.800m'}
+                  placeholder="Ví dụ: Rèn thể lực cự ly trung bình 1.800m"
                   value={newProgramData.title}
                   onChange={(e) => setNewProgramData({ ...newProgramData, title: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    background: '#0c1612',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    color: '#F1F5F9',
+                    borderRadius: '8px',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Target Racehorse' : 'Chọn chiến mã áp dụng'}
+                <label style={{ fontSize: '13px', fontWeight: 600, color: '#94A3B8', display: 'block', marginBottom: '6px' }}>
+                  Chọn chiến mã áp dụng
                 </label>
                 <select
-                  value={newProgramData.horseName}
+                  value={newProgramData.horseName || (trainerHorses && trainerHorses[0]?.name) || ''}
                   onChange={(e) => setNewProgramData({ ...newProgramData, horseName: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    background: '#0c1612',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    color: '#F1F5F9',
+                    borderRadius: '8px',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer'
+                  }}
                 >
                   {trainerHorses.map(h => (
-                    <option key={h.id} value={h.name}>{h.name} ({h.microchip})</option>
+                    <option key={h.id || h.microchip} value={h.name}>{h.name} ({h.microchip})</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                  {lang === 'en' ? 'Training Phase' : 'Giai đoạn huấn luyện'}
+                <label style={{ fontSize: '13px', fontWeight: 600, color: '#94A3B8', display: 'block', marginBottom: '6px' }}>
+                  Giai đoạn huấn luyện
                 </label>
                 <select
                   value={newProgramData.phase}
                   onChange={(e) => setNewProgramData({ ...newProgramData, phase: e.target.value })}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    background: '#0c1612',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    color: '#F1F5F9',
+                    borderRadius: '8px',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer'
+                  }}
                 >
-                  <option value="Nước rút (Sprint)">{lang === 'en' ? 'Sprint (High-velocity bursts)' : 'Nước rút (Sprint - Tốc độ cao)'}</option>
-                  <option value="Thể lực nền (Endurance)">{lang === 'en' ? 'Endurance (Aerobic stamina)' : 'Thể lực nền (Endurance - Sức bền)'}</option>
-                  <option value="Kỹ thuật (Gate & Pace)">{lang === 'en' ? 'Gate & Pace (Breakout & steering)' : 'Kỹ thuật (Gate & Pace - Bứt tốc & mở máy)'}</option>
-                  <option value="Phục hồi (Recovery)">{lang === 'en' ? 'Recovery (Low-strain walking)' : 'Phục hồi (Recovery - Vận động nhẹ)'}</option>
+                  <option value="Nước rút (Sprint - Tốc độ cao)">Nước rút (Sprint - Tốc độ cao)</option>
+                  <option value="Thể lực nền (Endurance)">Thể lực nền (Endurance)</option>
+                  <option value="Kỹ thuật (Gate & Pace)">Kỹ thuật (Gate & Pace)</option>
+                  <option value="Phục hồi (Recovery)">Phục hồi (Recovery)</option>
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                    {lang === 'en' ? 'Target Distance (m)' : 'Cự ly mục tiêu (m)'}
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#94A3B8', display: 'block', marginBottom: '6px' }}>
+                    Cự ly mục tiêu (m)
                   </label>
                   <input
                     type="number"
                     required
+                    min="200"
+                    max="5000"
+                    step="50"
                     value={newProgramData.targetDistance}
                     onChange={(e) => setNewProgramData({ ...newProgramData, targetDistance: e.target.value })}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                    style={{
+                      width: '100%',
+                      padding: '11px 14px',
+                      background: '#0c1612',
+                      border: '1px solid rgba(255, 255, 255, 0.14)',
+                      color: '#F1F5F9',
+                      borderRadius: '8px',
+                      fontSize: '13.5px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', color: 'var(--paper-dim)', display: 'block', marginBottom: '4px' }}>
-                    {lang === 'en' ? 'Track Surface' : 'Mặt sân tập'}
+                  <label style={{ fontSize: '13px', fontWeight: 600, color: '#94A3B8', display: 'block', marginBottom: '6px' }}>
+                    Mặt sân tập
                   </label>
                   <select
                     value={newProgramData.surface}
                     onChange={(e) => setNewProgramData({ ...newProgramData, surface: e.target.value })}
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', boxSizing: 'border-box' }}
+                    style={{
+                      width: '100%',
+                      padding: '11px 14px',
+                      background: '#0c1612',
+                      border: '1px solid rgba(255, 255, 255, 0.14)',
+                      color: '#F1F5F9',
+                      borderRadius: '8px',
+                      fontSize: '13.5px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      cursor: 'pointer'
+                    }}
                   >
-                    <option value="SAND (Sân cát)">{lang === 'en' ? 'SAND (Sand Track)' : 'SAND (Sân cát)'}</option>
-                    <option value="GRASS (Sân cỏ)">{lang === 'en' ? 'TURF (Grass Track)' : 'GRASS (Sân cỏ)'}</option>
+                    <option value="SAND (Sân cát)">SAND (Sân cát)</option>
+                    <option value="GRASS (Sân cỏ)">GRASS (Sân cỏ)</option>
                   </select>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '10px' }}>
                 <button
                   type="button"
                   onClick={() => setShowAddProgramModal(false)}
-                  style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', borderRadius: '6px', cursor: 'pointer' }}
+                  style={{
+                    padding: '12px',
+                    background: '#1a2922',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    color: '#E2E8F0',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
                 >
-                  {lang === 'en' ? 'Cancel' : 'Hủy'}
+                  Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingProgram}
                   style={{
-                    flex: 1,
-                    padding: '10px',
-                    background: isSubmittingProgram ? '#94A3B8' : 'var(--brass)',
+                    padding: '12px',
+                    background: isSubmittingProgram ? '#94A3B8' : '#E86B2C',
                     border: 'none',
-                    color: '#14100A',
+                    color: '#FFFFFF',
                     fontWeight: 700,
-                    borderRadius: '6px',
+                    fontSize: '14px',
+                    borderRadius: '8px',
                     cursor: isSubmittingProgram ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  {isSubmittingProgram ? 'Đang lưu...' : (lang === 'en' ? 'Save Curriculum' : 'Lưu Giáo Án')}
+                  {isSubmittingProgram ? 'Đang lưu...' : 'Lưu Giáo Án'}
                 </button>
               </div>
             </form>

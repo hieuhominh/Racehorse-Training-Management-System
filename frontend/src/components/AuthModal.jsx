@@ -266,14 +266,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
       password: regPassword
     });
 
-    // Thông báo tài khoản đang chờ Admin phê duyệt (không tự đăng nhập ngay)
-    setIsError(false);
-    setNotification(
-      lang === 'en'
-        ? `Registration successful for ${createdUser.full_name}! Your account is pending Administrator approval before login.`
-        : `Đăng ký thành công! Tài khoản ${createdUser.full_name} (${createdUser.role_name}) đang chờ Quản trị viên (Admin) xét duyệt trước khi đăng nhập.`
-    );
-
     // Xóa form đăng ký
     setRegFullName('');
     setRegEmail('');
@@ -282,16 +274,29 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     setRegConfirmPassword('');
     setRegAgreedTerms(false);
 
-    // Chuyển về tab đăng nhập sau 2.5 giây
-    setTimeout(() => {
-      setActiveTab('login');
-      setLoginEmail(cleanEmail);
-      setNotification(
+    // Tự động kích hoạt & đăng nhập trực tiếp luôn mà không cần chờ Admin phê duyệt
+    const loginRes = await login(cleanEmail, regPassword);
+    if (loginRes && loginRes.success) {
+      showToast(
         lang === 'en'
-          ? 'Application submitted to Management. Please wait for Administrator approval.'
-          : 'Hồ sơ đã được gửi tới Ban Quản trị. Vui lòng chờ Admin duyệt để đăng nhập.'
+          ? `Welcome ${createdUser.full_name}! Registration and activation successful.`
+          : `Chào mừng ${createdUser.full_name}! Đăng ký và kích hoạt tài khoản thành công.`,
+        'ĐĂNG KÝ THÀNH CÔNG',
+        'success'
       );
-    }, 2500);
+      onClose();
+      redirectToRolePortal(loginRes.user);
+      return;
+    }
+
+    setIsError(false);
+    setActiveTab('login');
+    setLoginEmail(cleanEmail);
+    setNotification(
+      lang === 'en'
+        ? 'Registration successful! You can now log in with your credentials.'
+        : 'Đăng ký tài khoản thành công! Bạn có thể đăng nhập ngay bằng tài khoản vừa tạo.'
+    );
   };
 
   // Google SSO Handlers
@@ -348,14 +353,28 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
       password: '123'
     });
 
+    const loginRes = await login(cleanEmail, '123');
+    if (loginRes && loginRes.success) {
+      showToast(
+        lang === 'en' ? 'Google registration & activation successful!' : 'Đăng ký và kích hoạt tài khoản Google thành công!',
+        'THÀNH CÔNG',
+        'success'
+      );
+      setShowGoogleDialog(false);
+      onClose();
+      redirectToRolePortal(loginRes.user);
+      return;
+    }
+
     setIsError(false);
-    setNotification(`Đăng ký tài khoản Google thành công! Yêu cầu của bạn (${createdUser.email} - ${createdUser.role_name}) đang chờ Quản trị viên phê duyệt.`);
     setShowGoogleDialog(false);
-    setTimeout(() => {
-      setActiveTab('login');
-      setLoginEmail(cleanEmail);
-      setNotification('Hồ sơ đã gửi tới Ban Quản lý. Vui lòng chờ phê duyệt để đăng nhập.');
-    }, 2500);
+    setActiveTab('login');
+    setLoginEmail(cleanEmail);
+    setNotification(
+      lang === 'en'
+        ? 'Google registration successful! You can log in now.'
+        : 'Đăng ký tài khoản Google thành công! Bạn có thể đăng nhập ngay bây giờ.'
+    );
   };
 
   const handleQuickGoogleSelect = (preset) => {

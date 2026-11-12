@@ -107,9 +107,9 @@ public class AuthApiController extends HttpServlet {
                         return;
                     }
                     if ("PENDING".equalsIgnoreCase(user.getStatus())) {
-                        SecurityUtil.sendJsonError(response, HttpServletResponse.SC_FORBIDDEN,
-                            "Tài khoản của bạn đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin hoặc thử lại sau khi được kích hoạt!");
-                        return;
+                        // Tự động kích hoạt tài khoản không cần admin phê duyệt
+                        user.setStatus("ACTIVE");
+                        userDAO.updateUser(user.getUserId(), user.getFullName(), user.getEmail(), user.getPhone(), user.getRoleCode(), "ACTIVE");
                     }
                     if ("REJECTED".equalsIgnoreCase(user.getStatus())) {
                         SecurityUtil.sendJsonError(response, HttpServletResponse.SC_FORBIDDEN,

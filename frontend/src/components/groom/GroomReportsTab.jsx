@@ -251,74 +251,299 @@ export default function GroomReportsTab({ reports = [], onSubmitDailyReport }) {
         ))}
       </div>
 
-      {/* Modal lập báo cáo */}
+      {/* Modal lập báo cáo chuyên nghiệp, gọn gàng, không icon */}
       {showCreateModal && (
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px', width: '90%', padding: '22px' }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700, color: 'var(--brass)' }}>
-              Lập Báo Cáo Chăm Sóc & Bàn Giao Ca
-            </h3>
-            <form onSubmit={handleCreateReport}>
-              <div style={{ marginBottom: '10px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper)', marginBottom: '4px' }}>Ca trực</label>
-                <select
-                  value={newReport.shift}
-                  onChange={(e) => setNewReport({ ...newReport, shift: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '12.5px' }}
-                >
-                  <option value="Ca Sáng (05:00 - 13:00)">Ca Sáng (05:00 - 13:00)</option>
-                  <option value="Ca Chiều (13:00 - 21:00)">Ca Chiều (13:00 - 21:00)</option>
-                  <option value="Ca Đêm (21:00 - 05:00)">Ca Đêm (21:00 - 05:00)</option>
-                </select>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '560px',
+              width: '92%',
+              padding: '24px',
+              background: 'var(--bg-card)',
+              borderRadius: '10px',
+              border: '1px solid var(--line)',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.45)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+          >
+            {/* Header Modal */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              paddingBottom: '12px',
+              borderBottom: '1px solid var(--line)'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--brass)', letterSpacing: '0.2px' }}>
+                  Lập Báo Cáo Chăm Sóc & Bàn Giao Ca
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--paper-dim)' }}>
+                  Ghi nhận tiến độ chăm sóc, vật tư tiêu hao và bàn giao công việc cho ca kế tiếp.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--paper-dim)',
+                  fontSize: '18px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '0 4px',
+                  lineHeight: 1
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateReport} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Dòng 1: Ca trực và Nhân sự lập phiếu */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', marginBottom: '5px' }}>
+                    Ca trực phụ trách
+                  </label>
+                  <select
+                    value={newReport.shift}
+                    onChange={(e) => setNewReport({ ...newReport, shift: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--paper)',
+                      fontSize: '12.5px',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="Ca Sáng (05:00 - 13:00)">Ca Sáng (05:00 - 13:00)</option>
+                    <option value="Ca Chiều (13:00 - 21:00)">Ca Chiều (13:00 - 21:00)</option>
+                    <option value="Ca Đêm (21:00 - 05:00)">Ca Đêm (21:00 - 05:00)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)', marginBottom: '5px' }}>
+                    Nhân sự lập phiếu
+                  </label>
+                  <div style={{
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper-dim)',
+                    fontSize: '12px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ color: 'var(--paper)', fontWeight: 600 }}>Lê Hoàng Nam</span>
+                    <span style={{ fontSize: '11px', color: 'var(--brass)' }}>Block A · Hôm nay</span>
+                  </div>
+                </div>
               </div>
 
-              <div style={{ marginBottom: '10px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper)', marginBottom: '4px' }}>Tình trạng chiến mã trong ca *</label>
+              {/* Dòng 2: Tình trạng chiến mã trong ca */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)' }}>
+                    Tình trạng chiến mã trong ca *
+                  </label>
+                  {/* Gợi ý nhanh */}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {['Tất cả ổn định', 'Ăn hết khẩu phần'].map((tag) => (
+                      <span
+                        key={tag}
+                        onClick={() => setNewReport({
+                          ...newReport,
+                          horsesStatusSummary: newReport.horsesStatusSummary
+                            ? `${newReport.horsesStatusSummary}. ${tag}`
+                            : `${tag}.`
+                        })}
+                        style={{
+                          fontSize: '10.5px',
+                          color: 'var(--paper-dim)',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          border: '1px solid var(--line)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
                 <textarea
                   required
                   rows="2"
-                  placeholder="Ghi nhận tổng quát ăn uống, vận động, chấn thương phát sinh..."
+                  placeholder="VD: Các chiến mã trong chuồng duy trì thể trạng tốt, ăn hết khẩu phần..."
                   value={newReport.horsesStatusSummary}
                   onChange={(e) => setNewReport({ ...newReport, horsesStatusSummary: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '12.5px', resize: 'none' }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper)',
+                    fontSize: '12.5px',
+                    resize: 'none',
+                    outline: 'none',
+                    lineHeight: 1.4
+                  }}
                 />
               </div>
 
-              <div style={{ marginBottom: '10px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper)', marginBottom: '4px' }}>Vật tư & Thức ăn tiêu hao</label>
+              {/* Dòng 3: Vật tư & Thức ăn tiêu hao */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)' }}>
+                    Vật tư & Thức ăn tiêu hao
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {['20kg Cỏ Alfalfa', '8kg Yến mạch', '2 bao mùn cưa'].map((tag) => (
+                      <span
+                        key={tag}
+                        onClick={() => setNewReport({
+                          ...newReport,
+                          suppliesConsumed: newReport.suppliesConsumed
+                            ? `${newReport.suppliesConsumed}, ${tag}`
+                            : tag
+                        })}
+                        style={{
+                          fontSize: '10.5px',
+                          color: 'var(--paper-dim)',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          border: '1px solid var(--line)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
                 <input
                   type="text"
-                  placeholder="VD: 24kg Cỏ Alfalfa, 8kg yến mạch, 2 bao mùn cưa..."
+                  placeholder="VD: 24kg Cỏ Alfalfa, 8kg Yến mạch, 2 bao mùn cưa..."
                   value={newReport.suppliesConsumed}
                   onChange={(e) => setNewReport({ ...newReport, suppliesConsumed: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '12.5px' }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--paper)',
+                    fontSize: '12.5px',
+                    outline: 'none'
+                  }}
                 />
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: 'var(--paper)', marginBottom: '4px' }}>Nội dung bàn giao ca sau</label>
+              {/* Dòng 4: Nội dung bàn giao ca sau */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--paper)' }}>
+                    Nội dung dặn dò bàn giao ca sau
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {['Kiểm tra phao nước', 'Hạ nhiệt xịt lạnh chân'].map((tag) => (
+                      <span
+                        key={tag}
+                        onClick={() => setNewReport({
+                          ...newReport,
+                          handoverNotes: newReport.handoverNotes
+                            ? `${newReport.handoverNotes}. ${tag}`
+                            : `${tag}.`
+                        })}
+                        style={{
+                          fontSize: '10.5px',
+                          color: 'var(--brass)',
+                          background: 'rgba(212, 175, 55, 0.08)',
+                          border: '1px solid rgba(212, 175, 55, 0.2)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
                 <textarea
                   rows="2"
-                  placeholder="Dặn dò ca sau về ngựa cần theo dõi, giờ uống thuốc, ngâm đá..."
+                  placeholder="VD: Ca chiều lưu ý đón ngựa sau buổi tập để hạ nhiệt xịt lạnh chân..."
                   value={newReport.handoverNotes}
                   onChange={(e) => setNewReport({ ...newReport, handoverNotes: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--line)', color: 'var(--paper)', fontSize: '12.5px', resize: 'none' }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--line)',
+                    borderLeft: '3px solid var(--brass)',
+                    color: 'var(--paper)',
+                    fontSize: '12.5px',
+                    resize: 'none',
+                    outline: 'none',
+                    lineHeight: 1.4
+                  }}
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              {/* Footer Modal: Actions */}
+              <div style={{
+                display: 'flex',
+                gap: '10px',
+                justifyContent: 'flex-end',
+                marginTop: '8px',
+                paddingTop: '12px',
+                borderTop: '1px solid var(--line)'
+              }}>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  style={{ padding: '7px 14px', borderRadius: '6px', background: 'transparent', color: 'var(--paper-dim)', border: '1px solid var(--line)', cursor: 'pointer' }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    background: 'transparent',
+                    color: 'var(--paper-dim)',
+                    border: '1px solid var(--line)',
+                    fontSize: '12.5px',
+                    cursor: 'pointer'
+                  }}
                 >
-                  Hủy
+                  Hủy Bỏ
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: '7px 18px', borderRadius: '6px', background: 'var(--brass)', color: '#0A0D14', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '6px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    fontWeight: 700,
+                    fontSize: '12.5px',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
                 >
-                  Lưu & Bàn Giao
+                  Xác Nhận & Bàn Giao Ca
                 </button>
               </div>
             </form>

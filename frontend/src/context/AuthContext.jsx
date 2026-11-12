@@ -141,9 +141,17 @@ export function AuthProvider({ children }) {
           });
           // Nhân sự mới do Admin tạo thêm (không thuộc core)
           const customStaff = parsed.filter(u => u.role !== 'OWNER' && !FIXED_CORE_STAFF.some(core => Number(core.user_id) === Number(u.user_id)));
-          // Các tài khoản chủ sở hữu đã đăng ký
-          const storedOwners = parsed.filter(u => u.role === 'OWNER' && u.username !== 'owner_thanh');
-          return [...mergedStaff, ...customStaff, ...storedOwners];
+          // Các tài khoản chủ sở hữu đã đăng ký (tự động kích hoạt ACTIVE nếu đang PENDING)
+          const storedOwners = parsed.filter(u => u.role === 'OWNER' && u.username !== 'owner_thanh').map(u => ({
+            ...u,
+            status: u.status === 'PENDING' ? 'ACTIVE' : u.status,
+            approvedAt: u.status === 'PENDING' ? (u.approvedAt || new Date().toISOString()) : u.approvedAt
+          }));
+          const fullList = [...mergedStaff, ...customStaff, ...storedOwners];
+          try {
+            localStorage.setItem('matruong_users_list', JSON.stringify(fullList));
+          } catch {}
+          return fullList;
         }
       }
       return SEED_USERS;
@@ -369,7 +377,7 @@ export function AuthProvider({ children }) {
         const localMatched = activeUsers.find(
           au => (au.username?.toLowerCase() === u.username?.toLowerCase() || Number(au.user_id) === Number(u.userId || u.user_id))
         );
-        const resolvedStatus = localMatched?.status || u.status || 'ACTIVE';
+        let resolvedStatus = localMatched?.status || u.status || 'ACTIVE';
 
         // Kiểm tra xem tài khoản có bị khóa không
         if (resolvedStatus === 'INACTIVE' || resolvedStatus === 'SUSPENDED' || resolvedStatus === 'LOCKED') {
@@ -379,11 +387,8 @@ export function AuthProvider({ children }) {
           };
         }
         if (resolvedStatus === 'PENDING') {
-          return {
-            success: false,
-            isPending: true,
-            error: 'Tài khoản của bạn đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin hoặc thử lại sau khi được kích hoạt!'
-          };
+          // Người dùng đăng ký mới được tự động kích hoạt, không cần Admin phê duyệt
+          resolvedStatus = 'ACTIVE';
         }
         if (resolvedStatus === 'REJECTED') {
           return {
@@ -443,11 +448,14 @@ export function AuthProvider({ children }) {
     }
 
     if (found.status === 'PENDING') {
-      return {
-        success: false,
-        isPending: true,
-        error: 'Tài khoản của bạn đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin hoặc thử lại sau khi được kích hoạt!'
-      };
+      // Tự động kích hoạt ngay lập tức mà không cần Admin phê duyệt
+      found.status = 'ACTIVE';
+      found.approvedAt = new Date().toISOString();
+      try {
+        const uList = JSON.parse(localStorage.getItem('matruong_users_list') || '[]');
+        const updated = uList.map(x => (x.username === found.username || x.email === found.email) ? { ...x, status: 'ACTIVE', approvedAt: found.approvedAt } : x);
+        localStorage.setItem('matruong_users_list', JSON.stringify(updated));
+      } catch {}
     }
 
     if (found.status === 'REJECTED') {
@@ -526,10 +534,10 @@ export function AuthProvider({ children }) {
       phone: userData.phone || '0900000000',
       role: userRole,
       role_name: userData.role_name || roleMap[userRole] || 'Chủ sở hữu Ngựa',
-      status: 'PENDING',
+      status: 'ACTIVE', // Tự động kích hoạt tức thì, không cần admin phê duyệt
       isNewAccount: true,
       registeredAt: new Date().toISOString(),
-      approvedAt: null
+      approvedAt: new Date().toISOString()
     };
 
     // Cập nhật ngay vào localStorage để hàm login gọi tức thì có thể tìm thấy ngay
