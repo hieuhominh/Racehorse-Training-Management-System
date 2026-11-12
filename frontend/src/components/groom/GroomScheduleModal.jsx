@@ -5,8 +5,14 @@ export default function GroomScheduleModal({
   isOpen,
   onClose,
   onAddTask,
-  horses = []
+  horses = [],
+  groomTeam = [] // Danh sách nhân sự Groom thời gian thực bao gồm người mới do Admin thêm
 }) {
+  const effectiveGroomTeam = useMemo(() => {
+    if (Array.isArray(groomTeam) && groomTeam.length > 0) return groomTeam;
+    return GROOM_TEAM_MEMBERS;
+  }, [groomTeam]);
+
   const [selectedShift, setSelectedShift] = useState('MORNING');
   const [assignedGroomId, setAssignedGroomId] = useState('groom_dung');
   const [selectedHorseId, setSelectedHorseId] = useState('');
@@ -15,8 +21,9 @@ export default function GroomScheduleModal({
   const [type, setType] = useState('FEEDING');
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null); // Mẫu công việc đang được chọn (đứng im hiệu ứng)
 
-  const currentGroom = GROOM_TEAM_MEMBERS.find(g => g.id === assignedGroomId) || GROOM_TEAM_MEMBERS[0];
+  const currentGroom = effectiveGroomTeam.find(g => g.id === assignedGroomId) || effectiveGroomTeam[0];
 
   // Groom phục vụ hết tất cả các ngựa của các chủ sở hữu -> Hiển thị toàn bộ chiến mã đang có trong hệ thống
   const allAvailableHorses = horses || [];
@@ -39,6 +46,7 @@ export default function GroomScheduleModal({
 
   // Áp dụng mẫu công việc thường quy có sẵn
   const handleApplyTemplate = (tpl) => {
+    setSelectedTemplateId(tpl.id);
     setTitle(tpl.title);
     setDesc(tpl.desc);
     setType(tpl.type);
@@ -194,61 +202,76 @@ export default function GroomScheduleModal({
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
-              {PREDEFINED_GROOM_TASK_TEMPLATES.map(tpl => (
-                <button
-                  key={tpl.id}
-                  type="button"
-                  onClick={() => handleApplyTemplate(tpl)}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--line)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--paper)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '8px',
-                    minWidth: 0,
-                    height: '36px',
-                    boxSizing: 'border-box',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--brass)';
-                    e.currentTarget.style.background = 'rgba(212, 175, 55, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--line)';
-                    e.currentTarget.style.background = 'var(--bg-secondary)';
-                  }}
-                >
-                  <span style={{
-                    fontSize: '11.5px',
-                    fontWeight: 500,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    flex: 1,
-                    minWidth: 0,
-                    textAlign: 'left'
-                  }}>
-                    {tpl.shortTitle || tpl.title}
-                  </span>
-                  <span style={{
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    color: 'var(--brass)',
-                    background: 'rgba(212, 175, 55, 0.15)',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    flexShrink: 0
-                  }}>
-                    {tpl.defaultTime}
-                  </span>
-                </button>
-              ))}
+              {PREDEFINED_GROOM_TASK_TEMPLATES.map(tpl => {
+                const isSelected = selectedTemplateId === tpl.id;
+
+                return (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => handleApplyTemplate(tpl)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      border: isSelected ? '1.5px solid var(--brass)' : '1px solid var(--line)',
+                      background: isSelected ? 'rgba(212, 175, 55, 0.2)' : 'var(--bg-secondary)',
+                      color: isSelected ? 'var(--brass)' : 'var(--paper)',
+                      boxShadow: isSelected ? '0 0 10px rgba(212, 175, 55, 0.25)' : 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      minWidth: 0,
+                      height: '36px',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedTemplateId !== tpl.id) {
+                        e.currentTarget.style.borderColor = 'var(--brass)';
+                        e.currentTarget.style.background = 'rgba(212, 175, 55, 0.1)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedTemplateId !== tpl.id) {
+                        e.currentTarget.style.borderColor = 'var(--line)';
+                        e.currentTarget.style.background = 'var(--bg-secondary)';
+                      }
+                    }}
+                  >
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: isSelected ? 700 : 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      flex: 1,
+                      minWidth: 0,
+                      textAlign: 'left'
+                    }}>
+                      {tpl.shortTitle || tpl.title}
+                    </span>
+                    {isSelected && (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: 'var(--brass)',
+                        background: 'rgba(212, 175, 55, 0.2)',
+                        border: '1px solid rgba(212, 175, 55, 0.4)',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2px'
+                      }}>
+                        ✓ Đã chọn
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -304,7 +327,7 @@ export default function GroomScheduleModal({
                   boxSizing: 'border-box'
                 }}
               >
-                {GROOM_TEAM_MEMBERS.map(g => (
+                {effectiveGroomTeam.map(g => (
                   <option key={g.id} value={g.id}>
                     {g.name} ({g.isLead ? 'Chủ nhóm' : g.shiftName})
                   </option>

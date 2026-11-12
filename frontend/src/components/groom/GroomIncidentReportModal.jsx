@@ -39,8 +39,25 @@ export default function GroomIncidentReportModal({
   const [selectedFirstAid, setSelectedFirstAid] = useState(['Dắt đi bộ chậm (tránh ngựa nằm lăn Colic)']);
   const [desc, setDesc] = useState('');
 
-  // Auto prefill khi modal mở
+  // Mã tiếp nhận và thời điểm cố định cho cả phiên mở modal, tuyệt đối không nhảy số
+  const [receiptCode, setReceiptCode] = useState('');
+  const [reportTimeStr, setReportTimeStr] = useState('');
+
+  // Chỉ khởi tạo khi modal được mở (isOpen = true), không reset khi người dùng đang bấm nút
   useEffect(() => {
+    if (!isOpen) return;
+
+    // 1. Sinh mã tiếp nhận duy nhất cho ca trực
+    const randomNum = Math.floor(100000 + Math.random() * 900000);
+    setReceiptCode(`EMG-${randomNum}`);
+
+    // 2. Cố định thời điểm báo cáo
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    setReportTimeStr(`${hh}:${mm} - Hôm nay`);
+
+    // 3. Khởi tạo dữ liệu form ban đầu
     if (prefill) {
       if (prefill.stallCode) {
         const cleanStall = prefill.stallCode.replace(/[^A-Z0-9]/gi, '');
@@ -52,14 +69,23 @@ export default function GroomIncidentReportModal({
           setSelectedHorseId(String(found.id));
           setStallCode(found.stall?.replace(/[^A-Z0-9]/gi, '') || 'A1');
         }
+      } else if (horses.length > 0) {
+        setSelectedHorseId(String(horses[0].id));
+        setStallCode(horses[0].stall?.replace(/[^A-Z0-9]/gi, '') || 'A1');
       }
-      if (prefill.severity) setSeverity(prefill.severity);
-      if (prefill.symptoms) setSelectedSymptom(prefill.symptoms);
-    } else if (horses.length > 0 && !selectedHorseId) {
+      setSeverity(prefill.severity || 'HIGH');
+      setSelectedSymptom(prefill.symptoms || COMMON_SYMPTOMS_LIST[0].label);
+      setDesc(prefill.desc || '');
+      if (prefill.temp) setTemp(String(prefill.temp).replace('°C', '').trim());
+      if (prefill.respRate) setRespRate(String(prefill.respRate).replace(/[^0-9]/g, '').trim());
+    } else if (horses.length > 0) {
       setSelectedHorseId(String(horses[0].id));
       setStallCode(horses[0].stall?.replace(/[^A-Z0-9]/gi, '') || 'A1');
+      setSeverity('HIGH');
+      setSelectedSymptom(COMMON_SYMPTOMS_LIST[0].label);
+      setDesc('');
     }
-  }, [isOpen, prefill, horses]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -81,12 +107,15 @@ export default function GroomIncidentReportModal({
   };
 
   const handleFormSubmit = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
+
     const finalHorseName = currentSelectedHorse ? currentSelectedHorse.name : 'Chiến mã';
-    const finalHorseId = currentSelectedHorse ? currentSelectedHorse.horseId : 'EQ-VN-2026';
+    const finalHorseId = currentSelectedHorse ? (currentSelectedHorse.horseId || currentSelectedHorse.id) : 'EQ-VN-2026';
     const finalStall = currentSelectedHorse ? currentSelectedHorse.stall : `Ô ${stallCode}`;
 
     const reportPayload = {
+      receiptCode: receiptCode || `EMG-${Date.now().toString().slice(-6)}`,
       stallCode,
       stall: finalStall,
       horseId: finalHorseId,
@@ -105,7 +134,7 @@ export default function GroomIncidentReportModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 999999 }}>
       <div
         className="modal-box"
         onClick={(e) => e.stopPropagation()}
@@ -120,7 +149,9 @@ export default function GroomIncidentReportModal({
           overflow: 'hidden',
           border: '1px solid var(--line)',
           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.8), 0 0 24px rgba(239, 68, 68, 0.15)',
-          background: 'var(--bg-card)'
+          background: 'var(--bg-card)',
+          position: 'relative',
+          zIndex: 1000000
         }}
       >
         {/* HEADER MODAL - CÂN ĐỐI, KHÔNG ICON EMOJI */}
@@ -195,11 +226,11 @@ export default function GroomIncidentReportModal({
             </div>
             <div>
               <span>Thời điểm: </span>
-              <b style={{ color: 'var(--brass)' }}>{new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - Hôm nay</b>
+              <b style={{ color: 'var(--brass)' }}>{reportTimeStr || 'Hôm nay'}</b>
             </div>
             <div>
               <span>Mã tiếp nhận: </span>
-              <b style={{ color: '#10B981', fontFamily: 'monospace' }}>EMG-{Date.now().toString().slice(-6)}</b>
+              <b style={{ color: '#10B981', fontFamily: 'monospace' }}>{receiptCode || 'EMG-673299'}</b>
             </div>
           </div>
         </div>
@@ -662,25 +693,32 @@ export default function GroomIncidentReportModal({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexWrap: 'wrap',
           gap: '12px'
         }}>
-          <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
-            Phiếu báo động sẽ tự động gửi thông báo đến <b>Bác sĩ Thú y & Admin</b> theo thời gian thực.
+          <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', flex: 1, minWidth: '220px' }}>
+            Phiếu báo động sẽ tự động gửi thông báo đến <b>Bác sĩ Thú y & Quản trị viên</b> theo thời gian thực.
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
             <button
               type="button"
               onClick={onClose}
               style={{
-                padding: '9px 18px',
+                height: '38px',
+                padding: '0 20px',
                 borderRadius: '6px',
                 background: 'transparent',
                 color: 'var(--paper-dim)',
                 border: '1px solid var(--line)',
                 fontSize: '12.5px',
                 fontWeight: 600,
-                cursor: 'pointer'
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease'
               }}
             >
               Hủy Bỏ
@@ -689,7 +727,8 @@ export default function GroomIncidentReportModal({
               type="button"
               onClick={handleFormSubmit}
               style={{
-                padding: '9px 22px',
+                height: '38px',
+                padding: '0 22px',
                 borderRadius: '6px',
                 background: severity === 'CRITICAL' ? '#EF4444' : 'var(--brass)',
                 color: severity === 'CRITICAL' ? '#FFFFFF' : '#0A0D14',
@@ -698,10 +737,15 @@ export default function GroomIncidentReportModal({
                 fontSize: '12.5px',
                 letterSpacing: '0.02em',
                 cursor: 'pointer',
-                boxShadow: severity === 'CRITICAL' ? '0 4px 14px rgba(239, 68, 68, 0.4)' : '0 4px 14px rgba(212, 175, 55, 0.3)'
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: severity === 'CRITICAL' ? '0 4px 14px rgba(239, 68, 68, 0.4)' : '0 4px 14px rgba(212, 175, 55, 0.3)',
+                transition: 'all 0.15s ease'
               }}
             >
-              PHÁT BÁO ĐỘNG & GỬI BÁC SĨ THÚ Y NGAY
+              Phát Báo Động
             </button>
           </div>
         </div>

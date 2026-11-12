@@ -199,10 +199,8 @@ export default function GroomHorsesTab({ horses = [], onOpenHorseModal, onOpenRe
                   <div>Tuổi & Giới tính: <b style={{ color: 'var(--paper)' }}>{h.age}T · {h.gender}</b></div>
                 </div>
 
-                {/* Khẩu phần & Việc kế tiếp */}
+                {/* Thông tin chủ sở hữu & Bác sĩ */}
                 <div style={{ fontSize: '12px', color: 'var(--paper-dim)', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
-                  <div>🌾 <span style={{ color: 'var(--paper-dim)' }}>Khẩu phần:</span> <b style={{ color: 'var(--paper)' }}>{h.nextFeeding}</b></div>
-                  <div>⏰ <span style={{ color: 'var(--paper-dim)' }}>Việc kế tiếp:</span> <b style={{ color: '#10B981' }}>{h.nextTask}</b></div>
                   <div>👤 <span style={{ color: 'var(--paper-dim)' }}>Chủ sở hữu:</span> <b style={{ color: 'var(--brass)' }}>{h.owner}</b> · BS: <b>{h.vet}</b></div>
                 </div>
 

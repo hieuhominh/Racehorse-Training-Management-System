@@ -68,6 +68,54 @@ export const GROOM_TEAM_MEMBERS = [
   }
 ];
 
+// Lấy danh sách thời gian thực của đội ngũ Groom (kết hợp mặc định và nhân sự mới do Admin thêm trong usersList)
+export function getRealtimeGroomTeam(usersList = null) {
+  let staffUsers = [];
+  if (Array.isArray(usersList) && usersList.length > 0) {
+    staffUsers = usersList.filter(u => String(u.role).toUpperCase() === 'GROOM');
+  } else {
+    try {
+      const stored = localStorage.getItem('matruong_users_list');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          staffUsers = parsed.filter(u => String(u.role).toUpperCase() === 'GROOM');
+        }
+      }
+    } catch {}
+  }
+
+  // Kết hợp thông tin từ usersList với GROOM_TEAM_MEMBERS mặc định
+  const combinedMap = new Map();
+
+  // Đưa các thành viên mặc định vào trước
+  GROOM_TEAM_MEMBERS.forEach(m => {
+    combinedMap.set(m.username, { ...m });
+  });
+
+  // Bổ sung hoặc cập nhật từ danh sách usersList của Admin
+  staffUsers.forEach(u => {
+    const existing = combinedMap.get(u.username);
+    const isLead = u.username === 'groom_nam' || Boolean(u.isLead) || String(u.title || '').toLowerCase().includes('chủ nhóm') || String(u.title || '').toLowerCase().includes('trưởng nhóm');
+
+    combinedMap.set(u.username, {
+      id: u.username,
+      username: u.username,
+      name: u.full_name || u.name || existing?.name || u.username,
+      title: u.title || existing?.title || (isLead ? 'Chủ nhóm Groom (Head Groom)' : 'Nhân viên Groom'),
+      role: isLead ? 'HEAD_GROOM' : 'STAFF_GROOM',
+      shift: existing?.shift || u.shift || 'MORNING',
+      shiftName: existing?.shiftName || u.shiftName || (existing ? existing.shiftName : 'Ca Sáng (05:00 – 13:00)'),
+      isLead: isLead,
+      phone: u.phone || existing?.phone || '',
+      email: u.email || existing?.email || '',
+      avatar: existing?.avatar || u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name || u.username)}&background=10B981&color=fff`
+    });
+  });
+
+  return Array.from(combinedMap.values());
+}
+
 // =========================================================================
 // 2. MẪU CÔNG VIỆC THƯỜNG QUY CÓ SẴN CHO NGỰA (PREDEFINED TASK TEMPLATES)
 // =========================================================================
@@ -148,16 +196,17 @@ export const PREDEFINED_GROOM_TASK_TEMPLATES = [
 
 // 3. TỦ VẬT TƯ & THỨC ĂN (INVENTORY)
 export const INITIAL_INVENTORY = [
-  { id: 'INV-01', category: 'FEED', name: 'Cỏ khô Alfalfa Mỹ loại 1', qty: '450 kg', minQty: '200 kg', unit: 'Bao 50kg', status: 'GOOD', statusLabel: 'Đầy đủ', lastRestocked: '10/11/2026' },
-  { id: 'INV-02', category: 'FEED', name: 'Yến mạch cán nguyên hạt (Rolled Oats)', qty: '180 kg', minQty: '100 kg', unit: 'Bao 25kg', status: 'GOOD', statusLabel: 'Đầy đủ', lastRestocked: '08/11/2026' },
-  { id: 'INV-03', category: 'BEDDING', name: 'Mùn cưa thông sạch hút ẩm', qty: '12 bao', minQty: '20 bao', unit: 'Bao 40kg', status: 'LOW', statusLabel: 'Sắp hết - Cần nhập', lastRestocked: '05/11/2026' },
-  { id: 'INV-04', category: 'BEDDING', name: 'Rơm lúa mì sấy khô cao cấp', qty: '25 kiện', minQty: '15 kiện', unit: 'Kiện ép', status: 'GOOD', statusLabel: 'Đầy đủ', lastRestocked: '09/11/2026' },
-  { id: 'INV-05', category: 'MEDICAL', name: 'Băng thun quấn chân gân Polo Wrap', qty: '14 cuộn', minQty: '10 cuộn', unit: 'Bộ 4 cuộn', status: 'GOOD', statusLabel: 'Đầy đủ', lastRestocked: '01/11/2026' },
-  { id: 'INV-06', category: 'MEDICAL', name: 'Ủng đá lạnh phục hồi Cryo Boots', qty: '6 bộ', minQty: '8 bộ', unit: 'Bộ 2 chân', status: 'LOW', statusLabel: 'Cần bổ sung', lastRestocked: '25/10/2026' },
-  { id: 'INV-07', category: 'MEDICAL', name: 'Thuốc xịt sát trùng móng Blue Kote', qty: '2 chai', minQty: '5 chai', unit: 'Chai 500ml', status: 'CRITICAL', statusLabel: 'Gần cạn', lastRestocked: '20/10/2026' },
-  { id: 'INV-08', category: 'TOOL', name: 'Dao nạo sỏi kẽ móng guốc Hoof Pick', qty: '8 chiếc', minQty: '6 chiếc', unit: 'Cái', status: 'GOOD', statusLabel: 'Đầy đủ', lastRestocked: '15/10/2026' },
-  { id: 'INV-09', category: 'TOOL', name: 'Lược chải cao su Curry Comb', qty: '10 chiếc', minQty: '6 chiếc', unit: 'Cái', status: 'GOOD', statusLabel: 'Đầy đủ', lastRestocked: '15/10/2026' },
-  { id: 'INV-10', category: 'FEED', name: 'Bột điện giải chống mất nước Electrolytes', qty: '8 hộp', minQty: '5 hộp', unit: 'Hộp 2kg', status: 'GOOD', statusLabel: 'Đầy đủ', lastRestocked: '02/11/2026' }
+  { id: 'INV-01', category: 'FEED', name: 'Cỏ khô Alfalfa Mỹ loại 1', qty: '450 kg', minQty: '200 kg', maxQty: '1000 kg', percent: 45, unit: 'Bao 50kg', status: 'GOOD', statusLabel: 'Đầy đủ (45%)', lastRestocked: '10/11/2026' },
+  { id: 'INV-02', category: 'FEED', name: 'Yến mạch cán nguyên hạt (Rolled Oats)', qty: '180 kg', minQty: '100 kg', maxQty: '500 kg', percent: 36, unit: 'Bao 25kg', status: 'GOOD', statusLabel: 'Đầy đủ (36%)', lastRestocked: '08/11/2026' },
+  { id: 'INV-11', category: 'FEED', name: 'Cám viên hỗn hợp dinh dưỡng (Pellets)', qty: '12 kg', minQty: '50 kg', maxQty: '100 kg', percent: 12, unit: 'Bao 25kg', status: 'CRITICAL', statusLabel: 'Dưới 15% - Cần cấp phát', lastRestocked: '01/11/2026' },
+  { id: 'INV-03', category: 'BEDDING', name: 'Mùn cưa thông sạch hút ẩm', qty: '12 bao', minQty: '20 bao', maxQty: '100 bao', percent: 12, unit: 'Bao 40kg', status: 'LOW', statusLabel: 'Dưới 15% - Cần nhập', lastRestocked: '05/11/2026' },
+  { id: 'INV-04', category: 'BEDDING', name: 'Rơm lúa mì sấy khô cao cấp', qty: '25 kiện', minQty: '15 kiện', maxQty: '100 kiện', percent: 25, unit: 'Kiện ép', status: 'GOOD', statusLabel: 'Đầy đủ (25%)', lastRestocked: '09/11/2026' },
+  { id: 'INV-05', category: 'MEDICAL', name: 'Băng thun quấn chân gân Polo Wrap', qty: '14 cuộn', minQty: '10 cuộn', maxQty: '50 cuộn', percent: 28, unit: 'Bộ 4 cuộn', status: 'GOOD', statusLabel: 'Đầy đủ (28%)', lastRestocked: '01/11/2026' },
+  { id: 'INV-06', category: 'MEDICAL', name: 'Ủng đá lạnh phục hồi Cryo Boots', qty: '6 bộ', minQty: '8 bộ', maxQty: '20 bộ', percent: 30, unit: 'Bộ 2 chân', status: 'LOW', statusLabel: 'Cần bổ sung (30%)', lastRestocked: '25/10/2026' },
+  { id: 'INV-07', category: 'MEDICAL', name: 'Thuốc xịt sát trùng móng Blue Kote', qty: '2 chai', minQty: '5 chai', maxQty: '20 chai', percent: 10, unit: 'Chai 500ml', status: 'CRITICAL', statusLabel: 'Dưới 15% - Gần cạn', lastRestocked: '20/10/2026' },
+  { id: 'INV-08', category: 'TOOL', name: 'Dao nạo sỏi kẽ móng guốc Hoof Pick', qty: '8 chiếc', minQty: '6 chiếc', maxQty: '20 chiếc', percent: 40, unit: 'Cái', status: 'GOOD', statusLabel: 'Đầy đủ (40%)', lastRestocked: '15/10/2026' },
+  { id: 'INV-09', category: 'TOOL', name: 'Lược chải cao su Curry Comb', qty: '10 chiếc', minQty: '6 chiếc', maxQty: '20 chiếc', percent: 50, unit: 'Cái', status: 'GOOD', statusLabel: 'Đầy đủ (50%)', lastRestocked: '15/10/2026' },
+  { id: 'INV-10', category: 'FEED', name: 'Bột điện giải chống mất nước Electrolytes', qty: '8 hộp', minQty: '5 hộp', maxQty: '30 hộp', percent: 27, unit: 'Hộp 2kg', status: 'GOOD', statusLabel: 'Đầy đủ (27%)', lastRestocked: '02/11/2026' }
 ];
 
 export const INITIAL_ASSIGNED_HORSES = [];
@@ -169,9 +218,9 @@ export const INITIAL_VET_INSTRUCTIONS = [];
 export function getGroomData(key, defaultData) {
   try {
     const raw = localStorage.getItem(key);
-    if (raw) {
+    if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed; // Trả về mảng đã lưu kể cả khi mảng rỗng [] (đã xóa hết)
       if (parsed && typeof parsed === 'object') return parsed;
     }
   } catch {}

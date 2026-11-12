@@ -8,7 +8,7 @@ import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal
 import GroomIncidentReportModal from '../components/groom/GroomIncidentReportModal';
 import GroomScheduleModal from '../components/groom/GroomScheduleModal';
 import { reportIncidentApi } from '../services/api';
-import { addSystemNotification } from '../services/notificationService';
+import { addSystemNotification, getSystemNotifications } from '../services/notificationService';
 import {
   getServiceAssignments,
   confirmServiceAssignment,
@@ -20,6 +20,7 @@ import {
   formatConfirmedHorseForGroom,
   generateRealtimeDailyTasks,
   GROOM_TEAM_MEMBERS,
+  getRealtimeGroomTeam,
   INITIAL_EMERGENCY_ALERTS,
   INITIAL_VET_INSTRUCTIONS,
   INITIAL_INVENTORY,
@@ -32,14 +33,12 @@ import {
 import GroomDashboardTab from '../components/groom/GroomDashboardTab';
 import GroomTasksTab from '../components/groom/GroomTasksTab';
 import GroomHorsesTab from '../components/groom/GroomHorsesTab';
-import GroomCareTab from '../components/groom/GroomCareTab';
 import GroomHealthTab from '../components/groom/GroomHealthTab';
 import GroomIncidentsTab from '../components/groom/GroomIncidentsTab';
 import GroomVetInstructionsTab from '../components/groom/GroomVetInstructionsTab';
 import GroomInventoryTab from '../components/groom/GroomInventoryTab';
 import GroomReportsTab from '../components/groom/GroomReportsTab';
 import GroomNotificationsTab from '../components/groom/GroomNotificationsTab';
-import GroomProfileTab from '../components/groom/GroomProfileTab';
 
 // Minimalist High-End SVG Icons for Groom Portal
 const IconDashboard = ({ size = 18, color = 'currentColor' }) => (
@@ -63,16 +62,6 @@ const IconHorse = ({ size = 18, color = 'currentColor' }) => (
     <path d="M22 17v1c0 .5-.5 1-1 1H3c-.5 0-1-.5-1-1v-1" />
     <path d="M2 17l2-11c.2-1.1 1.2-2 2.3-2h3.4c1 0 1.9.7 2.2 1.6L13 9h4c1.7 0 3 1.3 3 3v2" />
     <circle cx="7" cy="8" r="1" />
-  </svg>
-);
-
-const IconCare = ({ size = 18, color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" />
-    <path d="M9 3v18" />
-    <path d="M15 3v18" />
-    <path d="M3 9h18" />
-    <path d="M3 15h18" />
   </svg>
 );
 
@@ -122,23 +111,17 @@ const IconNotification = ({ size = 18, color = 'currentColor' }) => (
   </svg>
 );
 
-const IconProfile = ({ size = 18, color = 'currentColor' }) => (
+const IconUsers = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
-
-const IconLogout = ({ size = 18, color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" y1="12" x2="9" y2="12" />
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
   </svg>
 );
 
 export default function GroomPage() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, usersList } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -150,14 +133,12 @@ export default function GroomPage() {
         'dashboard',
         'tasks',
         'horses',
-        'care',
         'health',
         'incidents',
         'vet-instructions',
         'inventory',
         'reports',
-        'notifications',
-        'profile'
+        'notifications'
       ];
       return validTabs.includes(saved) ? saved : 'dashboard';
     } catch {
@@ -193,20 +174,32 @@ export default function GroomPage() {
     };
   }, []);
 
+  // Danh sách toàn bộ đội ngũ nhân sự Groom (tự động cập nhật thời gian thực khi Admin thêm/sửa nhân viên mới)
+  const groomTeam = useMemo(() => {
+    return getRealtimeGroomTeam(usersList);
+  }, [usersList]);
+
   // Phân quyền nhân sự Groom gắn chặt theo tài khoản đăng nhập (currentUser), tuyệt đối không cho phép tự ý đổi quyền
   const currentGroomUser = useMemo(() => {
     const uName = (currentUser?.username || '').trim().toLowerCase();
     const fName = (currentUser?.full_name || '').trim().toLowerCase();
 
+    // 1. Khớp từ danh sách thời gian thực (bao gồm cả nhân viên Groom mới do Admin tạo)
+    const matched = groomTeam.find(g =>
+      g.username?.toLowerCase() === uName ||
+      (g.name && g.name.toLowerCase() === fName)
+    );
+    if (matched) return matched;
+
     if (uName === 'groom_dung' || fName.includes('tiến dũng') || fName.includes('vũ tiến dũng')) {
-      return GROOM_TEAM_MEMBERS.find(g => g.id === 'groom_dung') || GROOM_TEAM_MEMBERS[1];
+      return groomTeam.find(g => g.id === 'groom_dung') || GROOM_TEAM_MEMBERS[1];
     }
     if (uName === 'groom_thao' || fName.includes('thu thảo') || fName.includes('nguyễn thu thảo')) {
-      return GROOM_TEAM_MEMBERS.find(g => g.id === 'groom_thao') || GROOM_TEAM_MEMBERS[2];
+      return groomTeam.find(g => g.id === 'groom_thao') || GROOM_TEAM_MEMBERS[2];
     }
     // Mặc định hoặc tài khoản groom_nam / groom là Chủ nhóm Groom (Lê Hoàng Nam)
-    return GROOM_TEAM_MEMBERS[0];
-  }, [currentUser]);
+    return groomTeam.find(g => g.isLead) || GROOM_TEAM_MEMBERS[0];
+  }, [currentUser, groomTeam]);
 
   // Xóa bỏ hoàn toàn key ACTIVE_ROLE cũ nếu có
   useEffect(() => {
@@ -224,7 +217,9 @@ export default function GroomPage() {
   const confirmedList = groomRealtime.confirmed; // ĐÃ ĐỒNG Ý TIẾP NHẬN
 
   // Chuyển đổi các chiến mã đã đồng ý thành dữ liệu chiến mã quản lý
-  const confirmedHorses = confirmedList.map(a => formatConfirmedHorseForGroom(a));
+  const confirmedHorses = useMemo(() => {
+    return confirmedList.map(a => formatConfirmedHorseForGroom(a));
+  }, [confirmedList]);
 
   // Toàn bộ chiến mã được các Groom trong đội đồng ý tiếp nhận (để Chủ nhóm Groom phân ca theo đúng Groom phụ trách)
   const allTeamConfirmedHorses = useMemo(() => {
@@ -234,18 +229,109 @@ export default function GroomPage() {
   }, [serviceAssignments]);
 
   // =========================================================================
-  // 2. SINH CÔNG VIỆC HẰNG NGÀY & Ô CHUỒNG DỰA TRÊN CHIẾN MÃ ĐÃ ĐỒNG Ý
+  // 2. CÔNG VIỆC HẰNG NGÀY & Ô CHUỒNG (ĐỒNG BỘ LOCALSTORAGE VĨNH VIỄN)
   // =========================================================================
-  const [tasks, setTasks] = useState(() => generateRealtimeDailyTasks(confirmedHorses));
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.TASKS);
+      if (raw !== null) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          // Chuẩn hóa: Công việc của ngày mai tuyệt đối không được ở trạng thái hoàn thành
+          return parsed.map(t => {
+            if (t.dateKey === 'TOMORROW' && (t.status === 'COMPLETED' || t.status === 'IN_PROGRESS' || t.completedAt)) {
+              return { ...t, status: 'PENDING', completedAt: null };
+            }
+            return t;
+          });
+        }
+      }
+    } catch {}
+    const initial = generateRealtimeDailyTasks(confirmedHorses);
+    try {
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(initial));
+    } catch {}
+    return initial;
+  });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
 
-  // Tự động đồng bộ tasks khi danh sách chiến mã đã đồng ý thay đổi
+  // Đảm bảo dữ liệu các công việc ngày mai trong localStorage luôn chuẩn hóa về PENDING
   useEffect(() => {
-    setTasks(generateRealtimeDailyTasks(confirmedHorses));
-  }, [confirmedList.length]);
+    setTasks(prev => {
+      let changed = false;
+      const normalized = prev.map(t => {
+        if (t.dateKey === 'TOMORROW' && (t.status === 'COMPLETED' || t.status === 'IN_PROGRESS' || t.completedAt)) {
+          changed = true;
+          return { ...t, status: 'PENDING', completedAt: null };
+        }
+        return t;
+      });
+      if (changed) {
+        try {
+          localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(normalized));
+        } catch {}
+        return normalized;
+      }
+      return prev;
+    });
+  }, []);
 
-  // Cảnh báo quan trọng (Alerts)
-  const [alerts, setAlerts] = useState(() => getGroomData(STORAGE_KEYS.ALERTS, INITIAL_EMERGENCY_ALERTS));
+  // Tự động lưu tasks vào localStorage mỗi khi có thay đổi (thêm, sửa, xóa)
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+    } catch {}
+  }, [tasks]);
+
+  // Cảnh báo quan trọng (Alerts & Incidents) - Lưu trữ bền vững vĩnh viễn trong LocalStorage
+  const [alerts, setAlerts] = useState(() => {
+    let list = getGroomData(STORAGE_KEYS.ALERTS, []);
+    try {
+      // Phục hồi từ API incidents nếu có sự cố đã được lưu trước đó
+      const apiRaw = localStorage.getItem('racehorse_api_incidents');
+      if (apiRaw) {
+        const apiList = JSON.parse(apiRaw);
+        if (Array.isArray(apiList)) {
+          const existingIds = new Set(list.map(a => String(a.id)));
+          apiList.forEach(inc => {
+            if (inc && inc.id && !existingIds.has(String(inc.id))) {
+              list.push({
+                id: inc.id,
+                severity: inc.severity || 'HIGH',
+                title: `${inc.symptoms || 'Báo động sự cố'} (${inc.horseName || 'Chiến mã'})`,
+                horseName: inc.horseName,
+                horseId: inc.horseId,
+                stall: inc.stall,
+                stallCode: inc.stallCode,
+                time: inc.reportedAt || inc.time || 'Vừa xong',
+                reportedAt: inc.reportedAt || inc.time || 'Vừa xong',
+                symptoms: inc.symptoms,
+                desc: inc.desc || inc.description,
+                description: inc.desc || inc.description,
+                vitalSigns: inc.vitalSigns,
+                firstAidActions: inc.firstAidActions || [],
+                reportedBy: inc.reportedBy || 'Lê Hoàng Nam (Groom)',
+                status: inc.status || 'pending_vet',
+                statusText: inc.statusText || 'Đang chờ BS Thú Y khám'
+              });
+            }
+          });
+        }
+      }
+    } catch {}
+
+    return list.filter(alt => {
+      const name = (alt.horseName || '').toLowerCase();
+      return !['bạch long', 'kim sa', 'hắc phong', 'xích thố', 'phi yến', 'lôi chấn'].some(ex => name.includes(ex));
+    });
+  });
+
+  // Tự động lưu cảnh báo sự cố vào LocalStorage mỗi khi có thay đổi (chống mất khi F5 refresh)
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(alerts));
+    } catch {}
+  }, [alerts]);
 
   // Dọn dẹp cảnh báo và y lệnh của các chiến mã mock cũ không thuộc về ngựa Groom phụ trách
   useEffect(() => {
@@ -270,8 +356,41 @@ export default function GroomPage() {
   // Y lệnh thú y
   const [vetInstructions, setVetInstructions] = useState(() => getGroomData(STORAGE_KEYS.VET_INSTRUCTIONS, INITIAL_VET_INSTRUCTIONS));
 
-  // Vật tư
-  const [inventory, setInventory] = useState(() => getGroomData(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY));
+  // Vật tư & Lương thực chuồng trại
+  const [inventory, setInventory] = useState(() => {
+    const saved = getGroomData(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY);
+    if (Array.isArray(saved) && saved.length > 0) {
+      // Đảm bảo bổ sung các mặt hàng lương thực mới từ INITIAL_INVENTORY nếu thiếu
+      const existingIds = new Set(saved.map(i => i.id));
+      let merged = [...saved];
+      INITIAL_INVENTORY.forEach(initialItem => {
+        if (!existingIds.has(initialItem.id)) {
+          merged.push(initialItem);
+        }
+      });
+      // Đồng bộ tỷ lệ phần trăm chuẩn
+      merged = merged.map(item => {
+        const matchingInitial = INITIAL_INVENTORY.find(init => init.id === item.id);
+        if (matchingInitial) {
+          return {
+            ...item,
+            percent: matchingInitial.percent,
+            statusLabel: matchingInitial.statusLabel,
+            status: matchingInitial.status
+          };
+        }
+        return item;
+      });
+      return merged;
+    }
+    return INITIAL_INVENTORY;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
+    } catch {}
+  }, [inventory]);
 
   // Các ô chuồng phụ trách chăm sóc toàn bộ chiến mã trong hệ thống
   const stallCodes = useMemo(() => {
@@ -358,14 +477,26 @@ export default function GroomPage() {
   };
 
   const handleUpdateTaskStatus = (taskId, newStatus) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id === taskId) {
-        const now = new Date();
-        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        return { ...t, status: newStatus, completedAt: newStatus === 'COMPLETED' ? timeStr : t.completedAt };
-      }
-      return t;
-    }));
+    const target = tasks.find(t => t.id === taskId);
+    if (target && target.dateKey === 'TOMORROW') {
+      showToast('Công việc của ngày mai chưa thể thực hiện hoặc xác nhận hoàn thành trước ngày!', 'LỊCH NGÀY MAI', 'warning');
+      return;
+    }
+
+    setTasks(prev => {
+      const updated = prev.map(t => {
+        if (t.id === taskId) {
+          const now = new Date();
+          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          return { ...t, status: newStatus, completedAt: newStatus === 'COMPLETED' ? timeStr : t.completedAt };
+        }
+        return t;
+      });
+      try {
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     showToast(newStatus === 'COMPLETED' ? 'Đã hoàn thành công việc!' : 'Đã chuyển trạng thái làm việc.', 'CÔNG VIỆC', 'info');
   };
 
@@ -374,7 +505,13 @@ export default function GroomPage() {
       showToast('Chỉ Chủ nhóm Groom mới có quyền phân ca và tạo lịch công việc!', 'TỪ CHỐI QUYỀN', 'error');
       return;
     }
-    setTasks(prev => [newTask, ...prev]);
+    setTasks(prev => {
+      const updated = [newTask, ...prev];
+      try {
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     showToast(`Chủ nhóm đã phân công: "${newTask.title}" cho ${newTask.groom}!`, 'PHÂN CA THÀNH CÔNG', 'success');
   };
 
@@ -383,7 +520,13 @@ export default function GroomPage() {
       showToast('Chỉ Chủ nhóm Groom mới có quyền xóa lịch công việc!', 'TỪ CHỐI QUYỀN', 'error');
       return;
     }
-    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setTasks(prev => {
+      const updated = prev.filter(t => t.id !== taskId);
+      try {
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     showToast('Đã xóa công việc khỏi lịch ca trực!', 'ĐÃ XÓA', 'info');
   };
 
@@ -397,8 +540,49 @@ export default function GroomPage() {
     showToast('Groom đã xác nhận tuân thủ y lệnh Bác sĩ Thú y!', 'TIẾP NHẬN Y LỆNH', 'success');
   };
 
-  const handleRequestSupply = (supplyName) => {
-    showToast(`Đã gửi yêu cầu cấp phát "${supplyName}" đến Quản lý!`, 'CẤP PHÁT VẬT TƯ', 'info');
+  const handleRequestSupply = (itemOrName, percent = 12) => {
+    const supplyName = typeof itemOrName === 'string' ? itemOrName : (itemOrName?.name || 'Lương thực / Vật tư');
+    const supplyId = typeof itemOrName === 'object' ? itemOrName?.id : 'INV-FEED';
+    const currentQty = typeof itemOrName === 'object' ? itemOrName?.qty : 'Dưới 15%';
+    const category = typeof itemOrName === 'object' ? itemOrName?.category : 'FEED';
+    const isFeed = category === 'FEED';
+    const groomName = currentUser?.full_name || 'Lê Hoàng Nam (Groom)';
+
+    // 1. Phát thông báo hệ thống trực tiếp đến Quản trị viên (Admin) để Admin tiếp nhận thông tin
+    try {
+      addSystemNotification({
+        type: 'SUPPLY_REQUEST',
+        title: `YÊU CẦU CẤP PHÁT ${isFeed ? 'LƯƠNG THỰC' : 'VẬT TƯ'}: ${supplyName.toUpperCase()}`,
+        message: `${groomName} báo cáo: ${isFeed ? 'Lương thực' : 'Vật tư'} "${supplyName}" trong kho chuồng trại hiện chỉ còn ${currentQty} (còn ${percent}%, dưới ngưỡng 15%). Đề nghị Quản trị viên (Admin) tiếp nhận thông tin và duyệt xuất kho cấp phát.`,
+        recipientRoles: ['ADMIN'],
+        supplyId,
+        supplyName,
+        category,
+        qty: currentQty,
+        requestedBy: groomName
+      });
+    } catch {}
+
+    // 2. Lưu yêu cầu vào danh sách cấp phát LocalStorage để Admin dễ dàng quản lý
+    try {
+      const rawReq = localStorage.getItem('matruong_supply_requests');
+      const reqList = rawReq ? JSON.parse(rawReq) : [];
+      const newReq = {
+        id: `SR-${Date.now().toString().slice(-4)}`,
+        supplyId,
+        supplyName,
+        category,
+        qty: currentQty,
+        percent,
+        requestedBy: groomName,
+        requestedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - Hôm nay',
+        status: 'PENDING_ADMIN'
+      };
+      localStorage.setItem('matruong_supply_requests', JSON.stringify([newReq, ...(Array.isArray(reqList) ? reqList : [])]));
+    } catch {}
+
+    // 3. Thông báo Toast xác nhận cho Groom
+    showToast(`Đã gửi yêu cầu cấp phát "${supplyName}" đến Quản trị viên (Admin) thành công!`, 'YÊU CẦU CẤP PHÁT', 'success');
   };
 
   // Lắng nghe cập nhật từ Bác sĩ thú y theo thời gian thực
@@ -444,17 +628,26 @@ export default function GroomPage() {
   const handleSubmitReport = (reportPayload) => {
     const isCritical = reportPayload.severity === 'CRITICAL';
     const incidentId = `INC-${Date.now().toString().slice(-4)}`;
+    const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - Hôm nay';
+
+    const cleanStallCode = reportPayload.stallCode
+      ? reportPayload.stallCode.replace(/[^A-Z0-9]/gi, '')
+      : (reportPayload.stall ? reportPayload.stall.replace(/[^A-Z0-9]/gi, '') : 'C2');
+
+    const cleanStallName = reportPayload.stall && reportPayload.stall.startsWith('Ô')
+      ? reportPayload.stall
+      : `Ô ${cleanStallCode || 'chuồng'}`;
 
     const newInc = {
       id: incidentId,
-      stallCode: reportPayload.stallCode,
-      stall: reportPayload.stall,
+      stallCode: cleanStallCode,
+      stall: cleanStallName,
       horseName: reportPayload.horseName || 'Chiến mã',
       horseId: reportPayload.horseId || 'EQ-VN-2026',
       severity: reportPayload.severity,
-      symptoms: reportPayload.symptoms,
-      desc: reportPayload.desc,
-      description: reportPayload.desc,
+      symptoms: reportPayload.symptoms || 'Bất thường lâm sàng',
+      desc: reportPayload.desc || '',
+      description: reportPayload.desc || '',
       vitalSigns: {
         temp: reportPayload.temp,
         respRate: reportPayload.respRate,
@@ -462,35 +655,51 @@ export default function GroomPage() {
         gutSounds: reportPayload.gutSounds
       },
       firstAidActions: reportPayload.firstAidActions || [],
-      reportedAt: 'Vừa xong',
+      reportedAt: nowStr,
+      time: nowStr,
       reportedBy: currentUser?.full_name || 'Lê Hoàng Nam (Groom)',
       status: 'pending_vet',
       statusText: isCritical ? 'Khẩn cấp: Đang chờ BS Thú Y đến ngay' : 'Đang chờ BS Thú Y khám'
     };
 
-    const firstAidText = (reportPayload.firstAidActions && reportPayload.firstAidActions.length > 0)
-      ? ` [Sơ cứu: ${reportPayload.firstAidActions.join(' · ')}]`
-      : '';
-
     const newAlert = {
       id: incidentId,
       type: isCritical ? 'COLIC_SIGNS' : 'ABNORMAL_BEHAVIOR',
       severity: reportPayload.severity,
-      title: `${reportPayload.symptoms} (${reportPayload.horseName || 'Chiến mã'})`,
+      title: `${reportPayload.symptoms || 'Báo động lâm sàng'} (${reportPayload.horseName || 'Chiến mã'})`,
       horseName: reportPayload.horseName || 'Chiến mã',
       horseId: reportPayload.horseId || 'EQ-VN-2026',
-      stall: reportPayload.stall,
-      time: 'Vừa xong',
-      desc: `${reportPayload.desc}${firstAidText} [Thân nhiệt: ${reportPayload.temp} · Nhịp thở: ${reportPayload.respRate}]`,
+      stall: cleanStallName,
+      stallCode: cleanStallCode,
+      time: nowStr,
+      reportedAt: nowStr,
+      symptoms: reportPayload.symptoms || 'Bất thường lâm sàng',
+      desc: reportPayload.desc || '',
+      description: reportPayload.desc || '',
+      vitalSigns: {
+        temp: reportPayload.temp,
+        respRate: reportPayload.respRate,
+        mucousColor: reportPayload.mucousColor,
+        gutSounds: reportPayload.gutSounds
+      },
+      firstAidActions: reportPayload.firstAidActions || [],
+      reportedBy: currentUser?.full_name || 'Lê Hoàng Nam (Groom)',
       actionRequired: isCritical
         ? 'KHẨN CẤP: Dắt ngựa đi bộ chậm, ngắt máng cỏ khô, chờ BS. Thú Y đến ngay!'
         : 'Chờ Bác sĩ Thú y kiểm tra trực tiếp tại chuồng.',
       status: isCritical ? 'CRITICAL_PENDING' : 'PENDING',
+      statusText: isCritical ? 'Khẩn cấp: Đang chờ BS Thú Y đến ngay' : 'Đang chờ BS Thú Y khám',
       reportedToVet: true
     };
 
     reportIncidentApi(newInc).catch(() => {});
-    setAlerts(prev => [newAlert, ...prev]);
+    setAlerts(prev => {
+      const updated = [newAlert, ...prev];
+      try {
+        localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     // Bắn thông báo khẩn cấp hệ thống đến Bác sĩ Thú Y và Quản trị viên
     try {
@@ -513,32 +722,88 @@ export default function GroomPage() {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/', { replace: true });
     showToast('Đã đăng xuất an toàn khỏi Cổng Groom.', 'ĐĂNG XUẤT', 'info');
   };
 
-  // LỌC CHẶT CHẼ THEO THỜI GIAN THỰC:
-  // Chỉ hiển thị cảnh báo và y lệnh cho các chiến mã Groom ĐÃ ĐỒNG Ý TIẾP NHẬN PHỤC VỤ
-  const confirmedHorseNames = new Set(confirmedHorses.map(h => (h.name || '').trim().toLowerCase()));
-  const confirmedHorseIds = new Set(confirmedHorses.map(h => String(h.id || h.horseId || '').trim().toLowerCase()));
+  // Đồng bộ thông báo hệ thống thời gian thực cho Groom (chống mất khi F5 refresh)
+  const [systemNotifications, setSystemNotifications] = useState(() => getSystemNotifications());
 
-  const activeAlerts = alerts.filter(alt => {
-    const altName = (alt.horseName || '').trim().toLowerCase();
-    const altId = String(alt.horseId || alt.horseIdentifier || '').trim().toLowerCase();
-    return (
-      (altName && confirmedHorseNames.has(altName)) ||
-      (altId && confirmedHorseIds.has(altId))
-    );
-  });
+  useEffect(() => {
+    const handleNotifUpdate = () => {
+      setSystemNotifications(getSystemNotifications());
+    };
+    window.addEventListener('matruong_notifications_updated', handleNotifUpdate);
+    window.addEventListener('storage', handleNotifUpdate);
+    return () => {
+      window.removeEventListener('matruong_notifications_updated', handleNotifUpdate);
+      window.removeEventListener('storage', handleNotifUpdate);
+    };
+  }, []);
 
-  const activeVetInstructions = vetInstructions.filter(inst => {
-    const instName = (inst.horseName || '').trim().toLowerCase();
-    const instId = String(inst.horseId || '').trim().toLowerCase();
-    return (
-      (instName && confirmedHorseNames.has(instName)) ||
-      (instId && confirmedHorseIds.has(instId))
-    );
-  });
+  const groomNotifications = useMemo(() => {
+    return systemNotifications.filter(n => {
+      if (!n.recipientRoles || n.recipientRoles.includes('ALL') || n.recipientRoles.includes('GROOM')) {
+        return true;
+      }
+      return false;
+    });
+  }, [systemNotifications]);
+
+  // LỌC CẢNH BÁO SỰ CỐ THEO THỜI GIAN THỰC (Bền vững, không bị rỗng khi F5):
+  const activeAlerts = useMemo(() => {
+    return alerts.filter(alt => {
+      const rawName = (alt.horseName || '').trim().toLowerCase();
+      const cleanName = rawName.split(' (')[0].trim();
+
+      // Loại trừ 6 con ngựa mock cũ
+      if (['bạch long', 'kim sa', 'hắc phong', 'xích thố', 'phi yến', 'lôi chấn'].some(ex => cleanName.includes(ex))) {
+        return false;
+      }
+
+      // Nếu danh sách confirmedHorses rỗng hoặc chưa nạp thì giữ lại toàn bộ sự cố hợp lệ
+      if (confirmedHorses.length === 0) return true;
+
+      // So khớp linh hoạt theo tên chiến mã hoặc ID
+      const altId = String(alt.horseId || alt.horseIdentifier || '').trim().toLowerCase();
+      const isMatch = confirmedHorses.some(h => {
+        const hName = (h.name || '').trim().toLowerCase();
+        const hId = String(h.id || h.horseId || '').trim().toLowerCase();
+        return (
+          (cleanName && (cleanName.includes(hName) || hName.includes(cleanName))) ||
+          (altId && (altId === hId || hId.includes(altId) || altId.includes(hId)))
+        );
+      });
+
+      return isMatch;
+    });
+  }, [alerts, confirmedHorses]);
+
+  const confirmedHorseNames = useMemo(() => new Set(confirmedHorses.map(h => (h.name || '').trim().toLowerCase())), [confirmedHorses]);
+  const confirmedHorseIds = useMemo(() => new Set(confirmedHorses.map(h => String(h.id || h.horseId || '').trim().toLowerCase())), [confirmedHorses]);
+
+  const activeVetInstructions = useMemo(() => {
+    return vetInstructions.filter(inst => {
+      const rawName = (inst.horseName || '').trim().toLowerCase();
+      const cleanName = rawName.split(' (')[0].trim();
+      const instId = String(inst.horseId || '').trim().toLowerCase();
+
+      if (['bạch long', 'kim sa', 'hắc phong', 'xích thố', 'phi yến', 'lôi chấn'].some(ex => cleanName.includes(ex))) {
+        return false;
+      }
+
+      if (confirmedHorses.length === 0) return true;
+
+      return confirmedHorses.some(h => {
+        const hName = (h.name || '').trim().toLowerCase();
+        const hId = String(h.id || h.horseId || '').trim().toLowerCase();
+        return (
+          (cleanName && (cleanName.includes(hName) || hName.includes(cleanName))) ||
+          (instId && (instId === hId || hId.includes(instId) || instId.includes(hId)))
+        );
+      });
+    });
+  }, [vetInstructions, confirmedHorses]);
 
   // Tính số lượng badge hiển thị trên Sidebar
   const uncompletedTasksCount = tasks.filter(t => t.status !== 'COMPLETED').length;
@@ -603,17 +868,6 @@ export default function GroomPage() {
             <span className="portal-nav-icon"><IconHorse size={18} /></span>
             <span className="portal-nav-label">Quản lý chiến mã</span>
             <span className="portal-nav-badge">{confirmedHorses.length}</span>
-          </button>
-
-          {/* 4. Chăm sóc ngựa (Daily Care) */}
-          <button
-            type="button"
-            className={`portal-nav-item ${activeTab === 'care' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('care'); setSidebarOpen(false); }}
-            title="Vệ sinh chuồng, tắm rửa, cạo móng & ngâm đá"
-          >
-            <span className="portal-nav-icon"><IconCare size={18} /></span>
-            <span className="portal-nav-label">Chăm sóc ngựa</span>
           </button>
 
           {/* 5. Theo dõi sức khỏe (Health Monitoring) */}
@@ -693,29 +947,6 @@ export default function GroomPage() {
             <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14' }}>
               {pendingRequests.length > 0 ? `${pendingRequests.length} mới` : '3'}
             </span>
-          </button>
-
-          {/* 11. Hồ sơ cá nhân (My Profile) */}
-          <button
-            type="button"
-            className={`portal-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('profile'); setSidebarOpen(false); }}
-            title="Thông tin cá nhân và chứng chỉ Groom"
-          >
-            <span className="portal-nav-icon"><IconProfile size={18} /></span>
-            <span className="portal-nav-label">Hồ sơ cá nhân</span>
-          </button>
-
-          {/* 12. Đăng xuất (Logout) */}
-          <button
-            type="button"
-            className="portal-nav-item"
-            onClick={handleLogout}
-            style={{ marginTop: 'auto', borderTop: '1px solid var(--line)', color: '#EF4444' }}
-            title="Đăng xuất khỏi Cổng Groom"
-          >
-            <span className="portal-nav-icon"><IconLogout size={18} color="#EF4444" /></span>
-            <span className="portal-nav-label" style={{ color: '#EF4444', fontWeight: 700 }}>Đăng xuất</span>
           </button>
         </nav>
       </aside>
@@ -928,6 +1159,7 @@ export default function GroomPage() {
               onOpenScheduleModal={() => setShowScheduleModal(true)}
               onDeleteTask={handleDeleteTask}
               currentGroomUser={currentGroomUser}
+              groomTeam={groomTeam}
             />
           )}
 
@@ -936,18 +1168,6 @@ export default function GroomPage() {
             <GroomHorsesTab
               horses={confirmedHorses}
               onOpenHorseModal={(h) => setSelectedHorseModal(h)}
-              onOpenReportModal={(prefill) => {
-                if (prefill) setReportFormData(prev => ({ ...prev, ...prefill }));
-                setShowReportModal(true);
-              }}
-            />
-          )}
-
-          {/* TAB 4: CHĂM SÓC NGỰA (DAILY CARE) */}
-          {activeTab === 'care' && (
-            <GroomCareTab
-              stalls={stalls}
-              onCleanBedding={handleCleanBedding}
               onOpenReportModal={(prefill) => {
                 if (prefill) setReportFormData(prev => ({ ...prev, ...prefill }));
                 setShowReportModal(true);
@@ -999,12 +1219,7 @@ export default function GroomPage() {
 
           {/* TAB 10: THÔNG BÁO (NOTIFICATIONS) */}
           {activeTab === 'notifications' && (
-            <GroomNotificationsTab />
-          )}
-
-          {/* TAB 11: HỒ SƠ CÁ NHÂN (MY PROFILE) */}
-          {activeTab === 'profile' && (
-            <GroomProfileTab currentUser={currentUser} />
+            <GroomNotificationsTab notifications={groomNotifications} />
           )}
         </main>
       </div>
@@ -1035,6 +1250,7 @@ export default function GroomPage() {
         onClose={() => setShowScheduleModal(false)}
         onAddTask={handleAddTask}
         horses={currentGroomUser.isLead ? allTeamConfirmedHorses : confirmedHorses}
+        groomTeam={groomTeam}
       />
     </div>
   );

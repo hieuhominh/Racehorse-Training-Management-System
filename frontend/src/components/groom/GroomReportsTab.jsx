@@ -8,9 +8,9 @@ export default function GroomReportsTab({ reports = [], onSubmitDailyReport }) {
       shift: 'Ca Sáng (05:00 - 13:00)',
       author: 'Lê Hoàng Nam (Groom Block A)',
       completedTasksCount: '15/24 nhiệm vụ',
-      horsesStatusSummary: '6/6 chiến mã ổn định, Bạch Long bỏ 50% cỏ sáng, Xích Thố tiếp tục chườm đá khớp chân.',
-      suppliesConsumed: '24kg Cỏ Alfalfa, 8kg Yến mạch, 2 bao mùn cưa, 1 gói Phenylbutazone.',
-      handoverNotes: 'Ca chiều 13:00 lưu ý đón Lôi Chấn (Ô A5) sau bài tập 14:30 để ngâm đá Cryo. Kiểm tra lại phân của Bạch Long (Ô A3).'
+      horsesStatusSummary: 'Các chiến mã trong chuồng duy trì thể trạng tốt, ăn hết khẩu phần và hoàn thành lịch vận động.',
+      suppliesConsumed: '24kg Cỏ Alfalfa, 8kg Yến mạch, 2 bao mùn cưa, bổ sung khoáng chất.',
+      handoverNotes: 'Ca chiều 13:00 lưu ý đón ngựa sau buổi tập để hạ nhiệt xịt lạnh chân. Kiểm tra lại mức phao nước tự động.'
     },
     {
       id: 'REP-2026-11-11-TOI',
