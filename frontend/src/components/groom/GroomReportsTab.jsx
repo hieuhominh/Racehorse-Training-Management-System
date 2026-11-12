@@ -24,6 +24,7 @@ export default function GroomReportsTab({ reports = [], onSubmitDailyReport }) {
     }
   ]);
 
+  const [filterShift, setFilterShift] = useState('ALL');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newReport, setNewReport] = useState({
     shift: 'Ca Sáng (05:00 - 13:00)',
@@ -46,71 +47,204 @@ export default function GroomReportsTab({ reports = [], onSubmitDailyReport }) {
     };
     setReportList([created, ...reportList]);
     setShowCreateModal(false);
+    setNewReport({
+      shift: 'Ca Sáng (05:00 - 13:00)',
+      horsesStatusSummary: '',
+      suppliesConsumed: '',
+      handoverNotes: ''
+    });
     if (onSubmitDailyReport) onSubmitDailyReport(created);
   };
 
+  const filteredReports = reportList.filter((r) => {
+    if (filterShift === 'ALL') return true;
+    return r.shift.toLowerCase().includes(filterShift.toLowerCase());
+  });
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Header bar gọn gàng */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '12px',
+        background: 'var(--bg-card)',
+        padding: '14px 18px',
+        borderRadius: '8px',
+        border: '1px solid var(--line)'
+      }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--paper)' }}>
-            📝 Báo Cáo Chăm Sóc Hằng Ngày (Daily Reports & Handover)
+          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--paper)', letterSpacing: '0.2px' }}>
+            Báo Cáo Chăm Sóc Hằng Ngày & Bàn Giao Ca (Daily Reports & Handover)
           </h2>
-          <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: 'var(--paper-dim)' }}>
-            Tổng hợp kết quả ca trực, lượng thức ăn tiêu hao và biên bản bàn giao ca cho nhân viên tiếp theo.
+          <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--paper-dim)' }}>
+            Tổng hợp kết quả ca trực, lượng thức ăn tiêu hao và biên bản bàn giao ca cho nhân sự tiếp theo.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateModal(true)}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '6px',
-            background: 'var(--brass)',
-            color: '#0A0D14',
-            fontWeight: 700,
-            fontSize: '12.5px',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          + Lập Báo Cáo Bàn Giao Ca
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              padding: '7px 15px',
+              borderRadius: '6px',
+              background: 'var(--brass)',
+              color: '#0A0D14',
+              fontWeight: 700,
+              fontSize: '12.5px',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'opacity 0.2s'
+            }}
+          >
+            + Lập Báo Cáo Bàn Giao Ca
+          </button>
+        </div>
       </div>
 
-      {/* Danh sách báo cáo */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        {reportList.map((rep) => (
-          <div key={rep.id} className="facility-card" style={{ padding: '20px', background: 'var(--bg-card)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-              <div>
-                <b style={{ fontSize: '16px', color: 'var(--brass)' }}>{rep.shift} · Ngày {rep.date}</b>
-                <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                  Người lập: <b style={{ color: 'var(--paper)' }}>{rep.author}</b> · Mã phiếu: {rep.id}
-                </div>
+      {/* Danh sách báo cáo dạng Card phân cột tinh gọn */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {filteredReports.map((rep) => (
+          <div
+            key={rep.id}
+            className="facility-card"
+            style={{
+              padding: '16px 18px',
+              background: 'var(--bg-card)',
+              borderRadius: '8px',
+              border: '1px solid var(--line)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}
+          >
+            {/* Header của từng thẻ báo cáo */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px',
+              paddingBottom: '10px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={{
+                  fontSize: '13.5px',
+                  fontWeight: 700,
+                  color: 'var(--brass)',
+                  background: 'rgba(212, 175, 55, 0.08)',
+                  padding: '3px 10px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(212, 175, 55, 0.2)'
+                }}>
+                  {rep.shift}
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                  Ngày: <b style={{ color: 'var(--paper)' }}>{rep.date}</b>
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--line)' }}>•</span>
+                <span style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                  Người lập: <b style={{ color: 'var(--paper)' }}>{rep.author}</b>
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--line)' }}>•</span>
+                <span style={{ fontSize: '11px', color: 'var(--paper-dim)', opacity: 0.8 }}>
+                  Mã: {rep.id}
+                </span>
               </div>
+
               <span style={{
-                padding: '4px 10px',
-                borderRadius: '5px',
+                padding: '3px 10px',
+                borderRadius: '4px',
                 background: 'rgba(16, 185, 129, 0.12)',
                 color: '#10B981',
                 fontSize: '11.5px',
-                fontWeight: 700
+                fontWeight: 600,
+                border: '1px solid rgba(16, 185, 129, 0.25)'
               }}>
                 Tiến độ: {rep.completedTasksCount}
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12.5px', color: 'var(--paper)', lineHeight: 1.5 }}>
-              <div style={{ background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '6px' }}>
-                <b style={{ color: 'var(--brass)' }}>Tình trạng chiến mã trong ca:</b> {rep.horsesStatusSummary}
+            {/* Thân thẻ phân 3 cột cân đối, gọn gàng */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '12px'
+            }}>
+              {/* Cột 1: Tình trạng chiến mã */}
+              <div style={{
+                background: 'var(--bg-secondary)',
+                padding: '10px 14px',
+                borderRadius: '6px',
+                border: '1px solid rgba(255, 255, 255, 0.03)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px'
+              }}>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.4px',
+                  color: 'var(--brass)'
+                }}>
+                  Tình trạng chiến mã trong ca
+                </span>
+                <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--paper)', lineHeight: 1.5 }}>
+                  {rep.horsesStatusSummary}
+                </p>
               </div>
-              <div style={{ background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '6px' }}>
-                <b style={{ color: 'var(--paper-dim)' }}>Vật tư & Thức ăn tiêu hao:</b> {rep.suppliesConsumed}
+
+              {/* Cột 2: Tiêu hao vật tư */}
+              <div style={{
+                background: 'var(--bg-secondary)',
+                padding: '10px 14px',
+                borderRadius: '6px',
+                border: '1px solid rgba(255, 255, 255, 0.03)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px'
+              }}>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.4px',
+                  color: 'var(--paper-dim)'
+                }}>
+                  Vật tư & Thức ăn tiêu hao
+                </span>
+                <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--paper)', lineHeight: 1.5 }}>
+                  {rep.suppliesConsumed}
+                </p>
               </div>
-              <div style={{ background: 'rgba(212, 175, 55, 0.05)', border: '1px solid var(--line)', padding: '10px 14px', borderRadius: '6px' }}>
-                <b style={{ color: 'var(--brass)' }}>Dặn dò bàn giao ca sau:</b> {rep.handoverNotes}
+
+              {/* Cột 3: Dặn dò bàn giao ca sau */}
+              <div style={{
+                background: 'rgba(212, 175, 55, 0.04)',
+                padding: '10px 14px',
+                borderRadius: '6px',
+                border: '1px solid rgba(212, 175, 55, 0.25)',
+                borderLeft: '3px solid var(--brass)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px'
+              }}>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.4px',
+                  color: 'var(--brass)'
+                }}>
+                  Dặn dò bàn giao ca sau
+                </span>
+                <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--paper)', lineHeight: 1.5 }}>
+                  {rep.handoverNotes}
+                </p>
               </div>
             </div>
           </div>
@@ -122,7 +256,7 @@ export default function GroomReportsTab({ reports = [], onSubmitDailyReport }) {
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px', width: '90%', padding: '22px' }}>
             <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700, color: 'var(--brass)' }}>
-              📝 Lập Báo Cáo Chăm Sóc & Bàn Giao Ca
+              Lập Báo Cáo Chăm Sóc & Bàn Giao Ca
             </h3>
             <form onSubmit={handleCreateReport}>
               <div style={{ marginBottom: '10px' }}>
