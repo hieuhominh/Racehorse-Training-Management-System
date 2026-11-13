@@ -4395,7 +4395,7 @@ setTrainerHorses(prev => {
                                 <div style={{
                                   marginTop: '8px',
                                   padding: '8px 10px',
-                                  background: 'rgba(0, 0, 0, 0.25)',
+                                  background: 'var(--card-inner-bg)',
                                   borderRadius: '6px',
                                   borderLeft: '3px solid #38BDF8'
                                 }}>

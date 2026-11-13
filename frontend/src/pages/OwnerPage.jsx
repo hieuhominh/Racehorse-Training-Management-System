@@ -4708,8 +4708,8 @@ export default function OwnerPage() {
 
                       {/* Trực quan hóa ma trận khung giờ tập luyện (chọn trực tiếp) */}
                       <div style={{
-                        background: 'rgba(0, 0, 0, 0.28)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        background: 'var(--card-inner-bg)',
+                        border: '1px solid var(--line)',
                         borderRadius: '10px',
                         padding: '11px 13px'
                       }}>
@@ -6143,7 +6143,7 @@ export default function OwnerPage() {
 
                           {/* Nội dung phản ánh */}
                           <div style={{
-                            background: 'rgba(0, 0, 0, 0.25)',
+                            background: 'var(--card-inner-bg)',
                             border: '1px solid var(--line)',
                             borderRadius: '8px',
                             padding: '12px 16px',
@@ -8312,7 +8312,7 @@ export default function OwnerPage() {
                   marginTop: '12px',
                   padding: '12px',
                   borderRadius: '6px',
-                  background: 'rgba(0, 0, 0, 0.3)',
+                  background: 'var(--card-inner-bg)',
                   border: '1px solid var(--line)',
                   display: 'flex',
                   flexDirection: 'column',

@@ -1319,84 +1319,93 @@ export default function VetPage() {
                 </div>
               </div>
 
-              {/* Bốn thẻ thống kê KPI nhanh - Phong cách tối giản chuyên nghiệp */}
+              {/* Bốn thẻ thống kê KPI nhanh - Cân bằng, chuẩn y khoa thể thao, không icon */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '12px',
-                marginBottom: '18px'
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '14px',
+                marginBottom: '20px'
               }}>
                 <div style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--line)',
+                  borderTop: '3px solid var(--brass)',
                   borderRadius: '8px',
-                  padding: '12px 16px'
+                  padding: '14px 18px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.18)'
                 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
                     Tổng Ngựa Phụ Trách
                   </div>
-                  <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--brass)', marginTop: '4px' }}>
-                    {horses.length} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--paper-dim)' }}>chiến mã</span>
+                  <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--brass)', marginTop: '6px', fontFamily: 'var(--display, sans-serif)' }}>
+                    {horses.length} <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper-dim)' }}>chiến mã</span>
                   </div>
                 </div>
 
                 <div style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--line)',
+                  borderTop: '3px solid #10B981',
                   borderRadius: '8px',
-                  padding: '12px 16px'
+                  padding: '14px 18px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.18)'
                 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
                     Đủ Điều Kiện (FIT)
                   </div>
-                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#10B981', marginTop: '4px' }}>
-                    {horses.filter(h => !h.locked && h.status !== 'INJURED').length} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--paper-dim)' }}>sẵn sàng</span>
+                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#10B981', marginTop: '6px', fontFamily: 'var(--display, sans-serif)' }}>
+                    {horses.filter(h => !h.locked && h.status !== 'INJURED').length} <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper-dim)' }}>sẵn sàng</span>
                   </div>
                 </div>
 
                 <div style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--line)',
+                  borderTop: '3px solid #EF4444',
                   borderRadius: '8px',
-                  padding: '12px 16px'
+                  padding: '14px 18px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.18)'
                 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
                     Đang Khóa Y Tế (VETO)
                   </div>
-                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#EF4444', marginTop: '4px' }}>
-                    {horses.filter(h => h.locked || h.status === 'INJURED').length} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--paper-dim)' }}>cấm tập</span>
+                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#EF4444', marginTop: '6px', fontFamily: 'var(--display, sans-serif)' }}>
+                    {horses.filter(h => h.locked || h.status === 'INJURED').length} <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper-dim)' }}>cấm tập</span>
                   </div>
                 </div>
 
                 <div style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--line)',
+                  borderTop: '3px solid #F59E0B',
                   borderRadius: '8px',
-                  padding: '12px 16px'
+                  padding: '14px 18px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.18)'
                 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
                     Yêu Cầu Chờ Tiếp Nhận
                   </div>
-                  <div style={{ fontSize: '22px', fontWeight: 800, color: '#F59E0B', marginTop: '4px' }}>
-                    {pendingVetAssignments.length} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--paper-dim)' }}>yêu cầu</span>
+                  <div style={{ fontSize: '26px', fontWeight: 800, color: '#F59E0B', marginTop: '6px', fontFamily: 'var(--display, sans-serif)' }}>
+                    {pendingVetAssignments.length} <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--paper-dim)' }}>yêu cầu</span>
                   </div>
                 </div>
               </div>
 
-              {/* Khối Yêu Cầu Chờ Bác Sĩ Xác Nhận nếu có */}
+              {/* Khối Yêu Cầu Chờ Bác Sĩ Xác Nhận nếu có - Thiết kế phẳng, không icon */}
               {pendingVetAssignments.length > 0 && (
                 <div style={{
-                  background: 'rgba(16, 185, 129, 0.05)',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  background: 'rgba(16, 185, 129, 0.04)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderLeft: '4px solid #10B981',
                   borderRadius: '8px',
                   padding: '14px 18px',
-                  marginBottom: '18px'
+                  marginBottom: '20px'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#10B981' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#10B981', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Yêu Cầu Chỉ Định Bác Sĩ Thú Y Chờ Xác Nhận ({pendingVetAssignments.length})
                     </div>
-                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0A0D14', background: '#10B981', padding: '2px 8px', borderRadius: '4px' }}>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0A0D14', background: '#10B981', padding: '3px 10px', borderRadius: '4px', textTransform: 'uppercase' }}>
                       Cần tiếp nhận
                     </span>
                   </div>
@@ -1406,82 +1415,83 @@ export default function VetPage() {
                       <div
                         key={asgn.id || asgn.microchip}
                         style={{
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                          background: 'var(--card-inner-bg)',
+                          border: '1px solid var(--line)',
                           borderRadius: '6px',
-                          padding: '14px 18px',
+                          padding: '12px 16px',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '6px'
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                            <b style={{ color: 'var(--paper)', fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                            <b style={{ color: 'var(--paper)', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {asgn.horseName}
                             </b>
-                            <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--brass)', background: 'rgba(212, 175, 55, 0.1)', padding: '1px 5px', borderRadius: '3px', border: '1px solid rgba(212, 175, 55, 0.25)' }}>
-                              {asgn.stable || 'Ô A2'}
+                            <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--brass)', background: 'rgba(212, 175, 55, 0.1)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(212, 175, 55, 0.3)' }}>
+                              {asgn.stable || 'Ô A1'}
                             </span>
                           </div>
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
-                                  setConfirmedHorseModal(full || asgn);
-                                }}
-                                style={{
-                                  color: 'var(--brass)',
-                                  border: '1px solid rgba(212, 175, 55, 0.4)',
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                Xem hồ sơ
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRejectVetService(asgn)}
-                                style={{
-                                  background: 'rgba(239, 68, 68, 0.12)',
-                                  color: '#EF4444',
-                                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                                  padding: '4px 10px',
-                                  borderRadius: '4px',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                Từ chối
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleConfirmVetService(asgn)}
-                                style={{
-                                  background: '#10B981',
-                                  color: '#0A0D14',
-                                  border: 'none',
-                                  padding: '4px 10px',
-                                  borderRadius: '4px',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                Xác nhận phục vụ
-                              </button>
-                            </div>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+                                setConfirmedHorseModal(full || asgn);
+                              }}
+                              style={{
+                                color: '#FB923C',
+                                background: 'rgba(249, 115, 22, 0.14)',
+                                border: '1px solid rgba(249, 115, 22, 0.55)',
+                                padding: '5px 10px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              Xem hồ sơ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectVetService(asgn)}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#EF4444',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                padding: '5px 10px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              Từ chối
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmVetService(asgn)}
+                              style={{
+                                background: '#10B981',
+                                color: '#0A0D14',
+                                border: 'none',
+                                padding: '5px 12px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              Xác nhận phục vụ
+                            </button>
+                          </div>
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
-                          Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Chủ sở hữu'}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip || '--'}</span>
+                        <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)' }}>
+                          Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Chủ sở hữu'}</b> · Mã RFID: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip || '--'}</span>
                         </div>
                       </div>
                     ))}
@@ -1489,30 +1499,42 @@ export default function VetPage() {
                 </div>
               )}
 
-              {/* Thanh Tìm Kiếm & Bộ Lọc Nâng Cao */}
+              {/* Thanh Tìm Kiếm & Bộ Lọc Nâng Cao - Cân bằng, chiều cao đồng bộ 38px, không icon */}
               <div style={{
-                background: 'var(--bg-secondary)',
+                background: 'var(--bg-card)',
                 border: '1px solid var(--line)',
                 borderRadius: '8px',
-                padding: '14px 18px',
-                marginBottom: '16px',
+                padding: '10px 14px',
+                marginBottom: '20px',
                 display: 'flex',
                 flexWrap: 'wrap',
-                gap: '10px',
+                gap: '12px',
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '240px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flex: 1,
+                  minWidth: '260px',
+                  background: 'var(--input-bg)',
+                  border: '1px solid var(--input-border)',
+                  borderRadius: '6px',
+                  padding: '0 12px',
+                  height: '38px',
+                  boxSizing: 'border-box'
+                }}>
                   <input
                     type="text"
                     value={horseSearchTerm}
                     onChange={(e) => setHorseSearchTerm(e.target.value)}
-                    placeholder="Tìm theo tên ngựa, mã chip, chủ sở hữu, chuồng..."
+                    placeholder="Tìm theo tên chiến mã, mã chip RFID, chủ sở hữu, chuồng..."
                     style={{
                       width: '100%',
-    
+                      background: 'transparent',
                       border: 'none',
-                      color: '#FFFFFF',
+                      color: 'var(--paper)',
                       fontSize: '12.5px',
                       outline: 'none'
                     }}
@@ -1521,28 +1543,39 @@ export default function VetPage() {
                     <button
                       type="button"
                       onClick={() => setHorseSearchTerm('')}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--paper-dim)', cursor: 'pointer', fontSize: '12px' }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--paper-dim)', cursor: 'pointer', fontSize: '12px', padding: '0 4px' }}
                     >
-                      ✕
+                      Xóa
                     </button>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   {/* Lọc theo trạng thái */}
-                  <div style={{ display: 'flex', background: 'var(--bg-primary)', borderRadius: '6px', padding: '2px', border: '1px solid var(--line)' }}>
+                  <div style={{
+                    display: 'flex',
+                    background: 'var(--surface-subtle)',
+                    borderRadius: '6px',
+                    padding: '2px',
+                    border: '1px solid var(--input-border)',
+                    height: '38px',
+                    boxSizing: 'border-box',
+                    alignItems: 'center'
+                  }}>
                     <button
                       type="button"
                       onClick={() => setHorseFilterStatus('ALL')}
                       style={{
-                        padding: '4px 9px',
+                        height: '32px',
+                        padding: '0 12px',
                         borderRadius: '4px',
                         border: 'none',
                         background: horseFilterStatus === 'ALL' ? 'var(--brass)' : 'transparent',
                         color: horseFilterStatus === 'ALL' ? '#0A0D14' : 'var(--paper-dim)',
                         fontWeight: 700,
-                        fontSize: '11px',
-                        cursor: 'pointer'
+                        fontSize: '11.5px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       Tất cả ({horses.length})
@@ -1551,14 +1584,16 @@ export default function VetPage() {
                       type="button"
                       onClick={() => setHorseFilterStatus('ELIGIBLE')}
                       style={{
-                        padding: '4px 9px',
+                        height: '32px',
+                        padding: '0 12px',
                         borderRadius: '4px',
                         border: 'none',
                         background: horseFilterStatus === 'ELIGIBLE' ? '#10B981' : 'transparent',
                         color: horseFilterStatus === 'ELIGIBLE' ? '#0A0D14' : 'var(--paper-dim)',
                         fontWeight: 700,
-                        fontSize: '11px',
-                        cursor: 'pointer'
+                        fontSize: '11.5px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       Đủ điều kiện ({horses.filter(h => !h.locked && h.status !== 'INJURED').length})
@@ -1567,37 +1602,39 @@ export default function VetPage() {
                       type="button"
                       onClick={() => setHorseFilterStatus('LOCKED')}
                       style={{
-                        padding: '4px 9px',
+                        height: '32px',
+                        padding: '0 12px',
                         borderRadius: '4px',
                         border: 'none',
                         background: horseFilterStatus === 'LOCKED' ? '#EF4444' : 'transparent',
                         color: horseFilterStatus === 'LOCKED' ? '#FFFFFF' : 'var(--paper-dim)',
                         fontWeight: 700,
-                        fontSize: '11px',
-                        cursor: 'pointer'
+                        fontSize: '11.5px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       Khóa y tế ({horses.filter(h => h.locked || h.status === 'INJURED').length})
                     </button>
                   </div>
 
-                  {/* Lọc theo giống */}
+                  {/* Lọc theo giống - Chiều cao chuẩn 38px, xóa triệt để minHeight 85px */}
                   {breedOptions.length > 0 && (
                     <select
                       value={horseFilterBreed}
                       onChange={(e) => setHorseFilterBreed(e.target.value)}
                       style={{
-                        padding: '4px 8px',
+                        height: '38px',
+                        padding: '0 12px',
                         borderRadius: '6px',
-                        border: '1.5px solid rgba(232, 237, 232, 0.22)',
-                    lineHeight: 1.55,
-                    outline: 'none',
-                    minHeight: '85px',
-                        background: 'var(--bg-primary)',
-                        color: '#FFFFFF',
+                        border: '1px solid var(--input-border)',
+                        background: 'var(--input-bg)',
+                        color: 'var(--paper)',
                         fontSize: '11.5px',
+                        fontWeight: 600,
                         outline: 'none',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        boxSizing: 'border-box'
                       }}
                     >
                       <option value="ALL">Tất cả giống loài</option>
@@ -1609,34 +1646,34 @@ export default function VetPage() {
                 </div>
               </div>
 
-              {/* Lưới danh thiếp Hồ Sơ Chiến Mã */}
+              {/* Lưới danh thiếp Hồ Sơ Chiến Mã - Cân bằng, sắc nét, không icon */}
               {filteredHorseProfiles.length === 0 ? (
                 <div style={{
                   background: 'var(--bg-secondary)',
                   border: '1px dashed var(--line)',
                   borderRadius: '8px',
-                  padding: '36px 20px',
+                  padding: '40px 20px',
                   textAlign: 'center',
                   color: 'var(--paper-dim)'
                 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--paper)' }}>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--paper)' }}>
                     Không tìm thấy chiến mã nào phù hợp
                   </div>
                   <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                    Thử thay đổi từ khóa tìm kiếm hoặc đặt lại bộ lọc.
+                    Thử thay đổi từ khóa tìm kiếm hoặc đặt lại bộ lọc danh bạ.
                   </div>
                   <button
                     type="button"
                     onClick={() => { setHorseSearchTerm(''); setHorseFilterStatus('ALL'); setHorseFilterBreed('ALL'); }}
                     style={{
-                      marginTop: '12px',
-                      padding: '5px 12px',
+                      marginTop: '14px',
+                      padding: '7px 16px',
                       borderRadius: '4px',
                       background: 'var(--brass)',
                       color: '#0A0D14',
                       border: 'none',
                       fontWeight: 700,
-                      fontSize: '11.5px',
+                      fontSize: '12px',
                       cursor: 'pointer'
                     }}
                   >
@@ -1646,8 +1683,8 @@ export default function VetPage() {
               ) : (
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-                  gap: '14px'
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+                  gap: '16px'
                 }}>
                   {filteredHorseProfiles.map(h => {
                     const full = lookupFullHorseInfo(h.name || h.microchip) || h;
@@ -1659,14 +1696,15 @@ export default function VetPage() {
                       <div
                         key={h.id || h.microchip}
                         style={{
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.35)' : 'var(--line)'}`,
-                          borderRadius: '10px',
-                          padding: '14px 16px',
+                          background: 'var(--bg-card)',
+                          border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.45)' : 'var(--line)'}`,
+                          borderRadius: '8px',
+                          padding: '16px 18px',
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'space-between',
-                          boxShadow: '0 2px 12px rgba(0,0,0,0.18)'
+                          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+                          gap: '12px'
                         }}
                       >
                         {/* Header của thẻ: Avatar + Tên + Chuồng + Trạng thái */}
@@ -1676,25 +1714,26 @@ export default function VetPage() {
                               src={avatarSrc}
                               alt={h.name}
                               style={{
-                                width: '56px',
-                                height: '56px',
+                                width: '60px',
+                                height: '60px',
                                 borderRadius: '8px',
                                 objectFit: 'cover',
-                                border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.5)' : 'var(--line-strong, #334155)'}`,
+                                border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.5)' : 'var(--line)'}`,
+                                background: 'var(--card-inner-bg)',
                                 flexShrink: 0
                               }}
                               onError={(e) => { e.target.src = defaultAvatar; }}
                             />
 
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginBottom: '3px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginBottom: '4px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                                   <h3
                                     style={{
                                       margin: 0,
                                       fontSize: '15px',
-                                      fontWeight: 700,
-                                      color: 'var(--brass)',
+                                      fontWeight: 800,
+                                      color: 'var(--paper)',
                                       whiteSpace: 'nowrap',
                                       overflow: 'hidden',
                                       textOverflow: 'ellipsis'
@@ -1707,9 +1746,9 @@ export default function VetPage() {
                                     fontSize: '10px',
                                     fontWeight: 700,
                                     color: 'var(--brass)',
-                                    background: 'rgba(212, 175, 55, 0.1)',
-                                    border: '1px solid rgba(212, 175, 55, 0.25)',
-                                    padding: '1px 5px',
+                                    background: 'rgba(212, 175, 55, 0.12)',
+                                    border: '1px solid rgba(212, 175, 55, 0.3)',
+                                    padding: '1px 6px',
                                     borderRadius: '3px',
                                     whiteSpace: 'nowrap',
                                     flexShrink: 0
@@ -1720,14 +1759,15 @@ export default function VetPage() {
 
                                 <span style={{
                                   fontSize: '10px',
-                                  fontWeight: 700,
-                                  padding: '2px 6px',
+                                  fontWeight: 800,
+                                  padding: '2px 8px',
                                   borderRadius: '3px',
                                   whiteSpace: 'nowrap',
                                   flexShrink: 0,
-                                  background: isLocked ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                  letterSpacing: '0.04em',
+                                  background: isLocked ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
                                   color: isLocked ? '#EF4444' : '#10B981',
-                                  border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`
+                                  border: `1px solid ${isLocked ? 'rgba(239, 68, 68, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`
                                 }}>
                                   {isLocked ? 'KHÓA Y TẾ' : 'ĐỦ ĐIỀU KIỆN'}
                                 </span>
@@ -1738,7 +1778,7 @@ export default function VetPage() {
                               </div>
 
                               <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                                Mã Chip: <span style={{ fontFamily: 'monospace', color: 'var(--paper)', fontWeight: 600 }}>{h.microchip || full.microchip || '--'}</span>
+                                Mã Chip RFID: <span style={{ fontFamily: 'monospace', color: 'var(--paper)', fontWeight: 600 }}>{h.microchip || full.microchip || '--'}</span>
                               </div>
                             </div>
                           </div>
@@ -1751,9 +1791,9 @@ export default function VetPage() {
                             fontSize: '11.5px',
                             marginBottom: '8px',
                             padding: '6px 10px',
-                            background: 'rgba(212, 175, 55, 0.08)',
-                            borderRadius: '6px',
-                            border: '1px solid rgba(212, 175, 55, 0.25)'
+                            background: 'var(--card-inner-bg)',
+                            borderRadius: '4px',
+                            border: '1px solid var(--line)'
                           }}>
                             <span>Chủ sở hữu: <b style={{ color: 'var(--brass)', fontWeight: 700 }}>{h.ownerName || h.owner || full.ownerName || 'Chủ sở hữu'}</b></span>
                             <span style={{ color: 'var(--paper)', fontWeight: 600 }}>
@@ -1761,23 +1801,25 @@ export default function VetPage() {
                             </span>
                           </div>
 
-                          {/* Trạng thái xác nhận phụ trách y tế */}
+                          {/* Trạng thái xác nhận phụ trách y tế - KHÔNG ICON */}
                           <div style={{
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             fontSize: '11px',
                             marginBottom: '8px',
-                            padding: '4px 8px',
-                            background: h.vetStatus === 'PENDING' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+                            padding: '5px 10px',
+                            background: h.vetStatus === 'PENDING' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
                             borderRadius: '4px',
-                            border: `1px solid ${h.vetStatus === 'PENDING' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.25)'}`
+                            border: `1px solid ${h.vetStatus === 'PENDING' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`
                           }}>
                             <span style={{
                               color: h.vetStatus === 'PENDING' ? '#F59E0B' : '#10B981',
-                              fontWeight: 700
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.03em'
                             }}>
-                              {h.vetStatus === 'PENDING' ? '⏳ Chủ sở hữu chỉ định · Chờ Bác sĩ duyệt' : '✓ Đã tiếp nhận phụ trách y tế'}
+                              {h.vetStatus === 'PENDING' ? 'Chủ sở hữu chỉ định · Chờ Bác sĩ xác nhận' : 'Đã tiếp nhận phụ trách y tế'}
                             </span>
                             {h.vetStatus === 'PENDING' && (
                               <button
@@ -1787,10 +1829,10 @@ export default function VetPage() {
                                   background: '#10B981',
                                   color: '#0A0D14',
                                   border: 'none',
-                                  padding: '2px 8px',
+                                  padding: '3px 10px',
                                   borderRadius: '3px',
                                   fontSize: '10.5px',
-                                  fontWeight: 700,
+                                  fontWeight: 800,
                                   cursor: 'pointer'
                                 }}
                               >
@@ -1801,15 +1843,15 @@ export default function VetPage() {
 
                           {/* Dòng máu & Phả hệ tóm tắt */}
                           <div style={{
-                            background: 'rgba(0, 0, 0, 0.2)',
+                            background: 'var(--card-inner-bg)',
                             border: '1px solid var(--line)',
-                            borderRadius: '6px',
-                            padding: '8px 10px',
+                            borderRadius: '4px',
+                            padding: '6px 10px',
                             fontSize: '11.5px',
-                            marginBottom: '10px',
+                            marginBottom: '8px',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '3px'
+                            gap: '2px'
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: 'var(--paper-dim)' }}>Dòng bố (Sire):</span>
@@ -1821,15 +1863,16 @@ export default function VetPage() {
                             </div>
                           </div>
 
-                          {/* Chỉ số sinh hiệu lâm sàng */}
+                          {/* Chỉ số sinh hiệu lâm sàng - 3 cột đều đặn tuyệt đối */}
                           <div style={{
                             display: 'grid',
                             gridTemplateColumns: '1fr 1fr 1fr',
                             gap: '6px',
                             fontSize: '11px',
-                            marginBottom: '12px',
-                            paddingTop: '6px',
-                            borderTop: '1px solid var(--line)'
+                            padding: '6px 8px',
+                            background: 'var(--card-inner-bg)',
+                            borderRadius: '4px',
+                            border: '1px solid var(--line)'
                           }}>
                             <div>
                               <span style={{ color: 'var(--paper-dim)', display: 'block', fontSize: '10px' }}>Thân nhiệt</span>
@@ -1846,23 +1889,26 @@ export default function VetPage() {
                           </div>
                         </div>
 
-                        {/* Hàng 3 nút thao tác chuẩn */}
-                        <div style={{ display: 'flex', gap: '8px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+                        {/* Hàng 3 nút thao tác chuẩn - Cân bằng, chiều cao 34px, không icon */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
                           <button
                             type="button"
                             onClick={() => setConfirmedHorseModal(full)}
                             style={{
-                              flex: 1,
-                              padding: '7px 8px',
-                              borderRadius: '5px',
-            
-                              border: '1px solid var(--line-strong, #334155)',
-                              color: '#FFFFFF',
+                              height: '34px',
+                              padding: '0 8px',
+                              borderRadius: '4px',
+                              background: 'rgba(249, 115, 22, 0.14)',
+                              border: '1px solid rgba(249, 115, 22, 0.55)',
+                              color: '#FB923C',
                               fontSize: '11.5px',
-                              fontWeight: 600,
+                              fontWeight: 700,
                               cursor: 'pointer',
-                              whiteSpace: 'nowrap'
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.15s ease'
                             }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(249, 115, 22, 0.25)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(249, 115, 22, 0.14)'; }}
                           >
                             Xem hồ sơ
                           </button>
@@ -1871,10 +1917,10 @@ export default function VetPage() {
                             type="button"
                             onClick={() => setSelectedPedigreeHorse(full)}
                             style={{
-                              flex: 1,
-                              padding: '7px 8px',
-                              borderRadius: '5px',
-                              background: 'rgba(212, 175, 55, 0.08)',
+                              height: '34px',
+                              padding: '0 8px',
+                              borderRadius: '4px',
+                              background: 'rgba(212, 175, 55, 0.1)',
                               border: '1px solid rgba(212, 175, 55, 0.35)',
                               color: 'var(--brass)',
                               fontSize: '11.5px',
@@ -1890,10 +1936,11 @@ export default function VetPage() {
                             type="button"
                             onClick={() => handleToggleLock(h)}
                             style={{
-                              padding: '7px 12px',
-                              borderRadius: '5px',
+                              height: '34px',
+                              padding: '0 8px',
+                              borderRadius: '4px',
                               background: isLocked ? 'var(--brass)' : 'transparent',
-                              border: isLocked ? '1px solid var(--brass)' : '1px solid rgba(239, 68, 68, 0.4)',
+                              border: isLocked ? '1px solid var(--brass)' : '1px solid rgba(239, 68, 68, 0.45)',
                               color: isLocked ? '#0A0D14' : '#EF4444',
                               fontSize: '11.5px',
                               fontWeight: 700,
@@ -1962,7 +2009,6 @@ export default function VetPage() {
                   flexWrap: 'wrap'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '22px' }}>🩺</span>
                     <div>
                       <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--brass)' }}>
                         Tài khoản Bác sĩ Thú y mới được xác nhận: Mọi chỉ số khởi tạo từ số 0
@@ -2008,9 +2054,8 @@ export default function VetPage() {
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '20px' }}>🩺</span>
                         <div>
-                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#10B981' }}>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#10B981', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                             Yêu Cầu Bác Sĩ Thú Y Phụ Trách Chờ Xác Nhận ({pendingVetAssignments.length})
                           </div>
                           <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
@@ -2018,7 +2063,7 @@ export default function VetPage() {
                           </div>
                         </div>
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#0A0D14', background: '#10B981', padding: '4px 12px', borderRadius: '12px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#0A0D14', background: '#10B981', padding: '4px 12px', borderRadius: '12px', textTransform: 'uppercase' }}>
                         {pendingVetAssignments.length} Yêu cầu mới
                       </span>
                     </div>
@@ -2092,8 +2137,9 @@ export default function VetPage() {
                                   setConfirmedHorseModal(full || asgn);
                                 }}
                                 style={{
-                                  color: 'var(--brass)',
-                                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                                  color: '#FB923C',
+                                  background: 'rgba(249, 115, 22, 0.14)',
+                                  border: '1px solid rgba(249, 115, 22, 0.55)',
                                   padding: '5px 10px',
                                   borderRadius: '5px',
                                   fontSize: '11px',
@@ -2137,7 +2183,7 @@ export default function VetPage() {
                                   whiteSpace: 'nowrap'
                                 }}
                               >
-                                ✓ Xác Nhận Phục Vụ
+                                Xác Nhận Phục Vụ
                               </button>
                             </div>
                           </div>
@@ -2254,19 +2300,6 @@ export default function VetPage() {
                   gap: '14px',
                   margin: '10px 0 24px'
                 }}>
-                  <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '50%',
-                    background: 'rgba(232, 107, 44, 0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--brass)',
-                    fontSize: '30px'
-                  }}>
-                    🩺
-                  </div>
                   <div>
                     <h3 style={{ margin: '0 0 8px', fontSize: '18px', color: 'var(--paper)', fontWeight: 800 }}>
                       Hiện không có sự cố lâm sàng nào thuộc thẩm quyền quản lý (0 CA)
@@ -2750,7 +2783,7 @@ export default function VetPage() {
                               color: isLocked ? 'var(--brass)' : '#10B981',
                               border: `1px solid ${isLocked ? 'var(--brass)' : 'rgba(16, 185, 129, 0.35)'}`
                             }}>
-                              {isLocked ? '🔒 KHÓA Y TẾ (VETO)' : '✓ ĐỦ ĐIỀU KIỆN (FIT)'}
+                              {isLocked ? 'KHÓA Y TẾ (VETO)' : 'ĐỦ ĐIỀU KIỆN (FIT)'}
                             </span>
                           </td>
                           <td style={{ padding: '14px 16px', fontSize: '12px', color: 'var(--paper)', maxWidth: '240px', minWidth: '180px', verticalAlign: 'middle', lineHeight: 1.45 }}>
@@ -2904,10 +2937,10 @@ export default function VetPage() {
                                   whiteSpace: 'nowrap'
                                 }}
                               >
-                                ✓ Xác nhận tiêm
+                                Xác nhận tiêm
                               </button>
                             ) : (
-                              <span style={{ color: '#10B981', fontWeight: 700, fontSize: '11.5px', whiteSpace: 'nowrap' }}>✓ Hợp lệ</span>
+                              <span style={{ color: '#10B981', fontWeight: 700, fontSize: '11.5px', whiteSpace: 'nowrap' }}>Hợp lệ</span>
                             )}
                           </td>
                         </tr>
@@ -3171,8 +3204,8 @@ export default function VetPage() {
               {/* Chỉ số sinh tồn nếu có */}
               {selectedIncidentModal.vitalSigns && (
                 <div style={{
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'var(--card-inner-bg)',
+                  border: '1px solid var(--line)',
                   borderRadius: '8px',
                   padding: '12px 16px',
                   marginBottom: '14px',
@@ -3182,27 +3215,27 @@ export default function VetPage() {
                   fontSize: '12px'
                 }}>
                   <div>
-                    <span style={{ color: 'rgba(232, 237, 232, 0.7)', fontSize: '11px' }}>Thân nhiệt:</span>
+                    <span style={{ color: 'var(--paper-dim)', fontSize: '11px' }}>Thân nhiệt:</span>
                     <div style={{ fontWeight: 700, color: '#EF4444', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.temp}</div>
                   </div>
                   <div>
-                    <span style={{ color: 'rgba(232, 237, 232, 0.7)', fontSize: '11px' }}>Nhịp thở:</span>
-                    <div style={{ fontWeight: 700, color: '#FFFFFF', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.respRate}</div>
+                    <span style={{ color: 'var(--paper-dim)', fontSize: '11px' }}>Nhịp thở:</span>
+                    <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.respRate}</div>
                   </div>
                   <div>
-                    <span style={{ color: 'rgba(232, 237, 232, 0.7)', fontSize: '11px' }}>Niêm mạc:</span>
-                    <div style={{ fontWeight: 600, color: '#FFFFFF', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.mucousColor}</div>
+                    <span style={{ color: 'var(--paper-dim)', fontSize: '11px' }}>Niêm mạc:</span>
+                    <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.mucousColor}</div>
                   </div>
                   <div>
-                    <span style={{ color: 'rgba(232, 237, 232, 0.7)', fontSize: '11px' }}>Nhu động ruột:</span>
-                    <div style={{ fontWeight: 600, color: '#FFFFFF', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.gutSounds}</div>
+                    <span style={{ color: 'var(--paper-dim)', fontSize: '11px' }}>Nhu động ruột:</span>
+                    <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px', marginTop: '2px' }}>{selectedIncidentModal.vitalSigns.gutSounds}</div>
                   </div>
                 </div>
               )}
 
               {/* Triệu chứng và sơ cứu */}
-              <div style={{ fontSize: '13px', color: '#FFFFFF', marginBottom: '10px' }}>
-                <span style={{ color: 'rgba(232, 237, 232, 0.7)', marginRight: '6px' }}>Triệu chứng:</span><span style={{ background: 'rgba(232, 107, 44, 0.15)', color: 'var(--brass)', padding: '2px 10px', borderRadius: '4px', border: '1px solid rgba(232, 107, 44, 0.35)', fontWeight: 700, fontSize: '12.5px' }}>{Array.isArray(selectedIncidentModal.symptoms) ? selectedIncidentModal.symptoms.join(' · ') : selectedIncidentModal.symptoms}</span>
+              <div style={{ fontSize: '13px', color: 'var(--paper)', marginBottom: '10px' }}>
+                <span style={{ color: 'var(--paper-dim)', marginRight: '6px' }}>Triệu chứng:</span><span style={{ background: 'rgba(232, 107, 44, 0.15)', color: 'var(--brass)', padding: '2px 10px', borderRadius: '4px', border: '1px solid rgba(232, 107, 44, 0.35)', fontWeight: 700, fontSize: '12.5px' }}>{Array.isArray(selectedIncidentModal.symptoms) ? selectedIncidentModal.symptoms.join(' · ') : selectedIncidentModal.symptoms}</span>
               </div>
 
               {selectedIncidentModal.firstAidActions && selectedIncidentModal.firstAidActions.length > 0 && (
@@ -3211,7 +3244,7 @@ export default function VetPage() {
                 </div>
               )}
 
-              <div style={{ fontSize: '13px', color: '#E8EDE8', lineHeight: 1.55, background: 'rgba(0, 0, 0, 0.25)', padding: '12px 16px', borderRadius: '8px', borderLeft: '3px solid var(--brass)', marginTop: '12px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--paper)', lineHeight: 1.55, background: 'var(--card-inner-bg)', padding: '12px 16px', borderRadius: '8px', borderLeft: '3px solid var(--brass)', marginTop: '12px' }}>
                 <b style={{ color: 'var(--brass)' }}>Mô tả của Groom:</b> {selectedIncidentModal.description}
               </div>
             </div>

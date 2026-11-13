@@ -32,26 +32,33 @@
   --display: "Inter", "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --body: "Inter", "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --hero-gradient: radial-gradient(ellipse at 60% 50%, rgba(45,74,62,0.8) 0%, rgba(26,46,37,1) 70%);
+  --surface-inset: rgba(0, 0, 0, 0.25);
+  --surface-subtle: rgba(0, 0, 0, 0.18);
+  --card-inner-bg: rgba(0, 0, 0, 0.20);
+  --input-bg: rgba(0, 0, 0, 0.25);
+  --input-border: rgba(255, 255, 255, 0.12);
+  --badge-neutral-bg: rgba(255, 255, 255, 0.08);
+  --badge-neutral-color: var(--paper-dim);
 }
 
 [data-theme="light"] {
   --theme-name: "light";
-  --bg-body: #F5F0E8;
-  --bg-primary: #F5F0E8;
-  --bg-secondary: #EAE4D8;
+  --bg-body: #F7F5F0;
+  --bg-primary: #F7F5F0;
+  --bg-secondary: #FFFFFF;
   --bg-card: #FFFFFF;
-  --bg-card-hover: #FAF8F4;
+  --bg-card-hover: #FAF8F5;
   --bg-elevated: #FFFFFF;
-  --nav-bg: rgba(255, 255, 255, 0.95);
-  --ticker-bg: #EAEFEA;
+  --nav-bg: rgba(255, 255, 255, 0.96);
+  --ticker-bg: #F0ECE4;
   --ink: #FFFFFF;
   --ink-2: #F8FAFC;
   --ink-3: #F1F5F9;
-  --paper: #1A2E25;
-  --paper-dim: #4A6355;
-  --paper-muted: #7A9385;
-  --text-main: #1A2E25;
-  --text-dim: #4A6355;
+  --paper: #16261F;
+  --paper-dim: #455C50;
+  --paper-muted: #738A7E;
+  --text-main: #16261F;
+  --text-dim: #455C50;
   --brass: #E86B2C;
   --brass-hover: #D95A1B;
   --brass-dim: #A84D1E;
@@ -59,12 +66,93 @@
   --chestnut: #C47B3A;
   --alert: #DC2626;
   --ok: #16A34A;
-  --line: rgba(26,46,37,0.10);
+  --line: rgba(26, 46, 37, 0.09);
   --line-strong: rgba(232, 107, 44, 0.35);
-  --shadow-sm: 0 1px 3px rgba(26,46,37,0.10);
-  --shadow-md: 0 8px 24px -4px rgba(26,46,37,0.12);
-  --shadow-lg: 0 16px 36px -6px rgba(26,46,37,0.16);
+  --shadow-sm: 0 1px 3px rgba(26, 46, 37, 0.08);
+  --shadow-md: 0 4px 16px -2px rgba(26, 46, 37, 0.08);
+  --shadow-lg: 0 12px 30px -4px rgba(26, 46, 37, 0.12);
   --hero-gradient: radial-gradient(ellipse at 60% 50%, rgba(220, 233, 226, 0.85) 0%, rgba(244, 246, 244, 1) 70%);
+  --surface-inset: #FFFFFF;
+  --surface-subtle: #F3EFE8;
+  --card-inner-bg: #F8F5EE;
+  --input-bg: #FFFFFF;
+  --input-border: rgba(26, 46, 37, 0.15);
+  --badge-neutral-bg: #EDE7DC;
+  --badge-neutral-color: #2D4A3E;
+}
+
+/* ==========================================================================
+   GLOBAL LIGHT MODE: LOẠI BỎ TRIỆT ĐỂ MÀU XÁM XỊT KHI QUA CHẾ ĐỘ SÁNG
+   Thay bằng tông màu Trắng Sứ (#FFFFFF), Be Ngọc Trai (#F8F5EE), Kem Sáng (#F3EFE8)
+   ========================================================================== */
+[data-theme="light"] input[type="text"],
+[data-theme="light"] input[type="search"],
+[data-theme="light"] input[type="number"],
+[data-theme="light"] input[type="email"],
+[data-theme="light"] input[type="password"],
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #FFFFFF !important;
+  color: #16261F !important;
+  border-color: rgba(26, 46, 37, 0.15) !important;
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #738A7E !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="light"] select option {
+  background-color: #FFFFFF !important;
+  color: #16261F !important;
+}
+
+[data-theme="light"] .portal-nav-badge {
+  background: #EDE7DC !important;
+  color: #2D4A3E !important;
+  border: 1px solid rgba(26, 46, 37, 0.12) !important;
+}
+
+[data-theme="light"] .portal-pill-btn {
+  background: #FFFFFF !important;
+  border-color: rgba(26, 46, 37, 0.14) !important;
+  color: #16261F !important;
+}
+
+[data-theme="light"] .portal-pill-btn:hover {
+  background: #F3EFE8 !important;
+  border-color: var(--brass) !important;
+  color: var(--brass) !important;
+}
+
+[data-theme="light"] .facility-card {
+  background: #FFFFFF !important;
+  border-color: rgba(26, 46, 37, 0.10) !important;
+}
+
+/* Khử các dải nền inline màu xám đen rgba(0,0,0,...) trong Light Mode */
+[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.25)"],
+[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.2)"],
+[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.15)"],
+[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.12)"],
+[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.14)"],
+[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.18)"],
+[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.20)"],
+[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.28)"],
+[data-theme="light"] [style*="background: rgba(0, 0, 0, 0.3)"],
+[data-theme="light"] [style*="background-color: rgba(0, 0, 0, 0.25)"],
+[data-theme="light"] [style*="background-color: rgba(0, 0, 0, 0.2)"],
+[data-theme="light"] [style*="background-color: rgba(0, 0, 0, 0.15)"],
+[data-theme="light"] [style*="background-color: rgba(0, 0, 0, 0.3)"] {
+  background-color: #F8F5EE !important;
+  border-color: rgba(26, 46, 37, 0.10) !important;
+}
+
+[data-theme="light"] [style*="background: var(--bg-secondary)"] {
+  background-color: #FFFFFF !important;
+  border-color: rgba(26, 46, 37, 0.09) !important;
+  box-shadow: 0 1px 4px rgba(26, 46, 37, 0.06) !important;
 }
 
 *, *::before, *::after {
