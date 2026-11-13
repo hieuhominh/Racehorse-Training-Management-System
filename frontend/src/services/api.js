@@ -19,11 +19,25 @@ const STORAGE_KEYS = {
   STALL_REQUESTS: 'matruong_stall_requests'
 };
 
-// Tự động dọn sạch tất cả dữ liệu ngựa mock và giải phóng các ô chuồng
-(function cleanAllMockData() {
+// Danh sách các chiến mã mock mẫu và chiến mã test người dùng tạo cần dọn sạch trên Admin & HLV
+export const MOCK_AND_TEST_HORSE_NAMES = [
+  'xích thố', 'bạch long', 'hắc phong', 'phi vũ', 'phi yến', 'kim kê',
+  'kim mã', 'thần mã', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã',
+  'con tuất', 'hiu', 'chiến mã nhi khùng', 'vui vẻ', 'hihuhuhi', 'chờ hlv chỉ định ngựa',
+  'nhi khùng', 'tuất'
+];
+
+export const isTestOrMockHorse = (rawName) => {
+  if (!rawName) return false;
+  const n = String(rawName).trim().toLowerCase();
+  if (n === '(trống)' || n === 'vacant') return false;
+  return MOCK_AND_TEST_HORSE_NAMES.some(m => n === m || n.includes(m));
+};
+
+// Hàm toàn diện dọn sạch toàn bộ dữ liệu test (Chiến mã test, đơn đăng ký giải, khiếu nại nhân sự test)
+export function performComprehensiveTestCleanup() {
   try {
     if (typeof localStorage === 'undefined') return;
-    const MOCK_HORSE_NAMES = ['xích thố', 'bạch long', 'hắc phong', 'phi vũ', 'phi yến', 'kim kê', 'kim mã', 'thần mã', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã'];
 
     // 1. Dọn dẹp tất cả các key matruong_owner_horses_*
     for (let i = 0; i < localStorage.length; i++) {
@@ -33,22 +47,24 @@ const STORAGE_KEYS = {
         if (raw) {
           const list = JSON.parse(raw);
           if (Array.isArray(list)) {
-            const clean = list.filter(h => h && h.name && !MOCK_HORSE_NAMES.includes(h.name.trim().toLowerCase()));
+            const clean = list.filter(h => h && h.name && !isTestOrMockHorse(h.name));
             localStorage.setItem(k, JSON.stringify(clean));
           }
         }
       }
     }
 
-    // 2. Dọn dẹp racehorse_api_horses
-    const horsesRaw = localStorage.getItem(STORAGE_KEYS.HORSES);
-    if (horsesRaw) {
-      const list = JSON.parse(horsesRaw);
-      if (Array.isArray(list)) {
-        const clean = list.filter(h => h && h.name && !MOCK_HORSE_NAMES.includes(h.name.trim().toLowerCase()));
-        localStorage.setItem(STORAGE_KEYS.HORSES, JSON.stringify(clean));
+    // 2. Dọn dẹp racehorse_api_horses & matruong_horses
+    [STORAGE_KEYS.HORSES, 'matruong_horses'].forEach(key => {
+      const horsesRaw = localStorage.getItem(key);
+      if (horsesRaw) {
+        const list = JSON.parse(horsesRaw);
+        if (Array.isArray(list)) {
+          const clean = list.filter(h => h && h.name && !isTestOrMockHorse(h.name));
+          localStorage.setItem(key, JSON.stringify(clean));
+        }
       }
-    }
+    });
 
     // 3. Dọn dẹp racehorse_api_stables
     const stablesRaw = localStorage.getItem(STORAGE_KEYS.STABLES);
@@ -56,8 +72,7 @@ const STORAGE_KEYS = {
       const list = JSON.parse(stablesRaw);
       if (Array.isArray(list)) {
         const cleanStables = list.map(s => {
-          const horseName = (s.horse || '').trim().toLowerCase();
-          if (MOCK_HORSE_NAMES.includes(horseName)) {
+          if (s.horse && isTestOrMockHorse(s.horse)) {
             return {
               ...s,
               status: 'AVAILABLE',
@@ -78,7 +93,7 @@ const STORAGE_KEYS = {
     if (srvRaw) {
       const list = JSON.parse(srvRaw);
       if (Array.isArray(list)) {
-        const clean = list.filter(a => a && a.horseName && !MOCK_HORSE_NAMES.includes(a.horseName.trim().toLowerCase()));
+        const clean = list.filter(a => a && a.horseName && !isTestOrMockHorse(a.horseName));
         localStorage.setItem('matruong_service_assignments', JSON.stringify(clean));
       }
     }
@@ -89,8 +104,7 @@ const STORAGE_KEYS = {
       const list = JSON.parse(grStallRaw);
       if (Array.isArray(list)) {
         const clean = list.map(s => {
-          const horseName = (s.horseName || '').trim().toLowerCase();
-          if (MOCK_HORSE_NAMES.includes(horseName)) {
+          if ((s.horseName && isTestOrMockHorse(s.horseName)) || (s.stallCode === 'C2' && s.horseName?.toLowerCase().includes('vui vẻ'))) {
             return {
               ...s,
               horseName: '(Trống)',
@@ -105,34 +119,133 @@ const STORAGE_KEYS = {
       }
     }
 
-    // 6. Dọn dẹp danh sách đăng ký giải đấu hệ thống (SYSTEM_NOMINATIONS_KEY)
-    const sysNomRaw = localStorage.getItem('matruong_tournament_nominations_system');
-    if (sysNomRaw) {
-      const list = JSON.parse(sysNomRaw);
-      if (Array.isArray(list)) {
-        const noMock = list.filter(n => 
-          n && 
-          n.horseName && 
-          !MOCK_HORSE_NAMES.includes(n.horseName.trim().toLowerCase()) &&
-          n.raceId !== 'TOURN-2026-03' &&
-          !n.raceName?.includes('Chiến Mã Trẻ')
-        );
-        const deduped = [];
-        const seen = new Set();
-        for (const item of noMock) {
-          const key = (item.tournamentType === 'EXTERNAL' || item.isExternal)
-            ? `EXT_${(item.horseName || '').trim().toLowerCase()}_${(item.raceName || '').trim().toLowerCase()}`
-            : item.id;
-          if (!seen.has(key)) {
-            seen.add(key);
-            deduped.push(item);
+    // 5.1 Dọn dẹp sự cố & cảnh báo liên quan đến ngựa test / Vui Vẻ
+    const incidentKeys = [
+      STORAGE_KEYS.INCIDENTS,
+      'matruong_incidents',
+      'matruong_groom_alerts',
+      'matruong_groom_incidents',
+      'matruong_vet_incidents'
+    ];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('matruong_vet_incidents_') || k.startsWith('matruong_groom_alerts_'))) {
+        incidentKeys.push(k);
+      }
+    }
+    incidentKeys.forEach(key => {
+      const incRaw = localStorage.getItem(key);
+      if (incRaw) {
+        try {
+          const list = JSON.parse(incRaw);
+          if (Array.isArray(list)) {
+            const clean = list.filter(item => {
+              if (!item) return false;
+              const hName = (item.horseName || item.horse || '').toLowerCase();
+              const title = (item.title || item.symptoms || '').toLowerCase();
+              const desc = (item.desc || item.description || '').toLowerCase();
+              if (isTestOrMockHorse(hName) || isTestOrMockHorse(title)) return false;
+              if (hName.includes('vui vẻ') || title.includes('vui vẻ') || desc.includes('vui vẻ')) return false;
+              if (item.stall === 'Ô C2' && (hName === '' || hName.includes('vui vẻ'))) return false;
+              return true;
+            });
+            localStorage.setItem(key, JSON.stringify(clean));
+          }
+        } catch {}
+      }
+    });
+
+    // 6. Dọn dẹp danh sách đăng ký giải đấu hệ thống (SYSTEM_NOMINATIONS_KEY) & các đơn giải ngoài / nội bộ test
+    ['matruong_tournament_nominations_system', 'matruong_system_race_nominations', 'matruong_trainer_nominations'].forEach(key => {
+      const nomRaw = localStorage.getItem(key);
+      if (nomRaw) {
+        const list = JSON.parse(nomRaw);
+        if (Array.isArray(list)) {
+          const clean = list.filter(n => {
+            if (!n) return false;
+            if (n.horseName && isTestOrMockHorse(n.horseName)) return false;
+            if (n.assignedHorseName && isTestOrMockHorse(n.assignedHorseName)) return false;
+            if (n.raceId === 'TOURN-2026-03' || n.raceName?.includes('Chiến Mã Trẻ')) return false;
+            return true;
+          });
+          localStorage.setItem(key, JSON.stringify(clean));
+        }
+      }
+    });
+
+    // Dọn dẹp các key matruong_owner_races_* và saved_race_nominations_*
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('matruong_owner_races_') || k.startsWith('saved_race_nominations_'))) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const clean = list.filter(n => {
+              if (!n) return false;
+              if (n.horseName && isTestOrMockHorse(n.horseName)) return false;
+              if (n.assignedHorseName && isTestOrMockHorse(n.assignedHorseName)) return false;
+              return true;
+            });
+            localStorage.setItem(k, JSON.stringify(clean));
           }
         }
-        localStorage.setItem('matruong_tournament_nominations_system', JSON.stringify(deduped));
       }
     }
 
-    // 7. Dọn dẹp danh sách giải đấu hệ thống (SYSTEM_TOURNAMENTS_KEY) - Xóa bỏ TOURN-2026-03
+    // 7. Dọn dẹp danh sách Khiếu nại nhân sự (matruong_personnel_reports)
+    const reportsRaw = localStorage.getItem('matruong_personnel_reports');
+    if (reportsRaw) {
+      const list = JSON.parse(reportsRaw);
+      if (Array.isArray(list)) {
+        const clean = list.filter(r => {
+          if (!r) return false;
+          if (r.id === 1794501480558 || String(r.id) === '1794501480558') return false;
+          if (r.id === 1793780109913 || String(r.id) === '1793780109913') return false;
+          if (r.id === 1730001001 || r.id === 1730001002 || r.id === 1730001003) return false;
+          if (r.horseName && isTestOrMockHorse(r.horseName)) return false;
+          const content = `${r.title || ''} ${r.content || ''}`.toLowerCase();
+          if (content.includes('huhhi') || content.includes('kljslkjf') || content.includes('hlv bùn ngủ') || content.includes('nhi khùng')) return false;
+          return true;
+        });
+        localStorage.setItem('matruong_personnel_reports', JSON.stringify(clean));
+      }
+    }
+
+    // 8. Dọn dẹp danh sách chiến mã HLV quản lý (matruong_trainer_horses_managed_*)
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('matruong_trainer_horses_managed')) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const clean = list.filter(h => h && h.name && !isTestOrMockHorse(h.name));
+            localStorage.setItem(k, JSON.stringify(clean));
+          }
+        }
+      }
+    }
+
+    // 9. Dọn dẹp buổi tập & giáo án (telemetry & programs)
+    const telemRaw = localStorage.getItem('matruong_training_telemetry');
+    if (telemRaw) {
+      const list = JSON.parse(telemRaw);
+      if (Array.isArray(list)) {
+        const clean = list.filter(s => s && s.horseName && !isTestOrMockHorse(s.horseName));
+        localStorage.setItem('matruong_training_telemetry', JSON.stringify(clean));
+      }
+    }
+    const progRaw = localStorage.getItem('matruong_trainer_programs');
+    if (progRaw) {
+      const list = JSON.parse(progRaw);
+      if (Array.isArray(list)) {
+        const clean = list.filter(p => p && p.horseName && !isTestOrMockHorse(p.horseName));
+        localStorage.setItem('matruong_trainer_programs', JSON.stringify(clean));
+      }
+    }
+
+    // 10. Dọn dẹp danh sách giải đấu hệ thống (SYSTEM_TOURNAMENTS_KEY) - Xóa bỏ TOURN-2026-03
     const sysTournRaw = localStorage.getItem('matruong_system_tournaments');
     if (sysTournRaw) {
       const list = JSON.parse(sysTournRaw);
@@ -141,7 +254,48 @@ const STORAGE_KEYS = {
         localStorage.setItem('matruong_system_tournaments', JSON.stringify(clean));
       }
     }
+
+    // 10.1. Dọn dẹp thông báo hệ thống liên quan đến Vui Vẻ / ngựa test
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('matruong_notifications') || k.startsWith('matruong_system_notifications'))) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          try {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const clean = list.filter(n => {
+                if (!n) return false;
+                const title = (n.title || '').toLowerCase();
+                const msg = (n.message || '').toLowerCase();
+                const hName = (n.horseName || '').toLowerCase();
+                if (hName.includes('vui vẻ') || title.includes('vui vẻ') || msg.includes('vui vẻ')) return false;
+                if (isTestOrMockHorse(hName) || isTestOrMockHorse(title)) return false;
+                return true;
+              });
+              localStorage.setItem(k, JSON.stringify(clean));
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // 11. Phát sự kiện đồng bộ toàn bộ app
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('matruong_nomination_updated'));
+      window.dispatchEvent(new Event('matruong_tournament_updated'));
+      window.dispatchEvent(new Event('matruong_personnel_reports_updated'));
+      window.dispatchEvent(new Event('matruong_horses_updated'));
+      window.dispatchEvent(new Event('matruong_incidents_updated'));
+      window.dispatchEvent(new Event('matruong_notifications_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
   } catch {}
+}
+
+// Tự động dọn sạch tất cả dữ liệu ngựa mock và giải phóng các ô chuồng
+(function cleanAllMockData() {
+  performComprehensiveTestCleanup();
 })();
 
 function getLocalData(key, defaultVal) {
@@ -252,7 +406,7 @@ export async function getHorsesApi() {
                 }
               }
             };
-          })
+          }).filter(h => h && h.name && !isTestOrMockHorse(h.name))
         };
       }
     }
@@ -272,7 +426,7 @@ export async function getHorsesApi() {
             const list = JSON.parse(raw);
             if (Array.isArray(list)) {
               list.forEach(h => {
-                if (h && !ownerHorses.some(ex => ex.id === h.id || (ex.microchip && ex.microchip === h.microchip))) {
+                if (h && h.name && !isTestOrMockHorse(h.name) && !ownerHorses.some(ex => ex.id === h.id || (ex.microchip && ex.microchip === h.microchip))) {
                   ownerHorses.push({
                     id: h.id,
                     chipId: h.microchip || h.chipId,
@@ -297,9 +451,8 @@ export async function getHorsesApi() {
   } catch {}
 
   const rawSavedHorses = getLocalData(STORAGE_KEYS.HORSES, []);
-  const MOCK_NAMES = ['Xích Thố', 'Bạch Long', 'Hắc Phong', 'Kim Mã', 'Phi Yến', 'Thần Mã', 'Phi Vũ', 'Kim Kê', 'Thanh Vân', 'Lôi Chấn', 'Hồng Sa', 'Thiên Lý', 'Bảo Mã'];
   const cleanSaved = Array.isArray(rawSavedHorses)
-    ? rawSavedHorses.filter(h => h && !MOCK_NAMES.includes(h.name))
+    ? rawSavedHorses.filter(h => h && h.name && !isTestOrMockHorse(h.name))
     : [];
 
   const combined = [...ownerHorses];
@@ -560,8 +713,6 @@ export function checkAndExpireStallMaintenances() {
  * Lấy danh sách toàn bộ ô chuồng trại kèm hình ảnh mô phỏng 3D
  */
 export async function getStablesApi() {
-  const MOCK_HORSE_NAMES = ['xích thố', 'bạch long', 'hắc phong', 'phi vũ', 'phi yến', 'kim kê', 'kim mã', 'thần mã', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã'];
-
   // 0. Quét và giải phóng các ca bảo dưỡng đã quá 30 phút
   checkAndExpireStallMaintenances();
   const activeMaintenances = getActiveStallMaintenances();
@@ -577,8 +728,8 @@ export async function getStablesApi() {
           if (raw) {
             const list = JSON.parse(raw);
             if (Array.isArray(list)) {
-              // Dọn sạch ngựa mock
-              const clean = list.filter(h => h && h.name && !MOCK_HORSE_NAMES.includes(h.name.trim().toLowerCase()));
+              // Dọn sạch ngựa mock & test
+              const clean = list.filter(h => h && h.name && !isTestOrMockHorse(h.name));
               if (clean.length !== list.length) {
                 localStorage.setItem(k, JSON.stringify(clean));
               }
@@ -685,7 +836,7 @@ export async function getStablesApi() {
     }
 
     const assigned = assignedHorsesMap[code];
-    const isAssignedValid = assigned && assigned.name && !MOCK_HORSE_NAMES.includes(assigned.name.trim().toLowerCase());
+    const isAssignedValid = assigned && assigned.name && !isTestOrMockHorse(assigned.name);
 
     const activeMaint = activeMaintenances[code];
     const isTempFor = Object.values(activeMaintenances).find(m => m.tempStallCode === code);
@@ -1567,6 +1718,7 @@ export async function deleteUserApi(userId) {
 // =========================================================================
 
 export async function getIncidentsApi() {
+  let list = [];
   try {
     const res = await fetch('/api/incidents', {
       headers: getAuthHeaders(),
@@ -1575,13 +1727,28 @@ export async function getIncidentsApi() {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        return { isFromBackend: true, data };
+        list = data;
       }
     }
   } catch {
     // Fallback
   }
-  return { isFromBackend: false, data: getLocalData(STORAGE_KEYS.INCIDENTS, []) };
+  if (!list || list.length === 0) {
+    list = getLocalData(STORAGE_KEYS.INCIDENTS, []);
+  }
+
+  const clean = (list || []).filter(item => {
+    if (!item) return false;
+    const hName = (item.horseName || item.horse || '').toLowerCase();
+    const title = (item.title || item.symptoms || '').toLowerCase();
+    const desc = (item.desc || item.description || '').toLowerCase();
+    if (isTestOrMockHorse(hName) || isTestOrMockHorse(title)) return false;
+    if (hName.includes('vui vẻ') || title.includes('vui vẻ') || desc.includes('vui vẻ')) return false;
+    if (item.stall === 'Ô C2' && (hName === '' || hName.includes('vui vẻ'))) return false;
+    return true;
+  });
+
+  return { isFromBackend: false, data: clean };
 }
 
 export async function reportIncidentApi(incident) {
@@ -2349,6 +2516,102 @@ export async function deleteGroomHealthLogApi(logId = 'ALL') {
 // 10.2. YÊU CẦU CẤP PHÁT LƯƠNG THỰC & VẬT TƯ (SUPPLY REQUESTS API)
 // -------------------------------------------------------------------------
 
+/**
+ * Loại bỏ toàn bộ các bản ghi yêu cầu cấp phát vật tư bị trùng lặp (trùng ID hoặc trùng mặt hàng đang chờ/đang cấp phát)
+ */
+export function deduplicateSupplyRequests(list) {
+  if (!Array.isArray(list)) return [];
+  const seenIds = new Set();
+  const seenActiveSupplies = new Set();
+  const result = [];
+
+  for (const item of list) {
+    if (!item || !item.id) continue;
+    const idKey = String(item.id).trim();
+    if (seenIds.has(idKey)) continue;
+    seenIds.add(idKey);
+
+    // Nếu cùng 1 mặt hàng đang ở trạng thái chờ duyệt hoặc đang cấp phát, chỉ giữ 1 yêu cầu mới nhất
+    const supplyKey = String(item.supplyId || item.supplyName || '').trim().toLowerCase();
+    const isActive = item.status === 'PENDING_ADMIN' || item.status === 'APPROVED';
+    if (supplyKey && isActive) {
+      if (seenActiveSupplies.has(supplyKey)) continue;
+      seenActiveSupplies.add(supplyKey);
+    }
+
+    result.push(item);
+  }
+  return result;
+}
+
+export function checkAndSyncSupplyRequests() {
+  const rawList = getLocalData('matruong_supply_requests', []);
+  const list = deduplicateSupplyRequests(rawList);
+  
+  // Tự động dọn sạch localStorage nếu phát hiện có bản ghi trùng lặp
+  if (Array.isArray(rawList) && rawList.length !== list.length) {
+    setLocalData('matruong_supply_requests', list);
+  }
+  
+  if (!Array.isArray(list) || list.length === 0) return [];
+  
+  let changed = false;
+  const now = Date.now();
+  
+  const updated = list.map(item => {
+    if (item.status === 'APPROVED' && item.approvedAt) {
+      const duration = item.durationMs || (5 * 60 * 1000);
+      if (now - item.approvedAt >= duration) {
+        changed = true;
+        return {
+          ...item,
+          status: 'COMPLETED',
+          completedAt: now
+        };
+      }
+    }
+    return item;
+  });
+
+  const finalClean = deduplicateSupplyRequests(updated);
+
+  if (changed) {
+    setLocalData('matruong_supply_requests', finalClean);
+    // Cập nhật lại các mặt hàng trong kho vật tư Groom thành 100%
+    const invRaw = localStorage.getItem('matruong_groom_inventory');
+    if (invRaw) {
+      try {
+        const invList = JSON.parse(invRaw);
+        if (Array.isArray(invList)) {
+          const completedReqs = finalClean.filter(r => r.status === 'COMPLETED');
+          const nextInv = invList.map(item => {
+            const matchingCompleted = completedReqs.find(r => r.supplyId === item.id || r.supplyName === item.name);
+            if (matchingCompleted) {
+              return {
+                ...item,
+                percent: 100,
+                qty: item.maxQty || (parseInt(item.minQty || '50') * 3) + ' ' + (item.unit || 'kg'),
+                status: 'GOOD',
+                statusLabel: 'Đầy đủ (100%)',
+                lastRestocked: 'Vừa xong'
+              };
+            }
+            return item;
+          });
+          localStorage.setItem('matruong_groom_inventory', JSON.stringify(nextInv));
+        }
+      } catch {}
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('matruong_supply_requests_updated'));
+      window.dispatchEvent(new Event('matruong_groom_inventory_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+  }
+
+  return finalClean;
+}
+
 export async function getSupplyRequestsApi() {
   try {
     const res = await fetch('/api/groom/supply-requests', {
@@ -2358,14 +2621,15 @@ export async function getSupplyRequestsApi() {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
-        setLocalData('matruong_supply_requests', data);
-        return data;
+        const cleanData = deduplicateSupplyRequests(data);
+        setLocalData('matruong_supply_requests', cleanData);
+        return checkAndSyncSupplyRequests();
       }
     }
   } catch {
     // Fallback
   }
-  return getLocalData('matruong_supply_requests', []);
+  return checkAndSyncSupplyRequests();
 }
 
 export async function createSupplyRequestApi(requestData) {
@@ -2379,7 +2643,7 @@ export async function createSupplyRequestApi(requestData) {
     if (res.ok) {
       const data = await res.json();
       const list = getLocalData('matruong_supply_requests', []);
-      const updated = [data, ...list.filter(item => item.id !== data.id)];
+      const updated = deduplicateSupplyRequests([data, ...list.filter(item => item.id !== data.id)]);
       setLocalData('matruong_supply_requests', updated);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('matruong_supply_requests_updated'));
@@ -2391,20 +2655,75 @@ export async function createSupplyRequestApi(requestData) {
     // Fallback
   }
 
-  const list = getLocalData('matruong_supply_requests', []);
+  const list = deduplicateSupplyRequests(getLocalData('matruong_supply_requests', []));
+  // Kiểm tra xem đã có yêu cầu cho vật tư này đang chờ duyệt hoặc đang cấp phát chưa
+  const existingActive = list.find(r => 
+    (r.supplyId === requestData.supplyId || r.supplyName === requestData.supplyName) && 
+    (r.status === 'PENDING_ADMIN' || r.status === 'APPROVED')
+  );
+  if (existingActive) return existingActive;
+
   const newReq = {
     id: requestData.id || `SR-${Date.now().toString().slice(-4)}`,
     status: 'PENDING_ADMIN',
     requestedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - Hôm nay',
+    approvedAt: null,
+    durationMs: 5 * 60 * 1000,
     ...requestData
   };
-  const updated = [newReq, ...list];
+  const updated = deduplicateSupplyRequests([newReq, ...list]);
   setLocalData('matruong_supply_requests', updated);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('matruong_supply_requests_updated'));
     window.dispatchEvent(new Event('storage'));
   }
   return newReq;
+}
+
+export async function approveSupplyRequestApi(requestId, approvedBy = 'Admin Quản Trị') {
+  try {
+    const res = await fetch(`/api/groom/supply-requests/${requestId}/approve`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ approvedBy })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = getLocalData('matruong_supply_requests', []);
+      const updated = deduplicateSupplyRequests(list.map(item => String(item.id) === String(requestId) ? { ...item, ...data } : item));
+      setLocalData('matruong_supply_requests', updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_supply_requests_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return data;
+    }
+  } catch {}
+
+  const list = deduplicateSupplyRequests(getLocalData('matruong_supply_requests', []));
+  const now = Date.now();
+  const durationMs = 5 * 60 * 1000; // 5 phút đếm ngược bắt đầu tính từ khi Admin duyệt
+  
+  const updated = deduplicateSupplyRequests(list.map(item => {
+    if (String(item.id) === String(requestId)) {
+      return {
+        ...item,
+        status: 'APPROVED',
+        approvedBy,
+        approvedAt: now,
+        durationMs
+      };
+    }
+    return item;
+  }));
+  
+  setLocalData('matruong_supply_requests', updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('matruong_supply_requests_updated'));
+    window.dispatchEvent(new Event('storage'));
+  }
+  return updated.find(item => String(item.id) === String(requestId));
 }
 
 export async function updateSupplyRequestStatusApi(requestId, status, adminNote = '', approvedBy = 'Admin Quản Trị') {
@@ -2418,7 +2737,7 @@ export async function updateSupplyRequestStatusApi(requestId, status, adminNote 
     if (res.ok) {
       const data = await res.json();
       const list = getLocalData('matruong_supply_requests', []);
-      const updated = list.map(item => String(item.id) === String(requestId) ? { ...item, ...data } : item);
+      const updated = deduplicateSupplyRequests(list.map(item => String(item.id) === String(requestId) ? { ...item, ...data } : item));
       setLocalData('matruong_supply_requests', updated);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('matruong_supply_requests_updated'));
@@ -2430,8 +2749,22 @@ export async function updateSupplyRequestStatusApi(requestId, status, adminNote 
     // Fallback
   }
 
-  const list = getLocalData('matruong_supply_requests', []);
-  const updated = list.map(item => String(item.id) === String(requestId) ? { ...item, status, adminNote, approvedBy } : item);
+  const list = deduplicateSupplyRequests(getLocalData('matruong_supply_requests', []));
+  const now = Date.now();
+  const updated = deduplicateSupplyRequests(list.map(item => {
+    if (String(item.id) === String(requestId)) {
+      const isApproved = status === 'APPROVED';
+      return {
+        ...item,
+        status,
+        adminNote,
+        approvedBy,
+        approvedAt: isApproved ? (item.approvedAt || now) : item.approvedAt,
+        durationMs: isApproved ? (item.durationMs || 5 * 60 * 1000) : item.durationMs
+      };
+    }
+    return item;
+  }));
   setLocalData('matruong_supply_requests', updated);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('matruong_supply_requests_updated'));
@@ -3098,7 +3431,14 @@ export async function getSystemTournamentNominationsApi() {
     });
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data) && data.length > 0) {
+        return data.filter(n => {
+          if (!n) return false;
+          if (n.horseName && isTestOrMockHorse(n.horseName)) return false;
+          if (n.assignedHorseName && isTestOrMockHorse(n.assignedHorseName)) return false;
+          return true;
+        });
+      }
     }
   } catch {
     // Fallback
@@ -3106,8 +3446,13 @@ export async function getSystemTournamentNominationsApi() {
 
   let rawData = getLocalData(SYSTEM_NOMINATIONS_KEY, []);
   if (Array.isArray(rawData)) {
-    const MOCK_HORSE_NAMES = ['xích thố', 'bạch long', 'hắc phong', 'phi vũ', 'phi yến', 'kim kê', 'kim mã', 'thần mã', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã'];
-    const filtered = rawData.filter(n => n && n.horseName && !MOCK_HORSE_NAMES.includes(n.horseName.trim().toLowerCase()));
+    const filtered = rawData.filter(n => {
+      if (!n) return false;
+      if (n.horseName && isTestOrMockHorse(n.horseName)) return false;
+      if (n.assignedHorseName && isTestOrMockHorse(n.assignedHorseName)) return false;
+      if (n.raceId === 'TOURN-2026-03' || n.raceName?.includes('Chiến Mã Trẻ')) return false;
+      return true;
+    });
     
     // Deduplicate: mỗi giải ngoài của 1 chiến mã chỉ giữ 1 bản ghi mới nhất
     const deduped = [];
@@ -4135,6 +4480,7 @@ export async function clearNotificationsApi() {
  * Lấy danh sách khiếu nại & báo cáo nhân sự (kèm lọc theo chủ sở hữu)
  */
 export async function getPersonnelReportsApi(ownerKey = '') {
+  let cleanApiData = null;
   try {
     const url = ownerKey ? `/api/reports?ownerKey=${encodeURIComponent(ownerKey)}` : '/api/reports';
     const res = await fetch(url, {
@@ -4143,14 +4489,25 @@ export async function getPersonnelReportsApi(ownerKey = '') {
     });
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data)) return data;
+      if (Array.isArray(data)) cleanApiData = data;
     }
   } catch {}
 
   const key = 'matruong_personnel_reports';
-  const list = getLocalData(key, []);
-  if (!ownerKey || ownerKey === 'ALL') return list;
-  return list.filter(r => (r.ownerKey || '').toLowerCase() === ownerKey.toLowerCase());
+  const list = cleanApiData !== null ? cleanApiData : getLocalData(key, []);
+  const cleanList = (list || []).filter(r => {
+    if (!r) return false;
+    if (r.id === 1794501480558 || String(r.id) === '1794501480558') return false;
+    if (r.id === 1793780109913 || String(r.id) === '1793780109913') return false;
+    if (r.id === 1730001001 || r.id === 1730001002 || r.id === 1730001003) return false;
+    if (r.horseName && isTestOrMockHorse(r.horseName)) return false;
+    const content = `${r.title || ''} ${r.content || ''}`.toLowerCase();
+    if (content.includes('huhhi') || content.includes('kljslkjf') || content.includes('hlv bùn ngủ') || content.includes('nhi khùng')) return false;
+    return true;
+  });
+
+  if (!ownerKey || ownerKey === 'ALL') return cleanList;
+  return cleanList.filter(r => (r.ownerKey || '').toLowerCase() === ownerKey.toLowerCase());
 }
 
 /**

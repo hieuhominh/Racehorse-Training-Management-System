@@ -13,7 +13,8 @@ import {
   getGroomTasksApi,
   createGroomTaskApi,
   updateGroomTaskStatusApi,
-  deleteGroomTaskApi
+  deleteGroomTaskApi,
+  isTestOrMockHorse
 } from '../services/api';
 import { addSystemNotification, getSystemNotifications } from '../services/notificationService';
 import {
@@ -33,7 +34,10 @@ import {
   INITIAL_INVENTORY,
   getGroomData,
   saveGroomData,
-  STORAGE_KEYS
+  STORAGE_KEYS,
+  deductSuppliesForGroomTask,
+  getTodayDateString,
+  rollOverTasksAtMidnight
 } from '../services/groomService';
 
 // Import các Tab chuyên trách
@@ -139,7 +143,6 @@ export default function GroomPage() {
       const validTabs = [
         'dashboard',
         'tasks',
-        'horses',
         'health',
         'incidents',
         'vet-instructions',
@@ -236,16 +239,36 @@ export default function GroomPage() {
   }, [serviceAssignments]);
 
   // =========================================================================
-  // 2. CÔNG VIỆC HẰNG NGÀY & Ô CHUỒNG (ĐỒNG BỘ LOCALSTORAGE VĨNH VIỄN)
+  // 2. CÔNG VIỆC HẰNG NGÀY & Ô CHUỒNG (TỰ ĐỘNG RESET VỀ 0% VÀO LÚC 00H00 THEO THỜI GIAN THỰC)
   // =========================================================================
   const [tasks, setTasks] = useState(() => {
+    const todayStr = getTodayDateString();
+    const storedDate = typeof localStorage !== 'undefined' ? localStorage.getItem('matruong_groom_tasks_date') : null;
+
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.TASKS);
       if (raw !== null) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
+          let activeList = parsed;
+          // Nếu ngày lưu trữ khác ngày hôm nay hiện tại (tức là đã bước sang 00h00 của ngày mới):
+          if (storedDate && storedDate !== todayStr) {
+            activeList = rollOverTasksAtMidnight(parsed, todayStr);
+            try {
+              localStorage.setItem('matruong_groom_tasks_date', todayStr);
+              localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(activeList));
+            } catch {}
+          } else if (!storedDate) {
+            try {
+              localStorage.setItem('matruong_groom_tasks_date', todayStr);
+            } catch {}
+          }
+
+          // Lọc bỏ toàn bộ các công việc gắn với ngựa tự cho / ngựa mock không thuộc Chủ sở hữu
+          activeList = activeList.filter(t => !isTestOrMockHorse(t.horseName) && t.horseId !== 101 && t.horseName !== 'Quarter Horse');
+
           // Chuẩn hóa: Công việc của ngày mai tuyệt đối không được ở trạng thái hoàn thành
-          return parsed.map(t => {
+          return activeList.map(t => {
             if (t.dateKey === 'TOMORROW' && (t.status === 'COMPLETED' || t.status === 'IN_PROGRESS' || t.completedAt)) {
               return { ...t, status: 'PENDING', completedAt: null };
             }
@@ -254,6 +277,12 @@ export default function GroomPage() {
         }
       }
     } catch {}
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('matruong_groom_tasks_date', todayStr);
+      } catch {}
+    }
     const initial = generateRealtimeDailyTasks(confirmedHorses);
     try {
       localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(initial));
@@ -282,6 +311,47 @@ export default function GroomPage() {
       return prev;
     });
   }, []);
+
+  // Timer kiểm tra thời gian thực từng giây: Đúng khoảnh khắc 00:00:00, các công việc cũ tự động biến mất và tiến độ reset về 0%
+  useEffect(() => {
+    const checkMidnightAutoReset = () => {
+      const todayStr = getTodayDateString();
+      const storedDate = localStorage.getItem('matruong_groom_tasks_date');
+
+      if (!storedDate) {
+        localStorage.setItem('matruong_groom_tasks_date', todayStr);
+        return;
+      }
+
+      // ĐÚNG KHOẢNH KHẮC 00H00 BƯỚC SANG NGÀY MỚI
+      if (storedDate !== todayStr) {
+        localStorage.setItem('matruong_groom_tasks_date', todayStr);
+
+        setTasks(prevTasks => {
+          const rolledOver = rollOverTasksAtMidnight(prevTasks, todayStr);
+          try {
+            localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(rolledOver));
+          } catch {}
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('matruong_tasks_updated'));
+            window.dispatchEvent(new Event('storage'));
+          }
+          return rolledOver;
+        });
+
+        if (showToast) {
+          showToast('Đã đến 00h00 (Ngày mới)! Các công việc của ngày cũ đã được dọn sạch và tiến độ nhân sự tự động reset về 0%.', '00H00 NGÀY MỚI', 'info');
+        }
+      }
+    };
+
+    // Kiểm tra ngay khi component mount
+    checkMidnightAutoReset();
+
+    // Lặp kiểm tra mỗi giây để bắt chính xác giây 00:00:00
+    const timer = setInterval(checkMidnightAutoReset, 1000);
+    return () => clearInterval(timer);
+  }, [showToast]);
 
   // Tự động lưu tasks vào localStorage mỗi khi có thay đổi (thêm, sửa, xóa)
   useEffect(() => {
@@ -329,6 +399,11 @@ export default function GroomPage() {
 
     return list.filter(alt => {
       const name = (alt.horseName || '').toLowerCase();
+      const title = (alt.title || '').toLowerCase();
+      const desc = (alt.desc || alt.description || '').toLowerCase();
+      if (isTestOrMockHorse(name) || isTestOrMockHorse(title)) return false;
+      if (name.includes('vui vẻ') || title.includes('vui vẻ') || desc.includes('vui vẻ')) return false;
+      if (alt.stall === 'Ô C2' && (name === '' || name.includes('vui vẻ'))) return false;
       return !['bạch long', 'kim sa', 'hắc phong', 'xích thố', 'phi yến', 'lôi chấn'].some(ex => name.includes(ex));
     });
   });
@@ -340,7 +415,7 @@ export default function GroomPage() {
     } catch {}
   }, [alerts]);
 
-  // Dọn dẹp cảnh báo và y lệnh của các chiến mã mock cũ không thuộc về ngựa Groom phụ trách
+  // Dọn dẹp cảnh báo và y lệnh của các chiến mã mock cũ và ngựa test (Vui Vẻ...)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.ALERTS);
@@ -349,6 +424,11 @@ export default function GroomPage() {
         if (Array.isArray(parsed)) {
           const cleaned = parsed.filter(alt => {
             const name = (alt.horseName || '').toLowerCase();
+            const title = (alt.title || '').toLowerCase();
+            const desc = (alt.desc || alt.description || '').toLowerCase();
+            if (isTestOrMockHorse(name) || isTestOrMockHorse(title)) return false;
+            if (name.includes('vui vẻ') || title.includes('vui vẻ') || desc.includes('vui vẻ')) return false;
+            if (alt.stall === 'Ô C2' && (name === '' || name.includes('vui vẻ'))) return false;
             return !['bạch long', 'kim sa', 'hắc phong', 'xích thố', 'phi yến', 'lôi chấn'].some(ex => name.includes(ex));
           });
           if (cleaned.length !== parsed.length) {
@@ -375,15 +455,16 @@ export default function GroomPage() {
           merged.push(initialItem);
         }
       });
-      // Đồng bộ tỷ lệ phần trăm chuẩn
+      // Bảo toàn tỷ lệ phần trăm và trạng thái đã cập nhật
       merged = merged.map(item => {
         const matchingInitial = INITIAL_INVENTORY.find(init => init.id === item.id);
         if (matchingInitial) {
           return {
+            ...matchingInitial,
             ...item,
-            percent: matchingInitial.percent,
-            statusLabel: matchingInitial.statusLabel,
-            status: matchingInitial.status
+            percent: typeof item.percent === 'number' ? item.percent : matchingInitial.percent,
+            statusLabel: item.statusLabel || matchingInitial.statusLabel,
+            status: item.status || matchingInitial.status
           };
         }
         return item;
@@ -392,6 +473,22 @@ export default function GroomPage() {
     }
     return INITIAL_INVENTORY;
   });
+
+  // Lắng nghe sự kiện cập nhật kho vật tư từ hệ thống
+  useEffect(() => {
+    const handleInventoryUpdate = () => {
+      const saved = getGroomData(STORAGE_KEYS.INVENTORY, null);
+      if (Array.isArray(saved) && saved.length > 0) {
+        setInventory(saved);
+      }
+    };
+    window.addEventListener('matruong_groom_inventory_updated', handleInventoryUpdate);
+    window.addEventListener('storage', handleInventoryUpdate);
+    return () => {
+      window.removeEventListener('matruong_groom_inventory_updated', handleInventoryUpdate);
+      window.removeEventListener('storage', handleInventoryUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -514,15 +611,39 @@ export default function GroomPage() {
       showToast('Chỉ Chủ nhóm Groom mới có quyền phân ca và tạo lịch công việc!', 'TỪ CHỐI QUYỀN', 'error');
       return;
     }
-    createGroomTaskApi(newTask).catch(() => {});
+    const todayStr = getTodayDateString();
+    const taskWithDate = {
+      ...newTask,
+      taskDate: newTask.dateKey === 'TOMORROW' ? 'TOMORROW' : todayStr,
+      createdDate: todayStr
+    };
+    createGroomTaskApi(taskWithDate).catch(() => {});
     setTasks(prev => {
-      const updated = [newTask, ...prev];
+      const updated = [taskWithDate, ...prev];
       try {
         localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(updated));
       } catch {}
       return updated;
     });
-    showToast(`Chủ nhóm đã phân công: "${newTask.title}" cho ${newTask.groom}!`, 'PHÂN CA THÀNH CÔNG', 'success');
+
+    // Tự động trừ 2% tỷ lệ phần trăm và 2% số lượng thực tế của các vật tư/thực phẩm liên quan
+    let deductedInfo = '';
+    setInventory(prevInv => {
+      const { updatedInventory, deductedItems } = deductSuppliesForGroomTask(prevInv, newTask);
+      try {
+        localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(updatedInventory));
+      } catch {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_groom_inventory_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      if (deductedItems && deductedItems.length > 0) {
+        deductedInfo = ` Tiêu hao -2%: ${deductedItems.map(d => `${d.name} (còn ${d.percent}% - ${d.qty})`).join(', ')}.`;
+      }
+      return updatedInventory;
+    });
+
+    showToast(`Chủ nhóm đã phân công: "${newTask.title}" cho ${newTask.groom}!${deductedInfo}`, 'PHÂN CA THÀNH CÔNG', 'success');
   };
 
   const handleDeleteTask = (taskId) => {
@@ -556,6 +677,9 @@ export default function GroomPage() {
     const supplyId = typeof itemOrName === 'object' ? itemOrName?.id : 'INV-FEED';
     const currentQty = typeof itemOrName === 'object' ? itemOrName?.qty : 'Dưới 15%';
     const category = typeof itemOrName === 'object' ? itemOrName?.category : 'FEED';
+    const minQty = typeof itemOrName === 'object' ? itemOrName?.minQty : '20 bao';
+    const maxQty = typeof itemOrName === 'object' ? itemOrName?.maxQty : '100 bao';
+    const unit = typeof itemOrName === 'object' ? itemOrName?.unit : 'Bao';
     const isFeed = category === 'FEED';
     const groomName = currentUser?.full_name || 'Lê Hoàng Nam (Groom)';
 
@@ -581,21 +705,20 @@ export default function GroomPage() {
       supplyName,
       category,
       qty: currentQty,
+      minQty,
+      maxQty,
+      unit,
       percent,
       requestedBy: groomName,
       requestedAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - Hôm nay',
-      status: 'PENDING_ADMIN'
+      status: 'PENDING_ADMIN',
+      approvedAt: null,
+      durationMs: 5 * 60 * 1000
     };
     createSupplyRequestApi(newReq).catch(() => {});
 
-    try {
-      const rawReq = localStorage.getItem('matruong_supply_requests');
-      const reqList = rawReq ? JSON.parse(rawReq) : [];
-      localStorage.setItem('matruong_supply_requests', JSON.stringify([newReq, ...(Array.isArray(reqList) ? reqList : [])]));
-    } catch {}
-
     // 3. Thông báo Toast xác nhận cho Groom
-    showToast(`Đã gửi yêu cầu cấp phát "${supplyName}" đến Quản trị viên (Admin) thành công!`, 'YÊU CẦU CẤP PHÁT', 'success');
+    showToast(`Đã gửi thông báo yêu cầu cấp phát "${supplyName}" đến Quản trị viên (Admin) thành công!`, 'ĐÃ GỬI THÔNG BÁO', 'success');
   };
 
   // Lắng nghe cập nhật từ Bác sĩ thú y theo thời gian thực
@@ -606,7 +729,15 @@ export default function GroomPage() {
         if (raw) {
           const list = JSON.parse(raw);
           if (Array.isArray(list)) {
-            setAlerts(prev => prev.map(a => {
+            setAlerts(prev => prev.filter(a => {
+              const name = (a.horseName || '').toLowerCase();
+              const title = (a.title || '').toLowerCase();
+              const desc = (a.desc || a.description || '').toLowerCase();
+              if (isTestOrMockHorse(name) || isTestOrMockHorse(title)) return false;
+              if (name.includes('vui vẻ') || title.includes('vui vẻ') || desc.includes('vui vẻ')) return false;
+              if (a.stall === 'Ô C2' && (name === '' || name.includes('vui vẻ'))) return false;
+              return true;
+            }).map(a => {
               const matched = list.find(item => item.id === a.id || (item.horseName === a.horseName && item.symptoms === a.title?.split(' (')[0]));
               if (matched) {
                 if (matched.status === 'resolved') {
@@ -767,6 +898,14 @@ export default function GroomPage() {
   const activeAlerts = useMemo(() => {
     return alerts.filter(alt => {
       const rawName = (alt.horseName || '').trim().toLowerCase();
+      const title = (alt.title || '').trim().toLowerCase();
+      const desc = (alt.desc || alt.description || '').trim().toLowerCase();
+
+      // Loại bỏ chiến mã test hoặc Vui Vẻ
+      if (isTestOrMockHorse(rawName) || isTestOrMockHorse(title)) return false;
+      if (rawName.includes('vui vẻ') || title.includes('vui vẻ') || desc.includes('vui vẻ')) return false;
+      if (alt.stall === 'Ô C2' && (rawName === '' || rawName.includes('vui vẻ'))) return false;
+
       const cleanName = rawName.split(' (')[0].trim();
 
       // Loại trừ 6 con ngựa mock cũ
@@ -869,18 +1008,6 @@ export default function GroomPage() {
                 {uncompletedTasksCount}
               </span>
             )}
-          </button>
-
-          {/* 3. Quản lý chiến mã (Horse Management) */}
-          <button
-            type="button"
-            className={`portal-nav-item ${activeTab === 'horses' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('horses'); setSidebarOpen(false); }}
-            title="Danh sách chiến mã do Groom đồng ý chăm sóc"
-          >
-            <span className="portal-nav-icon"><IconHorse size={18} /></span>
-            <span className="portal-nav-label">Quản lý chiến mã</span>
-            <span className="portal-nav-badge">{confirmedHorses.length}</span>
           </button>
 
           {/* 5. Theo dõi sức khỏe (Health Monitoring) */}
@@ -1176,18 +1303,6 @@ export default function GroomPage() {
             />
           )}
 
-          {/* TAB 3: QUẢN LÝ CHIẾN MÃ (HORSE MANAGEMENT) */}
-          {activeTab === 'horses' && (
-            <GroomHorsesTab
-              horses={confirmedHorses}
-              onOpenHorseModal={(h) => setSelectedHorseModal(h)}
-              onOpenReportModal={(prefill) => {
-                if (prefill) setReportFormData(prev => ({ ...prev, ...prefill }));
-                setShowReportModal(true);
-              }}
-            />
-          )}
-
           {/* TAB 5: THEO DÕI SỨC KHỎE (HEALTH MONITORING) */}
           {activeTab === 'health' && (
             <GroomHealthTab
@@ -1226,7 +1341,9 @@ export default function GroomPage() {
           {/* TAB 9: BÁO CÁO HẰNG NGÀY (DAILY REPORTS) */}
           {activeTab === 'reports' && (
             <GroomReportsTab
-              onSubmitDailyReport={() => showToast('Đã lưu và bàn giao báo cáo ca trực!', 'BÁO CÁO CA TRỰC', 'success')}
+              currentUser={currentUser}
+              currentGroomUser={currentGroomUser}
+              onSubmitDailyReport={() => showToast('Đã lưu và bàn giao báo cáo ca trực thành công!', 'BÁO CÁO CA TRỰC', 'success')}
             />
           )}
 

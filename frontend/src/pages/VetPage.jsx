@@ -13,7 +13,8 @@ import {
   getVetClearanceListApi,
   updateVetClearanceApi,
   getVaccinationSchedulesApi,
-  recordVaccinationApi
+  recordVaccinationApi,
+  isTestOrMockHorse
 } from '../services/api';
 import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
 import NotificationBell from '../components/NotificationBell';
@@ -191,7 +192,16 @@ export default function VetPage() {
     if (isNewAccount) {
       try {
         const stored = localStorage.getItem(`matruong_vet_incidents_${currentUser.user_id}`);
-        if (stored) return JSON.parse(stored);
+        if (stored) {
+          const list = JSON.parse(stored);
+          if (Array.isArray(list)) {
+            return list.filter(i => {
+              const hName = (i.horseName || i.horse || '').toLowerCase();
+              const title = (i.title || i.symptoms || '').toLowerCase();
+              return !isTestOrMockHorse(hName) && !isTestOrMockHorse(title) && !hName.includes('vui vẻ') && !title.includes('vui vẻ');
+            });
+          }
+        }
       } catch {}
       return [];
     }
@@ -389,7 +399,15 @@ export default function VetPage() {
     const handleIncidentsSync = (e) => {
       getIncidentsApi().then(res => {
         if (res && Array.isArray(res.data) && res.data.length > 0) {
-          const sanitized = res.data.map((item, idx) => ({
+          const sanitized = res.data.filter(item => {
+            const hName = (item.horseName || item.horse || '').toLowerCase();
+            const title = (item.title || item.symptoms || '').toLowerCase();
+            const desc = (item.desc || item.description || '').toLowerCase();
+            if (isTestOrMockHorse(hName) || isTestOrMockHorse(title)) return false;
+            if (hName.includes('vui vẻ') || title.includes('vui vẻ') || desc.includes('vui vẻ')) return false;
+            if (item.stall === 'Ô C2' && (hName === '' || hName.includes('vui vẻ'))) return false;
+            return true;
+          }).map((item, idx) => ({
             id: item.id || `INC-${1000 + idx}`,
             stallCode: item.stallCode || item.stall || 'A1',
             stall: item.stall || `Ô ${item.stallCode || 'A1'}`,

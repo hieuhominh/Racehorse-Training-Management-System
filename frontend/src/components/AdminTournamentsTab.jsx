@@ -7,7 +7,8 @@ import {
   approveTournamentNominationApi,
   rejectTournamentNominationApi,
   settleTournamentPrizeApi,
-  getTournamentTimeStatus
+  getTournamentTimeStatus,
+  isTestOrMockHorse
 } from '../services/api';
 
 const formatVND = (num) => (Number(num) || 0).toLocaleString('vi-VN') + ' ₫';
@@ -95,7 +96,15 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
   // Tải dữ liệu ban đầu và lắng nghe sự kiện đồng bộ
   const loadData = () => {
     getOpenTournamentsApi('ALL').then(data => setAdminTournaments(data || []));
-    getSystemTournamentNominationsApi().then(data => setAdminNominations(data || []));
+    getSystemTournamentNominationsApi().then(data => {
+      const clean = (data || []).filter(n => {
+        if (!n) return false;
+        if (n.horseName && isTestOrMockHorse(n.horseName)) return false;
+        if (n.assignedHorseName && isTestOrMockHorse(n.assignedHorseName)) return false;
+        return true;
+      });
+      setAdminNominations(clean);
+    });
   };
 
   useEffect(() => {
@@ -665,11 +674,11 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
               <thead>
                 <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
-                  <th style={{ padding: '14px 18px', width: '28%', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Chiến Mã & Chủ Sở Hữu</th>
-                  <th style={{ padding: '14px 16px', width: '26%', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Giải Đấu & Phân Loại</th>
-                  <th style={{ padding: '14px 16px', width: '14%', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Cam Kết Hoa Hồng</th>
-                  <th style={{ padding: '14px 16px', width: '17%', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Thành Tích & Quyết Toán</th>
-                  <th style={{ padding: '14px 18px', width: '15%', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Thẩm Định & Thao Tác</th>
+                  <th style={{ padding: '14px 18px', width: '26%', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Chiến Mã & Chủ Sở Hữu</th>
+                  <th style={{ padding: '14px 16px', width: '25%', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Giải Đấu & Phân Loại</th>
+                  <th style={{ padding: '14px 12px', width: '13%', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Cam Kết Hoa Hồng</th>
+                  <th style={{ padding: '14px 14px', width: '18%', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Thành Tích & Quyết Toán</th>
+                  <th style={{ padding: '14px 18px', width: '18%', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Thẩm Định & Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -697,10 +706,10 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                         }}
                       >
                         <td style={{ padding: '14px 18px', verticalAlign: 'middle' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <div style={{
-                              width: '36px',
-                              height: '36px',
+                              width: '38px',
+                              height: '38px',
                               borderRadius: '8px',
                               background: 'rgba(212, 175, 55, 0.12)',
                               border: '1px solid rgba(212, 175, 55, 0.25)',
@@ -724,10 +733,10 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                         </td>
 
                         <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                          <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '12.5px', lineHeight: 1.35 }}>
+                          <div style={{ fontWeight: 600, color: 'var(--paper)', fontSize: '13px', lineHeight: 1.35 }}>
                             {nom.raceName}
                           </div>
-                          <div style={{ marginTop: '4px' }}>
+                          <div style={{ marginTop: '5px' }}>
                             <span style={{
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -745,17 +754,22 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                           </div>
                         </td>
 
-                        <td style={{ padding: '14px 16px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <td style={{ padding: '14px 12px', textAlign: 'center', verticalAlign: 'middle' }}>
                           {!isExternal ? (
                             <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
                               <span style={{
-                                padding: '2px 8px',
+                                width: '92px',
+                                height: '24px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
                                 borderRadius: '4px',
                                 fontSize: '11px',
                                 fontWeight: 800,
                                 background: nom.commissionRate === 0.08 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
                                 color: nom.commissionRate === 0.08 ? '#EF4444' : '#F59E0B',
-                                border: `1px solid ${nom.commissionRate === 0.08 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                                border: `1px solid ${nom.commissionRate === 0.08 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                                boxSizing: 'border-box'
                               }}>
                                 Trích {((Number(nom.commissionRate) || 0.05) * 100).toFixed(0)}%
                               </span>
@@ -766,13 +780,18 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                           ) : (
                             <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
                               <span style={{
-                                padding: '2px 8px',
+                                width: '92px',
+                                height: '24px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
                                 borderRadius: '4px',
                                 fontSize: '11px',
                                 fontWeight: 800,
                                 background: 'rgba(16, 185, 129, 0.15)',
                                 color: '#10B981',
-                                border: '1px solid rgba(16, 185, 129, 0.3)'
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                boxSizing: 'border-box'
                               }}>
                                 0% Hoa hồng
                               </span>
@@ -783,28 +802,42 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                           )}
                         </td>
 
-                        <td style={{ padding: '14px 16px', textAlign: 'right', verticalAlign: 'middle' }}>
+                        <td style={{ padding: '14px 14px', textAlign: 'center', verticalAlign: 'middle' }}>
                           {nom.grossPrize && nom.grossPrize > 0 ? (
-                            <div>
-                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                            <div style={{
+                              display: 'inline-flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              background: 'rgba(0, 0, 0, 0.25)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              borderRadius: '6px',
+                              padding: '6px 12px',
+                              minWidth: '150px',
+                              boxSizing: 'border-box'
+                            }}>
+                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', whiteSpace: 'nowrap' }}>
                                 <b style={{ color: 'var(--brass)' }}>{rankLabel}</b> · Tổng: <b style={{ color: 'var(--paper)', fontVariantNumeric: 'tabular-nums' }}>{formatVND(nom.grossPrize)}</b>
                               </div>
-                              <div style={{ fontSize: '11px', color: nom.commissionAmount > 0 ? '#EF4444' : 'var(--paper-dim)', fontVariantNumeric: 'tabular-nums', marginTop: '1px' }}>
+                              <div style={{ fontSize: '10.5px', color: nom.commissionAmount > 0 ? '#EF4444' : 'var(--paper-dim)', fontVariantNumeric: 'tabular-nums', marginTop: '1px' }}>
                                 - Hoa hồng: {formatVND(nom.commissionAmount || 0)}
                               </div>
-                              <div style={{ fontSize: '13px', fontWeight: 800, color: '#10B981', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                              <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#10B981', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
                                 Thực trả: +{formatVND(nom.netPayout || nom.grossPrize)}
                               </div>
                             </div>
                           ) : (
                             <span style={{
-                              display: 'inline-block',
-                              padding: '3px 8px',
-                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '5px 12px',
+                              borderRadius: '5px',
                               fontSize: '11px',
-                              background: 'rgba(255, 255, 255, 0.04)',
+                              fontWeight: 600,
+                              background: 'rgba(245, 158, 11, 0.08)',
                               color: getTournamentTimeStatus(nom.date).isUpcoming ? '#F59E0B' : 'var(--paper-dim)',
-                              border: '1px solid var(--line)'
+                              border: '1px solid rgba(245, 158, 11, 0.25)',
+                              whiteSpace: 'nowrap'
                             }}>
                               {getTournamentTimeStatus(nom.date).isUpcoming ? `⏳ Sắp thi đấu (${nom.date})` : 'Chưa thi đấu / Chờ kết quả'}
                             </span>
@@ -813,19 +846,22 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
 
                         <td style={{ padding: '14px 18px', textAlign: 'center', verticalAlign: 'middle' }}>
                           {isExternal ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                               <span style={{
+                                width: '154px',
+                                height: '26px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 gap: '4px',
-                                padding: '4px 10px',
-                                borderRadius: '6px',
+                                borderRadius: '5px',
                                 fontSize: '11px',
                                 fontWeight: 700,
                                 background: 'rgba(16, 185, 129, 0.1)',
                                 color: '#10B981',
                                 border: '1px solid rgba(16, 185, 129, 0.25)',
-                                whiteSpace: 'nowrap'
+                                whiteSpace: 'nowrap',
+                                boxSizing: 'border-box'
                               }}>
                                 <span>🌐</span>
                                 <span>Chủ Ngựa Tự Cập Nhật</span>
@@ -835,60 +871,71 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                               </span>
                             </div>
                           ) : (nom.status === 'PENDING' || nom.status === 'PENDING_APPROVAL' || (!nom.feeApproved && nom.status !== 'REJECTED')) ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                              <div style={{ fontSize: '11px', color: '#F59E0B', fontWeight: 700 }}>
+                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                              <div style={{ fontSize: '10.5px', color: '#F59E0B', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                 {nom.paymentMethod === 'BANK' ? '💳 CK VietQR (5.000.000 ₫)' : '🏦 Quỹ hệ thống (5.000.000 ₫)'}
                               </div>
-                              <div style={{ display: 'inline-flex', gap: '6px' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleApproveNomination(nom.id)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    background: '#10B981',
-                                    color: '#0A0D14',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '11.5px',
-                                    fontWeight: 800,
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)'
-                                  }}
-                                  title="Xác nhận số tiền đã nộp 5.000.000 ₫ và duyệt cấp PDF thi đấu"
-                                >
-                                  ✓ Duyệt Thu Phí & Cấp PDF
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setRejectModalData({ isOpen: true, nomination: nom, reason: '' })}
-                                  style={{
-                                    padding: '6px 10px',
-                                    background: 'rgba(239, 68, 68, 0.12)',
-                                    color: '#EF4444',
-                                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                                    borderRadius: '6px',
-                                    fontSize: '11.5px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  Từ Chối
-                                </button>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleApproveNomination(nom.id)}
+                                style={{
+                                  width: '154px',
+                                  height: '28px',
+                                  background: '#10B981',
+                                  color: '#0A0D14',
+                                  border: 'none',
+                                  borderRadius: '5px',
+                                  fontSize: '11.5px',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  boxSizing: 'border-box'
+                                }}
+                                title="Xác nhận số tiền đã nộp 5.000.000 ₫ và duyệt cấp PDF thi đấu"
+                              >
+                                ✓ Duyệt Thu Phí & Cấp PDF
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRejectModalData({ isOpen: true, nomination: nom, reason: '' })}
+                                style={{
+                                  width: '154px',
+                                  height: '24px',
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  color: '#EF4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  borderRadius: '5px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  boxSizing: 'border-box'
+                                }}
+                              >
+                                Từ Chối
+                              </button>
                             </div>
                           ) : (nom.status === 'APPROVED' || nom.status === 'CONFIRMED' || nom.feeApproved) ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
                               <span style={{
+                                width: '154px',
+                                height: '24px',
                                 display: 'inline-flex',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 gap: '3px',
-                                padding: '2px 8px',
                                 borderRadius: '4px',
                                 fontSize: '10.5px',
                                 fontWeight: 700,
                                 background: 'rgba(16, 185, 129, 0.12)',
                                 color: '#10B981',
-                                border: '1px solid rgba(16, 185, 129, 0.3)'
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                boxSizing: 'border-box'
                               }}>
                                 {nom.grossPrize ? '✓ Đã Quyết Toán' : '✓ Sẵn Sàng Thi Đấu'}
                               </span>
@@ -907,7 +954,8 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                                   });
                                 }}
                                 style={{
-                                  padding: '4px 10px',
+                                  width: '154px',
+                                  height: '28px',
                                   background: 'rgba(212, 175, 55, 0.12)',
                                   border: '1px solid var(--brass)',
                                   color: 'var(--brass)',
@@ -917,7 +965,9 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                                   cursor: 'pointer',
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '4px'
+                                  justifyContent: 'center',
+                                  gap: '4px',
+                                  boxSizing: 'border-box'
                                 }}
                               >
                                 <span>✏️</span>
@@ -926,16 +976,20 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                             </div>
                           ) : nom.status === 'REJECTED' ? (
                             <span style={{
-                              display: 'inline-block',
-                              padding: '3px 8px',
-                              borderRadius: '4px',
+                              width: '154px',
+                              height: '28px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderRadius: '5px',
                               background: 'rgba(239, 68, 68, 0.12)',
                               color: '#EF4444',
                               border: '1px solid rgba(239, 68, 68, 0.3)',
                               fontSize: '11px',
-                              fontWeight: 700
+                              fontWeight: 700,
+                              boxSizing: 'border-box'
                             }} title={nom.rejectionReason || ''}>
-                              Đã Từ Chối
+                              ✕ Đã Từ Chối
                             </span>
                           ) : null}
                         </td>

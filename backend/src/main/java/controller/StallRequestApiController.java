@@ -41,23 +41,6 @@ public class StallRequestApiController extends HttpServlet {
     private final Gson gson = new Gson();
 
     static {
-        // Dữ liệu mẫu khởi tạo cho yêu cầu chuồng trại
-        Map<String, Object> seed1 = new HashMap<>();
-        seed1.put("id", 1);
-        seed1.put("time", "07:13 Hôm nay");
-        seed1.put("owner", "Hồ Minh Hiếu");
-        seed1.put("ownerUsername", "hominhieu27072005");
-        seed1.put("horse", "Chiến mã Nhi Khùng");
-        seed1.put("horseBreed", "Quarter Horse");
-        seed1.put("horseAvatar", "/images/horse_simulation_card.jpg");
-        seed1.put("type", "ĐỔI Ô CHUỒNG");
-        seed1.put("targetStall", "Ô B1");
-        seed1.put("currentStall", "Ô A2");
-        seed1.put("reason", "Mong muốn chuyển gần chuồng tiện chăm sóc theo dõi");
-        seed1.put("status", "APPROVED");
-        seed1.put("approvedBy", "Admin Quản Trị");
-        seed1.put("createdAt", System.currentTimeMillis() - 3600000L);
-        memoryRequests.add(seed1);
     }
 
     @Override

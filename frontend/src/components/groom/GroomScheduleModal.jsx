@@ -85,7 +85,8 @@ export default function GroomScheduleModal({
       status: 'PENDING',
       groom: currentGroom.name,
       groomId: currentGroom.id,
-      createdBy: 'Lê Hoàng Nam (Chủ nhóm Groom)'
+      createdBy: 'Lê Hoàng Nam (Chủ nhóm Groom)',
+      templateId: selectedTemplateId
     };
 
     if (onAddTask) {

@@ -12,7 +12,8 @@ import {
   getHorsesApi,
   getSystemTournamentNominationsApi,
   trainerReviewNominationApi,
-  trainerAssignHorseNominationApi
+  trainerAssignHorseNominationApi,
+  isTestOrMockHorse
 } from '../services/api';
 import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo, FIXED_TRAINERS_LIST } from '../services/serviceAssignment';
 import NotificationBell from '../components/NotificationBell';
@@ -599,7 +600,15 @@ export default function TrainerPage() {
   useEffect(() => {
     const fetchNominations = () => {
       getSystemTournamentNominationsApi().then(data => {
-        if (Array.isArray(data)) setNominations(data);
+        if (Array.isArray(data)) {
+          const clean = data.filter(n => {
+            if (!n) return false;
+            if (n.horseName && isTestOrMockHorse(n.horseName)) return false;
+            if (n.assignedHorseName && isTestOrMockHorse(n.assignedHorseName)) return false;
+            return true;
+          });
+          setNominations(clean);
+        }
       });
     };
     fetchNominations();
@@ -1103,7 +1112,8 @@ export default function TrainerPage() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          const clean = parsed.filter(h => h && h.name && !isTestOrMockHorse(h.name));
+          if (clean.length > 0) return clean;
         }
       }
     } catch {}

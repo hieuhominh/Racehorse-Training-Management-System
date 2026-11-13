@@ -27,7 +27,12 @@ import {
   rejectStallRequestApi,
   getActiveStallMaintenances,
   saveActiveStallMaintenances,
-  checkAndExpireStallMaintenances
+  checkAndExpireStallMaintenances,
+  isTestOrMockHorse,
+  getSupplyRequestsApi,
+  approveSupplyRequestApi,
+  checkAndSyncSupplyRequests,
+  deduplicateSupplyRequests
 } from '../services/api';
 import {
   getPersonnelReports,
@@ -476,6 +481,17 @@ export default function AdminPage() {
   const [rejectReasonInput, setRejectReasonInput] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
 
+  // Quản lý Yêu cầu cấp phát thêm vật tư & lương thực từ Groom
+  const [supplyRequests, setSupplyRequests] = useState(() => {
+    try {
+      const raw = localStorage.getItem('matruong_supply_requests');
+      if (raw) return deduplicateSupplyRequests(JSON.parse(raw));
+    } catch {}
+    return [];
+  });
+  const [supplyReqFilter, setSupplyReqFilter] = useState('ALL');
+  const [adminNow, setAdminNow] = useState(Date.now());
+
   // Modal xem chi tiết chiến mã
   const [viewingHorseDetail, setViewingHorseDetail] = useState(null);
 
@@ -571,9 +587,7 @@ export default function AdminPage() {
     };
 
     const loadHorses = () => {
-      const MOCK_NAMES = ['Xích Thố', 'Bạch Long', 'Hắc Phong', 'Kim Mã', 'Phi Yến', 'Thần Mã', 'Phi Vũ', 'Kim Kê', 'Thanh Vân', 'Lôi Chấn', 'Hồng Sa', 'Thiên Lý', 'Bảo Mã'];
-      
-      // Quét tất cả chiến mã thực tế từ các chủ sở hữu đã đăng ký
+      // Quét tất cả chiến mã thực tế từ các chủ sở hữu đã đăng ký (lọc bỏ ngựa mock và ngựa test)
       const ownerHorses = [];
       try {
         if (typeof localStorage !== 'undefined') {
@@ -586,7 +600,7 @@ export default function AdminPage() {
                 if (Array.isArray(list)) {
                   let updatedKeyList = false;
                   list.forEach(h => {
-                    if (h && !MOCK_NAMES.includes(h.name) && !ownerHorses.some(ex => ex.id === h.id || (ex.microchip && ex.microchip === h.microchip))) {
+                    if (h && h.name && !isTestOrMockHorse(h.name) && !ownerHorses.some(ex => ex.id === h.id || (ex.microchip && ex.microchip === h.microchip))) {
                       const properOwner = resolveOwnerName(h);
                       if (!h.ownerName || h.ownerName === 'Chủ sở hữu' || !h.owner || h.owner === 'Chủ sở hữu') {
                         h.ownerName = properOwner;
@@ -617,7 +631,7 @@ export default function AdminPage() {
       getHorsesApi().then(res => {
         if (isMounted) {
           const apiList = (res && Array.isArray(res.data)) ? res.data : [];
-          const cleanApi = apiList.filter(h => h && !MOCK_NAMES.includes(h.name));
+          const cleanApi = apiList.filter(h => h && h.name && !isTestOrMockHorse(h.name));
           const combined = [...ownerHorses];
           cleanApi.forEach(h => {
             if (!combined.some(ex => ex.id === h.id || (ex.chipId && ex.chipId === h.chipId) || (ex.microchip && ex.microchip === h.microchip))) {
@@ -639,9 +653,7 @@ export default function AdminPage() {
     };
 
     const loadStables = () => {
-      const MOCK_HORSE_NAMES = ['xích thố', 'bạch long', 'hắc phong', 'kim mã', 'phi yến', 'thần mã', 'phi vũ', 'kim kê', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã'];
-
-      // Quét tất cả chiến mã thực tế từ các chủ sở hữu đã đăng ký (đồng thời xóa sạch ngựa mock)
+      // Quét tất cả chiến mã thực tế từ các chủ sở hữu đã đăng ký (đồng thời xóa sạch ngựa mock và ngựa test)
       const assignedHorsesMap = {};
       try {
         if (typeof localStorage !== 'undefined') {
@@ -653,7 +665,7 @@ export default function AdminPage() {
                 const list = JSON.parse(raw);
                 if (Array.isArray(list)) {
                   // Xóa sạch ngựa mock không có chủ hoặc dữ liệu mẫu bên chủ sở hữu
-                  const cleanList = list.filter(h => h && h.name && !MOCK_HORSE_NAMES.includes(h.name.trim().toLowerCase()));
+                  const cleanList = list.filter(h => h && h.name && !isTestOrMockHorse(h.name));
                   if (cleanList.length !== list.length) {
                     localStorage.setItem(k, JSON.stringify(cleanList));
                   }
@@ -677,9 +689,9 @@ export default function AdminPage() {
         if (isMounted && res && Array.isArray(res.data)) {
           setStables(res.data.map(s => {
             const assignedHorse = assignedHorsesMap[s.stall_code];
-            const isAssignedValid = assignedHorse && assignedHorse.name && !MOCK_HORSE_NAMES.includes(assignedHorse.name.trim().toLowerCase());
+            const isAssignedValid = assignedHorse && assignedHorse.name && !isTestOrMockHorse(assignedHorse.name);
             const horseNameLower = (s.horse || '').trim().toLowerCase();
-            const isStallMock = MOCK_HORSE_NAMES.includes(horseNameLower);
+            const isStallMock = isTestOrMockHorse(horseNameLower);
 
             const hasResident = isAssignedValid || (!isStallMock && s.horse && s.horse !== '(Trống)' && s.status === 'OCCUPIED');
 
@@ -791,9 +803,17 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    const handleSupplyRequestsUpdated = () => {
+      setSupplyRequests(deduplicateSupplyRequests(checkAndSyncSupplyRequests()));
+    };
+    window.addEventListener('matruong_supply_requests_updated', handleSupplyRequestsUpdated);
+    window.addEventListener('storage', handleSupplyRequestsUpdated);
+
     const timer = setInterval(() => {
       const now = Date.now();
       setCurrentClock(now);
+      setAdminNow(now);
+      setSupplyRequests(deduplicateSupplyRequests(checkAndSyncSupplyRequests()));
 
       // Tự động kiểm tra và hoàn tất trả chuồng khi hết 30 phút bảo dưỡng
       const expired = checkAndExpireStallMaintenances();
@@ -821,7 +841,11 @@ export default function AdminPage() {
       }
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('matruong_supply_requests_updated', handleSupplyRequestsUpdated);
+      window.removeEventListener('storage', handleSupplyRequestsUpdated);
+    };
   }, [lang]);
 
   // Lắng nghe thông báo khi Chủ sở hữu xóa chiến mã
@@ -2449,6 +2473,28 @@ export default function AdminPage() {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
+  // Admin duyệt cấp phát thêm vật tư cho bên Groom (bắt đầu đếm ngược 5 phút sẽ đầy)
+  const handleApproveSupplyRequest = async (req) => {
+    const adminName = currentUser?.full_name || 'Admin Quản Trị';
+    await approveSupplyRequestApi(req.id, adminName);
+    try {
+      addSystemNotification({
+        type: 'SUPPLY_APPROVED',
+        title: `ADMIN ĐÃ DUYỆT CẤP PHÁT: ${req.supplyName.toUpperCase()}`,
+        message: `Quản trị viên (${adminName}) đã duyệt cấp phát thêm cho Groom. Hệ thống đang tiến hành điều phối xuất kho và sẽ nạp đầy 100% kho chuồng trại sau 5 phút.`,
+        recipientRoles: ['GROOM'],
+        supplyId: req.supplyId,
+        supplyName: req.supplyName
+      });
+    } catch {}
+    setSupplyRequests(deduplicateSupplyRequests(checkAndSyncSupplyRequests()));
+    if (showToast) {
+      showToast(`Đã duyệt cấp phát thêm "${req.supplyName}" cho bên Groom! Bắt đầu tính thời gian 5 phút để nạp đầy kho.`, 'ĐÃ DUYỆT CẤP PHÁT', 'success');
+    }
+  };
+
+  const cleanSupplyRequests = deduplicateSupplyRequests(supplyRequests);
+
   return (
     <div className="portal-layout">
       {/* Mobile drawer backdrop */}
@@ -2493,7 +2539,13 @@ export default function AdminPage() {
           >
             <span className="portal-nav-icon"><IconStable /></span>
             <span className="portal-nav-label">{t('adminTabStables')}</span>
-            <span className="portal-nav-badge">{stables.filter(s => s.status === 'AVAILABLE').length} {lang === 'en' ? 'free' : 'trống'}</span>
+            {cleanSupplyRequests.filter(r => r.status === 'PENDING_ADMIN').length > 0 ? (
+              <span className="portal-nav-badge" style={{ background: '#EF4444', color: '#fff', fontWeight: 800 }}>
+                {cleanSupplyRequests.filter(r => r.status === 'PENDING_ADMIN').length} vật tư mới
+              </span>
+            ) : (
+              <span className="portal-nav-badge">{stables.filter(s => s.status === 'AVAILABLE').length} {lang === 'en' ? 'free' : 'trống'}</span>
+            )}
           </button>
 
           <button
@@ -3314,6 +3366,294 @@ export default function AdminPage() {
                                   ) : (
                                     <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
                                       {req.approvedBy || req.rejectedBy || 'Đã xử lý'}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* ========================================================================= */}
+              {/* KHỐI QUẢN LÝ: YÊU CẦU CẤP PHÁT THÊM QUẢN LÝ VẬT TƯ & LƯƠNG THỰC (GROOM) */}
+              {/* ========================================================================= */}
+              <div style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--line-strong)',
+                borderRadius: '10px',
+                padding: '18px 20px',
+                marginBottom: '20px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700, color: 'var(--brass)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Yêu Cầu Cấp Phát Thêm Quản Lý Vật Tư & Lương Thực (Groom)
+                      </h3>
+                      {cleanSupplyRequests.filter(r => r.status === 'PENDING_ADMIN').length > 0 && (
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          background: '#EF4444',
+                          color: '#FFFFFF',
+                          fontSize: '11px',
+                          fontWeight: 800
+                        }}>
+                          {cleanSupplyRequests.filter(r => r.status === 'PENDING_ADMIN').length} Cần Duyệt
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '3px' }}>
+                      Tiếp nhận yêu cầu từ nhân viên Groom khi vật tư/lương thực dưới 15%. Khi Admin phê duyệt, hệ thống sẽ bắt đầu tính thời gian 5 phút để cấp phát và nạp đầy 100%.
+                    </div>
+                  </div>
+
+                  {/* Pills lọc trạng thái yêu cầu vật tư */}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSupplyReqFilter('ALL')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        border: '1px solid var(--line)',
+                        background: supplyReqFilter === 'ALL' ? 'var(--brass)' : 'var(--bg-secondary)',
+                        color: supplyReqFilter === 'ALL' ? '#0A0D14' : 'var(--paper)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Tất cả ({cleanSupplyRequests.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSupplyReqFilter('PENDING')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        border: `1px solid ${cleanSupplyRequests.filter(r => r.status === 'PENDING_ADMIN').length > 0 ? '#F59E0B' : 'var(--line)'}`,
+                        background: supplyReqFilter === 'PENDING' ? '#F59E0B' : 'rgba(245, 158, 11, 0.1)',
+                        color: supplyReqFilter === 'PENDING' ? '#14100A' : '#F59E0B',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Chờ duyệt ({cleanSupplyRequests.filter(r => r.status === 'PENDING_ADMIN').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSupplyReqFilter('APPROVED')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        border: '1px solid var(--line)',
+                        background: supplyReqFilter === 'APPROVED' ? '#3B82F6' : 'rgba(59, 130, 246, 0.1)',
+                        color: supplyReqFilter === 'APPROVED' ? '#FFFFFF' : '#60A5FA',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Đang cấp phát ({cleanSupplyRequests.filter(r => r.status === 'APPROVED').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSupplyReqFilter('COMPLETED')}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        border: '1px solid var(--line)',
+                        background: supplyReqFilter === 'COMPLETED' ? '#10B981' : 'rgba(16, 185, 129, 0.1)',
+                        color: supplyReqFilter === 'COMPLETED' ? '#FFFFFF' : '#10B981',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Đã nạp đầy ({cleanSupplyRequests.filter(r => r.status === 'COMPLETED').length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Danh sách yêu cầu cấp phát vật tư */}
+                {(() => {
+                  const filteredSupplyReqs = cleanSupplyRequests.filter(r => {
+                    if (supplyReqFilter === 'PENDING') return r.status === 'PENDING_ADMIN';
+                    if (supplyReqFilter === 'APPROVED') return r.status === 'APPROVED';
+                    if (supplyReqFilter === 'COMPLETED') return r.status === 'COMPLETED';
+                    return true;
+                  });
+
+                  if (filteredSupplyReqs.length === 0) {
+                    return (
+                      <div style={{
+                        padding: '20px',
+                        textAlign: 'center',
+                        color: 'var(--paper-dim)',
+                        fontSize: '13px',
+                        background: 'var(--bg-secondary)',
+                        borderRadius: '6px',
+                        border: '1px dashed var(--line)'
+                      }}>
+                        Hiện chưa có yêu cầu cấp phát vật tư nào trong danh mục này.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="table-responsive custom-scrollbar" style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)' }}>
+                            <th style={{ padding: '10px 14px', width: '110px' }}>Mã & Giờ</th>
+                            <th style={{ padding: '10px 14px' }}>Vật tư yêu cầu</th>
+                            <th style={{ padding: '10px 14px', width: '170px' }}>Nhân sự Groom</th>
+                            <th style={{ padding: '10px 14px', width: '130px' }}>Tồn kho báo cáo</th>
+                            <th style={{ padding: '10px 14px', width: '190px' }}>Trạng thái & Tiến độ</th>
+                            <th style={{ padding: '10px 14px', width: '180px', textAlign: 'center' }}>Thao tác Admin</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredSupplyReqs.map(req => {
+                            const isPending = req.status === 'PENDING_ADMIN';
+                            const isApproved = req.status === 'APPROVED';
+                            const isCompleted = req.status === 'COMPLETED';
+
+                            let remainingMs = 0;
+                            let countdownStr = '';
+                            let progressRatio = 0;
+
+                            if (isApproved && req.approvedAt) {
+                              const elapsed = adminNow - req.approvedAt;
+                              const duration = req.durationMs || (5 * 60 * 1000);
+                              remainingMs = Math.max(0, duration - elapsed);
+                              const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
+                              const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+                              const s = (totalSec % 60).toString().padStart(2, '0');
+                              countdownStr = `${m}:${s}`;
+                              progressRatio = Math.min(1, Math.max(0, elapsed / duration));
+                            }
+
+                            const currentPercent = req.percent || 12;
+                            const dynamicPercent = isApproved
+                              ? Math.min(100, Math.round(currentPercent + (100 - currentPercent) * progressRatio))
+                              : (isCompleted ? 100 : currentPercent);
+
+                            return (
+                              <tr key={req.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                                <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: '12px', color: 'var(--brass)' }}>
+                                  <b>{req.id}</b>
+                                  <div style={{ fontSize: '10.5px', color: 'var(--paper-dim)' }}>{req.requestedAt}</div>
+                                </td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13.5px' }}>{req.supplyName}</div>
+                                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                    Danh mục: <span style={{ color: 'var(--brass)' }}>{req.category === 'FEED' ? 'Thức ăn & Cỏ' : req.category === 'BEDDING' ? 'Đệm lót rơm / mùn cưa' : req.category === 'MEDICAL' ? 'Y tế & Chăm sóc' : 'Dụng cụ'}</span>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  <div style={{ fontWeight: 600, color: 'var(--paper)' }}>{req.requestedBy || 'Lê Hoàng Nam (Groom)'}</div>
+                                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>Đội chăm sóc chuồng trại</div>
+                                </td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  <span style={{
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    background: dynamicPercent < 15 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                    color: dynamicPercent < 15 ? '#EF4444' : '#10B981',
+                                    border: `1px solid ${dynamicPercent < 15 ? '#EF4444' : '#10B981'}`
+                                  }}>
+                                    {req.qty} ({dynamicPercent}%)
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 14px' }}>
+                                  {isPending && (
+                                    <span style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '4px',
+                                      fontSize: '11px',
+                                      fontWeight: 800,
+                                      background: 'rgba(245, 158, 11, 0.15)',
+                                      color: '#F59E0B',
+                                      border: '1px solid #F59E0B'
+                                    }}>
+                                      ⏳ Chờ Admin Duyệt
+                                    </span>
+                                  )}
+                                  {isApproved && (
+                                    <div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px', color: '#60A5FA', fontWeight: 700 }}>
+                                        <span>Đang cấp phát:</span>
+                                        <span>{countdownStr} (sẽ đầy)</span>
+                                      </div>
+                                      <div style={{ width: '130px', height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{
+                                          width: `${dynamicPercent}%`,
+                                          height: '100%',
+                                          background: 'linear-gradient(90deg, #3B82F6 0%, #10B981 100%)',
+                                          borderRadius: '3px',
+                                          transition: 'width 0.5s ease'
+                                        }} />
+                                      </div>
+                                    </div>
+                                  )}
+                                  {isCompleted && (
+                                    <span style={{
+                                      padding: '4px 10px',
+                                      borderRadius: '4px',
+                                      fontSize: '11px',
+                                      fontWeight: 800,
+                                      background: 'rgba(16, 185, 129, 0.15)',
+                                      color: '#10B981',
+                                      border: '1px solid #10B981'
+                                    }}>
+                                      ✓ Đã nạp đầy kho (100%)
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                  {isPending ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveSupplyRequest(req)}
+                                      style={{
+                                        padding: '7px 14px',
+                                        borderRadius: '5px',
+                                        fontSize: '11.5px',
+                                        fontWeight: 800,
+                                        background: '#10B981',
+                                        color: '#FFFFFF',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)',
+                                        transition: 'all 0.15s ease',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                      title="Phê duyệt yêu cầu cấp phát. Bắt đầu tính thời gian 5 phút để nạp đầy kho!"
+                                    >
+                                      ✓ Duyệt Cấp Phát (5p)
+                                    </button>
+                                  ) : isApproved ? (
+                                    <span style={{ fontSize: '12px', color: '#60A5FA', fontWeight: 700 }}>
+                                      Đang cấp phát ({countdownStr})
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '12px', color: '#10B981', fontWeight: 600 }}>
+                                      Hoàn tất xuất kho
                                     </span>
                                   )}
                                 </td>

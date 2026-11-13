@@ -4,6 +4,11 @@ export default function GroomIncidentsTab({ incidents = [], onOpenReportModal })
   const [filterSeverity, setFilterSeverity] = useState('ALL'); // 'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
   const filtered = incidents.filter(i => {
+    const name = (i.horseName || i.horse || '').toLowerCase();
+    const title = (i.title || i.symptoms || '').toLowerCase();
+    const desc = (i.desc || i.description || '').toLowerCase();
+    if (name.includes('vui vẻ') || title.includes('vui vẻ') || desc.includes('vui vẻ')) return false;
+    if (i.stall === 'Ô C2' && (name === '' || name.includes('vui vẻ'))) return false;
     if (filterSeverity !== 'ALL' && i.severity !== filterSeverity) return false;
     return true;
   });

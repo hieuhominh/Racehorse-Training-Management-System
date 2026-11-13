@@ -1,28 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function GroomReportsTab({ reports = [], onSubmitDailyReport }) {
-  const [reportList, setReportList] = useState([
-    {
-      id: 'REP-2026-11-12-SANG',
-      date: '12/11/2026',
-      shift: 'Ca Sáng (05:00 - 13:00)',
-      author: 'Lê Hoàng Nam (Groom Block A)',
-      completedTasksCount: '15/24 nhiệm vụ',
-      horsesStatusSummary: 'Các chiến mã trong chuồng duy trì thể trạng tốt, ăn hết khẩu phần và hoàn thành lịch vận động.',
-      suppliesConsumed: '24kg Cỏ Alfalfa, 8kg Yến mạch, 2 bao mùn cưa, bổ sung khoáng chất.',
-      handoverNotes: 'Ca chiều 13:00 lưu ý đón ngựa sau buổi tập để hạ nhiệt xịt lạnh chân. Kiểm tra lại mức phao nước tự động.'
-    },
-    {
-      id: 'REP-2026-11-11-TOI',
-      date: '11/11/2026',
-      shift: 'Ca Chiều - Tối (13:00 - 21:00)',
-      author: 'Vũ Tiến Dũng (Groom Block B)',
-      completedTasksCount: '22/22 nhiệm vụ',
-      horsesStatusSummary: 'Toàn bộ 6 chiến mã an toàn trong chuồng, chốt then an toàn lúc 20:30.',
-      suppliesConsumed: '20kg Cỏ khô, 6kg Cám đậm đặc, 1 chai xịt Blue Kote.',
-      handoverNotes: 'Đã bổ sung nước đầy máng tự động, không có tiếng động lạ trong đêm.'
-    }
-  ]);
+const STORAGE_KEY = 'matruong_groom_daily_reports';
+
+const DEFAULT_REPORTS = [
+  {
+    id: 'REP-2026-11-12-SANG',
+    date: '12/11/2026',
+    shift: 'Ca Sáng (05:00 - 13:00)',
+    author: 'Lê Hoàng Nam (Groom Block A)',
+    horsesStatusSummary: 'Các chiến mã trong chuồng duy trì thể trạng tốt, ăn hết khẩu phần và hoàn thành lịch vận động.',
+    suppliesConsumed: '24kg Cỏ Alfalfa, 8kg Yến mạch, 2 bao mùn cưa, bổ sung khoáng chất.',
+    handoverNotes: 'Ca chiều 13:00 lưu ý đón ngựa sau buổi tập để hạ nhiệt xịt lạnh chân. Kiểm tra lại mức phao nước tự động.'
+  },
+  {
+    id: 'REP-2026-11-11-TOI',
+    date: '11/11/2026',
+    shift: 'Ca Chiều - Tối (13:00 - 21:00)',
+    author: 'Vũ Tiến Dũng (Groom Block B)',
+    horsesStatusSummary: 'Toàn bộ 6 chiến mã an toàn trong chuồng, chốt then an toàn lúc 20:30.',
+    suppliesConsumed: '20kg Cỏ khô, 6kg Cám đậm đặc, 1 chai xịt Blue Kote.',
+    handoverNotes: 'Đã bổ sung nước đầy máng tự động, không có tiếng động lạ trong đêm.'
+  }
+];
+
+export default function GroomReportsTab({ reports = [], onSubmitDailyReport, currentUser, currentGroomUser }) {
+  const [reportList, setReportList] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_REPORTS;
+  });
 
   const [filterShift, setFilterShift] = useState('ALL');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -33,19 +44,59 @@ export default function GroomReportsTab({ reports = [], onSubmitDailyReport }) {
     handoverNotes: ''
   });
 
+  // Tự động lắng nghe và đồng bộ báo cáo từ LocalStorage thời gian thực
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setReportList(parsed);
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('matruong_groom_reports_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('matruong_groom_reports_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  const authorName = currentUser?.full_name 
+    ? `${currentUser.full_name} (Groom Block A)` 
+    : (currentGroomUser?.name ? `${currentGroomUser.name} (Groom)` : 'Lê Hoàng Nam (Groom Block A)');
+
   const handleCreateReport = (e) => {
     e.preventDefault();
+    const now = new Date();
+    const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
     const created = {
-      id: `REP-${Date.now()}`,
-      date: '12/11/2026',
+      id: `REP-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Date.now().toString().slice(-4)}`,
+      date: dateStr,
+      time: timeStr,
       shift: newReport.shift,
-      author: 'Lê Hoàng Nam (Groom Block A)',
-      completedTasksCount: '15/24 nhiệm vụ',
+      author: authorName,
       horsesStatusSummary: newReport.horsesStatusSummary || '6/6 chiến mã được chăm sóc theo quy chuẩn.',
       suppliesConsumed: newReport.suppliesConsumed || 'Tiêu hao thức ăn và vật tư đệm lót bình thường.',
       handoverNotes: newReport.handoverNotes || 'Bàn giao ca đầy đủ, không có sự cố ngoài ý muốn.'
     };
-    setReportList([created, ...reportList]);
+
+    const updated = [created, ...reportList];
+    setReportList(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('matruong_groom_reports_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
     setShowCreateModal(false);
     setNewReport({
       shift: 'Ca Sáng (05:00 - 13:00)',
@@ -154,18 +205,6 @@ export default function GroomReportsTab({ reports = [], onSubmitDailyReport }) {
                   Mã: {rep.id}
                 </span>
               </div>
-
-              <span style={{
-                padding: '3px 10px',
-                borderRadius: '4px',
-                background: 'rgba(16, 185, 129, 0.12)',
-                color: '#10B981',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                border: '1px solid rgba(16, 185, 129, 0.25)'
-              }}>
-                Tiến độ: {rep.completedTasksCount}
-              </span>
             </div>
 
             {/* Thân thẻ phân 3 cột cân đối, gọn gàng */}
@@ -346,8 +385,8 @@ export default function GroomReportsTab({ reports = [], onSubmitDailyReport }) {
                     justifyContent: 'space-between',
                     alignItems: 'center'
                   }}>
-                    <span style={{ color: 'var(--paper)', fontWeight: 600 }}>Lê Hoàng Nam</span>
-                    <span style={{ fontSize: '11px', color: 'var(--brass)' }}>Block A · Hôm nay</span>
+                    <span style={{ color: 'var(--paper)', fontWeight: 600 }}>{currentUser?.full_name || currentGroomUser?.name || 'Lê Hoàng Nam'}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--brass)' }}>Đội Groom · Hôm nay</span>
                   </div>
                 </div>
               </div>

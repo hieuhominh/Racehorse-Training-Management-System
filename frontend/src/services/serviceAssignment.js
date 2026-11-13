@@ -1,6 +1,6 @@
 // Quản lý việc Chủ sở hữu chỉ định Đội ngũ phục vụ (3 HLV, 3 BS Thú y, 3 Groom)
 // và Xác nhận phục vụ từ phía từng nhân sự chuyên trách
-import { saveServiceAssignmentApi, confirmServiceAssignmentApi as confirmApi } from './api';
+import { saveServiceAssignmentApi, confirmServiceAssignmentApi as confirmApi, isTestOrMockHorse } from './api';
 import {
   notifyTrainingRequested,
   notifyGroomAssignmentRequested,
@@ -89,35 +89,40 @@ export function getServiceAssignments() {
           item.ownerKey !== 'owner_thanh' &&
           item.ownerName !== 'Phạm Tiến Thành' &&
           item.ownerName !== 'Trần Đình Thanh' &&
-          !EXCLUDED_MOCK_NAMES.some(ex => (item.horseName || '').toLowerCase().includes(ex))
+          item.id !== 101 &&
+          !isTestOrMockHorse(item.horseName)
         );
-        if (valid.length > 0) return valid;
+        if (valid.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(valid));
+        }
+        return valid;
       }
     }
   } catch { }
 
-  // Tự động thu thập phân công từ kho ngựa của chủ sở hữu
+  // Tự động thu thập phân công từ kho ngựa thực tế của chủ sở hữu
   const collected = [];
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k && k.startsWith('matruong_owner_horses_')) {
+        if (k.includes('owner_thanh') || k.endsWith('_6') || k.endsWith('_11')) continue;
         const hRaw = localStorage.getItem(k);
         if (hRaw) {
           const horses = JSON.parse(hRaw);
           if (Array.isArray(horses)) {
             horses.forEach(h => {
-              if (h && h.name && !EXCLUDED_MOCK_NAMES.some(ex => (h.name || '').toLowerCase().includes(ex))) {
+              if (h && h.name && !isTestOrMockHorse(h.name)) {
                 const trObj = FIXED_TRAINERS_LIST.find(t => t.username === h.trainerUsername || t.name === h.trainer) || FIXED_TRAINERS_LIST[0];
                 const vtObj = FIXED_VETS_LIST.find(v => v.username === h.vetUsername || v.name === h.vet) || FIXED_VETS_LIST[0];
                 collected.push({
                   id: h.id || Date.now(),
                   horseName: h.name,
                   microchip: h.microchip || 'MC-VN-2026-092',
-                  ownerName: h.ownerName || h.owner || 'Hồ Minh Hiếu',
+                  ownerName: h.ownerName || h.owner || 'Chủ sở hữu',
                   ownerKey: k.replace('matruong_owner_horses_', ''),
                   stable: h.stable || h.stall || 'Ô A1',
-                  breed: h.breed || 'Quarter Horse',
+                  breed: h.breed || 'Thoroughbred thuần chủng',
                   trainerUsername: trObj.username,
                   trainerName: trObj.name,
                   trainerStatus: 'CONFIRMED',
@@ -137,35 +142,9 @@ export function getServiceAssignments() {
     }
   } catch {}
 
-  if (collected.length > 0) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(collected));
-    return collected;
-  }
-
-  // Fallback mặc định chuẩn 100% cho Huấn luyện viên
-  const fallbackList = [
-    {
-      id: 101,
-      horseName: 'Quarter Horse',
-      microchip: 'MC-VN-2026-092',
-      ownerName: 'Hồ Minh Hiếu',
-      ownerKey: 'owner_hieu',
-      stable: 'Ô A1',
-      breed: 'Quarter Horse',
-      trainerUsername: 'trainer_truong',
-      trainerName: 'Trần Văn Hùng',
-      trainerStatus: 'CONFIRMED',
-      trainerConfirmedAt: new Date().toLocaleDateString('vi-VN'),
-      vetUsername: 'vet_an',
-      vetName: 'BS. Nguyễn An',
-      vetStatus: 'CONFIRMED',
-      groomUsername: 'groom_team',
-      groomName: 'Bộ phận Chăm sóc (Groom)',
-      groomStatus: 'CONFIRMED'
-    }
-  ];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(fallbackList));
-  return fallbackList;
+  // Lưu trữ và trả về danh sách thực tế của Chủ sở hữu (không fallback tự cho bất kỳ ngựa nào)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(collected));
+  return collected;
 }
 
 export function saveServiceAssignments(list) {
@@ -388,19 +367,17 @@ export function rejectServiceAssignment(horseIdentifier, roleType, staffUsername
 }
 
 // Quét toàn bộ chiến mã của các chủ sở hữu trong hệ thống dành cho Groom
-// Groom là nơi phục vụ toàn bộ ngựa của các chủ sở hữu trong hệ thống, không cần chủ sở hữu chỉ định Groom riêng
+// Chỉ hiển thị những chiến mã do Chủ sở hữu thực sự gửi gắm, tuyệt đối không hiện chiến mã tự cho/mock
 export function getAllSystemHorsesForGroom() {
   const map = new Map();
-  const EXCLUDED_MOCK_NAMES = ['hắc phong', 'xích thố', 'phi yến', 'lôi chấn', 'bạch long'];
 
-  // 1. Quét từ service assignments
+  // 1. Quét từ service assignments của các chủ sở hữu
   try {
     const asgns = getServiceAssignments();
     if (Array.isArray(asgns)) {
       asgns.forEach((item, idx) => {
-        if (!item || !item.horseName) return;
+        if (!item || !item.horseName || isTestOrMockHorse(item.horseName) || item.id === 101) return;
         const key = (item.microchip || item.horseName).trim().toLowerCase();
-        if (EXCLUDED_MOCK_NAMES.some(ex => key.includes(ex))) return;
         const defaultStall = item.stable || `Ô A${(idx % 6) + 1}`;
         map.set(key, {
           id: item.id || item.microchip || key,
@@ -442,9 +419,8 @@ export function getAllSystemHorsesForGroom() {
             const list = JSON.parse(raw);
             if (Array.isArray(list)) {
               list.forEach((h, idx) => {
-                if (!h || !h.name) return;
+                if (!h || !h.name || isTestOrMockHorse(h.name) || h.id === 101) return;
                 const key = (h.microchip || h.name).trim().toLowerCase();
-                if (EXCLUDED_MOCK_NAMES.some(ex => key.includes(ex))) return;
 
                 const defaultStall = h.stall || h.stable || `Ô A${(idx % 6) + 1}`;
                 const existing = map.get(key);

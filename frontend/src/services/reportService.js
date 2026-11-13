@@ -5,7 +5,8 @@ import {
   getPersonnelReportsApi,
   createPersonnelReportApi,
   updateReportAdminReviewApi,
-  deletePersonnelReportApi
+  deletePersonnelReportApi,
+  isTestOrMockHorse
 } from './api';
 
 const STORAGE_KEY = 'matruong_personnel_reports';
@@ -72,7 +73,19 @@ export function getPersonnelReports() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        cached = parsed.filter(r => r && r.id !== 1730001001 && r.id !== 1730001002 && r.id !== 1730001003);
+        cached = parsed.filter(r => {
+          if (!r) return false;
+          if (r.id === 1730001001 || r.id === 1730001002 || r.id === 1730001003) return false;
+          if (r.id === 1794501480558 || String(r.id) === '1794501480558') return false;
+          if (r.id === 1793780109913 || String(r.id) === '1793780109913') return false;
+          if (r.horseName && isTestOrMockHorse(r.horseName)) return false;
+          const content = `${r.title || ''} ${r.content || ''}`.toLowerCase();
+          if (content.includes('huhhi') || content.includes('kljslkjf') || content.includes('hlv bùn ngủ') || content.includes('nhi khùng')) return false;
+          return true;
+        });
+        if (cached.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
+        }
       }
     }
   } catch {}
@@ -82,12 +95,19 @@ export function getPersonnelReports() {
     isSyncing = true;
     getPersonnelReportsApi().then(apiList => {
       isSyncing = false;
-      if (Array.isArray(apiList) && apiList.length > 0) {
+      if (Array.isArray(apiList)) {
+        const cleanApiList = apiList.filter(r => {
+          if (!r) return false;
+          if (r.id === 1794501480558 || String(r.id) === '1794501480558') return false;
+          if (r.id === 1793780109913 || String(r.id) === '1793780109913') return false;
+          if (r.horseName && isTestOrMockHorse(r.horseName)) return false;
+          return true;
+        });
         const rawLocal = localStorage.getItem(STORAGE_KEY);
         const localList = rawLocal ? JSON.parse(rawLocal) : [];
         // Gộp thông minh bảo toàn dữ liệu
         const mergedMap = new Map();
-        apiList.forEach(r => mergedMap.set(String(r.id), r));
+        cleanApiList.forEach(r => mergedMap.set(String(r.id), r));
         localList.forEach(r => {
           if (!mergedMap.has(String(r.id))) {
             mergedMap.set(String(r.id), r);

@@ -27,7 +27,24 @@ export default function GroomTasksTab({
     return 'TODAY';
   });
 
-  // Tính ngày thời gian thực (Real-time Date)
+  // Theo dõi ngày hiện tại theo thời gian thực (tự động cập nhật vào 00h00)
+  const [currentDateKey, setCurrentDateKey] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${n.getMonth() + 1}-${n.getDate()}`;
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const n = new Date();
+      const key = `${n.getFullYear()}-${n.getMonth() + 1}-${n.getDate()}`;
+      if (key !== currentDateKey) {
+        setCurrentDateKey(key);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [currentDateKey]);
+
+  // Tính ngày thời gian thực (Real-time Date) - Tự động cập nhật ngày mới lúc 00h00
   const realTimeDates = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -64,7 +81,7 @@ export default function GroomTasksTab({
         return formatDDMM(today);
       }
     };
-  }, []);
+  }, [currentDateKey]);
 
   const [filterShift, setFilterShift] = useState(() => {
     try {

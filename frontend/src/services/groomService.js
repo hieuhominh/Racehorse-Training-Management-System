@@ -488,4 +488,229 @@ export function generateRealtimeDailyTasks(confirmedHorses = []) {
   return tasks;
 }
 
+// =========================================================================
+// 5. TỰ ĐỘNG KHẤU TRỪ 2% VẬT TƯ & 2% SỐ LƯỢNG THỰC TẾ KHI PHÂN CA LÀM VIỆC
+// =========================================================================
+
+/**
+ * Tự động khấu trừ 2% tỷ lệ phần trăm và 2% số lượng thực tế của các vật tư/thực phẩm liên quan khi phân ca làm việc.
+ * @param {Array} currentInventory Danh sách vật tư hiện tại trong kho
+ * @param {Object} task Thông tin ca làm việc được phân công (templateId, type, title, desc)
+ * @returns {Object} { updatedInventory, deductedItems }
+ */
+export function deductSuppliesForGroomTask(currentInventory, task) {
+  if (!Array.isArray(currentInventory) || currentInventory.length === 0) {
+    return { updatedInventory: currentInventory || [], deductedItems: [] };
+  }
+
+  const titleLower = String(task?.title || '').toLowerCase();
+  const descLower = String(task?.desc || '').toLowerCase();
+  const type = String(task?.type || '').toUpperCase();
+  const templateId = String(task?.templateId || '').toUpperCase();
+
+  // 1. Xác định tập các ID vật tư liên quan
+  const targetIds = new Set();
+
+  // Ánh xạ chuẩn từ 8 mẫu công việc thường quy chuồng trại
+  if (templateId === 'TPL_FEED_AM') {
+    // Cho ăn cỏ Alfalfa & phao nước -> Cỏ Alfalfa, Bột điện giải
+    targetIds.add('INV-01'); // Cỏ khô Alfalfa Mỹ loại 1
+    targetIds.add('INV-10'); // Bột điện giải chống mất nước Electrolytes
+  } else if (templateId === 'TPL_FEED_PM') {
+    // Cho ăn cỏ Alfalfa & yến mạch tối -> Cỏ Alfalfa, Yến mạch, Cám viên
+    targetIds.add('INV-01'); // Cỏ khô Alfalfa Mỹ loại 1
+    targetIds.add('INV-02'); // Yến mạch cán nguyên hạt (Rolled Oats)
+    targetIds.add('INV-11'); // Cám viên hỗn hợp dinh dưỡng (Pellets)
+  } else if (templateId === 'TPL_CLEAN_AM') {
+    // Vệ sinh chuồng & rắc vôi bột -> Mùn cưa, Rơm lúa mì
+    targetIds.add('INV-03'); // Mùn cưa thông sạch hút ẩm
+    targetIds.add('INV-04'); // Rơm lúa mì sấy khô cao cấp
+  } else if (templateId === 'TPL_GROOM_AM') {
+    // Chải lông Curry & nạo móng guốc -> Lược chải, Dao nạo móng
+    targetIds.add('INV-09'); // Lược chải cao su Curry Comb
+    targetIds.add('INV-08'); // Dao nạo sỏi kẽ móng guốc Hoof Pick
+  } else if (templateId === 'TPL_HEALTH_AM') {
+    // Đo thân nhiệt & nhịp thở lâm sàng
+    targetIds.add('INV-10'); // Bột điện giải chống mất nước
+  } else if (templateId === 'TPL_POST_TRAIN_PM') {
+    // Tắm mát, hạ nhiệt & xịt lạnh chân -> Ủng đá Cryo, Băng thun Polo
+    targetIds.add('INV-06'); // Ủng đá lạnh phục hồi Cryo Boots
+    targetIds.add('INV-05'); // Băng thun quấn chân gân Polo Wrap
+  } else if (templateId === 'TPL_VET_PM') {
+    // Uống thuốc & bôi gel theo y lệnh -> Thuốc xịt sát trùng móng Blue Kote, Băng thun
+    targetIds.add('INV-07'); // Thuốc xịt sát trùng móng Blue Kote
+    targetIds.add('INV-05'); // Băng thun quấn chân gân Polo Wrap
+  } else if (templateId === 'TPL_NIGHT_CHECK') {
+    // Tuần tra an toàn & khóa then đêm -> Mùn cưa bổ sung, Cỏ khô đêm
+    targetIds.add('INV-03'); // Mùn cưa thông sạch hút ẩm
+    targetIds.add('INV-01'); // Cỏ khô Alfalfa Mỹ
+  }
+
+  // Quét từ khóa trong title & desc để bổ sung nếu người dùng nhập tay tự do
+  const fullText = `${titleLower} ${descLower}`;
+  if (fullText.includes('alfalfa') || fullText.includes('cỏ khô') || fullText.includes('cỏ')) {
+    targetIds.add('INV-01');
+  }
+  if (fullText.includes('yến mạch') || fullText.includes('oats')) {
+    targetIds.add('INV-02');
+  }
+  if (fullText.includes('cám') || fullText.includes('pellet')) {
+    targetIds.add('INV-11');
+  }
+  if (fullText.includes('mùn cưa') || fullText.includes('vôi')) {
+    targetIds.add('INV-03');
+  }
+  if (fullText.includes('rơm')) {
+    targetIds.add('INV-04');
+  }
+  if (fullText.includes('băng thun') || fullText.includes('polo')) {
+    targetIds.add('INV-05');
+  }
+  if (fullText.includes('lạnh chân') || fullText.includes('ủng đá') || fullText.includes('cryo')) {
+    targetIds.add('INV-06');
+  }
+  if (fullText.includes('thuốc') || fullText.includes('sát trùng') || fullText.includes('blue kote')) {
+    targetIds.add('INV-07');
+  }
+  if (fullText.includes('móng') || fullText.includes('nạo') || fullText.includes('hoof')) {
+    targetIds.add('INV-08');
+  }
+  if (fullText.includes('chải lông') || fullText.includes('lược') || fullText.includes('curry')) {
+    targetIds.add('INV-09');
+  }
+  if (fullText.includes('điện giải') || fullText.includes('electrolytes') || fullText.includes('phao nước')) {
+    targetIds.add('INV-10');
+  }
+
+  // Nếu vẫn chưa khớp: fallback dựa vào nhóm loại công việc
+  if (targetIds.size === 0) {
+    if (type === 'FEEDING' || fullText.includes('ăn') || fullText.includes('thức ăn') || fullText.includes('thực phẩm')) {
+      targetIds.add('INV-01');
+      targetIds.add('INV-02');
+      targetIds.add('INV-11');
+    } else if (type === 'CLEANING') {
+      targetIds.add('INV-03');
+      targetIds.add('INV-04');
+    } else if (type === 'GROOMING') {
+      targetIds.add('INV-08');
+      targetIds.add('INV-09');
+    } else if (type === 'POST_TRAIN') {
+      targetIds.add('INV-05');
+      targetIds.add('INV-06');
+    } else if (type === 'VET_CARE') {
+      targetIds.add('INV-05');
+      targetIds.add('INV-07');
+    } else {
+      // Mặc định phân ca thì thực phẩm bên trong chuồng trại sẽ tiêu hao (-2%)
+      targetIds.add('INV-01');
+      targetIds.add('INV-02');
+    }
+  }
+
+  // 2. Tiến hành khấu trừ 2% tỷ lệ phần trăm và 2% số lượng thực tế
+  const deductedItems = [];
+  const updatedInventory = currentInventory.map(item => {
+    if (targetIds.has(item.id)) {
+      // Khấu trừ 2% phần trăm tồn kho
+      const oldPercent = typeof item.percent === 'number' ? item.percent : 50;
+      const newPercent = Math.max(0, oldPercent - 2);
+
+      // Khấu trừ 2% số lượng tồn kho thực tế (qty)
+      let newQty = item.qty;
+      const match = String(item.qty || '').match(/^([\d.,]+)\s*(.*)$/);
+      if (match) {
+        const rawNumStr = match[1].replace(',', '.');
+        const unitStr = match[2] || item.unit || '';
+        const currentNum = parseFloat(rawNumStr);
+        if (!isNaN(currentNum) && currentNum > 0) {
+          const deductedNum = currentNum * 0.98; // Giảm đúng 2% số lượng thực tế
+          let formattedNum;
+          if (currentNum <= 5) {
+            formattedNum = Math.max(0, Math.round(deductedNum * 100) / 100);
+          } else if (currentNum <= 50) {
+            formattedNum = Math.max(0, Math.round(deductedNum * 10) / 10);
+          } else {
+            const rounded1 = Math.round(deductedNum * 10) / 10;
+            formattedNum = Math.max(0, rounded1);
+          }
+          newQty = `${formattedNum} ${unitStr}`.trim();
+        }
+      }
+
+      // Đánh giá lại nhãn trạng thái cảnh báo dựa trên tỷ lệ mới
+      let status = item.status;
+      let statusLabel = item.statusLabel;
+      if (newPercent <= 15) {
+        status = 'CRITICAL';
+        statusLabel = `Dưới 15% (${newPercent}%) - Cần cấp phát`;
+      } else if (newPercent <= 30) {
+        status = 'LOW';
+        statusLabel = `Cần theo dõi (${newPercent}%)`;
+      } else {
+        status = 'GOOD';
+        statusLabel = `Đầy đủ (${newPercent}%)`;
+      }
+
+      const updatedItem = {
+        ...item,
+        percent: newPercent,
+        qty: newQty,
+        status,
+        statusLabel
+      };
+
+      deductedItems.push(updatedItem);
+      return updatedItem;
+    }
+    return item;
+  });
+
+  return { updatedInventory, deductedItems };
+}
+
+// =========================================================================
+// 6. TỰ ĐỘNG CHUYỂN CA & RESET TIẾN ĐỘ VỀ 0% VÀO LÚC 00H00 THEO THỜI GIAN THỰC
+// =========================================================================
+
+export function getTodayDateString() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Chuyển đổi và làm mới danh sách công việc khi bước sang 00h00:
+ * - Các công việc của ngày cũ (TODAY) tự động chuyển sang YESTERDAY (biến mất khỏi danh sách Hôm Nay)
+ * - Các công việc đã lên lịch cho ngày mai (TOMORROW) chuyển thành TODAY với trạng thái PENDING
+ * - Tiến độ hoàn thành của tất cả nhân viên tự động reset về 0%
+ */
+export function rollOverTasksAtMidnight(taskList, currentTodayStr) {
+  if (!Array.isArray(taskList)) return [];
+  const todayStr = currentTodayStr || getTodayDateString();
+
+  return taskList.map(t => {
+    const key = t.dateKey || 'TODAY';
+    if (key === 'TODAY') {
+      // Công việc hôm nay của ngày cũ -> chuyển thành YESTERDAY, biến mất khỏi mục Hôm Nay & reset tiến độ
+      return {
+        ...t,
+        dateKey: 'YESTERDAY'
+      };
+    }
+    if (key === 'TOMORROW') {
+      // Công việc ngày mai -> chuyển thành TODAY cho ngày mới, trạng thái PENDING (tiến độ 0%)
+      return {
+        ...t,
+        dateKey: 'TODAY',
+        taskDate: todayStr,
+        status: 'PENDING',
+        completedAt: null
+      };
+    }
+    return t;
+  });
+}
+
 export { STORAGE_KEYS };

@@ -47,7 +47,16 @@ export default function GroomDashboardTab({
   const overdueTasks = dateSpecificTasks.filter(t => t.status === 'OVERDUE').length;
 
   const monitoringHorses = horses.filter(h => h.healthStatus === 'MONITORING' || h.healthStatus === 'INJURED' || h.healthStatus === 'ISOLATED').length;
-  const criticalAlerts = alerts.filter(a => a.severity === 'CRITICAL' && a.status !== 'RESOLVED').length;
+  const safeAlerts = alerts.filter(a => {
+    const name = (a.horseName || a.horse || '').toLowerCase();
+    const title = (a.title || a.symptoms || '').toLowerCase();
+    const desc = (a.desc || a.description || '').toLowerCase();
+    if (name.includes('vui vẻ') || title.includes('vui vẻ') || desc.includes('vui vẻ')) return false;
+    if (a.stall === 'Ô C2' && (name === '' || name.includes('vui vẻ'))) return false;
+    return true;
+  });
+
+  const criticalAlerts = safeAlerts.filter(a => a.severity === 'CRITICAL' && a.status !== 'RESOLVED').length;
 
   const completionPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
@@ -225,13 +234,13 @@ export default function GroomDashboardTab({
                 cursor: 'pointer'
               }}
             >
-              Xem Tất Cả Sự Cố ({alerts.length})
+              Xem Tất Cả Sự Cố ({safeAlerts.length})
             </button>
           </div>
         </div>
 
         {/* Danh sách cảnh báo quan trọng hoặc Empty State */}
-        {alerts.length === 0 ? (
+        {safeAlerts.length === 0 ? (
           <div style={{
             padding: '28px 20px',
             textAlign: 'center',
@@ -253,7 +262,7 @@ export default function GroomDashboardTab({
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '12px' }}>
-            {alerts.slice(0, 6).map((alt) => {
+            {safeAlerts.slice(0, 6).map((alt) => {
               const isCritical = alt.severity === 'CRITICAL';
               return (
                 <div
