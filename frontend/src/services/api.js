@@ -23,14 +23,14 @@ const STORAGE_KEYS = {
 export const MOCK_AND_TEST_HORSE_NAMES = [
   'xích thố', 'bạch long', 'hắc phong', 'phi vũ', 'phi yến', 'kim kê',
   'kim mã', 'thần mã', 'thanh vân', 'lôi chấn', 'hồng sa', 'thiên lý', 'bảo mã',
-  'con tuất', 'hiu', 'chiến mã nhi khùng', 'vui vẻ', 'hihuhuhi', 'chờ hlv chỉ định ngựa',
+  'con tuất', 'hiu', 'chiến mã nhi khùng', 'vui vẻ', 'hihuhuhi',
   'nhi khùng', 'tuất'
 ];
 
 export const isTestOrMockHorse = (rawName) => {
   if (!rawName) return false;
   const n = String(rawName).trim().toLowerCase();
-  if (n === '(trống)' || n === 'vacant') return false;
+  if (n === '(trống)' || n === 'vacant' || n.includes('chờ hlv chỉ định') || n.includes('chưa chọn chiến mã')) return false;
   return MOCK_AND_TEST_HORSE_NAMES.some(m => n === m || n.includes(m));
 };
 
@@ -298,7 +298,7 @@ export function performComprehensiveTestCleanup() {
   performComprehensiveTestCleanup();
 })();
 
-function getLocalData(key, defaultVal) {
+export function getLocalData(key, defaultVal) {
   try {
     const saved = localStorage.getItem(key);
     if (saved) {
@@ -314,7 +314,7 @@ function getLocalData(key, defaultVal) {
   return defaultVal;
 }
 
-function setLocalData(key, val) {
+export function setLocalData(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
   } catch {
@@ -3419,7 +3419,7 @@ export async function getOwnerRacesApi(ownerKey) {
   return getLocalData(key, []);
 }
 
-const SYSTEM_NOMINATIONS_KEY = 'matruong_tournament_nominations_system';
+export const SYSTEM_NOMINATIONS_KEY = 'matruong_tournament_nominations_system';
 
 const DEFAULT_NOMINATIONS_SEED = [];
 
@@ -3445,6 +3445,50 @@ export async function getSystemTournamentNominationsApi() {
   }
 
   let rawData = getLocalData(SYSTEM_NOMINATIONS_KEY, []);
+  if (!Array.isArray(rawData)) rawData = [];
+
+  // Đồng bộ thêm từ matruong_system_race_nominations
+  const altSys = getLocalData('matruong_system_race_nominations', []);
+  if (Array.isArray(altSys)) {
+    altSys.forEach(item => {
+      if (item && item.id && !rawData.some(r => r && r.id === item.id)) {
+        rawData.push(item);
+      }
+    });
+  }
+
+  // Quét toàn bộ các hồ sơ đề cử từ tất cả Chủ sở hữu (matruong_owner_races_*)
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('matruong_owner_races_')) {
+          const ownerRaces = getLocalData(k, []);
+          if (Array.isArray(ownerRaces)) {
+            ownerRaces.forEach(r => {
+              if (r && r.id) {
+                const idx = rawData.findIndex(x => x && (x.id === r.id || (x.tournamentId && r.tournamentId && String(x.tournamentId) === String(r.tournamentId) && x.ownerKey === r.ownerKey)));
+                if (idx >= 0) {
+                  rawData[idx] = {
+                    ...rawData[idx],
+                    ...r,
+                    delegatedToTrainer: r.delegatedToTrainer !== undefined ? r.delegatedToTrainer : rawData[idx].delegatedToTrainer,
+                    trainerAssigned: r.trainerAssigned !== undefined ? r.trainerAssigned : rawData[idx].trainerAssigned,
+                    targetTrainer: r.targetTrainer || rawData[idx].targetTrainer,
+                    nominationStatus: r.nominationStatus || rawData[idx].nominationStatus,
+                    status: r.status || rawData[idx].status
+                  };
+                } else {
+                  rawData.push(r);
+                }
+              }
+            });
+          }
+        }
+      }
+    }
+  } catch {}
+
   if (Array.isArray(rawData)) {
     const filtered = rawData.filter(n => {
       if (!n) return false;
@@ -3468,6 +3512,7 @@ export async function getSystemTournamentNominationsApi() {
     }
     if (deduped.length !== rawData.length) {
       setLocalData(SYSTEM_NOMINATIONS_KEY, deduped);
+      setLocalData('matruong_system_race_nominations', deduped);
     }
     return deduped;
   }
@@ -3562,16 +3607,361 @@ export async function trainerReviewNominationApi(nominationId, { status, feedbac
   return true;
 }
 
-export async function trainerAssignHorseNominationApi(nominationId, { horseName, horseId, horseStall, trainerFeedback, trainerName, jockey }) {
-  return trainerReviewNominationApi(nominationId, {
-    status: 'APPROVED',
-    feedback: trainerFeedback,
-    trainerName: trainerName || 'HLV Trưởng Trần Văn Hùng',
-    assignedHorseName: horseName,
-    assignedHorseId: horseId,
-    assignedHorseStall: horseStall,
-    jockey: jockey
+export async function trainerAssignHorseNominationApi(nominationId, {
+  horseName,
+  horseId,
+  horseStall,
+  horseBreed,
+  horseMicrochip,
+  trainerFeedback,
+  trainerName,
+  jockey,
+  ownerKey
+}) {
+  const timeStr = 'Hôm nay';
+  const systemList = await getSystemTournamentNominationsApi();
+  let targetNom = null;
+
+  const updatedSystem = systemList.map(item => {
+    if (item.id === nominationId) {
+      targetNom = {
+        ...item,
+        assignedHorseName: horseName,
+        assignedHorseId: horseId,
+        assignedHorseStall: horseStall,
+        trainerSuggestedHorse: {
+          id: horseId,
+          name: horseName,
+          stall: horseStall,
+          breed: horseBreed || 'Thoroughbred',
+          microchip: horseMicrochip || 'RFID-VN-2026'
+        },
+        trainerAssigned: true,
+        pendingOwnerConfirmation: true,
+        trainerFeedback: trainerFeedback || 'HLV đã thẩm định và chọn chiến mã phong độ tối ưu nhất.',
+        reviewedBy: trainerName || 'HLV Trưởng',
+        reviewedAt: timeStr,
+        jockey: jockey || item.jockey || 'Chưa chỉ định'
+      };
+      return targetNom;
+    }
+    return item;
   });
+
+  setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSystem);
+  setLocalData('matruong_system_race_nominations', updatedSystem);
+  setLocalData('matruong_trainer_nominations', updatedSystem);
+
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('matruong_owner_races_')) {
+          const ownerList = getLocalData(key, []);
+          if (Array.isArray(ownerList) && ownerList.length > 0) {
+            let modified = false;
+            const updatedOwnerList = ownerList.map(r => {
+              const isMatch = r && (r.id === nominationId || (targetNom && r.id === targetNom.id) || (targetNom && r.raceName === targetNom.raceName));
+              if (isMatch) {
+                modified = true;
+                return {
+                  ...r,
+                  assignedHorseName: horseName,
+                  assignedHorseId: horseId,
+                  assignedHorseStall: horseStall,
+                  trainerSuggestedHorse: {
+                    id: horseId,
+                    name: horseName,
+                    stall: horseStall,
+                    breed: horseBreed || 'Thoroughbred',
+                    microchip: horseMicrochip || 'RFID-VN-2026'
+                  },
+                  trainerAssigned: true,
+                  pendingOwnerConfirmation: true,
+                  trainerFeedback: trainerFeedback || 'HLV đã thẩm định và chọn chiến mã phong độ tối ưu nhất.',
+                  reviewedBy: trainerName || 'HLV Trưởng',
+                  reviewedAt: timeStr,
+                  jockey: jockey || r.jockey || 'Chưa chỉ định'
+                };
+              }
+              return r;
+            });
+            if (modified) {
+              setLocalData(key, updatedOwnerList);
+            }
+          }
+        }
+      }
+
+      // Thông báo hệ thống gửi đến Chủ sở hữu
+      const notifs = getLocalData('matruong_system_notifications', []);
+      const newNotif = {
+        id: `NOTIF-${Date.now()}`,
+        title: `HLV ${trainerName || 'Trưởng'} đã chỉ định chiến mã cho giải đấu!`,
+        message: `HLV ${trainerName || 'Trưởng'} đã thẩm định và đề xuất chiến mã "${horseName}" cho giải "${targetNom?.raceName || 'nội bộ'}". Vui lòng bấm vào giải đấu để Cập nhật ngựa thi đua!`,
+        type: 'TOURNAMENT',
+        timestamp: new Date().toISOString(),
+        targetRole: 'OWNER',
+        ownerKey: targetNom?.ownerKey || ownerKey,
+        nominationId: nominationId
+      };
+      setLocalData('matruong_system_notifications', [newNotif, ...notifs]);
+      window.dispatchEvent(new Event('matruong_notifications_updated'));
+
+      window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+        detail: { nominationId, targetNomination: targetNom }
+      }));
+    }
+  } catch (err) {
+    console.error('Error syncing owner race storage:', err);
+  }
+
+  return targetNom;
+}
+
+export async function ownerSelectHorseForNominationApi(nominationId, {
+  horseName,
+  horseId,
+  horseMicrochip,
+  jockey,
+  ownerKey
+}) {
+  const systemList = await getSystemTournamentNominationsApi();
+  let targetNom = null;
+
+  const updatedSystem = systemList.map(item => {
+    if (item.id === nominationId) {
+      targetNom = {
+        ...item,
+        horseName,
+        horseId,
+        horseMicrochip,
+        horseAssigned: true,
+        delegatedToTrainer: false,
+        trainerAssigned: false,
+        pendingOwnerConfirmation: false,
+        jockey: jockey || item.jockey || 'Chủ sở hữu tự bố trí kỵ mã'
+      };
+      return targetNom;
+    }
+    return item;
+  });
+
+  setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSystem);
+
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('matruong_owner_races_')) {
+          const list = getLocalData(key, []);
+          if (Array.isArray(list) && list.some(r => r.id === nominationId)) {
+            const updated = list.map(r => r.id === nominationId ? {
+              ...r,
+              horseName,
+              horseId,
+              horseMicrochip,
+              horseAssigned: true,
+              delegatedToTrainer: false,
+              trainerAssigned: false,
+              pendingOwnerConfirmation: false,
+              jockey: jockey || r.jockey || 'Chủ sở hữu tự bố trí kỵ mã'
+            } : r);
+            setLocalData(key, updated);
+          }
+        }
+      }
+
+      window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+        detail: { nominationId, nomination: targetNom }
+      }));
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  return targetNom;
+}
+
+export async function ownerDelegateNominationToTrainerApi(nominationId, {
+  targetTrainer,
+  note,
+  ownerKey,
+  raceName,
+  distance,
+  track,
+  tournamentId,
+  ownerName
+}) {
+  const systemList = await getSystemTournamentNominationsApi();
+  let targetNom = systemList.find(s => s && (s.id === nominationId || (tournamentId && s.tournamentId === tournamentId) || (raceName && s.raceName === raceName))) || null;
+
+  // Nếu trong system nominations chưa có, tìm trong cache của chủ sở hữu
+  if (!targetNom && typeof window !== 'undefined' && window.localStorage) {
+    if (ownerKey) {
+      const ownerList = getLocalData(`matruong_owner_races_${ownerKey}`, []);
+      targetNom = ownerList.find(r => r && (r.id === nominationId || (tournamentId && r.tournamentId === tournamentId) || (raceName && r.raceName === raceName))) || null;
+    }
+    if (!targetNom) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('matruong_owner_races_')) {
+          const l = getLocalData(k, []);
+          const found = l.find(r => r && (r.id === nominationId || (tournamentId && r.tournamentId === tournamentId) || (raceName && r.raceName === raceName)));
+          if (found) { targetNom = found; break; }
+        }
+      }
+    }
+  }
+
+  if (targetNom) {
+    targetNom = {
+      ...targetNom,
+      delegatedToTrainer: true,
+      trainerAssigned: false,
+      pendingOwnerConfirmation: false,
+      horseName: 'Chờ HLV chỉ định ngựa',
+      horseAssigned: false,
+      targetTrainer: targetTrainer || 'HLV Trần Văn Hùng',
+      nominationStatus: 'PENDING_TRAINER_SELECTION',
+      delegationNote: note || '',
+      raceName: raceName || targetNom.raceName,
+      distance: distance || targetNom.distance,
+      track: track || targetNom.track,
+      tournamentId: tournamentId || targetNom.tournamentId,
+      ownerName: ownerName || targetNom.ownerName || 'Chủ sở hữu',
+      ownerKey: String(ownerKey || targetNom.ownerKey || '')
+    };
+  } else {
+    targetNom = {
+      id: nominationId || `RN-REG-${Date.now().toString().slice(-4)}`,
+      delegatedToTrainer: true,
+      trainerAssigned: false,
+      pendingOwnerConfirmation: false,
+      horseName: 'Chờ HLV chỉ định ngựa',
+      horseAssigned: false,
+      targetTrainer: targetTrainer || 'HLV Trần Văn Hùng',
+      nominationStatus: 'PENDING_TRAINER_SELECTION',
+      delegationNote: note || '',
+      raceName: raceName || 'Giải đua nội bộ',
+      distance: distance || '2.400m',
+      track: track || 'Trường đua',
+      tournamentId: tournamentId || 'TOURN-INT',
+      ownerName: ownerName || 'Chủ sở hữu',
+      ownerKey: String(ownerKey || '')
+    };
+  }
+
+  const updatedSystem = [
+    targetNom,
+    ...systemList.filter(s => s && s.id !== targetNom.id && s.id !== nominationId)
+  ];
+
+  setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSystem);
+  setLocalData('matruong_system_race_nominations', updatedSystem);
+  setLocalData('matruong_trainer_nominations', updatedSystem);
+
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('matruong_owner_races_')) {
+          const list = getLocalData(key, []);
+          if (Array.isArray(list)) {
+            const isMatch = (r) => r && (
+              r.id === nominationId || 
+              (targetNom.id && r.id === targetNom.id) || 
+              (tournamentId && r.tournamentId === tournamentId) || 
+              (raceName && r.raceName === raceName)
+            );
+            if (list.some(isMatch)) {
+              const updated = list.map(r => isMatch(r) ? targetNom : r);
+              setLocalData(key, updated);
+            }
+          }
+        }
+      }
+
+      window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+        detail: { nominationId: targetNom.id, nomination: targetNom }
+      }));
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  return targetNom;
+}
+
+export async function ownerConfirmTrainerSuggestedHorseApi(nominationId, ownerKey) {
+  const systemList = await getSystemTournamentNominationsApi();
+  let targetNom = null;
+
+  const updatedSystem = systemList.map(item => {
+    if (item.id === nominationId) {
+      const suggested = item.trainerSuggestedHorse || {
+        name: item.assignedHorseName,
+        id: item.assignedHorseId,
+        microchip: 'RFID-VN-2026'
+      };
+      targetNom = {
+        ...item,
+        horseName: suggested.name || item.assignedHorseName || item.horseName,
+        horseId: suggested.id || item.assignedHorseId || item.horseId,
+        horseMicrochip: suggested.microchip || item.horseMicrochip || 'RFID-VN-2026',
+        horseAssigned: true,
+        pendingOwnerConfirmation: false,
+        status: 'CONFIRMED',
+        nominationStatus: 'CONFIRMED'
+      };
+      return targetNom;
+    }
+    return item;
+  });
+
+  setLocalData(SYSTEM_NOMINATIONS_KEY, updatedSystem);
+
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('matruong_owner_races_')) {
+          const list = getLocalData(key, []);
+          if (Array.isArray(list) && list.some(r => r.id === nominationId)) {
+            const updated = list.map(r => {
+              if (r.id === nominationId) {
+                const suggested = r.trainerSuggestedHorse || {
+                  name: r.assignedHorseName,
+                  id: r.assignedHorseId,
+                  microchip: 'RFID-VN-2026'
+                };
+                return {
+                  ...r,
+                  horseName: suggested.name || r.assignedHorseName || r.horseName,
+                  horseId: suggested.id || r.assignedHorseId || r.horseId,
+                  horseMicrochip: suggested.microchip || r.horseMicrochip || 'RFID-VN-2026',
+                  horseAssigned: true,
+                  pendingOwnerConfirmation: false,
+                  status: 'CONFIRMED',
+                  nominationStatus: 'CONFIRMED'
+                };
+              }
+              return r;
+            });
+            setLocalData(key, updated);
+          }
+        }
+      }
+
+      window.dispatchEvent(new CustomEvent('matruong_nomination_updated', {
+        detail: { nominationId, nomination: targetNom }
+      }));
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  return targetNom;
 }
 
 export async function registerRaceTournamentApi(ownerKey, nominationData) {

@@ -617,13 +617,23 @@ export default function TrainerPage() {
     window.addEventListener('matruong_nomination_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
+    // Tự động kiểm tra đồng bộ nhanh mỗi 1.5 giây
+    const pollInterval = setInterval(fetchNominations, 1500);
+
     return () => {
       window.removeEventListener('matruong_nomination_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
+      clearInterval(pollInterval);
     };
   }, []);
 
-  const pendingCount = nominations.filter(n => n.nominationStatus === 'PENDING_TRAINER' || n.nominationStatus === 'PENDING').length;
+  const pendingDelegatedCount = nominations.filter(n => n && n.delegatedToTrainer && !n.trainerAssigned).length;
+  const pendingCount = nominations.filter(n => n && (
+    n.nominationStatus === 'PENDING_TRAINER' || 
+    n.nominationStatus === 'PENDING' || 
+    n.nominationStatus === 'PENDING_TRAINER_SELECTION' || 
+    (n.delegatedToTrainer && !n.trainerAssigned)
+  )).length;
 
 
   // Xử lý HLV duyệt đề cử thi đấu
@@ -701,6 +711,27 @@ export default function TrainerPage() {
     } catch {}
 
     if (ownerHorses.length === 0) {
+      // Fallback: Quét tất cả các key lưu trữ ngựa chủ sở hữu trong localStorage
+      try {
+        if (typeof localStorage !== 'undefined') {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('matruong_owner_horses_')) {
+              const raw = localStorage.getItem(k);
+              if (raw) {
+                const list = JSON.parse(raw);
+                if (Array.isArray(list) && list.length > 0) {
+                  ownerHorses = list;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+
+    if (ownerHorses.length === 0) {
       ownerHorses = trainerHorses.map(h => ({
         id: h.id,
         name: h.name,
@@ -750,9 +781,12 @@ export default function TrainerPage() {
       horseName,
       horseId: selectedHorse.id,
       horseStall,
+      horseBreed: selectedHorse.breed,
+      horseMicrochip: selectedHorse.microchip || selectedHorse.chipId,
       trainerFeedback: feedback,
       trainerName,
-      jockey
+      jockey,
+      ownerKey: nom.ownerKey
     });
 
     const timeStr = 'Hôm nay';
@@ -763,8 +797,16 @@ export default function TrainerPage() {
       assignedHorseName: horseName,
       assignedHorseId: selectedHorse.id,
       assignedHorseStall: horseStall,
+      trainerSuggestedHorse: {
+        id: selectedHorse.id,
+        name: selectedHorse.name,
+        stall: horseStall,
+        breed: selectedHorse.breed,
+        microchip: selectedHorse.microchip || selectedHorse.chipId
+      },
       trainerAssigned: true,
       delegatedToTrainer: true,
+      pendingOwnerConfirmation: true,
       nominationStatus: 'APPROVED',
       trainerFeedback: feedback,
       reviewedBy: trainerName,
@@ -772,7 +814,7 @@ export default function TrainerPage() {
       jockey
     } : n));
 
-    showToast(`Đã chỉ định chiến mã "${horseName}" cho giải đấu thành công! Phía chủ sở hữu đã có thể thấy kết quả ngay.`, 'HLV CHỈ ĐỊNH THÀNH CÔNG', 'success');
+    showToast(`Đã chỉ định chiến mã "${horseName}" cho giải đấu! Thông báo đã được gửi đến Chủ sở hữu để cập nhật chiến mã thi đấu.`, 'HLV CHỈ ĐỊNH THÀNH CÔNG', 'success');
     setAssignHorseModalData(null);
   };
 
@@ -2105,7 +2147,11 @@ setTrainerHorses(prev => {
           >
             <span className="portal-nav-icon"><IconTrophy size={18} color={activeTab === 'approvals' ? 'var(--brass)' : 'currentColor'} /></span>
             <span className="portal-nav-label">{lang === 'en' ? 'Race Approvals' : 'Phê Duyệt Thi Đấu'}</span>
-            {pendingCount > 0 ? (
+            {pendingDelegatedCount > 0 ? (
+              <span className="portal-nav-badge" style={{ background: '#F59E0B', color: '#0A0D14', fontWeight: 800, padding: '2px 8px', borderRadius: '10px' }}>
+                {pendingDelegatedCount} cần chọn ngựa
+              </span>
+            ) : pendingCount > 0 ? (
               <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14', fontWeight: 800 }}>
                 {pendingCount}
               </span>
@@ -2197,6 +2243,86 @@ setTrainerHorses(prev => {
 
         {/* MAIN BODY PER TAB */}
         <main className="portal-main">
+          {/* BANNER THÔNG BÁO NỔI BẬT: CHỦ SỞ HỮU ỦY THÁC NHỜ HLV CHỌN CHIẾN MÃ CHO GIẢI ĐẤU */}
+          {pendingDelegatedCount > 0 && (
+            <div style={{
+              background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.22) 0%, rgba(212, 175, 55, 0.15) 100%)',
+              border: '2px solid #F59E0B',
+              borderRadius: '10px',
+              padding: '14px 20px',
+              marginBottom: '20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '14px',
+              boxShadow: '0 4px 20px rgba(245, 158, 11, 0.25)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '28px' }}>🎯</span>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 900, color: '#F59E0B', letterSpacing: '0.02em' }}>
+                    BẠN CÓ {pendingDelegatedCount} YÊU CẦU ỦY THÁC CHỌN CHIẾN MÃ TỪ CHỦ SỞ HỮU ĐANG CHỜ CHỈ ĐỊNH!
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--paper)', marginTop: '3px' }}>
+                    Chủ sở hữu đã ghi danh giải đấu và tin tưởng nhờ Huấn luyện viên thẩm định phong độ thể lực để chỉ định chiến mã xuất chiến phù hợp nhất.
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const firstDelegated = nominations.find(n => n && n.delegatedToTrainer && !n.trainerAssigned);
+                    if (firstDelegated) {
+                      handleOpenAssignHorseModal(firstDelegated);
+                    } else {
+                      setActiveTab('approvals');
+                      setApprovalFilter('DELEGATED');
+                    }
+                  }}
+                  style={{
+                    padding: '9px 20px',
+                    background: '#F59E0B',
+                    color: '#0A0D14',
+                    fontWeight: 900,
+                    fontSize: '13px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 3px 12px rgba(245, 158, 11, 0.45)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>🎯</span> Chỉ Định Ngựa Giúp Chủ Sở Hữu Ngay →
+                </button>
+                {activeTab !== 'approvals' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('approvals');
+                      setApprovalFilter('DELEGATED');
+                    }}
+                    style={{
+                      padding: '9px 16px',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      color: 'var(--paper)',
+                      fontWeight: 700,
+                      fontSize: '12.5px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--line)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Xem Danh Sách
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* BANNER THÔNG BÁO NỔI BẬT: CÓ LỊCH HẸN CHỦ SỞ HỮU ĐANG CHỜ HLV XÁC NHẬN GIỮ CHỖ */}
           {pendingJointCount > 0 && activeTab !== 'joint_training' && (
             <div style={{
@@ -4752,6 +4878,17 @@ setTrainerHorses(prev => {
                     {lang === 'en' ? 'All' : 'Tất cả'} <span className="pill-count">{nominations.length}</span>
                   </button>
                   <button
+                    className={`portal-pill-btn ${approvalFilter === 'DELEGATED' ? 'active' : ''}`}
+                    onClick={() => setApprovalFilter('DELEGATED')}
+                    style={{
+                      borderColor: approvalFilter === 'DELEGATED' ? '#F59E0B' : undefined,
+                      color: approvalFilter === 'DELEGATED' ? '#F59E0B' : undefined,
+                      fontWeight: 700
+                    }}
+                  >
+                    🎯 Cần chọn ngựa giúp <span className="pill-count" style={{ background: '#F59E0B', color: '#0A0D14', fontWeight: 800 }}>{pendingDelegatedCount}</span>
+                  </button>
+                  <button
                     className={`portal-pill-btn ${approvalFilter === 'PENDING' ? 'active' : ''}`}
                     onClick={() => setApprovalFilter('PENDING')}
                   >
@@ -4795,10 +4932,12 @@ setTrainerHorses(prev => {
               {/* LIST OF NOMINATIONS */}
               {(() => {
                 const filtered = nominations.filter(item => {
-                  const isPending = item.nominationStatus === 'PENDING_TRAINER' || item.nominationStatus === 'PENDING';
+                  const isDelegatedPending = item.delegatedToTrainer && !item.trainerAssigned;
+                  const isPending = item.nominationStatus === 'PENDING_TRAINER' || item.nominationStatus === 'PENDING' || item.nominationStatus === 'PENDING_TRAINER_SELECTION' || isDelegatedPending;
                   const isApproved = item.nominationStatus === 'APPROVED' || item.nominationStatus === 'CONFIRMED';
                   const isRejected = item.nominationStatus === 'REJECTED';
 
+                  if (approvalFilter === 'DELEGATED' && !isDelegatedPending) return false;
                   if (approvalFilter === 'PENDING' && !isPending) return false;
                   if (approvalFilter === 'APPROVED' && !isApproved) return false;
                   if (approvalFilter === 'REJECTED' && !isRejected) return false;
@@ -4829,10 +4968,17 @@ setTrainerHorses(prev => {
                   );
                 }
 
+                const sorted = [...filtered].sort((a, b) => {
+                  const aDel = a.delegatedToTrainer && !a.trainerAssigned ? 1 : 0;
+                  const bDel = b.delegatedToTrainer && !b.trainerAssigned ? 1 : 0;
+                  return bDel - aDel;
+                });
+
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {filtered.map(nom => {
-                      const isPending = nom.nominationStatus === 'PENDING_TRAINER' || nom.nominationStatus === 'PENDING';
+                    {sorted.map(nom => {
+                      const isDelegatedPending = nom.delegatedToTrainer && !nom.trainerAssigned;
+                      const isPending = nom.nominationStatus === 'PENDING_TRAINER' || nom.nominationStatus === 'PENDING' || nom.nominationStatus === 'PENDING_TRAINER_SELECTION' || isDelegatedPending;
                       const isApproved = nom.nominationStatus === 'APPROVED' || nom.nominationStatus === 'CONFIRMED';
                       const isRejected = nom.nominationStatus === 'REJECTED';
 
@@ -4910,22 +5056,40 @@ setTrainerHorses(prev => {
                               background: 'rgba(212, 175, 55, 0.1)',
                               border: '1.5px dashed var(--brass)',
                               borderRadius: '8px',
-                              padding: '12px 16px',
+                              padding: '14px 18px',
                               marginBottom: '14px',
                               fontSize: '13px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
                               flexWrap: 'wrap',
-                              gap: '10px'
+                              gap: '12px'
                             }}>
                               <div>
-                                <div style={{ color: 'var(--brass)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span>🎯</span> YÊU CẦU ỦY THÁC CHỈ ĐỊNH CHIẾN MÃ TỪ CHỦ SỞ HỮU
+                                <div style={{ color: 'var(--brass)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span>🎯</span>
+                                  <span>YÊU CẦU ỦY THÁC CHỈ ĐỊNH CHIẾN MÃ TỪ CHỦ SỞ HỮU</span>
+                                  {nom.targetTrainer && (
+                                    <span style={{
+                                      padding: '2px 8px',
+                                      borderRadius: '4px',
+                                      background: '#F59E0B',
+                                      color: '#0A0D14',
+                                      fontWeight: 800,
+                                      fontSize: '11px'
+                                    }}>
+                                      Gửi đến: {nom.targetTrainer}
+                                    </span>
+                                  )}
                                 </div>
-                                <div style={{ fontSize: '12px', color: 'var(--paper)', marginTop: '3px' }}>
-                                  Chủ sở hữu <b>{nom.ownerName}</b> đã nhờ bạn đánh giá phong độ thể lực để chỉ định chiến mã tối ưu nhất cho cự ly <b>{nom.distance}</b> tại <b>{nom.track}</b>.
+                                <div style={{ fontSize: '12.5px', color: 'var(--paper)', marginTop: '4px' }}>
+                                  Chủ sở hữu <b>{nom.ownerName}</b> đã tin tưởng gửi gắm nhờ Huấn luyện viên thẩm định phong độ thể lực & chỉ số viễn trắc để chỉ định chiến mã tối ưu nhất cho cự ly <b>{nom.distance}</b> tại <b>{nom.track}</b>.
                                 </div>
+                                {nom.delegationNote && (
+                                  <div style={{ fontSize: '11.5px', color: 'var(--brass)', fontStyle: 'italic', marginTop: '3px' }}>
+                                    "Lời nhắn từ chủ sở hữu: {nom.delegationNote}"
+                                  </div>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -4934,12 +5098,13 @@ setTrainerHorses(prev => {
                                   background: 'var(--brass)',
                                   color: '#0A0D14',
                                   fontWeight: 800,
-                                  padding: '8px 18px',
+                                  padding: '9px 20px',
                                   borderRadius: '6px',
                                   border: 'none',
                                   fontSize: '12.5px',
                                   cursor: 'pointer',
-                                  boxShadow: '0 2px 10px rgba(212, 175, 55, 0.35)'
+                                  boxShadow: '0 2px 10px rgba(212, 175, 55, 0.35)',
+                                  whiteSpace: 'nowrap'
                                 }}
                               >
                                 🎯 Chọn & Chỉ Định Ngựa Ngay →
@@ -6259,29 +6424,6 @@ setTrainerHorses(prev => {
                     );
                   })}
                 </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
-                  Kỵ mã (Jockey) điều khiển
-                </label>
-                <select
-                  value={assignHorseModalData.jockey}
-                  onChange={(e) => setAssignHorseModalData({ ...assignHorseModalData, jockey: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--line)',
-                    borderRadius: '6px',
-                    color: 'var(--paper)',
-                    fontSize: '12.5px'
-                  }}
-                >
-                  <option value="Kỵ mã Nguyễn Văn Tài (Chỉ định số 1)">Kỵ mã Nguyễn Văn Tài (Chỉ định số 1 - Chuyên cự ly dài)</option>
-                  <option value="Kỵ mã Trần Quốc Bảo (Chuyên nước rút)">Kỵ mã Trần Quốc Bảo (Chuyên cự ly ngắn & nước rút)</option>
-                  <option value="Kỵ mã Lê Anh Khoa (Kinh nghiệm cúp Derby)">Kỵ mã Lê Anh Khoa (Kinh nghiệm cúp Derby)</option>
-                </select>
               </div>
 
               <div>

@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { getTournamentTimeStatus } from '../services/api';
+import {
+  getTournamentTimeStatus,
+  ownerSelectHorseForNominationApi,
+  ownerDelegateNominationToTrainerApi,
+  ownerConfirmTrainerSuggestedHorseApi
+} from '../services/api';
+import { checkHorseVetLockStatus } from '../services/jointTrainingService';
+import { FIXED_TRAINERS_LIST } from '../services/serviceAssignment';
 
 export default function OwnerTournamentsTab({
   OPEN_TOURNAMENTS = [],
@@ -27,6 +34,147 @@ export default function OwnerTournamentsTab({
     newOwnerIdCard: '',
     note: ''
   });
+
+  // Danh sách Huấn luyện viên thực tế có trong hệ thống (Tài khoản hoạt động)
+  const systemTrainers = (() => {
+    const map = new Map();
+    (FIXED_TRAINERS_LIST || []).forEach(t => {
+      map.set(t.name, {
+        username: t.username,
+        name: t.name,
+        title: t.title || 'Huấn luyện viên',
+        fullNameWithPrefix: `HLV ${t.name}`
+      });
+    });
+
+    try {
+      const raw = localStorage.getItem('matruong_system_users');
+      if (raw) {
+        const users = JSON.parse(raw);
+        if (Array.isArray(users)) {
+          users.filter(u => u.role === 'TRAINER').forEach(u => {
+            const name = u.full_name || u.name;
+            if (name && !map.has(name)) {
+              map.set(name, {
+                username: u.username || `trainer_${Date.now()}`,
+                name: name,
+                title: u.title || 'Huấn luyện viên',
+                fullNameWithPrefix: name.startsWith('HLV ') ? name : `HLV ${name}`
+              });
+            }
+          });
+        }
+      }
+    } catch {}
+
+    return Array.from(map.values());
+  })();
+
+  const [selectHorseModalData, setSelectHorseModalData] = useState(null);
+  const [selectHorseForm, setSelectHorseForm] = useState({
+    mode: 'SELF', // 'SELF' | 'DELEGATE_TRAINER'
+    horseId: '',
+    jockey: 'Chủ sở hữu tự bố trí kỵ mã',
+    trainerName: systemTrainers[0]?.fullNameWithPrefix || 'HLV Trần Văn Hùng',
+    note: ''
+  });
+
+  const handleOpenSelectHorseModal = (tourn, nomination) => {
+    const validHorses = (myHorses || []).filter(h => {
+      const lock = checkHorseVetLockStatus(h.microchip || h.id || h.name);
+      return !lock.isLocked && !h.isLockedByVet;
+    });
+    const defaultHorse = validHorses[0] || myHorses[0];
+    const defaultTrainer = systemTrainers[0]?.fullNameWithPrefix || 'HLV Trần Văn Hùng';
+    setSelectHorseForm({
+      mode: 'SELF',
+      horseId: defaultHorse ? String(defaultHorse.id) : '',
+      jockey: 'Chủ sở hữu tự bố trí kỵ mã',
+      trainerName: defaultTrainer,
+      note: ''
+    });
+    setSelectHorseModalData({ tournament: tourn, nomination });
+  };
+
+  const handleConfirmSelectHorse = async (e) => {
+    e.preventDefault();
+    if (!selectHorseModalData || !selectHorseModalData.nomination) return;
+    const { tournament, nomination } = selectHorseModalData;
+
+    if (selectHorseForm.mode === 'SELF') {
+      const selectedHorse = (myHorses || []).find(h => String(h.id) === String(selectHorseForm.horseId));
+      if (!selectedHorse) {
+        if (showToast) showToast('Vui lòng chọn một chiến mã của bạn để tham gia thi đấu!', 'CHƯA CHỌN NGỰA', 'warning');
+        return;
+      }
+      const lock = checkHorseVetLockStatus(selectedHorse.microchip || selectedHorse.id || selectedHorse.name);
+      if (lock.isLocked || selectedHorse.isLockedByVet) {
+        if (showToast) showToast(`Chiến mã "${selectedHorse.name}" đang bị khóa y tế thú y (${lock.reason || 'cấm đua'})! Vui lòng chọn chiến mã khác.`, 'KHÓA Y TẾ THÚ Y', 'error');
+        return;
+      }
+
+      const updated = await ownerSelectHorseForNominationApi(nomination.id, {
+        horseName: selectedHorse.name,
+        horseId: selectedHorse.id,
+        horseMicrochip: selectedHorse.microchip || selectedHorse.chipId || 'RFID-VN-2026',
+        jockey: selectHorseForm.jockey || 'Chủ sở hữu tự bố trí kỵ mã',
+        ownerKey
+      });
+
+      if (setRaceNominations && updated) {
+        setRaceNominations(prev => {
+          const list = prev || [];
+          const exists = list.some(r => r && (r.id === updated.id || (r.tournamentId && r.tournamentId === updated.tournamentId)));
+          if (exists) {
+            return list.map(r => (r && (r.id === updated.id || (r.tournamentId && r.tournamentId === updated.tournamentId))) ? updated : r);
+          }
+          return [updated, ...list];
+        });
+      }
+      if (showToast) {
+        showToast(`Đã chỉ định chiến mã "${selectedHorse.name}" tham gia giải đấu thành công!`, 'CHỌN NGỰA THÀNH CÔNG', 'success');
+      }
+      setSelectHorseModalData(null);
+    } else {
+      // DELEGATE_TRAINER
+      const updated = await ownerDelegateNominationToTrainerApi(nomination.id, {
+        targetTrainer: selectHorseForm.trainerName || 'HLV Trần Văn Hùng',
+        note: selectHorseForm.note,
+        ownerKey,
+        raceName: tournament?.name || nomination?.raceName,
+        distance: tournament?.distance || nomination?.distance,
+        track: tournament?.track || nomination?.track,
+        tournamentId: tournament?.id || nomination?.tournamentId,
+        ownerName: currentUser?.full_name || nomination?.ownerName || 'Chủ sở hữu'
+      });
+
+      if (setRaceNominations && updated) {
+        setRaceNominations(prev => {
+          const list = prev || [];
+          const exists = list.some(r => r && (r.id === updated.id || (r.tournamentId && r.tournamentId === updated.tournamentId)));
+          if (exists) {
+            return list.map(r => (r && (r.id === updated.id || (r.tournamentId && r.tournamentId === updated.tournamentId))) ? updated : r);
+          }
+          return [updated, ...list];
+        });
+      }
+      if (showToast) {
+        showToast(`Đã gửi yêu cầu nhờ ${selectHorseForm.trainerName || 'HLV Trưởng'} chọn ngựa giúp! HLV sẽ nhận thông báo và tiến hành thẩm định.`, 'ĐÃ GỬI CHO HLV', 'info');
+      }
+      setSelectHorseModalData(null);
+    }
+  };
+
+  const handleConfirmTrainerSuggested = async (tourn, nomination) => {
+    const updated = await ownerConfirmTrainerSuggestedHorseApi(nomination.id, ownerKey);
+    if (setRaceNominations && updated) {
+      setRaceNominations(prev => (prev || []).map(r => r.id === updated.id ? updated : r));
+    }
+    const horseName = updated?.horseName || nomination?.trainerSuggestedHorse?.name || 'Chiến mã';
+    if (showToast) {
+      showToast(`Đã cập nhật chiến mã "${horseName}" do HLV đề xuất vào danh sách thi đấu giải "${tourn.name}"!`, 'CẬP NHẬT THÀNH CÔNG', 'success');
+    }
+  };
 
   const handleConfirmTransfer = (e) => {
     e.preventDefault();
@@ -422,32 +570,150 @@ export default function OwnerTournamentsTab({
                         }
 
                         // Khi Admin đã duyệt
+                        const isTrainerPendingChoice = userNomination.delegatedToTrainer && !userNomination.trainerAssigned;
+                        const isTrainerSuggested = userNomination.pendingOwnerConfirmation && userNomination.trainerSuggestedHorse;
+                        const isHorseNotAssigned = !userNomination.horseAssigned && !userNomination.delegatedToTrainer && !isTrainerSuggested;
+
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                            <div style={{
-                              padding: '7px 10px',
-                              borderRadius: '6px',
-                              background: 'rgba(16, 185, 129, 0.12)',
-                              border: '1px solid rgba(16, 185, 129, 0.35)',
-                              fontSize: '11.5px',
-                              fontWeight: 700,
-                              color: '#10B981',
-                              textAlign: 'center'
-                            }}>
-                              {userNomination.status === 'TRANSFERRED' || userNomination.nominationStatus === 'TRANSFERRED'
-                                ? `🔄 ĐÃ CHUYỂN NHƯỢNG (${userNomination.transferredTo || 'Người nhận'})`
-                                : '✓ ĐÃ ĐĂNG KÝ (ADMIN ĐÃ DUYỆT PHÍ)'}
-                              <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 500, marginTop: '2px' }}>
-                                Chiến mã: <span style={{ color: 'var(--brass)', fontWeight: 700 }}>{userNomination.horseName || 'Chiến mã của bạn'}</span>
+                            {/* CASE 1: HLV ĐÃ CHỈ ĐỊNH VÀ CHỜ CHỦ SỞ HỮU CẬP NHẬT */}
+                            {isTrainerSuggested ? (
+                              <div style={{
+                                padding: '10px 12px',
+                                borderRadius: '8px',
+                                background: 'rgba(212, 175, 55, 0.12)',
+                                border: '1.5px solid var(--brass)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--brass)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <span>🔔</span> THÔNG BÁO TỪ HLV
+                                  </span>
+                                  <span style={{ fontSize: '10px', color: 'var(--paper-dim)' }}>
+                                    {userNomination.reviewedBy || 'HLV Trưởng'}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: '12px', color: 'var(--paper)', lineHeight: 1.4 }}>
+                                  HLV đã thẩm định và chọn chiến mã <b style={{ color: 'var(--brass)', fontSize: '13px' }}>{userNomination.trainerSuggestedHorse.name}</b> ({userNomination.trainerSuggestedHorse.breed || 'Thoroughbred'})
+                                </div>
+                                {userNomination.trainerFeedback && (
+                                  <div style={{ fontSize: '11px', color: '#10B981', fontStyle: 'italic', background: 'rgba(16, 185, 129, 0.08)', padding: '4px 8px', borderRadius: '4px' }}>
+                                    "{userNomination.trainerFeedback}"
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleConfirmTrainerSuggested(tourn, userNomination)}
+                                  style={{
+                                    marginTop: '4px',
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    borderRadius: '6px',
+                                    background: '#10B981',
+                                    color: '#0A0D14',
+                                    fontWeight: 800,
+                                    border: 'none',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 3px 10px rgba(16, 185, 129, 0.35)'
+                                  }}
+                                >
+                                  <span>✓</span>
+                                  <span>Cập Nhật Ngựa Thi Đua Do HLV Cung Cấp</span>
+                                </button>
                               </div>
-                            </div>
+                            ) : isTrainerPendingChoice ? (
+                              /* CASE 2: ĐANG NHỜ HLV CHỈ ĐỊNH */
+                              <div style={{
+                                padding: '10px 12px',
+                                borderRadius: '6px',
+                                background: 'rgba(59, 130, 246, 0.12)',
+                                border: '1px solid rgba(59, 130, 246, 0.4)',
+                                fontSize: '11.5px',
+                                color: '#60A5FA',
+                                textAlign: 'center',
+                                fontWeight: 600
+                              }}>
+                                ⏳ ĐÃ GỬI YÊU CẦU — CHỜ HLV CHỈ ĐỊNH CHIẾN MÃ
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 400, marginTop: '3px' }}>
+                                  {userNomination.targetTrainer || 'HLV Trưởng'} đang kiểm tra phong độ để chỉ định ngựa tối ưu nhất.
+                                </div>
+                              </div>
+                            ) : isHorseNotAssigned ? (
+                              /* CASE 3: ADMIN DUYỆT PHÍ XONG — CHƯA CHỌN CHIẾN MÃ */
+                              <>
+                                <div style={{
+                                  padding: '7px 10px',
+                                  borderRadius: '6px',
+                                  background: 'rgba(16, 185, 129, 0.12)',
+                                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  color: '#10B981',
+                                  textAlign: 'center'
+                                }}>
+                                  ✓ ĐÃ ĐĂNG KÝ THÀNH CÔNG (ADMIN ĐÃ DUYỆT PHÍ)
+                                  <div style={{ fontSize: '11px', color: '#F59E0B', fontWeight: 600, marginTop: '2px' }}>
+                                    Chiến mã: <i>Chưa chọn chiến mã thi đấu</i>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenSelectHorseModal(tourn, userNomination)}
+                                  style={{
+                                    width: '100%',
+                                    height: '40px',
+                                    borderRadius: '6px',
+                                    background: 'var(--brass)',
+                                    color: '#0A0D14',
+                                    fontWeight: 800,
+                                    border: 'none',
+                                    fontSize: '12.5px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 3px 10px rgba(212, 175, 55, 0.3)'
+                                  }}
+                                >
+                                  <span>🎯</span>
+                                  <span>Chọn Chiến Mã Thi Đấu</span>
+                                </button>
+                              </>
+                            ) : (
+                              /* CASE 4: ĐÃ HOÀN TẤT CHỌN CHIẾN MÃ */
+                              <div style={{
+                                padding: '7px 10px',
+                                borderRadius: '6px',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                border: '1px solid rgba(16, 185, 129, 0.35)',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                color: '#10B981',
+                                textAlign: 'center'
+                              }}>
+                                {userNomination.status === 'TRANSFERRED' || userNomination.nominationStatus === 'TRANSFERRED'
+                                  ? `🔄 ĐÃ CHUYỂN NHƯỢNG (${userNomination.transferredTo || 'Người nhận'})`
+                                  : '✓ ĐÃ ĐĂNG KÝ (CHIẾN MÃ ĐÃ SẴN SÀNG)'}
+                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', fontWeight: 500, marginTop: '2px' }}>
+                                  Chiến mã: <span style={{ color: 'var(--brass)', fontWeight: 700 }}>{userNomination.horseName || 'Chiến mã của bạn'}</span>
+                                </div>
+                              </div>
+                            )}
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                               <button
                                 type="button"
                                 onClick={() => setSelectedTournInfoModal({ tournament: tourn, nomination: userNomination })}
                                 style={{
-                                  height: '40px',
+                                  height: '38px',
                                   borderRadius: '6px',
                                   background: 'var(--bg-secondary)',
                                   color: 'var(--paper)',
@@ -473,7 +739,7 @@ export default function OwnerTournamentsTab({
                                   setTransferForm({ newOwnerName: '', newOwnerPhone: '', newOwnerIdCard: '', note: '' });
                                 }}
                                 style={{
-                                  height: '40px',
+                                  height: '38px',
                                   borderRadius: '6px',
                                   background: 'rgba(59, 130, 246, 0.15)',
                                   color: '#60A5FA',
@@ -1200,7 +1466,57 @@ export default function OwnerTournamentsTab({
                       <div>Ghi chú: {r.externalNotes || r.notes || 'Không có ghi chú'}</div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {/* NÚT CẬP NHẬT NGỰA DO HLV CHỈ ĐỊNH */}
+                      {r.pendingOwnerConfirmation && r.trainerSuggestedHorse && (
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmTrainerSuggested({ name: r.raceName }, r)}
+                          style={{
+                            padding: '6px 16px',
+                            borderRadius: '6px',
+                            background: '#10B981',
+                            color: '#0A0D14',
+                            fontWeight: 800,
+                            border: 'none',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)'
+                          }}
+                        >
+                          <span>✓</span>
+                          <span>Cập Nhật Ngựa Thi Đua Do HLV Cung Cấp</span>
+                        </button>
+                      )}
+
+                      {/* NÚT CHỌN CHIẾN MÃ KHI ADMIN DUYỆT PHÍ XONG MÀ CHƯA CHỌN */}
+                      {isApproved && !r.horseAssigned && !r.delegatedToTrainer && !r.pendingOwnerConfirmation && !isExternal && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSelectHorseModal({ name: r.raceName, distance: r.distance, track: r.track }, r)}
+                          style={{
+                            padding: '6px 16px',
+                            borderRadius: '6px',
+                            background: 'var(--brass)',
+                            color: '#0A0D14',
+                            fontWeight: 800,
+                            border: 'none',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            boxShadow: '0 2px 8px rgba(212, 175, 55, 0.35)'
+                          }}
+                        >
+                          <span>🎯</span>
+                          <span>Chọn Chiến Mã Thi Đấu</span>
+                        </button>
+                      )}
+
                       {isPending && !entryFeePaid && (
                         <button
                           type="button"
@@ -1601,6 +1917,298 @@ export default function OwnerTournamentsTab({
                   }}
                 >
                   Xác Nhận Chuyển Nhượng
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL CHỌN CHIẾN MÃ THI ĐẤU (CHO PHÉP TỰ CHỌN HOẶC NHỜ HLV CHỌN GIÚP) */}
+      {selectHorseModalData && (
+        <div className="modal-overlay" onClick={() => setSelectHorseModalData(null)} style={{ zIndex: 999999 }}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              maxWidth: '650px',
+              width: '92%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              borderRadius: '12px',
+              border: '1px solid var(--line-strong)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🎯</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--brass)' }}>
+                    Chọn Chiến Mã Tham Gia Giải Đấu
+                  </h3>
+                  <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                    Giải: <b>{selectHorseModalData.tournament?.name}</b> · Cự ly: <b>{selectHorseModalData.tournament?.distance}</b>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectHorseModalData(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--paper-dim)', fontSize: '24px', cursor: 'pointer', lineHeight: 1 }}
+              >&times;</button>
+            </div>
+
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              fontSize: '12px',
+              color: 'var(--paper)',
+              lineHeight: 1.45
+            }}>
+              ✓ <b>Admin đã phê duyệt đơn & lệ phí thi đấu (5.000.000 ₫).</b> Hãy chọn 1 trong 2 phương thức chỉ định chiến mã bên dưới để hoàn tất danh sách xuất phát:
+            </div>
+
+            {/* TABS CHỌN 2 CHẾ ĐỘ: CHỦ TỰ CHỌN HOẶC NHỜ HLV */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '18px' }}>
+              <div
+                onClick={() => setSelectHorseForm(prev => ({ ...prev, mode: 'SELF' }))}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  border: `2px solid ${selectHorseForm.mode === 'SELF' ? 'var(--brass)' : 'var(--line)'}`,
+                  background: selectHorseForm.mode === 'SELF' ? 'rgba(212, 175, 55, 0.12)' : 'var(--bg-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: selectHorseForm.mode === 'SELF' ? 'var(--brass)' : 'var(--paper)', fontSize: '13.5px' }}>
+                  <span>🏇</span> Mục 1: Chủ ngựa tự chọn
+                </div>
+                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '4px', lineHeight: 1.4 }}>
+                  Tự chọn 1 chiến mã của bạn từ danh sách ngựa đang chăm sóc.
+                </div>
+              </div>
+
+              <div
+                onClick={() => setSelectHorseForm(prev => ({ ...prev, mode: 'DELEGATE_TRAINER' }))}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  border: `2px solid ${selectHorseForm.mode === 'DELEGATE_TRAINER' ? 'var(--brass)' : 'var(--line)'}`,
+                  background: selectHorseForm.mode === 'DELEGATE_TRAINER' ? 'rgba(212, 175, 55, 0.12)' : 'var(--bg-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: selectHorseForm.mode === 'DELEGATE_TRAINER' ? 'var(--brass)' : 'var(--paper)', fontSize: '13.5px' }}>
+                  <span>🎯</span> Mục 2: Nhờ HLV chọn giúp
+                </div>
+                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '4px', lineHeight: 1.4 }}>
+                  Ủy thác Huấn luyện viên thẩm định phong độ để chỉ định ngựa tối ưu.
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmSelectHorse} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {selectHorseForm.mode === 'SELF' ? (
+                <>
+                  <div>
+                    <label style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--paper)', display: 'block', marginBottom: '8px' }}>
+                      Chọn một chiến mã của bạn: <span style={{ color: 'var(--brass)' }}>*</span>
+                    </label>
+
+                    {myHorses.length === 0 ? (
+                      <div style={{ padding: '16px', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '6px', color: 'var(--paper-dim)', fontSize: '12px' }}>
+                        Bạn chưa có chiến mã nào trong hệ thống! Hãy chuyển sang mục "Nhờ HLV chọn giúp" hoặc thêm ngựa trước.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+                        {myHorses.map(horse => {
+                          const isSelected = String(selectHorseForm.horseId) === String(horse.id);
+                          const lockStatus = checkHorseVetLockStatus(horse.microchip || horse.id || horse.name);
+                          const isLocked = lockStatus.isLocked || horse.isLockedByVet;
+
+                          return (
+                            <div
+                              key={horse.id}
+                              onClick={() => {
+                                if (isLocked) return;
+                                setSelectHorseForm(prev => ({ ...prev, horseId: String(horse.id) }));
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                padding: '10px 14px',
+                                borderRadius: '8px',
+                                background: isSelected ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                                border: `1.5px solid ${isSelected ? 'var(--brass)' : isLocked ? 'rgba(239, 68, 68, 0.3)' : 'var(--line)'}`,
+                                cursor: isLocked ? 'not-allowed' : 'pointer',
+                                opacity: isLocked ? 0.6 : 1,
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <input
+                                type="radio"
+                                name="selectedHorse"
+                                checked={isSelected}
+                                disabled={isLocked}
+                                onChange={() => {}}
+                                style={{ accentColor: 'var(--brass)', cursor: isLocked ? 'not-allowed' : 'pointer' }}
+                              />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <b style={{ color: isSelected ? 'var(--brass)' : 'var(--paper)', fontSize: '14px' }}>
+                                    {horse.name}
+                                  </b>
+                                  <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    color: isLocked ? '#EF4444' : '#10B981',
+                                    background: isLocked ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px'
+                                  }}>
+                                    {isLocked ? 'Khóa Y Tế (Cấm đua)' : 'Đủ điều kiện'}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                  {horse.breed || 'Thoroughbred'} · Số chip: <b>{horse.microchip || horse.chipId || 'RFID-VN-2026'}</b> · Chuồng: <b>{horse.stable || horse.stall || 'Ô A2'}</b>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                      Bố trí Kỵ mã (Jockey)
+                    </label>
+                    <input
+                      type="text"
+                      value={selectHorseForm.jockey}
+                      onChange={(e) => setSelectHorseForm(prev => ({ ...prev, jockey: e.target.value }))}
+                      placeholder="Chủ sở hữu tự bố trí kỵ mã hoặc nhập tên kỵ mã..."
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                      Chọn Huấn Luyện Viên phụ trách thẩm định & chỉ định ngựa: <span style={{ color: 'var(--brass)' }}>*</span>
+                    </label>
+                    <select
+                      value={selectHorseForm.trainerName}
+                      onChange={(e) => setSelectHorseForm(prev => ({ ...prev, trainerName: e.target.value }))}
+                      style={{
+                        width: '100%',
+                        padding: '9px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--paper)',
+                        fontSize: '13px',
+                        fontWeight: 600
+                      }}
+                    >
+                      {systemTrainers.map(tr => (
+                        <option key={tr.username || tr.name} value={tr.fullNameWithPrefix}>
+                          {tr.fullNameWithPrefix} ({tr.title})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--paper)', display: 'block', marginBottom: '4px' }}>
+                      Ghi chú / Yêu cầu gửi đến Huấn Luyện Viên:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={selectHorseForm.note}
+                      onChange={(e) => setSelectHorseForm(prev => ({ ...prev, note: e.target.value }))}
+                      placeholder="Nhập yêu cầu chuyên môn hoặc mong muốn của bạn cho giải đấu này..."
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        color: 'var(--paper)',
+                        fontSize: '12.5px',
+                        lineHeight: 1.45,
+                        resize: 'vertical',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    color: '#60A5FA',
+                    fontSize: '12px',
+                    lineHeight: 1.45
+                  }}>
+                    ℹ️ <b>Quy trình HLV hỗ trợ:</b> Sau khi bạn gửi yêu cầu, bên giao diện Huấn Luyện Viên sẽ lập tức thấy yêu cầu thẩm định. HLV sẽ kiểm tra phong độ các chiến mã của bạn và chỉ định chiến mã tối ưu nhất. Sau đó, hệ thống sẽ gửi thông báo chọn ngựa từ HLV và bạn chỉ cần bấm nút <b>"Cập Nhật Ngựa Thi Đua Do HLV Cung Cấp"</b> để hoàn tất.
+                  </div>
+                </>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectHorseModalData(null)}
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '6px',
+                    background: 'transparent',
+                    color: 'var(--paper-dim)',
+                    border: '1px solid var(--line)',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✕ Đóng
+                </button>
+
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 24px',
+                    borderRadius: '6px',
+                    background: 'var(--brass)',
+                    color: '#0A0D14',
+                    fontWeight: 800,
+                    border: 'none',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'
+                  }}
+                >
+                  {selectHorseForm.mode === 'SELF' ? '✓ Xác Nhận Chọn Chiến Mã Này' : '🚀 Gửi Yêu Cầu Nhờ HLV Chỉ Định Ngựa'}
                 </button>
               </div>
             </form>

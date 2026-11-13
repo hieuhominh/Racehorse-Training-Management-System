@@ -261,7 +261,7 @@ export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', on
           border: '1px solid rgba(212, 175, 55, 0.25)',
           borderRadius: '8px',
           padding: '12px 14px',
-          marginBottom: '20px'
+          marginBottom: roleCode === 'VET' ? '14px' : '20px'
         }}>
           <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', marginBottom: '6px' }}>
             🛡️ ĐỘI NGŨ CHUYÊN MÔN CÙNG PHỤC VỤ
@@ -272,6 +272,102 @@ export default function ConfirmedHorseProfileModal({ horse, role = 'TRAINER', on
             <div>🌾 Chuyên Viên Chăm Sóc: <b style={{ color: 'var(--paper)' }}>{horse.groomName || horse.groom || 'Lê Hoàng Nam'}</b></div>
           </div>
         </div>
+
+        {/* Khối Thông Tin Y Tế & Sinh Hiệu Chuyên Sâu cho Bác Sĩ Thú Y */}
+        {roleCode === 'VET' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+            {/* Trạng thái thể lực lâm sàng */}
+            <div style={{
+              background: (horse.locked || horse.status === 'INJURED') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+              border: `1px solid ${(horse.locked || horse.status === 'INJURED') ? 'rgba(239, 68, 68, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
+              borderRadius: '8px',
+              padding: '10px 14px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700, color: (horse.locked || horse.status === 'INJURED') ? '#EF4444' : '#10B981' }}>
+                  {(horse.locked || horse.status === 'INJURED') ? '🚨 LỆNH KHÓA Y TẾ (CẤM TẬP / THI ĐẤU)' : '✓ ĐỦ ĐIỀU KIỆN THỂ LỰC (FIT FOR RACING)'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                  {(horse.locked || horse.status === 'INJURED')
+                    ? (horse.lockReason || 'Khám nghiệm Thú y phát hiện dấu hiệu bất thường, kích hoạt phong tỏa y tế!')
+                    : 'Chiến mã hoàn toàn khỏe mạnh, nhịp tim và thân nhiệt ổn định.'}
+                </div>
+              </div>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '3px 8px',
+                borderRadius: '4px',
+                background: (horse.locked || horse.status === 'INJURED') ? '#EF4444' : '#10B981',
+                color: '#FFF'
+              }}>
+                {(horse.locked || horse.status === 'INJURED') ? 'LOCKED' : 'READY'}
+              </span>
+            </div>
+
+            {/* Bảng chỉ số sinh hiệu (Vital Signs) */}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--line)',
+              borderRadius: '8px',
+              padding: '12px 14px'
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--brass)', marginBottom: '8px' }}>
+                🩺 CHỈ SỐ SINH HIỆU LÂM SÀNG TẠI CHUỒNG
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '11.5px' }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: '4px' }}>
+                  <span style={{ color: 'var(--paper-dim)', display: 'block', fontSize: '10px' }}>Thân nhiệt chuẩn</span>
+                  <b style={{ color: 'var(--paper)', fontSize: '13px' }}>{horse.tempCelsius ? `${horse.tempCelsius}°C` : '38.0°C'}</b>
+                  <span style={{ color: '#10B981', fontSize: '9.5px', display: 'block' }}>Chuẩn: 37.5 - 38.5°C</span>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: '4px' }}>
+                  <span style={{ color: 'var(--paper-dim)', display: 'block', fontSize: '10px' }}>Nhịp tim lúc nghỉ</span>
+                  <b style={{ color: 'var(--paper)', fontSize: '13px' }}>{horse.restingHeartRate || '38 bpm'}</b>
+                  <span style={{ color: '#10B981', fontSize: '9.5px', display: 'block' }}>Chuẩn: 28 - 44 bpm</span>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: '4px' }}>
+                  <span style={{ color: 'var(--paper-dim)', display: 'block', fontSize: '10px' }}>Nhịp thở nghỉ ngơi</span>
+                  <b style={{ color: 'var(--paper)', fontSize: '13px' }}>{horse.respirationRate || '14 lần/phút'}</b>
+                  <span style={{ color: '#10B981', fontSize: '9.5px', display: 'block' }}>Chuẩn: 8 - 16 l/p</span>
+                </div>
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--paper-dim)', display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px dashed var(--line)', paddingTop: '6px' }}>
+                <div>• Niêm mạc nướu: <b style={{ color: 'var(--paper)' }}>Hồng hào tự nhiên (Thời gian hồi máu mao mạch CRT &lt; 2s)</b></div>
+                <div>• Âm ruột (Gut sounds): <b style={{ color: 'var(--paper)' }}>4/4 góc ruột có nhu động tích cực, không có dấu hiệu đau Colic</b></div>
+                <div>• Tình trạng móng &amp; gân: <b style={{ color: 'var(--paper)' }}>Không sưng nóng gân, móng không nứt rạn</b></div>
+              </div>
+            </div>
+
+            {/* Sổ Tiêm Chủng & Khẩu Phần Dinh Dưỡng */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '10px'
+            }}>
+              <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', fontSize: '11.5px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brass)', marginBottom: '4px' }}>💉 LỊCH TIÊM CHỦNG VẮC-XIN</div>
+                <div style={{ color: 'var(--paper-dim)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div>• Cúm ngựa: <span style={{ color: '#10B981', fontWeight: 600 }}>Đã tiêm hợp lệ</span></div>
+                  <div>• Uốn ván: <span style={{ color: '#10B981', fontWeight: 600 }}>Đạt chuẩn</span></div>
+                  <div>• Tẩy giun: <span style={{ color: 'var(--paper)', fontWeight: 600 }}>Định kỳ 3 tháng</span></div>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', fontSize: '11.5px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brass)', marginBottom: '4px' }}>🌾 KHẨU PHẦN DINH DƯỠNG</div>
+                <div style={{ color: 'var(--paper-dim)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div>• Cỏ Alfalfa &amp; Timothy: <span style={{ color: 'var(--paper)', fontWeight: 600 }}>12 kg/ngày</span></div>
+                  <div>• Yến mạch &amp; Cám hạt: <span style={{ color: 'var(--paper)', fontWeight: 600 }}>4 kg/ngày</span></div>
+                  <div>• Bổ sung điện giải: <span style={{ color: '#10B981', fontWeight: 600 }}>Sau buổi tập</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Buttons */}
         <div style={{ display: 'flex', gap: '10px' }}>

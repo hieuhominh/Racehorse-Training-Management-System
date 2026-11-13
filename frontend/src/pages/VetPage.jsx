@@ -16,7 +16,14 @@ import {
   recordVaccinationApi,
   isTestOrMockHorse
 } from '../services/api';
-import { getServiceAssignments, confirmServiceAssignment, lookupFullHorseInfo } from '../services/serviceAssignment';
+import {
+  getServiceAssignments,
+  confirmServiceAssignment,
+  rejectServiceAssignment,
+  lookupFullHorseInfo,
+  isVetMatch,
+  findVetObject
+} from '../services/serviceAssignment';
 import NotificationBell from '../components/NotificationBell';
 import ConfirmedHorseProfileModal from '../components/ConfirmedHorseProfileModal';
 import HorsePedigreeViewModal from '../components/HorsePedigreeViewModal';
@@ -489,15 +496,158 @@ export default function VetPage() {
   const [horseFilterStatus, setHorseFilterStatus] = useState('ALL'); // 'ALL' | 'ELIGIBLE' | 'LOCKED'
   const [horseFilterBreed, setHorseFilterBreed] = useState('ALL');
 
-  const pendingVetAssignments = useMemo(() => {
-    const uName = (currentUser?.username || '').trim().toLowerCase();
-    const fName = (currentUser?.full_name || '').trim().toLowerCase();
-    const isMyVetHorse = (a) => (
-      (a.vetUsername && a.vetUsername.trim().toLowerCase() === uName) ||
-      (!a.vetUsername && a.vetName && a.vetName.trim().toLowerCase() === fName)
-    );
-    return serviceAssignments.filter(a => isMyVetHorse(a) && a.vetStatus === 'PENDING');
+  // Danh sách toàn bộ chiến mã do Chủ sở hữu chỉ định cho Bác sĩ thú y
+  const assignedVetHorses = useMemo(() => {
+    const isMyVet = (vetUsername, vetName) => isVetMatch(currentUser, vetUsername, vetName);
+    const map = new Map();
+
+    // 1. Quét từ bảng phân công dịch vụ serviceAssignments
+    (serviceAssignments || []).forEach(asgn => {
+      if (!asgn || !asgn.horseName || isTestOrMockHorse(asgn.horseName) || String(asgn.horseName).toLowerCase().includes('vui vẻ')) return;
+      if (isMyVet(asgn.vetUsername, asgn.vetName)) {
+        const key = (asgn.microchip || asgn.horseName || String(asgn.id)).trim().toLowerCase();
+        const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip) || {};
+        const stallCode = asgn.stable ? (asgn.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || asgn.stable.split('(')[0].trim()) : (full.stable || 'Ô A1');
+        map.set(key, {
+          id: full.id || asgn.id || Date.now(),
+          name: asgn.horseName,
+          microchip: asgn.microchip || full.microchip || 'MC-VN-2026-092',
+          stall: stallCode,
+          stable: stallCode,
+          breed: full.breed || asgn.breed || 'Thoroughbred thuần chủng',
+          gender: full.gender || asgn.gender || 'Ngựa đực (Stallion)',
+          age: full.age || asgn.age || '3 tuổi',
+          owner: asgn.ownerName || full.ownerName || 'Chủ sở hữu',
+          ownerName: asgn.ownerName || full.ownerName || 'Chủ sở hữu',
+          ownershipShare: full.ownershipShare || asgn.ownershipShare || 100,
+          ownershipType: full.ownershipType || asgn.ownershipType || 'Toàn phần',
+          status: full.locked ? 'INJURED' : (full.status || 'ELIGIBLE'),
+          statusText: full.locked ? 'Khóa y tế: Thú y cấm tập' : (full.statusText || 'Đủ điều kiện thể lực'),
+          locked: Boolean(full.locked),
+          lockReason: full.lockReason || '',
+          restingHeartRate: full.restingHeartRate || '38 bpm',
+          tempCelsius: full.tempCelsius || 38.0,
+          respirationRate: full.respirationRate || '14 lần/phút',
+          lastExamDate: full.lastExamDate || new Date().toLocaleDateString('vi-VN'),
+          avatar: full.avatar || asgn.avatar,
+          pedigree: full.pedigree || asgn.pedigree,
+          vetStatus: asgn.vetStatus || 'PENDING',
+          trainerName: asgn.trainerName || full.trainerName || 'Trần Văn Hùng',
+          groomName: asgn.groomName || full.groomName || 'Lê Hoàng Nam',
+          assignmentData: asgn
+        });
+      }
+    });
+
+    // 2. Quét từ toàn bộ kho ngựa của các Chủ sở hữu trong localStorage (matruong_owner_horses_*)
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('matruong_owner_horses_')) {
+          if (k.includes('owner_thanh') || k.endsWith('_6') || k.endsWith('_11')) continue;
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              list.forEach(oh => {
+                if (!oh || !oh.name || isTestOrMockHorse(oh.name) || String(oh.name).toLowerCase().includes('vui vẻ')) return;
+                const vU = oh.vetUsername;
+                const vN = oh.vet || oh.vetName;
+                if (isMyVet(vU, vN)) {
+                  const key = (oh.microchip || oh.name || String(oh.id)).trim().toLowerCase();
+                  if (!map.has(key)) {
+                    const full = lookupFullHorseInfo(oh.name || oh.microchip) || oh;
+                    const stallCode = oh.stable ? (oh.stable.match(/Ô\s*[A-Z0-9]+/i)?.[0] || oh.stable.split('(')[0].trim()) : 'Ô A1';
+                    map.set(key, {
+                      id: oh.id || Date.now(),
+                      name: oh.name,
+                      microchip: oh.microchip || 'MC-VN-2026-092',
+                      stall: stallCode,
+                      stable: stallCode,
+                      breed: full.breed || oh.breed || 'Thoroughbred thuần chủng',
+                      gender: full.gender || oh.gender || 'Ngựa đực (Stallion)',
+                      age: full.age || oh.age || '3 tuổi',
+                      owner: oh.ownerName || oh.owner || 'Chủ sở hữu',
+                      ownerName: oh.ownerName || oh.owner || 'Chủ sở hữu',
+                      ownershipShare: full.ownershipShare || oh.ownershipShare || 100,
+                      ownershipType: full.ownershipType || oh.ownershipType || 'Toàn phần',
+                      status: full.locked ? 'INJURED' : (oh.status || 'ELIGIBLE'),
+                      statusText: full.locked ? 'Khóa y tế: Thú y cấm tập' : (oh.statusText || 'Đủ điều kiện thể lực'),
+                      locked: Boolean(full.locked || oh.locked),
+                      lockReason: full.lockReason || oh.lockReason || '',
+                      restingHeartRate: oh.restingHeartRate || '38 bpm',
+                      tempCelsius: oh.tempCelsius || 38.0,
+                      respirationRate: oh.respirationRate || '14 lần/phút',
+                      lastExamDate: oh.lastExamDate || new Date().toLocaleDateString('vi-VN'),
+                      avatar: full.avatar || oh.avatar,
+                      pedigree: full.pedigree || oh.pedigree,
+                      vetStatus: oh.vetStatus || 'PENDING',
+                      trainerName: oh.trainer || oh.trainerName || 'Trần Văn Hùng',
+                      groomName: oh.groom || oh.groomName || 'Lê Hoàng Nam',
+                      assignmentData: oh
+                    });
+                  }
+                }
+              });
+            }
+          }
+        }
+      }
+    } catch {}
+
+    return Array.from(map.values());
   }, [serviceAssignments, currentUser]);
+
+  // Tự động đồng bộ các chiến mã do Chủ sở hữu chỉ định vào danh bạ horses
+  useEffect(() => {
+    if (assignedVetHorses.length > 0) {
+      setHorses(prev => {
+        return assignedVetHorses.map(ah => {
+          const match = (prev || []).find(p =>
+            (p.microchip && ah.microchip && p.microchip.toLowerCase() === ah.microchip.toLowerCase()) ||
+            (p.name && ah.name && p.name.toLowerCase() === ah.name.toLowerCase())
+          );
+          if (match && typeof match.locked === 'boolean') {
+            return {
+              ...ah,
+              locked: match.locked,
+              status: match.locked ? 'INJURED' : ah.status,
+              statusText: match.locked ? 'Khóa y tế: Thú y cấm tập' : ah.statusText,
+              lockReason: match.lockReason || ah.lockReason
+            };
+          }
+          return ah;
+        });
+      });
+    } else {
+      setHorses([]);
+    }
+  }, [assignedVetHorses]);
+
+  const pendingVetAssignments = useMemo(() => {
+    return assignedVetHorses.filter(a => a.vetStatus === 'PENDING');
+  }, [assignedVetHorses]);
+
+  // Lọc danh sách sự cố y tế chỉ dành cho các chiến mã do Bác sĩ này phụ trách
+  const filteredIncidents = useMemo(() => {
+    const uName = (currentUser?.username || '').trim().toLowerCase();
+    if (uName === 'admin' || uName === 'admin_quan') {
+      return (incidents || []).filter(i => {
+        const hName = (i.horseName || i.horse || '').toLowerCase();
+        return !hName.includes('vui vẻ') && !isTestOrMockHorse(hName);
+      });
+    }
+
+    const myHorseNames = new Set(assignedVetHorses.map(h => (h.name || '').trim().toLowerCase()));
+    const myHorseChips = new Set(assignedVetHorses.map(h => (h.microchip || '').trim().toLowerCase()));
+
+    return (incidents || []).filter(inc => {
+      const hName = (inc.horseName || inc.horse || '').trim().toLowerCase();
+      const chip = (inc.chipId || inc.microchip || '').trim().toLowerCase();
+      if (hName.includes('vui vẻ') || isTestOrMockHorse(hName)) return false;
+      return myHorseNames.has(hName) || (chip && myHorseChips.has(chip));
+    });
+  }, [incidents, assignedVetHorses, currentUser]);
 
   const breedOptions = useMemo(() => {
     const set = new Set();
@@ -615,6 +765,17 @@ export default function VetPage() {
     setConfirmedHorseModal(fullHorse);
 
     showToast(`Đã xác nhận phụ trách y tế chiến mã "${fullHorse.name}" của Chủ sở hữu ${fullHorse.ownerName}!`, 'BÁC SĨ XÁC NHẬN Y TẾ', 'success');
+  };
+
+  const handleRejectVetService = (asgn) => {
+    const vetUser = currentUser?.username || asgn.vetUsername || 'vet';
+    const updated = rejectServiceAssignment(asgn.horseName || asgn.microchip, 'VET', vetUser, 'Bác sĩ Thú y từ chối tiếp nhận');
+    setServiceAssignments(updated);
+    setHorses(prev => prev.filter(h =>
+      (h.name && h.name.toLowerCase() !== (asgn.horseName || '').toLowerCase()) &&
+      (!asgn.microchip || !h.microchip || h.microchip.toLowerCase() !== asgn.microchip.toLowerCase())
+    ));
+    showToast(`Đã từ chối tiếp nhận phục vụ y tế cho chiến mã "${asgn.horseName}"!`, 'TỪ CHỐI TIẾP NHẬN', 'warning');
   };
 
   // Xử lý Khóa / Mở khóa Y tế (Quyền phủ quyết Y tế - Medical Safety Veto)
@@ -1007,9 +1168,9 @@ export default function VetPage() {
           >
             <span className="portal-nav-icon"><IconAlert size={18} /></span>
             <span className="portal-nav-label">Tiếp nhận sự cố</span>
-            {incidents.filter(i => i.status === 'pending_vet').length > 0 && (
+            {filteredIncidents.filter(i => i.status === 'pending_vet').length > 0 && (
               <span className="portal-nav-badge" style={{ background: 'var(--brass)', color: '#0A0D14' }}>
-                {incidents.filter(i => i.status === 'pending_vet').length}
+                {filteredIncidents.filter(i => i.status === 'pending_vet').length}
               </span>
             )}
           </button>
@@ -1263,45 +1424,61 @@ export default function VetPage() {
                               {asgn.stable || 'Ô A2'}
                             </span>
                           </div>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
-                                setConfirmedHorseModal(full || asgn);
-                              }}
-                              style={{
-              
-                                color: 'var(--brass)',
-                                border: '1px solid rgba(212, 175, 55, 0.4)',
-                                padding: '4px 8px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              Xem hồ sơ
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleConfirmVetService(asgn)}
-                              style={{
-                                background: '#10B981',
-                                color: '#0A0D14',
-                                border: 'none',
-                                padding: '4px 10px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              Xác nhận
-                            </button>
-                          </div>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const full = lookupFullHorseInfo(asgn.horseName || asgn.microchip);
+                                  setConfirmedHorseModal(full || asgn);
+                                }}
+                                style={{
+                                  color: 'var(--brass)',
+                                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                Xem hồ sơ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRejectVetService(asgn)}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  color: '#EF4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                                  padding: '4px 10px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                Từ chối
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleConfirmVetService(asgn)}
+                                style={{
+                                  background: '#10B981',
+                                  color: '#0A0D14',
+                                  border: 'none',
+                                  padding: '4px 10px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                Xác nhận phục vụ
+                              </button>
+                            </div>
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
                           Chủ sở hữu: <b style={{ color: 'var(--paper)' }}>{asgn.ownerName || 'Chủ sở hữu'}</b> · Chip: <span style={{ fontFamily: 'monospace', color: 'var(--brass)' }}>{asgn.microchip || '--'}</span>
@@ -1573,21 +1750,59 @@ export default function VetPage() {
                             alignItems: 'center',
                             fontSize: '11.5px',
                             marginBottom: '8px',
-                            color: 'var(--paper-dim)'
+                            padding: '6px 10px',
+                            background: 'rgba(212, 175, 55, 0.08)',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(212, 175, 55, 0.25)'
                           }}>
-                            <span>Chủ sở hữu: <b style={{ color: 'var(--paper)', fontWeight: 600 }}>{h.ownerName || h.owner || full.ownerName || 'Chủ sở hữu'}</b></span>
-                            <span style={{ color: 'var(--brass)', fontWeight: 600 }}>
+                            <span>Chủ sở hữu: <b style={{ color: 'var(--brass)', fontWeight: 700 }}>{h.ownerName || h.owner || full.ownerName || 'Chủ sở hữu'}</b></span>
+                            <span style={{ color: 'var(--paper)', fontWeight: 600 }}>
                               {full.ownershipShare ? `${full.ownershipShare}%` : '100%'} sở hữu
                             </span>
+                          </div>
+
+                          {/* Trạng thái xác nhận phụ trách y tế */}
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: '11px',
+                            marginBottom: '8px',
+                            padding: '4px 8px',
+                            background: h.vetStatus === 'PENDING' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+                            borderRadius: '4px',
+                            border: `1px solid ${h.vetStatus === 'PENDING' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.25)'}`
+                          }}>
+                            <span style={{
+                              color: h.vetStatus === 'PENDING' ? '#F59E0B' : '#10B981',
+                              fontWeight: 700
+                            }}>
+                              {h.vetStatus === 'PENDING' ? '⏳ Chủ sở hữu chỉ định · Chờ Bác sĩ duyệt' : '✓ Đã tiếp nhận phụ trách y tế'}
+                            </span>
+                            {h.vetStatus === 'PENDING' && (
+                              <button
+                                type="button"
+                                onClick={() => handleConfirmVetService(h.assignmentData || h)}
+                                style={{
+                                  background: '#10B981',
+                                  color: '#0A0D14',
+                                  border: 'none',
+                                  padding: '2px 8px',
+                                  borderRadius: '3px',
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Xác nhận
+                              </button>
+                            )}
                           </div>
 
                           {/* Dòng máu & Phả hệ tóm tắt */}
                           <div style={{
                             background: 'rgba(0, 0, 0, 0.2)',
-                            border: '1.5px solid rgba(232, 237, 232, 0.22)',
-                    lineHeight: 1.55,
-                    outline: 'none',
-                    minHeight: '85px',
+                            border: '1px solid var(--line)',
                             borderRadius: '6px',
                             padding: '8px 10px',
                             fontSize: '11.5px',
@@ -1606,21 +1821,27 @@ export default function VetPage() {
                             </div>
                           </div>
 
-                          {/* Chỉ số sinh hiệu */}
+                          {/* Chỉ số sinh hiệu lâm sàng */}
                           <div style={{
                             display: 'grid',
-                            gridTemplateColumns: '1fr 1fr',
-                            gap: '8px',
-                            fontSize: '11.5px',
+                            gridTemplateColumns: '1fr 1fr 1fr',
+                            gap: '6px',
+                            fontSize: '11px',
                             marginBottom: '12px',
                             paddingTop: '6px',
                             borderTop: '1px solid var(--line)'
                           }}>
-                            <div style={{ color: 'var(--paper-dim)' }}>
-                              Nhịp tim: <b style={{ color: 'var(--paper)', fontWeight: 600 }}>{h.restingHeartRate || '38 bpm'}</b>
+                            <div>
+                              <span style={{ color: 'var(--paper-dim)', display: 'block', fontSize: '10px' }}>Thân nhiệt</span>
+                              <b style={{ color: 'var(--paper)', fontSize: '12px' }}>{h.tempCelsius ? `${h.tempCelsius}°C` : '38.0°C'}</b>
                             </div>
-                            <div style={{ color: 'var(--paper-dim)', textAlign: 'right' }}>
-                              Thân nhiệt: <b style={{ color: 'var(--paper)', fontWeight: 600 }}>{h.tempCelsius ? `${h.tempCelsius}°C` : '38.0°C'}</b>
+                            <div style={{ textAlign: 'center' }}>
+                              <span style={{ color: 'var(--paper-dim)', display: 'block', fontSize: '10px' }}>Nhịp tim</span>
+                              <b style={{ color: 'var(--paper)', fontSize: '12px' }}>{h.restingHeartRate || '38 bpm'}</b>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ color: 'var(--paper-dim)', display: 'block', fontSize: '10px' }}>Nhịp thở</span>
+                              <b style={{ color: 'var(--paper)', fontSize: '12px' }}>{h.respirationRate || '14 l/p'}</b>
                             </div>
                           </div>
                         </div>
@@ -1772,12 +1993,7 @@ export default function VetPage() {
 
               {/* Khối Yêu Cầu Phục Vụ Thú Y Chờ Bác Sĩ Xác Nhận */}
               {(() => {
-                const uName = (currentUser?.username || '').trim().toLowerCase();
-                const fName = (currentUser?.full_name || '').trim().toLowerCase();
-                const isMyVetHorse = (a) => (
-                  (a.vetUsername && a.vetUsername.trim().toLowerCase() === uName) ||
-                  (!a.vetUsername && a.vetName && a.vetName.trim().toLowerCase() === fName)
-                );
+                const isMyVetHorse = (a) => isVetMatch(currentUser, a.vetUsername, a.vetName);
                 const pendingVetAssignments = serviceAssignments.filter(a => isMyVetHorse(a) && a.vetStatus === 'PENDING');
                 if (pendingVetAssignments.length === 0) return null;
 
@@ -1876,7 +2092,6 @@ export default function VetPage() {
                                   setConfirmedHorseModal(full || asgn);
                                 }}
                                 style={{
-                
                                   color: 'var(--brass)',
                                   border: '1px solid rgba(212, 175, 55, 0.4)',
                                   padding: '5px 10px',
@@ -1888,6 +2103,23 @@ export default function VetPage() {
                                 }}
                               >
                                 Xem hồ sơ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRejectVetService(asgn)}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.12)',
+                                  color: '#EF4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                                  padding: '5px 12px',
+                                  borderRadius: '5px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                Từ chối
                               </button>
                               <button
                                 type="button"
@@ -1905,7 +2137,7 @@ export default function VetPage() {
                                   whiteSpace: 'nowrap'
                                 }}
                               >
-                                ✓ Xác Nhận Phụ Trách Y Tế
+                                ✓ Xác Nhận Phục Vụ
                               </button>
                             </div>
                           </div>
@@ -1955,7 +2187,7 @@ export default function VetPage() {
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--brass)', boxShadow: '0 0 8px var(--brass-glow)' }} />
                   </div>
                   <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--brass)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
-                    {incidents.filter(i => i.status === 'pending_vet').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA</span>
+                    {filteredIncidents.filter(i => i.status === 'pending_vet').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA</span>
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
                     Cần thăm khám trực tiếp tại ô chuồng
@@ -1977,7 +2209,7 @@ export default function VetPage() {
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--paper-dim)' }} />
                   </div>
                   <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
-                    {incidents.filter(i => i.status === 'in_review').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA</span>
+                    {filteredIncidents.filter(i => i.status === 'in_review').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA</span>
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
                     Có phác đồ chăm sóc ban đầu
@@ -1999,7 +2231,7 @@ export default function VetPage() {
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--paper-muted)' }} />
                   </div>
                   <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--paper)', margin: '8px 0 4px', fontFamily: 'var(--display)' }}>
-                    {incidents.filter(i => i.status === 'resolved').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA</span>
+                    {filteredIncidents.filter(i => i.status === 'resolved').length} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--paper-dim)' }}>CA</span>
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
                     Bác sĩ Thú y đã ký duyệt hoàn tất
@@ -2008,15 +2240,13 @@ export default function VetPage() {
               </div>
 
               {/* Danh sách thẻ sự cố */}
-              {incidents.length === 0 ? (
+              {filteredIncidents.length === 0 ? (
                 <div style={{
                   padding: '50px 24px',
                   textAlign: 'center',
                   background: 'var(--bg-card)',
                   border: '1.5px dashed var(--line-strong)',
                   borderRadius: '16px',
-              background: 'var(--bg-card, #20362B)',
-              padding: '26px 30px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -2039,34 +2269,16 @@ export default function VetPage() {
                   </div>
                   <div>
                     <h3 style={{ margin: '0 0 8px', fontSize: '18px', color: 'var(--paper)', fontWeight: 800 }}>
-                      Hiện chưa có ca sự cố lâm sàng nào cần xử lý (0 CA)
+                      Hiện không có sự cố lâm sàng nào thuộc thẩm quyền quản lý (0 CA)
                     </h3>
                     <p style={{ margin: 0, fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '560px', lineHeight: 1.6 }}>
-                      Tài khoản Bác sĩ Thú y của bạn vừa được Quản trị viên (Admin) phê duyệt thành công. Vì đây là tài khoản mới, dữ liệu xuất phát từ 0. Khi có ca báo cáo mới từ nhân viên Groom và HLV gửi lên sau thời điểm này, dữ liệu sẽ tự động đồng bộ theo thời gian thực.
+                      Hệ thống tự động phân luồng sự cố theo quyền hạn của từng Bác sĩ thú y phụ trách. Chỉ những chiến mã do Chủ sở hữu chỉ định cho bạn mới hiển thị cảnh báo y tế tại đây.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleSimulateNewIncident}
-                    style={{
-                      marginTop: '6px',
-                      padding: '10px 20px',
-                      background: 'var(--brass)',
-                      color: '#14100A',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontWeight: 700,
-                      fontSize: '13.5px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 14px rgba(232, 107, 44, 0.35)'
-                    }}
-                  >
-                    + Mô phỏng tiếp nhận ca sự cố mới từ Groom
-                  </button>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '18px' }}>
-                {incidents.map((inc) => {
+                {filteredIncidents.map((inc) => {
                   const isPending = inc.status === 'pending_vet';
                   const isInReview = inc.status === 'in_review';
                   const isCritical = inc.severity === 'CRITICAL';

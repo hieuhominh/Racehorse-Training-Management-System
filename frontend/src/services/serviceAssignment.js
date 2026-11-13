@@ -69,6 +69,58 @@ export const FIXED_VETS_LIST = [
   { username: 'vet_linh', name: 'BS. Lê Mai Linh', title: 'Chuyên khoa Dinh Dưỡng & Kiểm Dịch' }
 ];
 
+export function normalizeVetName(name) {
+  return (name || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/^(bs\.?|bác sĩ|dr\.?)\s*/i, '')
+    .trim();
+}
+
+export function findVetObject(vetKeyOrName) {
+  if (!vetKeyOrName) return null;
+  const raw = String(vetKeyOrName).trim().toLowerCase();
+  const norm = normalizeVetName(raw);
+  return FIXED_VETS_LIST.find(v =>
+    v.username.toLowerCase() === raw ||
+    normalizeVetName(v.name) === norm ||
+    normalizeVetName(v.name).includes(norm) ||
+    norm.includes(normalizeVetName(v.name))
+  ) || null;
+}
+
+// Kiểm tra xem người dùng hiện tại có phải là Bác sĩ thú y được Chủ sở hữu chỉ định không
+export function isVetMatch(user, vetUsername, vetName) {
+  if (!user) return false;
+  const currentU = (user.username || '').trim().toLowerCase();
+  const currentF = normalizeVetName(user.full_name || user.name);
+
+  // Quản trị viên (Admin) có quyền xem toàn bộ
+  if (currentU === 'admin' || currentU === 'admin_quan') return true;
+
+  const targetU = (vetUsername || '').trim().toLowerCase();
+  const targetF = normalizeVetName(vetName);
+
+  // 1. So khớp bằng username trực tiếp (vd: vet_hoang, vet_an, vet_linh)
+  if (targetU && currentU && targetU === currentU) return true;
+
+  // 2. Tra cứu username từ targetF hoặc ngược lại thông qua FIXED_VETS_LIST
+  const fixedByTarget = findVetObject(targetU || targetF);
+  const fixedByCurrent = findVetObject(currentU || currentF);
+
+  if (fixedByTarget && fixedByCurrent && fixedByTarget.username === fixedByCurrent.username) {
+    return true;
+  }
+
+  // 3. So khớp trực tiếp tên sau khi loại bỏ tiền tố "BS.", "Bác sĩ", "Dr."
+  if (targetF && currentF && (targetF === currentF || targetF.includes(currentF) || currentF.includes(targetF))) {
+    return true;
+  }
+
+  return false;
+}
+
 // 3 Người chăm sóc chính
 export const FIXED_GROOMS_LIST = [
   { username: 'groom_nam', name: 'Lê Hoàng Nam', title: 'Trưởng nhóm Chăm sóc Block A' },
@@ -114,7 +166,8 @@ export function getServiceAssignments() {
             horses.forEach(h => {
               if (h && h.name && !isTestOrMockHorse(h.name)) {
                 const trObj = FIXED_TRAINERS_LIST.find(t => t.username === h.trainerUsername || t.name === h.trainer) || FIXED_TRAINERS_LIST[0];
-                const vtObj = FIXED_VETS_LIST.find(v => v.username === h.vetUsername || v.name === h.vet) || FIXED_VETS_LIST[0];
+                const vtObj = findVetObject(h.vetUsername || h.vet) || FIXED_VETS_LIST[0];
+                const isVetConfirmed = (h.vetStatus === 'CONFIRMED' || h.vetConfirmed === true) && h.vetStatus !== 'PENDING' && h.vetStatus !== 'REJECTED';
                 collected.push({
                   id: h.id || Date.now(),
                   horseName: h.name,
@@ -125,11 +178,12 @@ export function getServiceAssignments() {
                   breed: h.breed || 'Thoroughbred thuần chủng',
                   trainerUsername: trObj.username,
                   trainerName: trObj.name,
-                  trainerStatus: 'CONFIRMED',
-                  trainerConfirmedAt: new Date().toLocaleDateString('vi-VN'),
+                  trainerStatus: h.trainerStatus || 'CONFIRMED',
+                  trainerConfirmedAt: h.trainerConfirmedAt || new Date().toLocaleDateString('vi-VN'),
                   vetUsername: vtObj.username,
                   vetName: vtObj.name,
-                  vetStatus: 'CONFIRMED',
+                  vetStatus: isVetConfirmed ? 'CONFIRMED' : (h.vetStatus || 'PENDING'),
+                  vetConfirmedAt: isVetConfirmed ? (h.vetConfirmedAt || new Date().toLocaleDateString('vi-VN')) : null,
                   groomUsername: 'groom_team',
                   groomName: 'Bộ phận Chăm sóc (Groom)',
                   groomStatus: 'CONFIRMED'
@@ -172,7 +226,7 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
   );
 
   const trainerObj = FIXED_TRAINERS_LIST.find(t => t.username === staffSelection.trainerUsername || t.name === staffSelection.trainerName) || FIXED_TRAINERS_LIST[0];
-  const vetObj = FIXED_VETS_LIST.find(v => v.username === staffSelection.vetUsername || v.name === staffSelection.vetName) || FIXED_VETS_LIST[0];
+  const vetObj = findVetObject(staffSelection.vetUsername || staffSelection.vetName) || FIXED_VETS_LIST[0];
   const groomObj = FIXED_GROOMS_LIST.find(g => g.username === staffSelection.groomUsername || g.name === staffSelection.groomName) || FIXED_GROOMS_LIST[0];
 
   const nowStr = new Date().toLocaleDateString('vi-VN');
@@ -180,7 +234,7 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
   if (foundIndex >= 0) {
     const old = list[foundIndex];
     const trainerChanged = old.trainerUsername !== trainerObj.username;
-    const vetChanged = old.vetUsername !== vetObj.username;
+    const vetChanged = old.vetUsername !== vetObj.username || normalizeVetName(old.vetName) !== normalizeVetName(vetObj.name);
     const groomChanged = old.groomUsername !== groomObj.username;
 
     list[foundIndex] = {
@@ -203,7 +257,7 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
       trainerConfirmedAt: trainerChanged ? null : old.trainerConfirmedAt,
       vetUsername: vetObj.username,
       vetName: vetObj.name,
-      vetStatus: vetChanged ? 'PENDING' : old.vetStatus,
+      vetStatus: vetChanged ? 'PENDING' : (old.vetStatus || 'PENDING'),
       vetConfirmedAt: vetChanged ? null : old.vetConfirmedAt,
       groomUsername: groomObj.username,
       groomName: groomObj.name,
@@ -211,6 +265,9 @@ export function assignOrUpdateServiceTeam(horse, staffSelection, ownerUser) {
       groomConfirmedAt: groomChanged ? null : old.groomConfirmedAt,
       lastUpdatedAt: nowStr
     };
+    if (vetChanged) {
+      syncHorseConfirmationToLocalStorage(horse.microchip || horse.name, 'VET', 'PENDING');
+    }
   } else {
     list.push({
       id: horse.id || Date.now(),
@@ -780,8 +837,8 @@ export function lookupFullHorseInfo(horseIdentifier) {
     trainerName: matchAsgn?.trainerName || foundOwnerHorse?.trainer || 'Trần Văn Hùng',
     vetName: matchAsgn?.vetName || foundOwnerHorse?.vet || 'BS. Nguyễn An',
     groomName: matchAsgn?.groomName || foundOwnerHorse?.groom || 'Lê Hoàng Nam',
-    trainerStatus: matchAsgn?.trainerStatus || 'CONFIRMED',
-    vetStatus: matchAsgn?.vetStatus || 'CONFIRMED',
-    groomStatus: matchAsgn?.groomStatus || 'CONFIRMED'
+    trainerStatus: matchAsgn?.trainerStatus || foundOwnerHorse?.trainerStatus || 'CONFIRMED',
+    vetStatus: matchAsgn?.vetStatus || foundOwnerHorse?.vetStatus || 'PENDING',
+    groomStatus: matchAsgn?.groomStatus || foundOwnerHorse?.groomStatus || 'CONFIRMED'
   };
 }

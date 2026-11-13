@@ -194,7 +194,7 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
   const handleApproveNomination = async (nomId) => {
     await approveTournamentNominationApi(nomId);
     setAdminNominations(prev => prev.map(n => n.id === nomId ? { ...n, status: 'CONFIRMED', nominationStatus: 'CONFIRMED', feeApproved: true, approvedAt: new Date().toLocaleString('vi-VN') } : n));
-    if (showToast) showToast('Đã xác nhận thu 5.000.000 ₫ và phê duyệt đơn thi đấu của chiến mã! Giấy xác nhận thi đấu (PDF) đã được kích hoạt cho Chủ sở hữu.', 'XÁC NHẬN THU PHÍ THÀNH CÔNG', 'success');
+    if (showToast) showToast('Đã xác nhận thu 5.000.000 ₫ và phê duyệt đăng ký giải nội bộ! Chủ sở hữu hiện có thể tự chọn ngựa hoặc nhờ HLV chọn chiến mã giúp.', 'XÁC NHẬN THU PHÍ THÀNH CÔNG', 'success');
   };
 
   // Handler từ chối đơn
@@ -723,7 +723,13 @@ export default function AdminTournamentsTab({ lang = 'vi', showToast }) {
                             </div>
                             <div>
                               <div style={{ fontWeight: 700, color: 'var(--paper)', fontSize: '13.5px' }}>
-                                {nom.horseName}
+                                {nom.horseName === 'Chưa chọn chiến mã' || !nom.horseAssigned ? (
+                                  <span style={{ color: '#F59E0B', fontStyle: 'italic', fontWeight: 600 }}>
+                                    Chưa chọn chiến mã (Chọn sau khi duyệt)
+                                  </span>
+                                ) : (
+                                  nom.horseName
+                                )}
                               </div>
                               <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px', lineHeight: 1.4 }}>
                                 Chủ: <b style={{ color: 'var(--paper)' }}>{nom.ownerName}</b> · Nài: <span style={{ color: 'var(--brass)' }}>{nom.jockey?.replace('Chủ sở hữu tự bố trí', 'Tự bố trí') || 'Tự bố trí'}</span>
