@@ -10,6 +10,7 @@ import {
   getTelemetrySessionsApi,
   recordTelemetryApi,
   getHorsesApi,
+  getVetActiveLocksApi,
   getSystemTournamentNominationsApi,
   trainerReviewNominationApi,
   trainerAssignHorseNominationApi,
@@ -636,8 +637,20 @@ export default function TrainerPage() {
   )).length;
 
 
-  // Xử lý HLV duyệt đề cử thi đấu
+  // Xử lý HLV duyệt đề cử thi đấu (Chặn tuyệt đối nếu ngựa đang bị Khóa Y Tế)
   const handleTrainerApprove = async (item) => {
+    // 1. Kiểm tra Lệnh Khóa Y Tế từ Bác sĩ Thú y
+    const targetIdentifier = item.horseName || item.assignedHorseName || item.microchip || item.horseId;
+    const lockStatus = checkHorseVetLockStatus(targetIdentifier);
+    if (lockStatus.isLocked) {
+      showToast(
+        `Chiến mã "${item.horseName || 'Chiến mã'}" đang bị Bác sĩ Thú y KHÓA Y TẾ / CẤM THI ĐẤU (${lockStatus.reason || 'Dấu hiệu chấn thương'})! Tuyệt đối không thể mang ngựa đi đua cho tới khi Bác sĩ Thú y kiểm tra và dỡ bỏ lệnh khóa an toàn.`,
+        'CẤM THI ĐẤU DO KHÓA Y TẾ',
+        'error'
+      );
+      return;
+    }
+
     const trainerName = currentUser?.full_name || 'HLV Trưởng';
     const feedback = 'Chiến mã đạt 100% phong độ thể lực, chỉ số viễn trắc ổn định. Đã phê duyệt cấp phép xuất phát chính thức.';
     
@@ -770,6 +783,17 @@ export default function TrainerPage() {
     const selectedHorse = availableHorses.find(h => String(h.id) === String(selectedHorseId)) || availableHorses[0];
     if (!selectedHorse) {
       showToast('Vui lòng chọn một chiến mã!', 'CHƯA CHỌN NGỰA', 'warning');
+      return;
+    }
+
+    // Kiểm tra Khóa Y Tế từ Bác sĩ Thú y
+    const lockStatus = checkHorseVetLockStatus(selectedHorse.microchip || selectedHorse.id || selectedHorse.name);
+    if (lockStatus.isLocked || selectedHorse.isLockedByVet || selectedHorse.locked || selectedHorse.status === 'INJURED') {
+      showToast(
+        `Chiến mã "${selectedHorse.name}" đang bị Bác sĩ Thú y KHÓA Y TẾ / CẤM THI ĐẤU (${lockStatus.reason || 'Dấu hiệu chấn thương'})! Không thể chỉ định tham gia giải đua cho tới khi Bác sĩ Thú y dỡ bỏ lệnh khóa an toàn.`,
+        'CẤM THI ĐẤU DO KHÓA Y TẾ',
+        'error'
+      );
       return;
     }
 
@@ -961,6 +985,39 @@ export default function TrainerPage() {
       window.removeEventListener('storage', handleSyncJoint);
       window.removeEventListener('storage', handleVetLockSync);
     };
+  }, []);
+
+  // Lắng nghe sự kiện Chủ sở hữu xóa chiến mã -> Tự động dọn sạch mọi dữ liệu liên quan bên Cổng HLV
+  useEffect(() => {
+    const handleHorsePurged = (e) => {
+      const { horseId, horseName, microchip } = e?.detail || {};
+      const isMatch = (item) => {
+        if (!item) return false;
+        if (horseId && (String(item.id) === String(horseId) || String(item.horseId) === String(horseId))) return true;
+        if (horseName) {
+          const hn = String(horseName).trim().toLowerCase();
+          if (item.name && String(item.name).trim().toLowerCase() === hn) return true;
+          if (item.horseName && String(item.horseName).trim().toLowerCase() === hn) return true;
+          if (item.horse && typeof item.horse === 'string' && item.horse.trim().toLowerCase() === hn) return true;
+          if (item.assignedHorseName && String(item.assignedHorseName).trim().toLowerCase() === hn) return true;
+        }
+        if (microchip) {
+          const mc = String(microchip).trim().toLowerCase();
+          if (item.microchip && String(item.microchip).trim().toLowerCase() === mc) return true;
+          if (item.chipId && String(item.chipId).trim().toLowerCase() === mc) return true;
+        }
+        return false;
+      };
+
+      setTrainerHorses(prev => prev.filter(h => !isMatch(h)));
+      setPrograms(prev => prev.filter(p => !isMatch(p)));
+      setTelemetrySessions(prev => prev.filter(t => !isMatch(t)));
+      setTournamentNominations(prev => prev.filter(n => !isMatch(n)));
+      setJointSessions(prev => prev.filter(s => !isMatch(s)));
+    };
+
+    window.addEventListener('matruong_horse_deleted', handleHorsePurged);
+    return () => window.removeEventListener('matruong_horse_deleted', handleHorsePurged);
   }, []);
 
   // Tự động kiểm tra cơ chế Reset lịch lúc 18h tối cho HLV
@@ -1330,6 +1387,7 @@ export default function TrainerPage() {
   // Nạp giáo án & danh sách chiến mã từ API Backend khi khởi động
   useEffect(() => {
     let isMounted = true;
+    getVetActiveLocksApi().catch(() => {});
     getTrainingProgramsApi().then(res => {
       if (isMounted && res.isFromBackend && Array.isArray(res.data) && res.data.length > 0) {
         const mapped = res.data.map((p, idx) => ({
@@ -1587,7 +1645,7 @@ export default function TrainerPage() {
     return () => clearInterval(interval);
   }, [activeRunningSession?.phase]);
 
-  // Bắt đầu chạy bài tập từ giáo án
+  // Bắt đầu chạy bài tập từ giáo án (Chặn tuyệt đối nếu ngựa đang bị Khóa Y Tế)
   const handleStartWorkout = (prog) => {
     const targetDist = Number(prog.targetDistance) || 1600;
     const targetHorse = trainerHorses.find(h => (h.name || '').toLowerCase() === (prog.horseName || '').toLowerCase())
@@ -1599,6 +1657,17 @@ export default function TrainerPage() {
         breed: 'Quarter Horse',
         avatar: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=600&q=80'
       };
+
+    // Kiểm tra Khóa Y Tế từ Bác sĩ Thú y: Nếu đang bị khóa thì KHÔNG ĐƯỢC MANG ĐI TẬP!
+    const lockStatus = checkHorseVetLockStatus(targetHorse.microchip || targetHorse.id || targetHorse.name || prog.horseName);
+    if (lockStatus.isLocked || targetHorse.isLockedByVet || targetHorse.locked || targetHorse.status === 'INJURED') {
+      showToast(
+        `Chiến mã "${targetHorse.name || prog.horseName}" đang bị Bác sĩ Thú y KHÓA Y TẾ / CẤM TẬP (${lockStatus.reason || 'Dấu hiệu chấn thương thể lực'})! Tuyệt đối không thể mang ngựa đi tập cho tới khi Bác sĩ Thú y mở khóa an toàn tại Cổng Thú Y.`,
+        'CẤM TẬP DO KHÓA Y TẾ',
+        'error'
+      );
+      return;
+    }
 
     setActiveRunningSession({
       phase: 'RUNNING', // Giai đoạn 1: Ngựa đang trong thời gian chạy bài
@@ -1741,6 +1810,18 @@ export default function TrainerPage() {
     }
 
     const assignedHorse = (newProgramData.horseName || (trainerHorses && trainerHorses[0]?.name) || 'Chiến mã').trim();
+
+    // Kiểm tra Khóa Y Tế từ Bác sĩ Thú y: Nếu đang bị khóa thì không cho lập giáo án tập luyện
+    const lockStatus = checkHorseVetLockStatus(assignedHorse);
+    if (lockStatus.isLocked) {
+      showToast(
+        `Chiến mã "${assignedHorse}" đang bị Bác sĩ Thú y KHÓA Y TẾ / CẤM TẬP (${lockStatus.reason || 'Dấu hiệu chấn thương'})! Không thể lập giáo án và mang ngựa đi tập cho tới khi Bác sĩ Thú y mở khóa an toàn.`,
+        'CẤM TẬP DO KHÓA Y TẾ',
+        'error'
+      );
+      return;
+    }
+
     setIsSubmittingProgram(true);
 
     const newProg = {
@@ -3761,37 +3842,53 @@ setTrainerHorses(prev => {
 
                       <div className="facility-card-actions">
                         <div className="actions-left" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <button
-                            className="facility-btn-action"
-                            onClick={() => handleStartWorkout(prog)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              background: prog.status === 'COMPLETED'
-                                ? 'rgba(16, 185, 129, 0.15)'
-                                : prog.status === 'INCOMPLETE'
-                                ? 'rgba(239, 68, 68, 0.15)'
-                                : undefined,
-                              borderColor: prog.status === 'COMPLETED'
-                                ? '#10B981'
-                                : prog.status === 'INCOMPLETE'
-                                ? '#EF4444'
-                                : undefined,
-                              color: prog.status === 'COMPLETED'
-                                ? '#10B981'
-                                : prog.status === 'INCOMPLETE'
-                                ? '#EF4444'
-                                : undefined
-                            }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                            </svg>
-                            {prog.status === 'COMPLETED' || prog.status === 'INCOMPLETE'
-                              ? (lang === 'en' ? 'Rerun' : '↺ Tập lại')
-                              : (lang === 'en' ? 'Run Workout' : 'Chạy bài này')}
-                          </button>
+                          {(() => {
+                            const progHorseLock = checkHorseVetLockStatus(prog.horseName);
+                            const isProgLocked = progHorseLock.isLocked;
+                            return (
+                              <button
+                                className="facility-btn-action"
+                                onClick={() => handleStartWorkout(prog)}
+                                title={isProgLocked ? `Chiến mã đang bị Khóa Y Tế (${progHorseLock.reason}) - Không thể mang đi tập` : 'Bắt đầu chạy bài tập'}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  background: isProgLocked
+                                    ? 'rgba(239, 68, 68, 0.12)'
+                                    : prog.status === 'COMPLETED'
+                                    ? 'rgba(16, 185, 129, 0.15)'
+                                    : prog.status === 'INCOMPLETE'
+                                    ? 'rgba(239, 68, 68, 0.15)'
+                                    : undefined,
+                                  borderColor: isProgLocked
+                                    ? 'rgba(239, 68, 68, 0.5)'
+                                    : prog.status === 'COMPLETED'
+                                    ? '#10B981'
+                                    : prog.status === 'INCOMPLETE'
+                                    ? '#EF4444'
+                                    : undefined,
+                                  color: isProgLocked
+                                    ? '#EF4444'
+                                    : prog.status === 'COMPLETED'
+                                    ? '#10B981'
+                                    : prog.status === 'INCOMPLETE'
+                                    ? '#EF4444'
+                                    : undefined,
+                                  fontWeight: isProgLocked ? 700 : undefined
+                                }}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                {isProgLocked
+                                  ? '⛔ Khóa Y Tế (Cấm tập)'
+                                  : prog.status === 'COMPLETED' || prog.status === 'INCOMPLETE'
+                                  ? (lang === 'en' ? 'Rerun' : '↺ Tập lại')
+                                  : (lang === 'en' ? 'Run Workout' : 'Chạy bài này')}
+                              </button>
+                            );
+                          })()}
                           <button
                             type="button"
                             onClick={() => handleDeleteProgramDirect(prog, progIdx)}
@@ -3898,30 +3995,36 @@ setTrainerHorses(prev => {
                           </td>
                           <td style={{ padding: '12px 10px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleStartWorkout(prog)}
-                                style={{
-                                  background: 'rgba(212, 175, 55, 0.15)',
-                                  color: 'var(--brass)',
-                                  border: '1px solid var(--brass)',
-                                  padding: '4px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '11.5px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  transition: 'all 0.15s ease'
-                                }}
-                                title="Bắt đầu chạy bài tập này"
-                              >
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                                </svg>
-                                {lang === 'en' ? 'Run' : 'Chạy bài này'}
-                              </button>
+                              {(() => {
+                                const progHorseLock = checkHorseVetLockStatus(prog.horseName);
+                                const isProgLocked = progHorseLock.isLocked;
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartWorkout(prog)}
+                                    style={{
+                                      background: isProgLocked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(212, 175, 55, 0.15)',
+                                      color: isProgLocked ? '#EF4444' : 'var(--brass)',
+                                      border: isProgLocked ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid var(--brass)',
+                                      padding: '4px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '11.5px',
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                    title={isProgLocked ? `Chiến mã đang bị Khóa Y Tế (${progHorseLock.reason}) - Không thể mang đi tập` : 'Bắt đầu chạy bài tập này'}
+                                  >
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                    </svg>
+                                    {isProgLocked ? '⛔ Khóa Y Tế' : (lang === 'en' ? 'Run' : 'Chạy bài này')}
+                                  </button>
+                                );
+                              })()}
                               <button
                                 type="button"
                                 onClick={() => handleDeleteProgramDirect(prog, progIdx)}
@@ -5218,29 +5321,34 @@ setTrainerHorses(prev => {
                                     <span>🎯</span>
                                     <span>Đánh giá & Chỉ định chiến mã</span>
                                   </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleTrainerApprove(nom)}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                      padding: '8px 20px',
-                                      background: 'var(--brass)',
-                                      color: '#0A0D14',
-                                      border: 'none',
-                                      borderRadius: '6px',
-                                      fontSize: '12.5px',
-                                      fontWeight: 800,
-                                      cursor: 'pointer',
-                                      boxShadow: '0 2px 8px rgba(212, 175, 55, 0.25)'
-                                    }}
-                                  >
-                                    <IconCheck size={16} color="#0A0D14" />
-                                    <span>Phê duyệt đủ điều kiện xuất phát</span>
-                                  </button>
-                                )}
+                                ) : (() => {
+                                  const nomLock = checkHorseVetLockStatus(nom.horseName || nom.assignedHorseName || nom.microchip || nom.horseId);
+                                  const isNomLocked = nomLock.isLocked;
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTrainerApprove(nom)}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '8px 20px',
+                                        background: isNomLocked ? 'rgba(239, 68, 68, 0.15)' : 'var(--brass)',
+                                        color: isNomLocked ? '#EF4444' : '#0A0D14',
+                                        border: isNomLocked ? '1px solid rgba(239, 68, 68, 0.5)' : 'none',
+                                        borderRadius: '6px',
+                                        fontSize: '12.5px',
+                                        fontWeight: 800,
+                                        cursor: 'pointer',
+                                        boxShadow: isNomLocked ? 'none' : '0 2px 8px rgba(212, 175, 55, 0.25)'
+                                      }}
+                                      title={isNomLocked ? `Chiến mã đang bị Khóa Y Tế (${nomLock.reason}) - Không thể mang đi thi đấu` : 'Phê duyệt đủ điều kiện xuất phát'}
+                                    >
+                                      {isNomLocked ? <span>⛔</span> : <IconCheck size={16} color="#0A0D14" />}
+                                      <span>{isNomLocked ? '⛔ Bị Khóa Y Tế (Cấm thi đấu)' : 'Phê duyệt đủ điều kiện xuất phát'}</span>
+                                    </button>
+                                  );
+                                })()}
                               </>
                             )}
 
@@ -5286,26 +5394,33 @@ setTrainerHorses(prev => {
                             )}
 
                             {isRejected && (
-                              <button
-                                type="button"
-                                onClick={() => handleTrainerApprove(nom)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '7px 18px',
-                                  background: 'var(--brass)',
-                                  color: '#0A0D14',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                <IconCheck size={15} color="#0A0D14" />
-                                <span>Thẩm định lại & Cấp phép xuất phát</span>
-                              </button>
+                              (() => {
+                                const nomLock = checkHorseVetLockStatus(nom.horseName || nom.assignedHorseName || nom.microchip || nom.horseId);
+                                const isNomLocked = nomLock.isLocked;
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTrainerApprove(nom)}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      padding: '7px 18px',
+                                      background: isNomLocked ? 'rgba(239, 68, 68, 0.15)' : 'var(--brass)',
+                                      color: isNomLocked ? '#EF4444' : '#0A0D14',
+                                      border: isNomLocked ? '1px solid rgba(239, 68, 68, 0.5)' : 'none',
+                                      borderRadius: '6px',
+                                      fontSize: '12px',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                    title={isNomLocked ? `Chiến mã đang bị Khóa Y Tế (${nomLock.reason}) - Không thể mang đi thi đấu` : 'Cấp phép xuất phát'}
+                                  >
+                                    {isNomLocked ? <span>⛔</span> : <IconCheck size={15} color="#0A0D14" />}
+                                    <span>{isNomLocked ? '⛔ Bị Khóa Y Tế (Cấm thi đấu)' : 'Thẩm định lại & Cấp phép xuất phát'}</span>
+                                  </button>
+                                );
+                              })()
                             )}
                           </div>
                         </div>
@@ -6365,12 +6480,20 @@ setTrainerHorses(prev => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto', paddingRight: '4px' }}>
                   {assignHorseModalData.availableHorses.map(horse => {
                     const isSelected = String(assignHorseModalData.selectedHorseId) === String(horse.id);
-                    const isLocked = horse.isLockedByVet || horse.status === 'RESTRICTED_CARE';
+                    const horseLock = checkHorseVetLockStatus(horse.microchip || horse.id || horse.name);
+                    const isLocked = horseLock.isLocked || horse.isLockedByVet || horse.locked || horse.status === 'RESTRICTED_CARE' || horse.status === 'INJURED';
                     return (
                       <div
                         key={horse.id}
                         onClick={() => {
-                          if (isLocked) return;
+                          if (isLocked) {
+                            showToast(
+                              `Chiến mã "${horse.name}" đang bị Bác sĩ Thú y KHÓA Y TẾ / CẤM THI ĐẤU (${horseLock.reason || 'Dấu hiệu chấn thương'})! Không thể mang đi đua cho tới khi Bác sĩ Thú y mở khóa an toàn.`,
+                              'CẤM THI ĐẤU DO KHÓA Y TẾ',
+                              'error'
+                            );
+                            return;
+                          }
                           const feedback = `HLV Trưởng đã thẩm định toàn diện: Chiến mã "${horse.name}" có chỉ số viễn trắc xuất sắc, phong độ 100%, sở trường tối ưu cự ly ${assignHorseModalData.nom.distance} tại ${assignHorseModalData.nom.track}. Chỉ định xuất chiến chính thức!`;
                           setAssignHorseModalData({
                             ...assignHorseModalData,
@@ -6409,11 +6532,12 @@ setTrainerHorses(prev => {
                               fontSize: '11px',
                               fontWeight: 700,
                               color: isLocked ? '#EF4444' : '#10B981',
-                              background: isLocked ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                              background: isLocked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                              border: isLocked ? '1px solid rgba(239, 68, 68, 0.4)' : 'none',
                               padding: '2px 6px',
                               borderRadius: '4px'
                             }}>
-                              {horse.statusText || (isLocked ? 'Khóa y tế' : 'Đủ chuẩn')}
+                              {isLocked ? '⛔ KHÓA Y TẾ (CẤM ĐUA)' : (horse.statusText || 'Đủ chuẩn')}
                             </span>
                           </div>
                           <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', marginTop: '2px' }}>

@@ -1,3 +1,4 @@
+// Cổng Bác sĩ Thú y - Racehorse System (VET Portal)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -6,6 +7,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import {
   getHorsesApi,
   toggleHorseLockApi,
+  getVetActiveLocksApi,
   getIncidentsApi,
   updateIncidentStatusApi,
   getVetPrescriptionsApi,
@@ -211,6 +213,19 @@ export const VACCINE_DEFINITIONS = {
   }
 };
 
+// Thứ tự lộ trình tiêm chủng tuần tự chuẩn y khoa (Mũi khởi đầu tiêm Uốn ván trước, cách 1 tháng tiêm tiếp vắc xin kế tiếp)
+export const VACCINE_ROADMAP_ORDER = [
+  'TETANUS',           // 1. Uốn ván (Khởi đầu bắt buộc đầu tiên)
+  'RABIES',            // 2. Bệnh dại (Sau 1 tháng)
+  'ENCEPHALOMYELITIS', // 3. Viêm não ngựa (Sau 2 tháng)
+  'WEST_NILE',         // 4. Virus West Nile (Sau 3 tháng)
+  'INFLUENZA',         // 5. Cúm ngựa (Sau 4 tháng)
+  'HERPESVIRUS',       // 6. Viêm mũi phế quản EHV-1/4 (Sau 5 tháng)
+  'STRANGLES',         // 7. Viêm hạch hô hấp (Sau 6 tháng)
+  'BOTULISM',          // 8. Ngộ độc Botulinum (Sau 7 tháng)
+  'POTOMAC_FEVER'      // 9. Sốt ngựa Potomac (Sau 8 tháng)
+];
+
 const parseDMY = (str) => {
   if (!str) return null;
   const parts = String(str).split('/');
@@ -245,6 +260,9 @@ const evalVaccineAlertStatus = (v) => {
   if (v.lastReaction && v.lastReaction !== 'NONE') {
     return 'ADVERSE_REACTION';
   }
+  if (v.isWaitingTurn) {
+    return 'WAITING_TURN';
+  }
   if (!v.primaryCompleted) {
     return 'INCOMPLETE_PRIMARY';
   }
@@ -276,19 +294,19 @@ export default function VetPage() {
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const paramTab = urlParams.get('tab');
-      if (paramTab && ['horses', 'triage', 'vaccines', 'prescriptions', 'clearance'].includes(paramTab)) {
+      if (paramTab && ['horses', 'triage', 'vaccines', 'prescriptions'].includes(paramTab)) {
         return paramTab;
       }
       const hash = window.location.hash.replace('#', '');
-      if (hash && ['horses', 'triage', 'vaccines', 'prescriptions', 'clearance'].includes(hash)) {
+      if (hash && ['horses', 'triage', 'vaccines', 'prescriptions'].includes(hash)) {
         return hash;
       }
       const saved = localStorage.getItem('matruong_tab_vet');
-      return ['horses', 'triage', 'vaccines', 'prescriptions', 'clearance'].includes(saved) ? saved : 'horses';
+      return ['horses', 'triage', 'vaccines', 'prescriptions'].includes(saved) ? saved : 'horses';
     } catch {
       return 'horses';
     }
-  }); // 'horses' | 'triage' | 'vaccines' | 'prescriptions' | 'clearance'
+  }); // 'horses' | 'triage' | 'vaccines' | 'prescriptions'
 
   // Lưu activeTab vào localStorage và URL để khi F5 / refresh vẫn giữ nguyên đúng trang hiện tại
   useEffect(() => {
@@ -373,8 +391,8 @@ export default function VetPage() {
     return [];
   });
 
-  // Sub-tab và bộ lọc cho Sổ tiêm chủng
-  const [vaccineSubTab, setVaccineSubTab] = useState('ALL'); // 'ALL' | 'CORE' | 'RISK' | 'HISTORY'
+  // Sub-tab và bộ lọc cho Sổ tiêm chủng (Mặc định là mục Cần Tiêm & Khẩn Cấp)
+  const [vaccineSubTab, setVaccineSubTab] = useState('ACTIVE_QUEUE'); // 'ACTIVE_QUEUE' | 'WAITING_QUEUE' | 'CORE' | 'RISK' | 'ALL' | 'HISTORY'
   const [vaccineHorseFilter, setVaccineHorseFilter] = useState('ALL');
   const [vaccineAlertFilter, setVaccineAlertFilter] = useState('ALL'); // 'ALL' | 'OVERDUE' | 'DUE_SOON' | 'INCOMPLETE_PRIMARY' | 'ADVERSE_REACTION'
 
@@ -401,7 +419,10 @@ export default function VetPage() {
     notes: ''
   });
 
-  // Đồng bộ Sổ Tiêm Chủng theo thời gian thực từ lúc chiến mã mới bắt đầu nhập hệ thống
+  // Đồng bộ Sổ Tiêm Chủng theo thời gian thực và Lộ trình tiêm chủng tuần tự (Sequential Roadmap):
+  // 1. Mũi khởi đầu tiêm Uốn ván (Tetanus) trước tiên.
+  // 2. Cách 1 tháng tiêm tiếp vắc xin kế tiếp (Bệnh dại, Viêm não, West Nile...).
+  // 3. Vắc xin chưa tới lượt sẽ ở bên mục riêng (Lộ trình chờ đến lượt), nhường chỗ cho Vắc xin cần tiêm trước và Vắc xin khẩn cấp / Điều trị.
   useEffect(() => {
     if (!horses || horses.length === 0) return;
 
@@ -417,36 +438,112 @@ export default function VetPage() {
         const stallDisplay = `Ô ${stallClean}`;
         const microchip = h.microchip || h.chipId || 'N/A';
 
+        // Lấy toàn bộ lịch sử tiêm của chiến mã này
+        const horseAllDoses = (vaccinationHistory || []).filter(hist =>
+          (String(hist.horseId) === horseIdStr || hist.horseName?.toLowerCase() === horseName.toLowerCase())
+        );
+
+        // Tìm vị trí vaccine chưa hoàn thành liệu trình đầu tiên trong lộ trình
+        let firstPendingIdx = -1;
+        for (let i = 0; i < VACCINE_ROADMAP_ORDER.length; i++) {
+          const rKey = VACCINE_ROADMAP_ORDER[i];
+          const rDef = VACCINE_DEFINITIONS[rKey];
+          const rDoses = horseAllDoses.filter(d => d.vaccineKey === rKey);
+          const rDone = rDoses.length >= (rDef?.primaryDoses || 1);
+          if (!rDone) {
+            firstPendingIdx = i;
+            break;
+          }
+        }
+
         Object.keys(VACCINE_DEFINITIONS).forEach(vKey => {
           const def = VACCINE_DEFINITIONS[vKey];
           const existingIdx = updated.findIndex(item => String(item.horseId) === horseIdStr && item.vaccineKey === vKey);
 
           // Tìm xem ngựa này đã có lịch sử tiêm cho vaccine này chưa
-          const horseDoses = (vaccinationHistory || []).filter(hist =>
-            (String(hist.horseId) === horseIdStr || hist.horseName?.toLowerCase() === horseName.toLowerCase()) &&
-            hist.vaccineKey === vKey
-          );
-
+          const horseDoses = horseAllDoses.filter(hist => hist.vaccineKey === vKey);
           const completedCount = horseDoses.length;
           const primaryDone = completedCount >= def.primaryDoses;
           const lastDose = completedCount > 0 ? horseDoses[0] : null;
+          const roadmapIdx = VACCINE_ROADMAP_ORDER.indexOf(vKey);
 
           let targetStage = 'PRIMARY_1';
           let targetStageLabel = 'Mũi 1 khởi đầu';
           let nextDue = formatDMY(new Date());
+          let isWaitingTurn = false;
+          let isCurrentTurn = false;
+          let roadmapNote = def.scheduleNote;
 
-          if (completedCount === 0) {
+          if (completedCount > 0) {
+            // Trường hợp A: Đã tiêm ít nhất 1 mũi của loại này
+            if (primaryDone) {
+              targetStage = 'BOOSTER';
+              targetStageLabel = 'Mũi nhắc lại định kỳ';
+              nextDue = calcNextDueDate(lastDose?.administeredDate || formatDMY(new Date()), 'MONTHS', def.boosterIntervalMonths);
+              isWaitingTurn = false;
+              isCurrentTurn = false;
+              roadmapNote = `Đã hoàn tất liệu trình ban đầu (${completedCount}/${def.primaryDoses} mũi). Tiêm nhắc lại hằng năm.`;
+            } else {
+              targetStage = completedCount === 1 ? 'PRIMARY_2' : 'PRIMARY_3';
+              targetStageLabel = `Mũi ${completedCount + 1} khởi đầu`;
+              nextDue = calcNextDueDate(lastDose?.administeredDate || formatDMY(new Date()), 'WEEKS', def.primaryIntervalWeeks);
+              isWaitingTurn = false;
+              isCurrentTurn = true;
+              roadmapNote = `Đang trong liệu trình ban đầu (Mũi ${completedCount + 1}/${def.primaryDoses} mũi). Giãn cách ${def.primaryIntervalWeeks} tuần.`;
+            }
+          } else {
+            // Trường hợp B: Chưa từng tiêm mũi nào của loại này
             targetStage = 'PRIMARY_1';
             targetStageLabel = def.primaryDoses > 1 ? 'Mũi 1 khởi đầu' : 'Mũi khởi đầu';
-            nextDue = formatDMY(new Date());
-          } else if (completedCount < def.primaryDoses) {
-            targetStage = completedCount === 1 ? 'PRIMARY_2' : 'PRIMARY_3';
-            targetStageLabel = `Mũi ${completedCount + 1} khởi đầu`;
-            nextDue = calcNextDueDate(lastDose?.administeredDate || formatDMY(new Date()), 'WEEKS', def.primaryIntervalWeeks);
-          } else {
-            targetStage = 'BOOSTER';
-            targetStageLabel = 'Mũi nhắc lại định kỳ';
-            nextDue = calcNextDueDate(lastDose?.administeredDate || formatDMY(new Date()), 'MONTHS', def.boosterIntervalMonths);
+
+            if (roadmapIdx === 0) {
+              // 1. Uốn ván (TETANUS) là vaccine khởi đầu đầu tiên bắt buộc
+              isWaitingTurn = false;
+              isCurrentTurn = true;
+              nextDue = formatDMY(new Date());
+              roadmapNote = 'Lộ trình Bước 1/9: Mũi khởi đầu bắt buộc tiêm trước tiên khi ngựa nhập hệ thống.';
+            } else if (roadmapIdx > 0) {
+              // 2. Các vaccine tiếp theo trong lộ trình (cách 1 tháng sau vaccine trước)
+              if (roadmapIdx === firstPendingIdx) {
+                // Vaccine này đang đến lượt tiếp theo sau vaccine trước
+                const prevKey = VACCINE_ROADMAP_ORDER[roadmapIdx - 1];
+                const prevDoses = horseAllDoses.filter(d => d.vaccineKey === prevKey);
+                const prevAdminDate = prevDoses[0]?.administeredDate || horseAllDoses[0]?.administeredDate || formatDMY(new Date());
+
+                // Tính hạn kế tiếp = ngày tiêm vaccine trước + 1 tháng (30 ngày)
+                const candidateDue = calcNextDueDate(prevAdminDate, 'MONTHS', 1);
+                const dueObj = parseDMY(candidateDue);
+                const nowObj = new Date();
+                nowObj.setHours(0, 0, 0, 0);
+
+                if (dueObj && dueObj <= nowObj) {
+                  // Đã đủ 1 tháng -> Đến lượt tiêm ngay!
+                  isWaitingTurn = false;
+                  isCurrentTurn = true;
+                  nextDue = candidateDue;
+                  roadmapNote = `Đã đến lượt tiêm (+1 tháng sau mũi ${VACCINE_DEFINITIONS[prevKey]?.name || 'trước'}).`;
+                } else {
+                  // Chưa đủ 1 tháng -> Chờ theo lộ trình giãn cách 1 tháng
+                  isWaitingTurn = true;
+                  isCurrentTurn = false;
+                  nextDue = candidateDue;
+                  roadmapNote = `Chờ đủ 1 tháng sau mũi ${VACCINE_DEFINITIONS[prevKey]?.name || 'Uốn ván'} (Dự kiến: ${candidateDue}).`;
+                }
+              } else if (firstPendingIdx >= 0 && roadmapIdx > firstPendingIdx) {
+                // Vaccine này đứng sau các vaccine đang chờ phía trước
+                isWaitingTurn = true;
+                isCurrentTurn = false;
+                const monthOffset = roadmapIdx - firstPendingIdx;
+                nextDue = calcNextDueDate(formatDMY(new Date()), 'MONTHS', monthOffset);
+                roadmapNote = `Lộ trình Bước ${roadmapIdx + 1}/9: Dự kiến tiêm sau ${monthOffset} tháng (Giãn cách 1 tháng tuần tự).`;
+              } else {
+                // Mặc định an toàn
+                isWaitingTurn = true;
+                isCurrentTurn = false;
+                nextDue = calcNextDueDate(formatDMY(new Date()), 'MONTHS', roadmapIdx);
+                roadmapNote = `Lộ trình Bước ${roadmapIdx + 1}/9: Chờ đến lượt theo quy chuẩn giãn cách 1 tháng.`;
+              }
+            }
           }
 
           const recordData = {
@@ -473,7 +570,10 @@ export default function VetPage() {
             lastReaction: lastDose?.reaction || 'NONE',
             reactionNotes: lastDose?.reactionNotes || '',
             dueDate: nextDue,
-            scheduleNote: def.scheduleNote
+            scheduleNote: roadmapNote,
+            isWaitingTurn: isWaitingTurn,
+            isCurrentTurn: isCurrentTurn,
+            roadmapIndex: roadmapIdx
           };
 
           recordData.status = evalVaccineAlertStatus(recordData);
@@ -496,21 +596,30 @@ export default function VetPage() {
     });
   }, [horses, vaccinationHistory]);
 
-  // Các cảnh báo tự động về tiêm chủng (Vaccination Alerts)
-  const overdueVaccines = useMemo(() => vaccines.filter(v => v.status === 'OVERDUE'), [vaccines]);
-  const dueSoonVaccines = useMemo(() => vaccines.filter(v => v.status === 'DUE_SOON'), [vaccines]);
-  const incompletePrimaryVaccines = useMemo(() => vaccines.filter(v => v.status === 'INCOMPLETE_PRIMARY'), [vaccines]);
+  // Các danh sách phân loại hàng chờ
+  const activeQueueVaccines = useMemo(() => vaccines.filter(v => !v.isWaitingTurn), [vaccines]);
+  const waitingQueueVaccines = useMemo(() => vaccines.filter(v => v.isWaitingTurn), [vaccines]);
+
+  // Các cảnh báo tự động về tiêm chủng (Vaccination Alerts - tính trên các mũi cần tiêm/đã tiêm thực tế)
+  const overdueVaccines = useMemo(() => vaccines.filter(v => !v.isWaitingTurn && v.status === 'OVERDUE'), [vaccines]);
+  const dueSoonVaccines = useMemo(() => vaccines.filter(v => !v.isWaitingTurn && v.status === 'DUE_SOON'), [vaccines]);
+  const incompletePrimaryVaccines = useMemo(() => vaccines.filter(v => !v.isWaitingTurn && v.status === 'INCOMPLETE_PRIMARY'), [vaccines]);
   const adverseReactionDoses = useMemo(() => vaccinationHistory.filter(h => h.reaction && h.reaction !== 'NONE'), [vaccinationHistory]);
 
   const filteredVaccines = useMemo(() => {
     return vaccines.filter(v => {
+      // Bộ lọc Sub-Tab
+      if (vaccineSubTab === 'ACTIVE_QUEUE' && v.isWaitingTurn) return false;
+      if (vaccineSubTab === 'WAITING_QUEUE' && !v.isWaitingTurn) return false;
       if (vaccineSubTab === 'CORE' && v.category !== 'CORE') return false;
       if (vaccineSubTab === 'RISK' && v.category !== 'RISK') return false;
 
+      // Lọc theo chiến mã
       if (vaccineHorseFilter !== 'ALL' && String(v.horseId) !== String(vaccineHorseFilter) && v.horseName !== vaccineHorseFilter) {
         return false;
       }
 
+      // Lọc theo cảnh báo
       if (vaccineAlertFilter === 'OVERDUE' && v.status !== 'OVERDUE') return false;
       if (vaccineAlertFilter === 'DUE_SOON' && v.status !== 'DUE_SOON') return false;
       if (vaccineAlertFilter === 'INCOMPLETE_PRIMARY' && v.status !== 'INCOMPLETE_PRIMARY') return false;
@@ -703,6 +812,8 @@ export default function VetPage() {
       }
     }).catch(() => {});
 
+    getVetActiveLocksApi().catch(() => {});
+
     return () => { isMounted = false; };
   }, [isNewAccount]);
 
@@ -794,6 +905,38 @@ export default function VetPage() {
       window.removeEventListener('matruong_pedigree_updated', handlePedigreeUpdate);
       window.removeEventListener('storage', handlePedigreeUpdate);
     };
+  }, []);
+
+  // Lắng nghe sự kiện Chủ sở hữu xóa chiến mã -> Tự động dọn sạch mọi dữ liệu liên quan bên Cổng Thú Y
+  useEffect(() => {
+    const handleHorsePurged = (e) => {
+      const { horseId, horseName, microchip } = e?.detail || {};
+      const isMatch = (item) => {
+        if (!item) return false;
+        if (horseId && (String(item.id) === String(horseId) || String(item.horseId) === String(horseId))) return true;
+        if (horseName) {
+          const hn = String(horseName).trim().toLowerCase();
+          if (item.name && String(item.name).trim().toLowerCase() === hn) return true;
+          if (item.horseName && String(item.horseName).trim().toLowerCase() === hn) return true;
+          if (item.horse && typeof item.horse === 'string' && item.horse.trim().toLowerCase() === hn) return true;
+        }
+        if (microchip) {
+          const mc = String(microchip).trim().toLowerCase();
+          if (item.microchip && String(item.microchip).trim().toLowerCase() === mc) return true;
+          if (item.chipId && String(item.chipId).trim().toLowerCase() === mc) return true;
+        }
+        return false;
+      };
+
+      setHorses(prev => prev.filter(h => !isMatch(h)));
+      setVaccines(prev => prev.filter(v => !isMatch(v)));
+      setVaccinationHistory(prev => prev.filter(vh => !isMatch(vh)));
+      setPrescriptions(prev => prev.filter(rx => !isMatch(rx)));
+      setIncidents(prev => prev.filter(inc => !isMatch(inc)));
+    };
+
+    window.addEventListener('matruong_horse_deleted', handleHorsePurged);
+    return () => window.removeEventListener('matruong_horse_deleted', handleHorsePurged);
   }, []);
 
   // Bộ lọc & Tìm kiếm danh bạ Hồ sơ chiến mã (tab 'horses')
@@ -1089,7 +1232,7 @@ export default function VetPage() {
     const reason = customReason || (nextLocked ? 'Khám nghiệm Thú y phát hiện dấu hiệu bất thường, kích hoạt phong tỏa y tế!' : '');
 
     // Đồng bộ với API Backend
-    toggleHorseLockApi(horse.id, nextLocked).catch(() => {});
+    toggleHorseLockApi(horse.id, nextLocked, reason, horse.name).catch(() => {});
 
     setHorses(prev => {
       const next = prev.map(h => {
@@ -1106,9 +1249,38 @@ export default function VetPage() {
       });
       try {
         localStorage.setItem('matruong_vet_horses_managed', JSON.stringify(next));
+        if (isNewAccount && currentUser?.user_id) {
+          localStorage.setItem(`matruong_vet_horses_${currentUser.user_id}`, JSON.stringify(next));
+        }
       } catch {}
       return next;
     });
+
+    // Cập nhật Bảng Khóa Y Tế Toàn Cục (matruong_vet_active_locks) để đồng bộ tuyệt đối tới mọi vai trò
+    try {
+      const rawActive = localStorage.getItem('matruong_vet_active_locks');
+      const activeMap = rawActive ? JSON.parse(rawActive) : {};
+      const hNameKey = (horse.name || '').trim().toLowerCase();
+      const hChipKey = (horse.microchip || horse.chipId || '').trim().toLowerCase();
+      const hIdKey = horse.id ? String(horse.id).trim().toLowerCase() : '';
+
+      const lockEntry = {
+        isLocked: nextLocked,
+        reason: nextLocked ? reason : '',
+        horseName: horse.name,
+        microchip: horse.microchip,
+        updatedAt: new Date().toISOString(),
+        vetName: currentUser?.full_name || 'Bác sĩ Thú y'
+      };
+
+      if (hNameKey) activeMap[hNameKey] = lockEntry;
+      if (hChipKey) activeMap[hChipKey] = lockEntry;
+      if (hIdKey) activeMap[hIdKey] = lockEntry;
+
+      localStorage.setItem('matruong_vet_active_locks', JSON.stringify(activeMap));
+    } catch (err) {
+      console.error('Error saving matruong_vet_active_locks:', err);
+    }
 
     // Cập nhật trạng thái phê duyệt giải đua tương ứng
     setRaceClearanceList(prev => {
@@ -1472,6 +1644,11 @@ export default function VetPage() {
       notes: recordVaccineForm.notes || ''
     };
 
+    // 0. Gửi lưu hồ sơ tiêm chủng xuống API Backend
+    recordVaccinationApi(newHistoryEntry).catch(err => {
+      console.warn('Đồng bộ API mũi tiêm backend cảnh báo:', err);
+    });
+
     // 1. Cập nhật Lịch sử tiêm chủng
     setVaccinationHistory(prev => {
       const updated = [newHistoryEntry, ...prev];
@@ -1528,7 +1705,55 @@ export default function VetPage() {
       return nextList;
     });
 
-    // 3. Phát thông báo nếu có phản ứng bất thường
+    // 3. Gửi thông báo hệ thống trực tiếp cho vai trò Groom
+    try {
+      addSystemNotification({
+        type: 'VACCINE_COMPLETED',
+        title: `THÔNG BÁO TIÊM CHỦNG: ${recordVaccineForm.horseName.toUpperCase()} (${recordVaccineForm.stall})`,
+        message: `Bác sĩ Thú y (${newHistoryEntry.administeredBy}) đã hoàn tất tiêm vaccine ${vacName} (${stageLabel}, Lô: ${newHistoryEntry.batchNumber}, Liều: ${newHistoryEntry.dose}) cho chiến mã ${recordVaccineForm.horseName}. Dặn dò Groom: "${recordVaccineForm.notes || 'Groom theo dõi sát thân nhiệt và biểu hiện thể trạng tại ô chuồng trong 24 giờ, hạn chế bài tập nặng.'}". Hạn tiêm lại: ${nextDueStr || 'Theo dõi thêm'}.`,
+        horseName: recordVaccineForm.horseName,
+        stall: recordVaccineForm.stall,
+        severity: recordVaccineForm.reaction && recordVaccineForm.reaction !== 'NONE' ? 'HIGH' : 'MEDIUM',
+        recipientRoles: ['GROOM']
+      });
+    } catch (err) {
+      console.error('Lỗi phát thông báo tiêm chủng cho Groom:', err);
+    }
+
+    // 4. Đồng bộ tạo Y lệnh chăm sóc thú y vào tab Chỉ Định Thú Y của Groom
+    try {
+      const existingInstRaw = localStorage.getItem('matruong_groom_vet_instructions');
+      let currentInst = existingInstRaw ? JSON.parse(existingInstRaw) : [];
+      if (!Array.isArray(currentInst)) currentInst = [];
+
+      const newInstruction = {
+        id: `ORD-VAC-${Date.now().toString().slice(-4)}`,
+        horseName: recordVaccineForm.horseName,
+        stall: recordVaccineForm.stall,
+        doctor: newHistoryEntry.administeredBy,
+        createdDate: newHistoryEntry.administeredDate,
+        groomConfirmed: false,
+        isLocked: false,
+        instructions: [
+          `Vaccine đã tiêm: ${vacName} (${stageLabel}) - Số Lô: ${newHistoryEntry.batchNumber}`,
+          `Đường tiêm: ${newHistoryEntry.route} · Liều lượng: ${newHistoryEntry.dose}`,
+          `Phản ứng sau tiêm: ${recordVaccineForm.reaction === 'NONE' ? 'Bình thường, không có tác dụng phụ' : `Ghi nhận phản ứng: ${recordVaccineForm.reactionNotes || recordVaccineForm.reaction}`}`,
+          `Dặn dò Groom chăm sóc: ${recordVaccineForm.notes || 'Theo dõi thân nhiệt tại chuồng trong 24 giờ tới, cho ngựa nghỉ ngơi bài tập nặng.'}`,
+          `Hạn tiêm mũi kế tiếp: ${nextDueStr || 'Bác sĩ theo dõi và chỉ định thêm'}`
+        ]
+      };
+
+      const updatedInst = [newInstruction, ...currentInst];
+      localStorage.setItem('matruong_groom_vet_instructions', JSON.stringify(updatedInst));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('matruong_vet_instructions_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+    } catch (err) {
+      console.error('Lỗi lưu y lệnh chăm sóc cho Groom:', err);
+    }
+
+    // 5. Phát thông báo khẩn nếu phát hiện phản ứng bất thường
     if (recordVaccineForm.reaction && recordVaccineForm.reaction !== 'NONE') {
       try {
         addSystemNotification({
@@ -1720,16 +1945,6 @@ export default function VetPage() {
             <span className="portal-nav-icon"><IconPill size={18} /></span>
             <span className="portal-nav-label">Đơn thuốc & Phác đồ</span>
             <span className="portal-nav-badge">{prescriptions.length}</span>
-          </button>
-
-          <button
-            type="button"
-            className={`portal-nav-item ${activeTab === 'clearance' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('clearance'); setSidebarOpen(false); }}
-            title="Phê Duyệt Y Tế Tham Gia Thi Đấu"
-          >
-            <span className="portal-nav-icon"><IconClipboardCheck size={18} /></span>
-            <span className="portal-nav-label">Phê duyệt thi đấu</span>
           </button>
         </nav>
       </aside>
@@ -3246,7 +3461,7 @@ export default function VetPage() {
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
-                    onClick={() => { setVaccineSubTab('ALL'); setVaccineAlertFilter('ALL'); }}
+                    onClick={() => { setVaccineSubTab('ACTIVE_QUEUE'); setVaccineAlertFilter('ALL'); }}
                     style={{
                       padding: '7px 14px',
                       borderRadius: '5px',
@@ -3254,12 +3469,30 @@ export default function VetPage() {
                       fontWeight: 700,
                       cursor: 'pointer',
                       border: '1px solid var(--line)',
-                      background: vaccineSubTab === 'ALL' && vaccineAlertFilter === 'ALL' ? 'var(--brass)' : 'var(--bg-card)',
-                      color: vaccineSubTab === 'ALL' && vaccineAlertFilter === 'ALL' ? '#0A0D14' : 'var(--paper)',
+                      background: vaccineSubTab === 'ACTIVE_QUEUE' && vaccineAlertFilter === 'ALL' ? 'var(--brass)' : 'var(--bg-card)',
+                      color: vaccineSubTab === 'ACTIVE_QUEUE' && vaccineAlertFilter === 'ALL' ? '#0A0D14' : 'var(--paper)',
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    Tất Cả Lịch Tiêm ({vaccines.length})
+                    Cần Tiêm & Khẩn Cấp ({activeQueueVaccines.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setVaccineSubTab('WAITING_QUEUE'); setVaccineAlertFilter('ALL'); }}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: '5px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: '1px solid var(--line)',
+                      background: vaccineSubTab === 'WAITING_QUEUE' && vaccineAlertFilter === 'ALL' ? 'var(--brass)' : 'var(--bg-card)',
+                      color: vaccineSubTab === 'WAITING_QUEUE' && vaccineAlertFilter === 'ALL' ? '#0A0D14' : 'var(--paper)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Lộ Trình Chờ Đến Lượt (+1 Tháng) ({waitingQueueVaccines.length})
                   </button>
 
                   <button
@@ -3277,7 +3510,7 @@ export default function VetPage() {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    Vaccine Cốt Lõi (Core Vaccines - 4 Loại)
+                    Vaccine Cốt Lõi (Core)
                   </button>
 
                   <button
@@ -3295,7 +3528,25 @@ export default function VetPage() {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    Vaccine Theo Nguy Cơ (Risk-based - 5 Loại)
+                    Vaccine Theo Nguy Cơ (Risk)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setVaccineSubTab('ALL'); setVaccineAlertFilter('ALL'); }}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: '5px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: '1px solid var(--line)',
+                      background: vaccineSubTab === 'ALL' && vaccineAlertFilter === 'ALL' ? 'var(--brass)' : 'var(--bg-card)',
+                      color: vaccineSubTab === 'ALL' && vaccineAlertFilter === 'ALL' ? '#0A0D14' : 'var(--paper)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Tất Cả Lịch Tiêm ({vaccines.length})
                   </button>
 
                   <button
@@ -3361,160 +3612,227 @@ export default function VetPage() {
 
               {/* BẢNG DỮ LIỆU: LỊCH TIÊM CHỦNG HOẶC LỊCH SỬ TIÊM CHỦNG */}
               {vaccineSubTab !== 'HISTORY' ? (
-                <div className="facility-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--line)', borderRadius: '8px', width: '100%' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px', tableLayout: 'auto' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <th style={{ padding: '12px 14px', width: '15%' }}>Chiến mã</th>
-                        <th style={{ padding: '12px 10px', width: '11%' }}>Phân nhóm</th>
-                        <th style={{ padding: '12px 12px', width: '22%' }}>Tên Vaccine & Quy chuẩn</th>
-                        <th style={{ padding: '12px 10px', width: '14%' }}>Liệu trình hiện tại</th>
-                        <th style={{ padding: '12px 10px', width: '11%' }}>Đường tiêm</th>
-                        <th style={{ padding: '12px 10px', width: '11%' }}>Hạn kế tiếp</th>
-                        <th style={{ padding: '12px 10px', width: '12%' }}>Trạng thái</th>
-                        <th style={{ padding: '12px 14px', textAlign: 'right', width: '9%' }}>Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredVaccines.length === 0 ? (
-                        <tr>
-                          <td colSpan="8" style={{ padding: '36px', textAlign: 'center', color: 'var(--paper-dim)' }}>
-                            Không có lịch tiêm nào khớp với bộ lọc hiện tại.
-                          </td>
+                <>
+                  {vaccineSubTab === 'WAITING_QUEUE' && (
+                    <div style={{
+                      marginBottom: '14px',
+                      padding: '12px 16px',
+                      borderRadius: '6px',
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      border: '1px solid rgba(99, 102, 241, 0.25)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px'
+                    }}>
+                      <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#818CF8', letterSpacing: '0.02em' }}>
+                        LỘ TRÌNH TIÊM CHỦNG TUẦN TỰ (GIÃN CÁCH 1 THÁNG)
+                      </span>
+                      <span style={{ fontSize: '12px', color: 'var(--paper)', lineHeight: 1.5 }}>
+                        Chiến mã tiêm khởi đầu bằng <b>Uốn ván (Tetanus)</b> trước tiên. Sau mỗi 1 tháng sẽ chuyển sang tiêm mũi khởi đầu của vaccine kế tiếp (Bệnh dại, Viêm não ngựa, Virus West Nile...). Các vaccine dưới đây đang trong thời gian chờ giãn cách chuẩn y khoa. Bác sĩ có thể bấm <b>Kích Hoạt Tiêm Sớm</b> nếu có chỉ định đặc biệt khi khám lâm sàng.
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="facility-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--line)', borderRadius: '8px', width: '100%' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px', tableLayout: 'auto' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          <th style={{ padding: '12px 14px', width: '15%' }}>Chiến mã</th>
+                          <th style={{ padding: '12px 10px', width: '11%' }}>Phân nhóm</th>
+                          <th style={{ padding: '12px 12px', width: '22%' }}>Tên Vaccine & Quy chuẩn</th>
+                          <th style={{ padding: '12px 10px', width: '14%' }}>Liệu trình hiện tại</th>
+                          <th style={{ padding: '12px 10px', width: '11%' }}>Đường tiêm</th>
+                          <th style={{ padding: '12px 10px', width: '11%' }}>Hạn kế tiếp</th>
+                          <th style={{ padding: '12px 10px', width: '12%' }}>Trạng thái</th>
+                          <th style={{ padding: '12px 14px', textAlign: 'right', width: '11%' }}>Thao tác</th>
                         </tr>
-                      ) : (
-                        filteredVaccines.map((v) => {
-                          const isCore = v.category === 'CORE';
-                          const isOverdue = v.status === 'OVERDUE';
-                          const isDueSoon = v.status === 'DUE_SOON';
-                          const isIncomplete = v.status === 'INCOMPLETE_PRIMARY';
-                          const isAdverse = v.status === 'ADVERSE_REACTION';
+                      </thead>
+                      <tbody>
+                        {filteredVaccines.length === 0 ? (
+                          <tr>
+                            <td colSpan="8" style={{ padding: '36px', textAlign: 'center', color: 'var(--paper-dim)' }}>
+                              {vaccineSubTab === 'WAITING_QUEUE'
+                                ? 'Không có vaccine nào đang trong danh sách chờ lộ trình.'
+                                : vaccineSubTab === 'ACTIVE_QUEUE'
+                                ? 'Hiện không có vaccine nào cần tiêm gấp hoặc khẩn cấp.'
+                                : 'Không có lịch tiêm nào khớp với bộ lọc hiện tại.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredVaccines.map((v) => {
+                            const isCore = v.category === 'CORE';
+                            const isWaitingTurn = Boolean(v.isWaitingTurn);
+                            const isEmergency = Boolean(v.isEmergency) || v.currentStage === 'EMERGENCY_BOOSTER' || v.vaccineKey === 'OTHER';
+                            const isOverdue = v.status === 'OVERDUE';
+                            const isDueSoon = v.status === 'DUE_SOON';
+                            const isIncomplete = v.status === 'INCOMPLETE_PRIMARY';
+                            const isAdverse = v.status === 'ADVERSE_REACTION';
+                            const isValidImmunity = !isWaitingTurn && !isOverdue && !isDueSoon && !isIncomplete && !isAdverse && !isEmergency;
 
-                          let badgeText = 'MIỄN DỊCH HỢP LỆ';
-                          let badgeBg = 'rgba(16, 185, 129, 0.12)';
-                          let badgeColor = '#10B981';
-                          let badgeBorder = 'rgba(16, 185, 129, 0.35)';
+                            let badgeText = 'MIỄN DỊCH HỢP LỆ';
+                            let badgeBg = 'rgba(16, 185, 129, 0.12)';
+                            let badgeColor = '#10B981';
+                            let badgeBorder = 'rgba(16, 185, 129, 0.35)';
 
-                          if (isAdverse) {
-                            badgeText = 'PHẢN ỨNG BẤT THƯỜNG';
-                            badgeBg = 'rgba(236, 72, 153, 0.15)';
-                            badgeColor = '#EC4899';
-                            badgeBorder = 'rgba(236, 72, 153, 0.45)';
-                          } else if (isOverdue) {
-                            badgeText = 'QUÁ HẠN TIÊM';
-                            badgeBg = 'rgba(239, 68, 68, 0.15)';
-                            badgeColor = '#EF4444';
-                            badgeBorder = 'rgba(239, 68, 68, 0.45)';
-                          } else if (isDueSoon) {
-                            badgeText = 'SẮP ĐẾN HẠN';
-                            badgeBg = 'rgba(245, 158, 11, 0.15)';
-                            badgeColor = '#F59E0B';
-                            badgeBorder = 'rgba(245, 158, 11, 0.45)';
-                          } else if (isIncomplete) {
-                            badgeText = 'LIỆU TRÌNH BAN ĐẦU';
-                            badgeBg = 'rgba(217, 119, 6, 0.15)';
-                            badgeColor = '#D97706';
-                            badgeBorder = 'rgba(217, 119, 6, 0.45)';
-                          }
+                            if (isWaitingTurn) {
+                              badgeText = 'CHỜ THEO LỘ TRÌNH (+1 THÁNG)';
+                              badgeBg = 'rgba(99, 102, 241, 0.12)';
+                              badgeColor = '#818CF8';
+                              badgeBorder = 'rgba(99, 102, 241, 0.35)';
+                            } else if (isAdverse) {
+                              badgeText = 'PHẢN ỨNG BẤT THƯỜNG';
+                              badgeBg = 'rgba(236, 72, 153, 0.15)';
+                              badgeColor = '#EC4899';
+                              badgeBorder = 'rgba(236, 72, 153, 0.45)';
+                            } else if (isEmergency) {
+                              badgeText = 'KHẨN CẤP / ĐẶC HIỆU';
+                              badgeBg = 'rgba(239, 68, 68, 0.15)';
+                              badgeColor = '#EF4444';
+                              badgeBorder = 'rgba(239, 68, 68, 0.45)';
+                            } else if (isOverdue) {
+                              badgeText = 'QUÁ HẠN TIÊM';
+                              badgeBg = 'rgba(239, 68, 68, 0.15)';
+                              badgeColor = '#EF4444';
+                              badgeBorder = 'rgba(239, 68, 68, 0.45)';
+                            } else if (isDueSoon) {
+                              badgeText = 'SẮP ĐẾN HẠN';
+                              badgeBg = 'rgba(245, 158, 11, 0.15)';
+                              badgeColor = '#F59E0B';
+                              badgeBorder = 'rgba(245, 158, 11, 0.45)';
+                            } else if (isIncomplete) {
+                              badgeText = 'LIỆU TRÌNH BAN ĐẦU';
+                              badgeBg = 'rgba(217, 119, 6, 0.15)';
+                              badgeColor = '#D97706';
+                              badgeBorder = 'rgba(217, 119, 6, 0.45)';
+                            }
 
-                          return (
-                            <tr key={v.id} style={{ borderBottom: '1px solid var(--line)', background: isOverdue ? 'rgba(239, 68, 68, 0.02)' : isIncomplete ? 'rgba(217, 119, 6, 0.02)' : 'transparent' }}>
-                              <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
-                                <b style={{ color: 'var(--brass)', fontSize: '13px', display: 'block' }}>{v.horseName}</b>
-                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>{v.stall} · {v.microchip}</span>
-                              </td>
+                            return (
+                              <tr key={v.id} style={{ borderBottom: '1px solid var(--line)', background: isEmergency ? 'rgba(239, 68, 68, 0.04)' : isOverdue ? 'rgba(239, 68, 68, 0.02)' : isIncomplete ? 'rgba(217, 119, 6, 0.02)' : isWaitingTurn ? 'rgba(99, 102, 241, 0.02)' : 'transparent' }}>
+                                <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                                  <b style={{ color: 'var(--brass)', fontSize: '13px', display: 'block' }}>{v.horseName}</b>
+                                  <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>{v.stall} · {v.microchip}</span>
+                                </td>
 
-                              <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
-                                <span style={{
-                                  padding: '2px 7px',
-                                  borderRadius: '3px',
-                                  fontSize: '10.5px',
-                                  fontWeight: 700,
-                                  whiteSpace: 'nowrap',
-                                  background: isCore ? 'rgba(245, 158, 11, 0.12)' : 'rgba(59, 130, 246, 0.12)',
-                                  color: isCore ? '#F59E0B' : '#60A5FA',
-                                  border: `1px solid ${isCore ? 'rgba(245, 158, 11, 0.35)' : 'rgba(59, 130, 246, 0.35)'}`
-                                }}>
-                                  {isCore ? 'CỐT LÕI (CORE)' : 'THEO NGUY CƠ (RISK)'}
-                                </span>
-                              </td>
-
-                              <td style={{ padding: '12px 12px', verticalAlign: 'middle' }}>
-                                <b style={{ color: 'var(--paper)', fontSize: '13px', display: 'block' }}>{v.vaccineName}</b>
-                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontStyle: 'italic', display: 'block', marginTop: '2px' }}>
-                                  {v.scientificName}
-                                </span>
-                                <span style={{ fontSize: '10.5px', color: 'var(--paper-dim)', display: 'block', marginTop: '2px', lineHeight: 1.35 }}>
-                                  {v.scheduleNote}
-                                </span>
-                              </td>
-
-                              <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
-                                <b style={{ color: 'var(--paper)', fontSize: '12px', display: 'block' }}>{v.currentStageLabel}</b>
-                                <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
-                                  Đã tiêm: {v.completedDosesCount} / {v.primaryDosesRequired} mũi ban đầu
-                                </span>
-                              </td>
-
-                              <td style={{ padding: '12px 10px', verticalAlign: 'middle', fontSize: '12px', color: 'var(--paper)' }}>
-                                <div>{v.dose}</div>
-                                <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>{v.route}</div>
-                              </td>
-
-                              <td style={{ padding: '12px 10px', verticalAlign: 'middle', fontSize: '12px' }}>
-                                <b style={{ color: isOverdue ? '#EF4444' : isDueSoon ? '#F59E0B' : 'var(--paper)' }}>
-                                  {v.dueDate || 'Hôm nay'}
-                                </b>
-                                {v.lastAdministeredDate && (
-                                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
-                                    Lần trước: {v.lastAdministeredDate}
-                                  </div>
-                                )}
-                              </td>
-
-                              <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
-                                <span style={{
-                                  padding: '3px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  whiteSpace: 'nowrap',
-                                  display: 'inline-block',
-                                  background: badgeBg,
-                                  color: badgeColor,
-                                  border: `1px solid ${badgeBorder}`
-                                }}>
-                                  {badgeText}
-                                </span>
-                              </td>
-
-                              <td style={{ padding: '12px 14px', textAlign: 'right', verticalAlign: 'middle' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenRecordVaccine(v)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '4px',
-                                    background: 'var(--brass)',
-                                    color: '#0A0D14',
+                                <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
+                                  <span style={{
+                                    padding: '2px 7px',
+                                    borderRadius: '3px',
+                                    fontSize: '10.5px',
                                     fontWeight: 700,
-                                    fontSize: '11px',
-                                    border: 'none',
-                                    cursor: 'pointer',
                                     whiteSpace: 'nowrap',
-                                    boxShadow: '0 2px 6px rgba(245, 158, 11, 0.3)'
-                                  }}
-                                >
-                                  Tiêm Ngay
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                                    background: isCore ? 'rgba(245, 158, 11, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                                    color: isCore ? '#F59E0B' : '#60A5FA',
+                                    border: `1px solid ${isCore ? 'rgba(245, 158, 11, 0.35)' : 'rgba(59, 130, 246, 0.35)'}`
+                                  }}>
+                                    {isCore ? 'CỐT LÕI (CORE)' : 'THEO NGUY CƠ (RISK)'}
+                                  </span>
+                                </td>
+
+                                <td style={{ padding: '12px 12px', verticalAlign: 'middle' }}>
+                                  <b style={{ color: 'var(--paper)', fontSize: '13px', display: 'block' }}>{v.vaccineName}</b>
+                                  <span style={{ fontSize: '11px', color: 'var(--paper-dim)', fontStyle: 'italic', display: 'block', marginTop: '2px' }}>
+                                    {v.scientificName}
+                                  </span>
+                                  <span style={{ fontSize: '10.5px', color: 'var(--paper-dim)', display: 'block', marginTop: '2px', lineHeight: 1.35 }}>
+                                    {v.scheduleNote}
+                                  </span>
+                                </td>
+
+                                <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
+                                  <b style={{ color: 'var(--paper)', fontSize: '12px', display: 'block' }}>{v.currentStageLabel}</b>
+                                  <span style={{ fontSize: '11px', color: 'var(--paper-dim)' }}>
+                                    Đã tiêm: {v.completedDosesCount} / {v.primaryDosesRequired} mũi ban đầu
+                                  </span>
+                                </td>
+
+                                <td style={{ padding: '12px 10px', verticalAlign: 'middle', fontSize: '12px', color: 'var(--paper)' }}>
+                                  <div>{v.dose}</div>
+                                  <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>{v.route}</div>
+                                </td>
+
+                                <td style={{ padding: '12px 10px', verticalAlign: 'middle', fontSize: '12px' }}>
+                                  <b style={{ color: isOverdue ? '#EF4444' : isDueSoon ? '#F59E0B' : isWaitingTurn ? '#818CF8' : 'var(--paper)' }}>
+                                    {v.dueDate || 'Hôm nay'}
+                                  </b>
+                                  {v.lastAdministeredDate && (
+                                    <div style={{ fontSize: '11px', color: 'var(--paper-dim)', marginTop: '2px' }}>
+                                      Lần trước: {v.lastAdministeredDate}
+                                    </div>
+                                  )}
+                                </td>
+
+                                <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
+                                  <span style={{
+                                    padding: '3px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap',
+                                    display: 'inline-block',
+                                    background: badgeBg,
+                                    color: badgeColor,
+                                    border: `1px solid ${badgeBorder}`
+                                  }}>
+                                    {badgeText}
+                                  </span>
+                                </td>
+
+                                <td style={{ padding: '12px 14px', textAlign: 'right', verticalAlign: 'middle' }}>
+                                  {isWaitingTurn ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenRecordVaccine(v)}
+                                      title="Kích hoạt tiêm sớm nếu có chỉ định đặc biệt từ Bác sĩ Thú y"
+                                      style={{
+                                        padding: '5px 10px',
+                                        borderRadius: '4px',
+                                        background: 'transparent',
+                                        color: 'var(--brass)',
+                                        border: '1px solid var(--brass)',
+                                        fontWeight: 700,
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--brass)'; e.currentTarget.style.color = '#FFFFFF'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--brass)'; }}
+                                    >
+                                      Kích Hoạt Tiêm Sớm
+                                    </button>
+                                  ) : !isValidImmunity ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenRecordVaccine(v)}
+                                      style={{
+                                        padding: '6px 12px',
+                                        borderRadius: '4px',
+                                        background: isEmergency ? '#EF4444' : 'var(--brass)',
+                                        color: '#FFFFFF',
+                                        fontWeight: 700,
+                                        fontSize: '11px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap',
+                                        boxShadow: isEmergency ? '0 2px 6px rgba(239, 68, 68, 0.35)' : '0 2px 6px rgba(245, 158, 11, 0.3)'
+                                      }}
+                                    >
+                                      {isEmergency ? 'Tiêm Khẩn Cấp' : 'Tiêm Ngay'}
+                                    </button>
+                                  ) : (
+                                    <span style={{ fontSize: '12px', color: 'var(--paper-dim)', userSelect: 'none' }}>
+                                      —
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               ) : (
                 /* BẢNG SỔ LỊCH SỬ TIÊM CHỦNG THỰC TẾ (VACCINATION HISTORY) */
                 <div className="facility-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--line)', borderRadius: '8px', width: '100%' }}>
@@ -3695,112 +4013,6 @@ export default function VetPage() {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 6: PHÊ DUYỆT Y TẾ THI ĐẤU (VET CLEARANCE) */}
-          {/* ========================================================================= */}
-          {activeTab === 'clearance' && (
-            <div className="tab-pane">
-              <div className="pane-header">
-                <div>
-                  <h2 className="pane-title">Phê Duyệt Y Tế Thi Đấu (Vet Race Clearance)</h2>
-                  <p className="pane-desc">
-                    Bác sĩ Thú y thực hiện kiểm định thể lực cuối cùng trước khi cấp phép cho chiến mã bước vào ngày thi đấu chính thức.
-                  </p>
-                </div>
-              </div>
-
-              <div className="facility-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--line)', borderRadius: '10px', width: '100%' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', tableLayout: 'auto' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--line)', color: 'var(--paper-dim)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      <th style={{ padding: '12px 14px', width: '15%' }}>Chiến mã</th>
-                      <th style={{ padding: '12px 14px', width: '23%' }}>Giải Đua Đăng Ký</th>
-                      <th style={{ padding: '12px 10px', width: '8%' }}>Cự ly</th>
-                      <th style={{ padding: '12px 10px', width: '10%' }}>Ngày đua</th>
-                      <th style={{ padding: '12px 10px', width: '16%' }}>Trạng thái Phê duyệt</th>
-                      <th style={{ padding: '12px 12px', width: '17%' }}>Kết luận Bác sĩ Thú y</th>
-                      <th style={{ padding: '12px 14px', textAlign: 'right', width: '12%' }}>Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {raceClearanceList.map((rc) => {
-                      const isCleared = rc.vetStatus === 'CLEARED';
-                      const isRejected = rc.vetStatus === 'REJECTED_INJURY';
-                      const isPending = !isCleared && !isRejected;
-                      const statusLabel = isCleared ? 'ĐÃ ĐƯỢC CẤP PHÉP' : isRejected ? 'BÁC BỎ DO CHẤN THƯƠNG' : 'CHỜ KHÁM LÂM SÀNG';
-
-                      return (
-                        <tr key={rc.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                          <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--brass)', verticalAlign: 'middle' }}>{rc.horseName}</td>
-                          <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--paper)', verticalAlign: 'middle', lineHeight: 1.35 }}>{rc.raceName}</td>
-                          <td style={{ padding: '12px 10px', color: 'var(--paper-dim)', verticalAlign: 'middle' }}>{rc.distance}</td>
-                          <td style={{ padding: '12px 10px', color: 'var(--paper-dim)', verticalAlign: 'middle' }}>{rc.date}</td>
-                          <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
-                            <span style={{
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              whiteSpace: 'nowrap',
-                              display: 'inline-block',
-                              background: isPending ? 'rgba(212, 175, 55, 0.15)' : isCleared ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                              color: isPending ? 'var(--brass)' : isCleared ? '#10B981' : '#EF4444',
-                              border: `1px solid ${isPending ? 'var(--brass)' : isCleared ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`
-                            }}>
-                              {statusLabel}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px 12px', fontSize: '12px', color: 'var(--paper)', verticalAlign: 'middle', lineHeight: 1.45 }}>
-                            {rc.notes}
-                          </td>
-                          <td style={{ padding: '12px 14px', textAlign: 'right', verticalAlign: 'middle' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', whiteSpace: 'nowrap' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleApproveClearance(rc)}
-                                style={{
-                                  padding: '5px 10px',
-                                  borderRadius: '4px',
-                                  background: 'var(--brass)',
-                                  color: '#0A0D14',
-                                  border: 'none',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  fontSize: '11.5px'
-                                }}
-                              >
-                                Cấp phép
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRejectClearance(rc)}
-                                style={{
-                                  padding: '5px 10px',
-                                  borderRadius: '4px',
-                                  background: 'rgba(255, 255, 255, 0.06)',
-                                  color: '#FFFFFF',
-                                  border: '1.5px solid rgba(232, 237, 232, 0.22)',
-                    lineHeight: 1.55,
-                    outline: 'none',
-                    minHeight: '85px',
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  fontSize: '11.5px'
-                                }}
-                              >
-                                Từ chối
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
               </div>
             </div>
           )}

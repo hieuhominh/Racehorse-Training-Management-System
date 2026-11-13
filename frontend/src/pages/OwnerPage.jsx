@@ -31,7 +31,8 @@ import {
   getTelemetrySessionsApi,
   getHorseFitnessApi,
   getServiceAssignmentsApi,
-  getIncidentsApi
+  getIncidentsApi,
+  purgeAllHorseDataEverywhere
 } from '../services/api';
 import OwnerTournamentsTab from '../components/OwnerTournamentsTab';
 import {
@@ -2420,7 +2421,7 @@ export default function OwnerPage() {
     const horseId = deletingHorse.id;
     const horseName = deletingHorse.name;
 
-    // 1. Cập nhật state và lưu đồng bộ ngay lập tức vào tất cả các alias LocalStorage
+    // 1. Cập nhật state nội bộ của OwnerPage
     setMyHorses(prev => {
       const next = prev.filter(h =>
         String(h.id) !== String(horseId) &&
@@ -2433,10 +2434,6 @@ export default function OwnerPage() {
       return next;
     });
 
-    // 2. Gửi lệnh xóa qua API Backend / Fallback
-    deleteOwnerHorseApi(ownerKey, horseId).catch(() => {});
-
-    // 3. Dọn dẹp telemetry của ngựa đã xóa nếu có
     setTrainingTelemetry(prev => {
       const next = prev.filter(t => t.horseName !== horseName);
       try {
@@ -2445,14 +2442,18 @@ export default function OwnerPage() {
       return next;
     });
 
-    // 4. Phát thông báo hệ thống liên thông tới Huấn luyện viên, Bác sĩ, Groom và Admin
+    // 2. KÍCH HOẠT XÓA VĨNH VIỄN & TOÀN DIỆN MỌI DỮ LIỆU CỦA NGỰA TRÊN TOÀN BỘ HỆ THỐNG
+    // (Bao gồm dữ liệu của Huấn luyện viên, Bác sĩ thú y, Người chăm sóc và Chủ sở hữu)
+    purgeAllHorseDataEverywhere(deletingHorse, ownerKey);
+
+    // 3. Phát thông báo hệ thống liên thông tới Huấn luyện viên, Bác sĩ, Groom và Admin
     try {
       notifyHorseDeleted(deletingHorse, currentUser);
     } catch (e) {
       console.error('Lỗi phát thông báo xóa ngựa:', e);
     }
 
-    // 5. Gỡ bỏ khỏi danh sách phân công dịch vụ
+    // 4. Gỡ bỏ khỏi danh sách phân công dịch vụ
     try {
       removeServiceAssignmentByHorse(horseId);
       if (deletingHorse.microchip) removeServiceAssignmentByHorse(deletingHorse.microchip);
@@ -2461,7 +2462,7 @@ export default function OwnerPage() {
       console.error('Lỗi gỡ phân công dịch vụ:', e);
     }
 
-    // 6. Nhả ô chuồng về trạng thái trống (AVAILABLE) để các chủ sở hữu khác có thể chọn
+    // 5. Nhả ô chuồng về trạng thái trống (AVAILABLE) để các chủ sở hữu khác có thể chọn
     if (deletingHorse.stable) {
       const stallMatch = String(deletingHorse.stable).match(/[A-Z0-9]+/i);
       const rawCode = stallMatch ? stallMatch[0].toUpperCase() : '';
@@ -2473,7 +2474,7 @@ export default function OwnerPage() {
     }
 
     setShowDeleteHorseModal(false);
-    showToast(`Đã hoàn tất xóa chiến mã "${horseName}" khỏi chuồng nuôi dưỡng!`, 'XÓA THÀNH CÔNG', 'info');
+    showToast(`Đã hoàn tất xóa chiến mã "${horseName}" và toàn bộ dữ liệu liên quan khỏi hệ thống!`, 'XÓA THÀNH CÔNG', 'info');
     setDeletingHorse(null);
     setDeleteVerificationInput('');
   };

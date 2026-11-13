@@ -274,6 +274,7 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
                 const isSubstituteAccepted = n.type === 'SUBSTITUTE_ACCEPTED';
                 const isSubstituteRejected = n.type === 'SUBSTITUTE_REJECTED';
                 const isTempTrainingReport = n.type === 'TEMP_TRAINING_REPORT';
+                const isVaccineCompleted = n.type === 'VACCINE_COMPLETED' || n.type === 'VACCINE_ADMINISTERED';
 
                 const isIncidentReported = n.type === 'INCIDENT_REPORTED';
                 const isIncidentAccepted = n.type === 'INCIDENT_ACCEPTED';
@@ -284,7 +285,12 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
                 let tagColor = 'var(--brass)';
                 let borderLeftColor = '3px solid var(--brass)';
 
-                if (isIncidentReported) {
+                if (isVaccineCompleted) {
+                  tagText = 'HOÀN TẤT TIÊM CHỦNG';
+                  tagBg = 'rgba(56, 189, 248, 0.16)';
+                  tagColor = '#38BDF8';
+                  borderLeftColor = '3px solid #38BDF8';
+                } else if (isIncidentReported) {
                   tagText = 'BÁO ĐỘNG Y TẾ';
                   tagBg = 'rgba(239, 68, 68, 0.15)';
                   tagColor = '#EF4444';

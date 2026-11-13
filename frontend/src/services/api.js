@@ -562,8 +562,17 @@ export async function updateHorseApi(horseData) {
 /**
  * Khóa hoặc Mở khóa y tế chiến mã (Vet Lock/Unlock)
  */
-export async function toggleHorseLockApi(horseId, locked) {
+export async function toggleHorseLockApi(horseId, locked, reason = '', horseName = '') {
   try {
+    // 1. Gửi tới /api/vet/lock (lưu trạng thái khóa thú y & memoryActiveLocks)
+    fetch('/api/vet/lock', {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      credentials: 'include',
+      body: JSON.stringify({ horseId, locked, reason, horseName })
+    }).catch(() => {});
+
+    // 2. Gửi tới /api/horses/${horseId} để toggle trong database
     const res = await fetch(`/api/horses/${horseId}`, {
       method: 'PUT',
       headers: getAuthHeaders(true),
@@ -589,6 +598,33 @@ export async function toggleHorseLockApi(horseId, locked) {
   });
   setLocalData(STORAGE_KEYS.HORSES, updated);
   return true;
+}
+
+/**
+ * Lấy danh sách các chiến mã đang bị Khóa Y Tế toàn cục từ Backend
+ */
+export async function getVetActiveLocksApi() {
+  try {
+    const res = await fetch('/api/vet/locks', {
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data === 'object') {
+        try {
+          const rawLocal = localStorage.getItem('matruong_vet_active_locks');
+          const localMap = rawLocal ? JSON.parse(rawLocal) : {};
+          const merged = { ...localMap, ...data };
+          localStorage.setItem('matruong_vet_active_locks', JSON.stringify(merged));
+        } catch {}
+        return data;
+      }
+    }
+  } catch {
+    // Fallback
+  }
+  return getLocalData('matruong_vet_active_locks', {});
 }
 
 /**
@@ -5186,4 +5222,328 @@ export async function saveHorseFitnessAssessmentApi(horseIdOrChip, fitnessData) 
   all[horseIdOrChip] = fitnessData;
   setLocalData(key, all);
   return fitnessData;
+}
+
+// =========================================================================
+// 17. XÓA VĨNH VIỄN & TOÀN DIỆN DỮ LIỆU CHIẾN MÃ TRÊN TOÀN HỆ THỐNG (CASCADE PURGE)
+// =========================================================================
+
+/**
+ * XÓA VĨNH VIỄN & TOÀN DIỆN CHIẾN MÃ TRÊN TOÀN BỘ HỆ THỐNG
+ * Khi Chủ sở hữu xóa ngựa:
+ * Tất cả dữ liệu liên quan từ Chủ sở hữu, Huấn luyện viên, Bác sĩ thú y và Người chăm sóc đều bị xóa sạch.
+ */
+export async function purgeAllHorseDataEverywhere(horse, ownerKey = '') {
+  if (!horse) return false;
+
+  const horseId = horse.id !== undefined && horse.id !== null ? String(horse.id).trim() : '';
+  const horseName = (horse.name || '').trim().toLowerCase();
+  const microchip = (horse.microchip || horse.chipId || '').trim().toLowerCase();
+
+  // Helper kiểm tra xem 1 bản ghi có khớp với chiến mã bị xóa không
+  const isHorseMatch = (item) => {
+    if (!item) return false;
+    if (horseId) {
+      if (item.id && String(item.id).trim() === horseId) return true;
+      if (item.horseId && String(item.horseId).trim() === horseId) return true;
+    }
+    if (horseName) {
+      if (item.name && String(item.name).trim().toLowerCase() === horseName) return true;
+      if (item.horseName && String(item.horseName).trim().toLowerCase() === horseName) return true;
+      if (item.horse && typeof item.horse === 'string' && item.horse.trim().toLowerCase() === horseName) return true;
+      if (item.assignedHorseName && String(item.assignedHorseName).trim().toLowerCase() === horseName) return true;
+    }
+    if (microchip) {
+      if (item.microchip && String(item.microchip).trim().toLowerCase() === microchip) return true;
+      if (item.chipId && String(item.chipId).trim().toLowerCase() === microchip) return true;
+      if (item.microchipId && String(item.microchipId).trim().toLowerCase() === microchip) return true;
+    }
+    return false;
+  };
+
+  try {
+    // 1. Gửi lệnh xóa tới Backend API (Java Servlet / Database)
+    if (horseId) {
+      deleteHorseApi(horseId).catch(() => {});
+      if (ownerKey) {
+        deleteOwnerHorseApi(ownerKey, horseId).catch(() => {});
+      }
+    }
+
+    if (typeof localStorage !== 'undefined') {
+      // 2. Dọn dẹp danh sách ngựa toàn hệ thống (matruong_horses)
+      const allLocalHorses = getLocalData(STORAGE_KEYS.HORSES, []);
+      if (Array.isArray(allLocalHorses)) {
+        setLocalData(STORAGE_KEYS.HORSES, allLocalHorses.filter(h => !isHorseMatch(h)));
+      }
+
+      // Quét toàn bộ localStorage để dọn dẹp các key theo từng user
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        // Chủ sở hữu: Danh sách ngựa
+        if (key.startsWith('matruong_owner_horses_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(h => !isHorseMatch(h))));
+            }
+          } catch {}
+        }
+
+        // Chủ sở hữu: Telemetry
+        if (key.startsWith('matruong_owner_telemetry_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(t => !isHorseMatch(t))));
+            }
+          } catch {}
+        }
+
+        // Chủ sở hữu: Đề cử thi đấu cá nhân
+        if (key.startsWith('matruong_owner_nominations_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(n => !isHorseMatch(n))));
+            }
+          } catch {}
+        }
+
+        // Huấn luyện viên: Danh sách ngựa HLV quản lý
+        if (key === 'matruong_trainer_horses_managed' || key.startsWith('matruong_trainer_horses_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(h => !isHorseMatch(h))));
+            }
+          } catch {}
+        }
+
+        // Huấn luyện viên: Giáo án huấn luyện
+        if (key === 'matruong_training_programs' || key.startsWith('matruong_trainer_programs_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(p => !isHorseMatch(p))));
+            }
+          } catch {}
+        }
+
+        // Huấn luyện viên: Đề cử thi đấu HLV
+        if (key.startsWith('matruong_trainer_nominations_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(n => !isHorseMatch(n))));
+            }
+          } catch {}
+        }
+
+        // Bác sĩ Thú y: Danh sách ngựa Bác sĩ quản lý
+        if (key === 'matruong_vet_horses_managed' || key.startsWith('matruong_vet_horses_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(h => !isHorseMatch(h))));
+            }
+          } catch {}
+        }
+
+        // Bác sĩ Thú y: Nhật ký bệnh án y bạ
+        if (key === 'matruong_vet_medical_logs' || key.startsWith('matruong_vet_logs_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(l => !isHorseMatch(l))));
+            }
+          } catch {}
+        }
+
+        // Bác sĩ Thú y: Đơn thuốc & phác đồ
+        if (key === 'matruong_vet_prescriptions' || key.startsWith('matruong_vet_prescriptions_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(rx => !isHorseMatch(rx))));
+            }
+          } catch {}
+        }
+
+        // Bác sĩ Thú y: Phê duyệt chứng nhận thi đấu y tế
+        if (key === 'matruong_vet_clearance' || key.startsWith('matruong_vet_clearance_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(c => !isHorseMatch(c))));
+            }
+          } catch {}
+        }
+
+        // Chăm sóc Groom: Danh sách ngựa Groom
+        if (key === 'matruong_groom_horses' || key.startsWith('matruong_groom_horses_')) {
+          try {
+            const list = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(list)) {
+              localStorage.setItem(key, JSON.stringify(list.filter(h => !isHorseMatch(h))));
+            }
+          } catch {}
+        }
+      }
+
+      // 3. Xóa sổ tiêm chủng và lịch sử tiêm chủng của Bác sĩ Thú y
+      try {
+        const rawVac = localStorage.getItem('matruong_vet_vaccines');
+        if (rawVac) {
+          const vList = JSON.parse(rawVac);
+          if (Array.isArray(vList)) {
+            localStorage.setItem('matruong_vet_vaccines', JSON.stringify(vList.filter(v => !isHorseMatch(v))));
+          }
+        }
+      } catch {}
+
+      try {
+        const rawHist = localStorage.getItem('matruong_vet_vaccination_history');
+        if (rawHist) {
+          const hList = JSON.parse(rawHist);
+          if (Array.isArray(hList)) {
+            localStorage.setItem('matruong_vet_vaccination_history', JSON.stringify(hList.filter(vh => !isHorseMatch(vh))));
+          }
+        }
+      } catch {}
+
+      // 4. Xóa Khóa Y Tế Toàn Cục (matruong_vet_active_locks)
+      try {
+        const rawLocks = localStorage.getItem('matruong_vet_active_locks');
+        if (rawLocks) {
+          const locksMap = JSON.parse(rawLocks);
+          if (locksMap && typeof locksMap === 'object') {
+            if (horseName && locksMap[horseName]) delete locksMap[horseName];
+            if (microchip && locksMap[microchip]) delete locksMap[microchip];
+            if (horseId && locksMap[horseId]) delete locksMap[horseId];
+            localStorage.setItem('matruong_vet_active_locks', JSON.stringify(locksMap));
+          }
+        }
+      } catch {}
+
+      // 5. Xóa Y lệnh chăm sóc thú y của Groom (matruong_groom_vet_instructions)
+      try {
+        const rawInst = localStorage.getItem('matruong_groom_vet_instructions');
+        if (rawInst) {
+          const instList = JSON.parse(rawInst);
+          if (Array.isArray(instList)) {
+            localStorage.setItem('matruong_groom_vet_instructions', JSON.stringify(instList.filter(ins => !isHorseMatch(ins))));
+          }
+        }
+      } catch {}
+
+      // 6. Xóa Báo cáo sự cố lâm sàng (matruong_incidents)
+      try {
+        const rawInc = localStorage.getItem('matruong_incidents');
+        if (rawInc) {
+          const incList = JSON.parse(rawInc);
+          if (Array.isArray(incList)) {
+            localStorage.setItem('matruong_incidents', JSON.stringify(incList.filter(inc => !isHorseMatch(inc))));
+          }
+        }
+      } catch {}
+
+      // 7. Xóa Buổi tập chung (matruong_joint_training_sessions)
+      try {
+        const rawJoint = localStorage.getItem('matruong_joint_training_sessions');
+        if (rawJoint) {
+          const jointList = JSON.parse(rawJoint);
+          if (Array.isArray(jointList)) {
+            localStorage.setItem('matruong_joint_training_sessions', JSON.stringify(jointList.filter(js => !isHorseMatch(js))));
+          }
+        }
+      } catch {}
+
+      // 8. Xóa Đề cử thi đấu giải đua hệ thống (matruong_tournament_nominations)
+      try {
+        const rawNoms = localStorage.getItem('matruong_tournament_nominations');
+        if (rawNoms) {
+          const nomList = JSON.parse(rawNoms);
+          if (Array.isArray(nomList)) {
+            localStorage.setItem('matruong_tournament_nominations', JSON.stringify(nomList.filter(n => !isHorseMatch(n))));
+          }
+        }
+      } catch {}
+
+      // 9. Xóa Telemetry chung (matruong_training_telemetry, matruong_telemetry_sessions, racehorse_fitness_telemetry)
+      try {
+        const rawTelem = localStorage.getItem('matruong_training_telemetry');
+        if (rawTelem) {
+          const telemList = JSON.parse(rawTelem);
+          if (Array.isArray(telemList)) {
+            localStorage.setItem('matruong_training_telemetry', JSON.stringify(telemList.filter(t => !isHorseMatch(t))));
+          }
+        }
+      } catch {}
+
+      try {
+        const rawTelemSess = localStorage.getItem('matruong_telemetry_sessions');
+        if (rawTelemSess) {
+          const telemList = JSON.parse(rawTelemSess);
+          if (Array.isArray(telemList)) {
+            localStorage.setItem('matruong_telemetry_sessions', JSON.stringify(telemList.filter(t => !isHorseMatch(t))));
+          }
+        }
+      } catch {}
+
+      try {
+        const rawFit = localStorage.getItem('racehorse_fitness_telemetry');
+        if (rawFit) {
+          const fitMap = JSON.parse(rawFit);
+          if (fitMap && typeof fitMap === 'object') {
+            if (horseId && fitMap[horseId]) delete fitMap[horseId];
+            if (microchip && fitMap[microchip]) delete fitMap[microchip];
+            if (horseName && fitMap[horseName]) delete fitMap[horseName];
+            localStorage.setItem('racehorse_fitness_telemetry', JSON.stringify(fitMap));
+          }
+        }
+      } catch {}
+
+      // 10. Xóa Phân công dịch vụ (matruong_service_assignments)
+      try {
+        const rawAsgns = localStorage.getItem('matruong_service_assignments');
+        if (rawAsgns) {
+          const asgnList = JSON.parse(rawAsgns);
+          if (Array.isArray(asgnList)) {
+            localStorage.setItem('matruong_service_assignments', JSON.stringify(asgnList.filter(a => !isHorseMatch(a))));
+          }
+        }
+      } catch {}
+    }
+
+    // 11. Nhả ô chuồng về trạng thái trống (VACANT)
+    if (horse.stable) {
+      const stallMatch = String(horse.stable).match(/[A-Z0-9]+/i);
+      const rawCode = stallMatch ? stallMatch[0].toUpperCase() : '';
+      if (rawCode) {
+        reassignStallHorseApi(rawCode, 'VACANT').catch(() => {});
+      }
+    }
+
+    // 12. Phát sự kiện toàn cục để cập nhật tức thì mọi tab và màn hình
+    if (typeof window !== 'undefined') {
+      const detail = { horseId, horseName, microchip, timestamp: Date.now() };
+      window.dispatchEvent(new CustomEvent('matruong_horse_deleted', { detail }));
+      window.dispatchEvent(new CustomEvent('matruong_horses_updated', { detail }));
+      window.dispatchEvent(new Event('matruong_stables_updated'));
+      window.dispatchEvent(new Event('matruong_joint_training_updated'));
+      window.dispatchEvent(new Event('matruong_vet_instructions_updated'));
+      window.dispatchEvent(new Event('matruong_service_assignment_updated'));
+      window.dispatchEvent(new Event('matruong_nomination_updated'));
+      window.dispatchEvent(new Event('matruong_incidents_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Lỗi khi xóa dữ liệu toàn diện chiến mã:', err);
+    return false;
+  }
 }

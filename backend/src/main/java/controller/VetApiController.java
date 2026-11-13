@@ -33,6 +33,7 @@ import java.util.Map;
     "/api/vet/medical-logs",
     "/api/vet/medical-logs/*",
     "/api/vet/lock",
+    "/api/vet/locks",
     "/api/vet/vaccines",
     "/api/vet/vaccines/*",
     "/api/vet/prescriptions",
@@ -47,6 +48,7 @@ public class VetApiController extends HttpServlet {
     private static final List<Map<String, Object>> memoryVaccines = Collections.synchronizedList(new ArrayList<>());
     private static final List<Map<String, Object>> memoryPrescriptions = Collections.synchronizedList(new ArrayList<>());
     private static final List<Map<String, Object>> memoryClearances = Collections.synchronizedList(new ArrayList<>());
+    private static final Map<String, Object> memoryActiveLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
     static {
         // Khởi tạo danh sách nhật ký thú y rỗng
@@ -92,6 +94,12 @@ public class VetApiController extends HttpServlet {
                 synchronized (memoryVaccines) {
                     out.print(gson.toJson(memoryVaccines));
                 }
+                out.flush();
+                return;
+            }
+
+            if ("/api/vet/locks".equals(path)) {
+                out.print(gson.toJson(memoryActiveLocks));
                 out.flush();
                 return;
             }
@@ -226,20 +234,41 @@ public class VetApiController extends HttpServlet {
 
             if ("/api/vet/vaccines".equals(path)) {
                 String horseName = SecurityUtil.getString(body, "horseName", "").trim();
-                String vaccineType = SecurityUtil.getString(body, "vaccineType", "").trim();
-                if (horseName.isEmpty() || vaccineType.isEmpty()
-                        || SecurityUtil.containsMaliciousPayload(horseName)
-                        || SecurityUtil.containsMaliciousPayload(vaccineType)) {
+                String vaccineType = SecurityUtil.getString(body, "vaccineType",
+                    SecurityUtil.getString(body, "vaccineName", "")).trim();
+                if (horseName.isEmpty() && vaccineType.isEmpty()) {
                     SecurityUtil.sendJsonError(response, HttpServletResponse.SC_BAD_REQUEST,
                         "Thông tin tiêm chủng không hợp lệ.");
                     return;
                 }
 
                 Map<String, Object> v = new HashMap<>();
-                v.put("id", System.currentTimeMillis());
+                v.put("id", body.has("id") && !body.get("id").getAsString().isEmpty()
+                    ? body.get("id").getAsString()
+                    : ("VAC-" + System.currentTimeMillis()));
+                v.put("horseId", SecurityUtil.getString(body, "horseId", ""));
                 v.put("horseName", SecurityUtil.sanitize(horseName));
+                v.put("stall", SecurityUtil.sanitize(SecurityUtil.getString(body, "stall", "")));
+                v.put("microchip", SecurityUtil.sanitize(SecurityUtil.getString(body, "microchip", "")));
+                v.put("vaccineKey", SecurityUtil.sanitize(SecurityUtil.getString(body, "vaccineKey", "")));
+                v.put("vaccineName", SecurityUtil.sanitize(vaccineType));
                 v.put("vaccineType", SecurityUtil.sanitize(vaccineType));
+                v.put("scientificName", SecurityUtil.sanitize(SecurityUtil.getString(body, "scientificName", "")));
+                v.put("category", SecurityUtil.sanitize(SecurityUtil.getString(body, "category", "CORE")));
+                v.put("categoryLabel", SecurityUtil.sanitize(SecurityUtil.getString(body, "categoryLabel", "")));
+                v.put("doseStage", SecurityUtil.sanitize(SecurityUtil.getString(body, "doseStage", "PRIMARY_1")));
+                v.put("stageLabel", SecurityUtil.sanitize(SecurityUtil.getString(body, "stageLabel", "")));
+                v.put("batchNumber", SecurityUtil.sanitize(SecurityUtil.getString(body, "batchNumber", "")));
+                v.put("dose", SecurityUtil.sanitize(SecurityUtil.getString(body, "dose", "1.0 ml")));
+                v.put("route", SecurityUtil.sanitize(SecurityUtil.getString(body, "route", "Tiêm bắp (IM)")));
+                v.put("administeredDate", SecurityUtil.sanitize(SecurityUtil.getString(body, "administeredDate",
+                    SecurityUtil.getString(body, "scheduledDate", "Hôm nay"))));
                 v.put("scheduledDate", SecurityUtil.sanitize(SecurityUtil.getString(body, "scheduledDate", "Hôm nay")));
+                v.put("nextDueDate", SecurityUtil.sanitize(SecurityUtil.getString(body, "nextDueDate", "")));
+                v.put("reaction", SecurityUtil.sanitize(SecurityUtil.getString(body, "reaction", "NONE")));
+                v.put("reactionNotes", SecurityUtil.sanitize(SecurityUtil.getString(body, "reactionNotes", "")));
+                v.put("notes", SecurityUtil.sanitize(SecurityUtil.getString(body, "notes", "")));
+                v.put("administeredBy", SecurityUtil.sanitize(SecurityUtil.getString(body, "administeredBy", authUser.getFullName())));
                 v.put("status", SecurityUtil.sanitize(SecurityUtil.getString(body, "status", "COMPLETED")));
 
                 memoryVaccines.add(0, v);
@@ -251,23 +280,38 @@ public class VetApiController extends HttpServlet {
                 return;
             }
 
-            if ("/api/vet/lock".equals(path)) {
+            if ("/api/vet/lock".equals(path) || "/api/vet/locks".equals(path)) {
                 int horseId = SecurityUtil.getInt(body, "horseId", SecurityUtil.getInt(body, "id", -1));
                 boolean locked = SecurityUtil.getBoolean(body, "locked", true);
+                String horseName = SecurityUtil.getString(body, "horseName", "").trim();
+                String reason = SecurityUtil.getString(body, "reason", "").trim();
+
                 if (horseId > 0) {
                     horseDAO.toggleLock(horseId, locked);
                 }
+
                 Map<String, Object> lockData = new HashMap<>();
-                lockData.put("success", true);
-                lockData.put("horseId", horseId);
+                lockData.put("isLocked", locked);
                 lockData.put("locked", locked);
+                lockData.put("horseId", horseId);
+                lockData.put("horseName", horseName);
+                lockData.put("reason", reason);
                 lockData.put("updatedBy", authUser.getFullName());
                 lockData.put("updatedAt", System.currentTimeMillis());
+
+                if (horseId > 0) {
+                    memoryActiveLocks.put(String.valueOf(horseId), lockData);
+                }
+                if (!horseName.isEmpty()) {
+                    memoryActiveLocks.put(horseName.toLowerCase(), lockData);
+                }
+
                 response.setStatus(HttpServletResponse.SC_OK);
                 try (PrintWriter out = response.getWriter()) {
                     out.print(gson.toJson(lockData));
                     out.flush();
                 }
+                return;
             }
         } catch (Exception e) {
             SecurityUtil.sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,

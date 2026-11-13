@@ -197,25 +197,57 @@ export function getSlotBookingStatus(slotId, trainerUsername, sessionDate) {
  */
 export function checkHorseVetLockStatus(horseIdentifier) {
   if (!horseIdentifier) return { isLocked: false, reason: '', horseName: '' };
-  const key = String(horseIdentifier).trim().toLowerCase();
+  const rawKey = String(horseIdentifier).trim();
+  const key = rawKey.toLowerCase();
+
+  // 0. Quét tìm trong Bảng Khóa Y Tế Toàn Cục (Global Active Vet Locks)
+  try {
+    const rawActive = localStorage.getItem('matruong_vet_active_locks');
+    if (rawActive) {
+      const activeMap = JSON.parse(rawActive);
+      if (activeMap && typeof activeMap === 'object') {
+        const entry = activeMap[key] || activeMap[rawKey];
+        if (entry) {
+          if (entry.isLocked === false) {
+            // Đã được Bác sĩ dỡ khóa y tế một cách tường minh
+            return { isLocked: false, reason: '', horseName: entry.horseName || horseIdentifier };
+          }
+          if (entry.isLocked) {
+            return {
+              isLocked: true,
+              reason: entry.reason || 'Bác sĩ Thú y kích hoạt Lệnh Khóa Y Tế (Tạm cấm tập luyện & thi đấu)',
+              horseName: entry.horseName || horseIdentifier
+            };
+          }
+        }
+      }
+    }
+  } catch {}
 
   // 1. Quét tìm trong danh sách Thú y quản lý
   try {
-    const rawVet = localStorage.getItem('matruong_vet_horses_managed');
-    if (rawVet) {
-      const list = JSON.parse(rawVet);
-      if (Array.isArray(list)) {
-        const found = list.find(h =>
-          (h.id && String(h.id).toLowerCase() === key) ||
-          (h.microchip && h.microchip.toLowerCase() === key) ||
-          (h.name && h.name.toLowerCase() === key)
-        );
-        if (found && (found.locked || found.isLockedByVet || found.status === 'INJURED')) {
-          return {
-            isLocked: true,
-            reason: found.lockReason || found.statusText || 'Bác sĩ Thú y kích hoạt Lệnh Khóa Y Tế (Tạm cấm tập luyện & thi đấu)',
-            horseName: found.name || horseIdentifier
-          };
+    for (let i = 0; i < localStorage.length; i++) {
+      const storageKey = localStorage.key(i);
+      if (storageKey === 'matruong_vet_horses_managed' || (storageKey && storageKey.startsWith('matruong_vet_horses_'))) {
+        const rawVet = localStorage.getItem(storageKey);
+        if (rawVet) {
+          const list = JSON.parse(rawVet);
+          if (Array.isArray(list)) {
+            const found = list.find(h =>
+              (h.id && String(h.id).toLowerCase() === key) ||
+              (h.microchip && h.microchip.toLowerCase() === key) ||
+              (h.name && h.name.toLowerCase() === key)
+            );
+            if (found) {
+              if (found.locked || found.isLockedByVet || found.status === 'INJURED') {
+                return {
+                  isLocked: true,
+                  reason: found.lockReason || found.statusText || 'Bác sĩ Thú y kích hoạt Lệnh Khóa Y Tế (Tạm cấm tập luyện & thi đấu)',
+                  horseName: found.name || horseIdentifier
+                };
+              }
+            }
+          }
         }
       }
     }

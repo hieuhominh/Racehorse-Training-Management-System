@@ -9,22 +9,9 @@ import { useAuth, FIXED_GROOMS } from '../context/AuthContext';
  */
 export default function GroomRoute({ children }) {
   const { currentUser, setCurrentUser, usersList } = useAuth();
+  const r = (currentUser?.role || currentUser?.role_code || '').toUpperCase();
 
-  // 1. Nếu chưa đăng nhập hoặc vừa bấm Đăng xuất -> Lập tức về Trang chủ
-  if (!currentUser) {
-    return <Navigate to="/" replace />;
-  }
-
-  // 2. Tài khoản bị khóa -> Về Trang chủ
-  const currentInList = usersList?.find(u => Number(u.user_id) === Number(currentUser.user_id) || u.username === currentUser.username);
-  const effectiveStatus = currentInList?.status || currentUser.status || 'ACTIVE';
-  if (currentUser.username !== 'admin' && effectiveStatus !== 'ACTIVE') {
-    return <Navigate to="/" replace />;
-  }
-
-  const r = (currentUser.role || currentUser.role_code || '').toUpperCase();
-
-  // 3. Nếu người dùng đang đăng nhập vai trò khác nhưng truy cập /groom: Đồng bộ sang Groom để giữ ở Cổng Groom
+  // 1. Đặt Hook ở đầu component để tuân thủ tuyệt đối React Rules of Hooks
   useEffect(() => {
     if (currentUser && r !== 'GROOM') {
       const defaultGroom = (usersList && usersList.find(u => u.role === 'GROOM')) || (FIXED_GROOMS && FIXED_GROOMS[0]) || {
@@ -43,6 +30,18 @@ export default function GroomRoute({ children }) {
       }
     }
   }, [currentUser, r, setCurrentUser, usersList]);
+
+  // 2. Nếu chưa đăng nhập hoặc vừa bấm Đăng xuất -> Lập tức về Trang chủ
+  if (!currentUser) {
+    return <Navigate to="/" replace />;
+  }
+
+  // 3. Tài khoản bị khóa -> Về Trang chủ
+  const currentInList = usersList?.find(u => Number(u.user_id) === Number(currentUser.user_id) || u.username === currentUser.username);
+  const effectiveStatus = currentInList?.status || currentUser.status || 'ACTIVE';
+  if (currentUser.username !== 'admin' && effectiveStatus !== 'ACTIVE') {
+    return <Navigate to="/" replace />;
+  }
 
   return children;
 }

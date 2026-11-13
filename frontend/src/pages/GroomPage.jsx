@@ -474,6 +474,52 @@ export default function GroomPage() {
     return INITIAL_INVENTORY;
   });
 
+  // Lắng nghe sự kiện cập nhật y lệnh Bác sĩ Thú y (tiêm chủng, chăm sóc điều trị)
+  useEffect(() => {
+    const handleVetInstructionsUpdate = () => {
+      const saved = getGroomData(STORAGE_KEYS.VET_INSTRUCTIONS, null);
+      if (Array.isArray(saved)) {
+        setVetInstructions(saved);
+      }
+    };
+    window.addEventListener('matruong_vet_instructions_updated', handleVetInstructionsUpdate);
+    window.addEventListener('storage', handleVetInstructionsUpdate);
+    return () => {
+      window.removeEventListener('matruong_vet_instructions_updated', handleVetInstructionsUpdate);
+      window.removeEventListener('storage', handleVetInstructionsUpdate);
+    };
+  }, []);
+
+  // Lắng nghe sự kiện Chủ sở hữu xóa chiến mã -> Tự động dọn sạch mọi dữ liệu liên quan bên Cổng Groom
+  useEffect(() => {
+    const handleHorsePurged = (e) => {
+      const { horseId, horseName, microchip } = e?.detail || {};
+      const isMatch = (item) => {
+        if (!item) return false;
+        if (horseId && (String(item.id) === String(horseId) || String(item.horseId) === String(horseId))) return true;
+        if (horseName) {
+          const hn = String(horseName).trim().toLowerCase();
+          if (item.name && String(item.name).trim().toLowerCase() === hn) return true;
+          if (item.horseName && String(item.horseName).trim().toLowerCase() === hn) return true;
+          if (item.horse && typeof item.horse === 'string' && item.horse.trim().toLowerCase() === hn) return true;
+        }
+        if (microchip) {
+          const mc = String(microchip).trim().toLowerCase();
+          if (item.microchip && String(item.microchip).trim().toLowerCase() === mc) return true;
+          if (item.chipId && String(item.chipId).trim().toLowerCase() === mc) return true;
+        }
+        return false;
+      };
+
+      setGroomHorses(prev => prev.filter(h => !isMatch(h)));
+      setVetInstructions(prev => prev.filter(ins => !isMatch(ins)));
+      setIncidents(prev => prev.filter(inc => !isMatch(inc)));
+    };
+
+    window.addEventListener('matruong_horse_deleted', handleHorsePurged);
+    return () => window.removeEventListener('matruong_horse_deleted', handleHorsePurged);
+  }, []);
+
   // Lắng nghe sự kiện cập nhật kho vật tư từ hệ thống
   useEffect(() => {
     const handleInventoryUpdate = () => {
