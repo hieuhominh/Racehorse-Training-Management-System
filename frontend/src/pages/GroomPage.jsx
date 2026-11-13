@@ -747,10 +747,17 @@ export default function GroomPage() {
                     actionRequired: `Bác sĩ Thú y đã hoàn tất thăm khám: ${matched.vetDiagnosis || 'Thể trạng ổn định'}. Phác đồ: ${matched.actionTaken || 'Đã áp dụng điều trị'}`
                   };
                 } else if (matched.status === 'in_review') {
+                  if (a.status !== 'IN_TREATMENT' && showToast) {
+                    showToast(
+                      `Bác sĩ Thú y ${matched.acceptedByVet || 'phụ trách'} đã xác nhận tiếp nhận ca ${matched.id} (${matched.horseName}) và đang trực tiếp đến ô chuồng khám!`,
+                      'BÁC SĨ ĐANG ĐẾN KHÁM',
+                      'success'
+                    );
+                  }
                   return {
                     ...a,
                     status: 'IN_TREATMENT',
-                    actionRequired: 'Bác sĩ Thú y đã tiếp nhận thông tin và đang trực tiếp có mặt tại chuồng khám.'
+                    actionRequired: `Bác sĩ Thú y ${matched.acceptedByVet || ''} đã xác nhận tiếp nhận và đang trực tiếp có mặt tại chuồng khám.`
                   };
                 }
               }
@@ -782,12 +789,21 @@ export default function GroomPage() {
       ? reportPayload.stall
       : `Ô ${cleanStallCode || 'chuồng'}`;
 
+    const matchedAsgn = (serviceAssignments || []).find(a =>
+      (a.horseName && reportPayload.horseName && a.horseName.toLowerCase() === reportPayload.horseName.toLowerCase()) ||
+      (a.microchip && reportPayload.horseId && a.microchip === reportPayload.horseId)
+    );
+    const ownerName = matchedAsgn?.ownerName || 'Chủ sở hữu';
+    const ownerKey = matchedAsgn?.ownerKey || 'owner';
+
     const newInc = {
       id: incidentId,
       stallCode: cleanStallCode,
       stall: cleanStallName,
       horseName: reportPayload.horseName || 'Chiến mã',
       horseId: reportPayload.horseId || 'EQ-VN-2026',
+      ownerName,
+      ownerKey,
       severity: reportPayload.severity,
       symptoms: reportPayload.symptoms || 'Bất thường lâm sàng',
       desc: reportPayload.desc || '',
@@ -813,6 +829,8 @@ export default function GroomPage() {
       title: `${reportPayload.symptoms || 'Báo động lâm sàng'} (${reportPayload.horseName || 'Chiến mã'})`,
       horseName: reportPayload.horseName || 'Chiến mã',
       horseId: reportPayload.horseId || 'EQ-VN-2026',
+      ownerName,
+      ownerKey,
       stall: cleanStallName,
       stallCode: cleanStallCode,
       time: nowStr,
@@ -845,7 +863,7 @@ export default function GroomPage() {
       return updated;
     });
 
-    // Bắn thông báo khẩn cấp hệ thống đến Bác sĩ Thú Y và Quản trị viên
+    // Bắn thông báo khẩn cấp hệ thống đến Bác sĩ Thú Y, Chủ sở hữu và Quản trị viên
     try {
       addSystemNotification({
         type: 'INCIDENT_REPORTED',
@@ -855,7 +873,9 @@ export default function GroomPage() {
         horseId: reportPayload.horseId,
         stall: reportPayload.stall,
         severity: reportPayload.severity,
-        recipientRoles: ['VET', 'ADMIN', 'GROOM', 'ALL']
+        ownerName,
+        ownerKey,
+        recipientRoles: ['VET', 'OWNER', 'ADMIN', 'GROOM', 'ALL']
       });
     } catch {}
 

@@ -30,7 +30,8 @@ import {
   getTrainingProgramsApi,
   getTelemetrySessionsApi,
   getHorseFitnessApi,
-  getServiceAssignmentsApi
+  getServiceAssignmentsApi,
+  getIncidentsApi
 } from '../services/api';
 import OwnerTournamentsTab from '../components/OwnerTournamentsTab';
 import {
@@ -1091,6 +1092,107 @@ export default function OwnerPage() {
       return [];
     }
   });
+
+  // State 6: Sự cố lâm sàng & báo động y tế thời gian thực
+  const [medicalIncidents, setMedicalIncidents] = useState(() => {
+    try {
+      const stored = localStorage.getItem('racehorse_api_incidents') || localStorage.getItem('matruong_incidents');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  const loadMedicalIncidents = useCallback(async () => {
+    try {
+      const res = await getIncidentsApi();
+      if (res && Array.isArray(res.data)) {
+        setMedicalIncidents(res.data);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadMedicalIncidents();
+
+    const handleIncidentUpdate = (e) => {
+      loadMedicalIncidents();
+
+      // Kiểm tra nếu có sự kiện cập nhật cụ thể để hiển thị toast cho Chủ sở hữu
+      const detail = e?.detail;
+      if (detail && (detail.horseName || detail.horse)) {
+        const targetHorseName = (detail.horseName || detail.horse || '').trim().toLowerCase();
+        const targetChip = (detail.horseId || detail.microchip || '').trim().toLowerCase();
+        const curKey = (ownerKey || '').toLowerCase();
+        const curName = (currentUser?.full_name || '').trim().toLowerCase();
+
+        const myHorseNames = (myHorses || []).map(h => (h.name || '').trim().toLowerCase()).filter(Boolean);
+        const myHorseChips = (myHorses || []).map(h => (h.microchip || '').trim().toLowerCase()).filter(Boolean);
+
+        const isMyHorse = myHorseNames.includes(targetHorseName) ||
+          (targetChip && myHorseChips.includes(targetChip)) ||
+          (detail.ownerKey && String(detail.ownerKey).toLowerCase() === curKey) ||
+          (detail.ownerName && curName && String(detail.ownerName).toLowerCase() === curName);
+
+        if (isMyHorse) {
+          if (detail.status === 'in_review') {
+            showToast(
+              `Bác sĩ Thú y ${detail.acceptedByVet || 'phụ trách'} đã xác nhận tiếp nhận ca ${detail.id || ''} và đang trực tiếp đến ô chuồng khám cho chiến mã ${detail.horseName}!`,
+              'BÁC SĨ ĐANG ĐẾN KHÁM',
+              'success'
+            );
+          } else if (detail.status === 'pending_vet') {
+            showToast(
+              `Groom vừa phát báo động sức khỏe cho chiến mã ${detail.horseName}: "${detail.symptoms || 'Bất thường lâm sàng'}". Bác sĩ Thú y đang được điều phối!`,
+              'BÁO ĐỘNG Y TẾ',
+              'warning'
+            );
+          } else if (detail.status === 'resolved') {
+            showToast(
+              `Bác sĩ Thú y đã hoàn tất thăm khám và điều trị cho chiến mã ${detail.horseName}. Thể trạng đã ổn định.`,
+              'ĐÃ XỬ LÝ ỔN ĐỊNH',
+              'success'
+            );
+          }
+        }
+      }
+    };
+
+    window.addEventListener('matruong_incidents_updated', handleIncidentUpdate);
+    window.addEventListener('storage', handleIncidentUpdate);
+    return () => {
+      window.removeEventListener('matruong_incidents_updated', handleIncidentUpdate);
+      window.removeEventListener('storage', handleIncidentUpdate);
+    };
+  }, [loadMedicalIncidents, myHorses, ownerKey, currentUser, showToast]);
+
+  // Lọc các ca sự cố lâm sàng thuộc về chiến mã của Chủ sở hữu
+  const myMedicalIncidents = useMemo(() => {
+    if (!medicalIncidents || medicalIncidents.length === 0) return [];
+    const myHorseNames = (myHorses || []).map(h => (h.name || '').trim().toLowerCase()).filter(Boolean);
+    const myHorseChips = (myHorses || []).map(h => (h.microchip || '').trim().toLowerCase()).filter(Boolean);
+    const curKey = (ownerKey || '').toLowerCase();
+    const curName = (currentUser?.full_name || '').trim().toLowerCase();
+
+    return medicalIncidents.filter(inc => {
+      const incHorseName = (inc.horseName || inc.horse || '').trim().toLowerCase();
+      const incHorseId = (inc.horseId || inc.microchip || '').trim().toLowerCase();
+      const incOwnerKey = (inc.ownerKey || '').trim().toLowerCase();
+      const incOwnerName = (inc.ownerName || '').trim().toLowerCase();
+
+      if (myHorseNames.includes(incHorseName)) return true;
+      if (incHorseId && myHorseChips.includes(incHorseId)) return true;
+      if (incOwnerKey && incOwnerKey === curKey) return true;
+      if (incOwnerName && curName && incOwnerName === curName) return true;
+      return false;
+    });
+  }, [medicalIncidents, myHorses, ownerKey, currentUser]);
+
+  const activeMyMedicalIncidents = useMemo(() => {
+    return myMedicalIncidents.filter(inc => inc.status !== 'resolved');
+  }, [myMedicalIncidents]);
 
   // Đảm bảo đồng bộ và chống nhân bản chiến mã khi chuyển đổi vai trò/tài khoản (API + Local Cache)
   useEffect(() => {
@@ -3288,6 +3390,11 @@ export default function OwnerPage() {
           >
             <span className="portal-nav-icon"><IconShieldHeart size={18} /></span>
             <span className="portal-nav-label">Minh bạch y tế</span>
+            {activeMyMedicalIncidents.length > 0 && (
+              <span className="portal-nav-badge" style={{ background: '#EF4444', color: '#FFFFFF', fontWeight: 700 }}>
+                {activeMyMedicalIncidents.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -5436,54 +5543,292 @@ export default function OwnerPage() {
           {/* ========================================================================= */}
           {activeTab === 'vet' && (
             <div className="tab-pane">
-              <div className="pane-header" style={{ marginBottom: '16px' }}>
+              <div className="pane-header" style={{ marginBottom: '20px' }}>
                 <h2 className="pane-title">Minh Bạch Y Tế & Sức Khỏe (Veterinary Health Transparency)</h2>
-                <p className="pane-desc">Nhật ký khám nghiệm trực tiếp từ Bác sĩ Thú Y: tiêm phòng, phác đồ điều trị và cảnh báo.</p>
+                <p className="pane-desc">Theo dõi sự cố lâm sàng thời gian thực, tiến trình Bác sĩ tiếp nhận thăm khám và sổ nhật ký y tế định kỳ.</p>
               </div>
 
-              {healthLogs.length === 0 ? (
-                <div className="facility-card" style={{ padding: '40px 24px', textAlign: 'center' }}>
-                  <IconShieldHeart size={32} color="var(--paper-dim)" />
-                  <h3 style={{ fontSize: '16px', color: 'var(--paper)', margin: '12px 0 6px' }}>
-                    Chưa Có Hồ Sơ Thú Y
-                  </h3>
-                  <p style={{ fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '420px', margin: '0 auto 16px' }}>
-                    Khi chiến mã được nhập chuồng, bác sĩ thú y sẽ kiểm dịch và lập sổ theo dõi y tế minh bạch tại đây.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {healthLogs.map((h) => (
-                    <div key={h.id} className="facility-card" style={{ padding: '20px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <b style={{ fontSize: '15px', color: 'var(--brass)' }}>{h.horseName}</b>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          background: h.status === 'CLEARED' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
-                          color: h.status === 'CLEARED' ? 'var(--brass)' : 'var(--paper-dim)',
-                          border: `1px solid ${h.status === 'CLEARED' ? 'var(--brass)' : 'var(--line)'}`
-                        }}>
-                          {h.statusText}
-                        </span>
-                      </div>
+              {/* KHỐI 1: TIẾP NHẬN SỰ CỐ & THEO DÕI LÂM SÀNG THỜI GIAN THỰC */}
+              <div style={{ marginBottom: '28px' }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '14px',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--paper)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Tiếp Nhận Sự Cố & Theo Dõi Lâm Sàng Thời Gian Thực
+                    </h3>
+                    {activeMyMedicalIncidents.length > 0 && (
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background: '#EF4444',
+                        color: '#FFFFFF',
+                        fontSize: '11px',
+                        fontWeight: 700
+                      }}>
+                        {activeMyMedicalIncidents.length} ca cần theo dõi
+                      </span>
+                    )}
+                  </div>
 
-                      <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12.5px', marginBottom: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                        <div>Nội dung khám: <b style={{ color: 'var(--paper)' }}>{h.issue}</b></div>
-                        <div>Bác sĩ phụ trách: <b style={{ color: 'var(--paper)' }}>{h.diagnosisBy}</b></div>
-                        <div>Thuốc / Vaccine: <b style={{ color: 'var(--paper)' }}>{h.medications}</b></div>
-                        <div>Ngày ghi nhận: <b style={{ color: 'var(--paper-dim)' }}>{h.date}</b></div>
-                      </div>
-
-                      <div style={{ fontSize: '12.5px', color: 'var(--paper-dim)', lineHeight: 1.45 }}>
-                        <b>Ghi chú chuyên môn:</b> {h.vetNote}
-                      </div>
-                    </div>
-                  ))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                    <span style={{ padding: '3px 8px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.12)', color: '#F59E0B', fontWeight: 600 }}>
+                      Chờ BS khám: {myMedicalIncidents.filter(i => i.status === 'pending_vet').length}
+                    </span>
+                    <span style={{ padding: '3px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.12)', color: '#10B981', fontWeight: 600 }}>
+                      Đang đến khám: {myMedicalIncidents.filter(i => i.status === 'in_review').length}
+                    </span>
+                    <span style={{ padding: '3px 8px', borderRadius: '4px', background: 'var(--card-inner-bg)', color: 'var(--paper-dim)', fontWeight: 600, border: '1px solid var(--line)' }}>
+                      Đã ổn định: {myMedicalIncidents.filter(i => i.status === 'resolved').length}
+                    </span>
+                  </div>
                 </div>
-              )}
+
+                {myMedicalIncidents.length === 0 ? (
+                  <div className="facility-card" style={{ padding: '28px 20px', textAlign: 'center', border: '1px dashed var(--line)' }}>
+                    <h4 style={{ fontSize: '14.5px', color: 'var(--paper)', margin: '0 0 6px', fontWeight: 600 }}>
+                      Thể Trạng An Toàn & Ổn Định
+                    </h4>
+                    <p style={{ fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '520px', margin: '0 auto', lineHeight: 1.5 }}>
+                      Hiện chưa có báo động sự cố y tế lâm sàng nào từ Groom đối với các chiến mã của bạn. Bác sĩ Thú y và Groom luôn trực ban 24/7 để giám sát an toàn.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {myMedicalIncidents.map((inc) => {
+                      const isPending = inc.status === 'pending_vet';
+                      const isInReview = inc.status === 'in_review';
+                      const isResolved = inc.status === 'resolved';
+
+                      let badgeColor = '#F59E0B';
+                      let badgeBg = 'rgba(245, 158, 11, 0.12)';
+                      let badgeText = 'Chờ BS Tiếp Nhận';
+
+                      if (isInReview) {
+                        badgeColor = '#10B981';
+                        badgeBg = 'rgba(16, 185, 129, 0.15)';
+                        badgeText = 'Bác Sĩ Đang Đến Khám';
+                      } else if (isResolved) {
+                        badgeColor = 'var(--paper-dim)';
+                        badgeBg = 'var(--bg-secondary)';
+                        badgeText = 'Đã Hoàn Tất Điều Trị';
+                      }
+
+                      let severityText = 'BÌNH THƯỜNG';
+                      let severityColor = '#10B981';
+                      if (inc.severity === 'CRITICAL') {
+                        severityText = 'KHẨN CẤP';
+                        severityColor = '#EF4444';
+                      } else if (inc.severity === 'HIGH') {
+                        severityText = 'MỨC CAO';
+                        severityColor = '#F59E0B';
+                      } else if (inc.severity === 'MEDIUM') {
+                        severityText = 'CẢNH BÁO';
+                        severityColor = '#FBBF24';
+                      }
+
+                      return (
+                        <div
+                          key={inc.id}
+                          className="facility-card"
+                          style={{
+                            padding: '18px 20px',
+                            border: isInReview
+                              ? '1.5px solid rgba(16, 185, 129, 0.45)'
+                              : isPending
+                              ? '1.5px solid rgba(245, 158, 11, 0.45)'
+                              : '1px solid var(--line)',
+                            background: isInReview
+                              ? 'rgba(16, 185, 129, 0.03)'
+                              : isPending
+                              ? 'rgba(245, 158, 11, 0.03)'
+                              : 'var(--card-bg)'
+                          }}
+                        >
+                          {/* Header của thẻ sự cố */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <b style={{ fontSize: '15px', color: 'var(--brass)' }}>{inc.horseName}</b>
+                              <span style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                                ({inc.stall || inc.stallCode || 'Ô chuồng'})
+                              </span>
+                              <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '3px', background: 'var(--card-inner-bg)', color: 'var(--paper-dim)', border: '1px solid var(--line)' }}>
+                                Mã: {inc.id}
+                              </span>
+                              <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px', background: `${severityColor}18`, color: severityColor, border: `1px solid ${severityColor}40` }}>
+                                {severityText}
+                              </span>
+                            </div>
+
+                            <span style={{
+                              padding: '4px 10px',
+                              borderRadius: '4px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              background: badgeBg,
+                              color: badgeColor,
+                              border: `1px solid ${badgeColor}40`
+                            }}>
+                              {badgeText}
+                            </span>
+                          </div>
+
+                          {/* Banner tiếp nhận trực tiếp từ Bác sĩ Thú Y */}
+                          {isInReview && (
+                            <div style={{
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              border: '1.5px solid rgba(16, 185, 129, 0.45)',
+                              borderRadius: '6px',
+                              padding: '12px 14px',
+                              marginBottom: '12px'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#10B981' }}>
+                                  Bác sĩ Thú y đã xác nhận tiếp nhận ca & đang trực tiếp đến ô chuồng khám!
+                                </span>
+                                <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', background: 'rgba(16, 185, 129, 0.25)', color: '#10B981' }}>
+                                  ĐANG DI CHUYỂN
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--paper)', lineHeight: 1.5 }}>
+                                Bác sĩ phụ trách: <b style={{ color: 'var(--brass)' }}>{inc.acceptedByVet || 'BS. Trần Minh Hoàng'}</b>
+                                {inc.acceptedAt && <span style={{ color: 'var(--paper-dim)' }}> · Tiếp nhận lúc: <b>{inc.acceptedAt}</b></span>}
+                              </div>
+                            </div>
+                          )}
+
+                          {isPending && (
+                            <div style={{
+                              background: 'rgba(245, 158, 11, 0.1)',
+                              border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                              borderRadius: '6px',
+                              padding: '10px 14px',
+                              marginBottom: '12px'
+                            }}>
+                              <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#F59E0B', marginBottom: '2px' }}>
+                                Báo cáo y tế đã được chuyển đến Bác sĩ Thú Y trực ban
+                              </div>
+                              <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', lineHeight: 1.45 }}>
+                                Đang chờ Bác sĩ Thú y bấm xác nhận đang đến khám. Hệ thống sẽ phát thông báo ngay khi Bác sĩ tiếp nhận.
+                              </div>
+                            </div>
+                          )}
+
+                          {isResolved && (
+                            <div style={{
+                              background: 'rgba(16, 185, 129, 0.08)',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              borderRadius: '6px',
+                              padding: '10px 14px',
+                              marginBottom: '12px'
+                            }}>
+                              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#10B981', marginBottom: '4px' }}>
+                                Bác sĩ Thú y đã hoàn tất thăm khám và xử lý điều trị
+                              </div>
+                              {inc.vetDiagnosis && (
+                                <div style={{ fontSize: '12px', color: 'var(--paper)', marginBottom: '2px' }}>
+                                  <b>Chẩn đoán:</b> {inc.vetDiagnosis}
+                                </div>
+                              )}
+                              {inc.actionTaken && (
+                                <div style={{ fontSize: '12px', color: 'var(--paper-dim)' }}>
+                                  <b>Phác đồ / Y lệnh:</b> {inc.actionTaken}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Thông tin chi tiết từ Groom */}
+                          <div style={{
+                            background: 'var(--bg-secondary)',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            marginBottom: '10px',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                            gap: '8px'
+                          }}>
+                            <div>Triệu chứng: <b style={{ color: 'var(--paper)' }}>{inc.symptoms || 'Bất thường lâm sàng'}</b></div>
+                            <div>Groom báo cáo: <b style={{ color: 'var(--paper)' }}>{inc.reportedBy || 'Lê Hoàng Nam'}</b></div>
+                            <div>Thời gian gửi: <b style={{ color: 'var(--paper-dim)' }}>{inc.reportedAt || inc.time || 'Hôm nay'}</b></div>
+                            {inc.vitalSigns?.temp && (
+                              <div>Sinh hiệu: <b style={{ color: 'var(--paper)' }}>{inc.vitalSigns.temp}</b> (Nhịp thở: {inc.vitalSigns.respRate || '14 l/p'})</div>
+                            )}
+                          </div>
+
+                          {(inc.description || inc.desc) && (
+                            <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.5, marginBottom: '6px' }}>
+                              <b>Mô tả của Groom:</b> {inc.description || inc.desc}
+                            </div>
+                          )}
+
+                          {inc.firstAidActions && inc.firstAidActions.length > 0 && (
+                            <div style={{ fontSize: '11.5px', color: 'var(--paper-dim)', lineHeight: 1.45 }}>
+                              <b>Sơ cứu hiện trường:</b> {inc.firstAidActions.join(' · ')}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* KHỐI 2: SỔ NHẬT KÝ KIỂM DỊCH & Y TẾ ĐỊNH KỲ */}
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 14px', color: 'var(--paper)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Sổ Nhật Ký Kiểm Dịch & Khám Y Tế Định Kỳ
+                </h3>
+
+                {healthLogs.length === 0 ? (
+                  <div className="facility-card" style={{ padding: '36px 20px', textAlign: 'center', border: '1px dashed var(--line)' }}>
+                    <h4 style={{ fontSize: '14.5px', color: 'var(--paper)', margin: '0 0 6px', fontWeight: 600 }}>
+                      Chưa Có Hồ Sơ Khám Định Kỳ
+                    </h4>
+                    <p style={{ fontSize: '13px', color: 'var(--paper-dim)', maxWidth: '420px', margin: '0 auto', lineHeight: 1.5 }}>
+                      Khi chiến mã được nhập chuồng, bác sĩ thú y sẽ kiểm dịch và lập sổ theo dõi y tế định kỳ minh bạch tại đây.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {healthLogs.map((h) => (
+                      <div key={h.id} className="facility-card" style={{ padding: '18px 20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <b style={{ fontSize: '15px', color: 'var(--brass)' }}>{h.horseName}</b>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background: h.status === 'CLEARED' ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-secondary)',
+                            color: h.status === 'CLEARED' ? 'var(--brass)' : 'var(--paper-dim)',
+                            border: `1px solid ${h.status === 'CLEARED' ? 'var(--brass)' : 'var(--line)'}`
+                          }}>
+                            {h.statusText}
+                          </span>
+                        </div>
+
+                        <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', marginBottom: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '6px' }}>
+                          <div>Nội dung khám: <b style={{ color: 'var(--paper)' }}>{h.issue}</b></div>
+                          <div>Bác sĩ phụ trách: <b style={{ color: 'var(--paper)' }}>{h.diagnosisBy}</b></div>
+                          <div>Thuốc / Vaccine: <b style={{ color: 'var(--paper)' }}>{h.medications}</b></div>
+                          <div>Ngày ghi nhận: <b style={{ color: 'var(--paper-dim)' }}>{h.date}</b></div>
+                        </div>
+
+                        <div style={{ fontSize: '12px', color: 'var(--paper-dim)', lineHeight: 1.45 }}>
+                          <b>Ghi chú chuyên môn:</b> {h.vetNote}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

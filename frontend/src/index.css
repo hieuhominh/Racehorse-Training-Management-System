@@ -1,6 +1,7 @@
 :root,
 [data-theme="dark"] {
   --theme-name: "dark";
+  color-scheme: dark;
   --bg-body: #1A2E25;
   --bg-primary: #1A2E25;
   --bg-secondary: #162820;
@@ -39,10 +40,12 @@
   --input-border: rgba(255, 255, 255, 0.12);
   --badge-neutral-bg: rgba(255, 255, 255, 0.08);
   --badge-neutral-color: var(--paper-dim);
+  --card-bg: var(--bg-card);
 }
 
 [data-theme="light"] {
   --theme-name: "light";
+  color-scheme: light;
   --bg-body: #F7F5F0;
   --bg-primary: #F7F5F0;
   --bg-secondary: #FFFFFF;
@@ -79,6 +82,7 @@
   --input-border: rgba(26, 46, 37, 0.15);
   --badge-neutral-bg: #EDE7DC;
   --badge-neutral-color: #2D4A3E;
+  --card-bg: var(--bg-card);
 }
 
 /* ==========================================================================
@@ -103,8 +107,96 @@
   opacity: 0.85 !important;
 }
 
-[data-theme="light"] select option {
+/* ==========================================================================
+   DROPDOWN & FORM CONTROLS: CHẾ ĐỘ TỐI (DARK MODE) & CHẾ ĐỘ SÁNG (LIGHT MODE)
+   Khử triệt để màu trắng khi xổ dropdown ở chế độ Tối
+   ========================================================================== */
+html[data-theme="dark"],
+html:not([data-theme="light"]),
+body[data-theme="dark"],
+body:not([data-theme="light"]) {
+  color-scheme: dark !important;
+}
+
+html[data-theme="light"],
+body[data-theme="light"] {
+  color-scheme: light !important;
+}
+
+/* Đảm bảo dropdown (select, option, optgroup) ở Dark Mode có màu xanh rêu tối hoàng gia sang trọng */
+:root select,
+[data-theme="dark"] select,
+select {
+  color-scheme: dark !important;
+}
+
+:root select option,
+:root select optgroup,
+[data-theme="dark"] select option,
+[data-theme="dark"] select optgroup,
+select option,
+select optgroup {
+  color-scheme: dark !important;
+  background-color: #14221B !important;
+  color: #E8EDE8 !important;
+}
+
+:root select optgroup,
+[data-theme="dark"] select optgroup,
+select optgroup {
+  background-color: #0E1813 !important;
+  color: #F59E0B !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px;
+  padding: 6px 10px !important;
+}
+
+:root select option,
+[data-theme="dark"] select option,
+select option {
+  background-color: #14221B !important;
+  color: #E8EDE8 !important;
+  padding: 8px 12px !important;
+}
+
+:root select option:checked,
+:root select option:hover,
+:root select option:focus,
+[data-theme="dark"] select option:checked,
+[data-theme="dark"] select option:hover,
+[data-theme="dark"] select option:focus,
+select option:checked,
+select option:hover,
+select option:focus {
+  background-color: #243D30 !important;
+  color: #FFFFFF !important;
+}
+
+/* Chế độ Sáng (Light Mode): nền trắng sứ, chữ xanh đậm */
+[data-theme="light"] select {
+  color-scheme: light !important;
   background-color: #FFFFFF !important;
+  color: #16261F !important;
+}
+
+[data-theme="light"] select option,
+[data-theme="light"] select optgroup {
+  color-scheme: light !important;
+  background-color: #FFFFFF !important;
+  color: #16261F !important;
+}
+
+[data-theme="light"] select optgroup {
+  background-color: #F8F5EE !important;
+  color: #E86B2C !important;
+  font-weight: 700 !important;
+  padding: 6px 10px !important;
+}
+
+[data-theme="light"] select option:checked,
+[data-theme="light"] select option:hover,
+[data-theme="light"] select option:focus {
+  background-color: #F3EFE8 !important;
   color: #16261F !important;
 }
 
@@ -167,7 +259,6 @@ html {
   scroll-behavior: smooth;
   background-color: var(--bg-body) !important;
   background: var(--bg-body) !important;
-  color-scheme: dark light;
   overflow-x: clip;
   max-width: 100vw;
 }

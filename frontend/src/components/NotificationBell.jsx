@@ -275,48 +275,67 @@ export default function NotificationBell({ role = 'TRAINER', currentUser }) {
                 const isSubstituteRejected = n.type === 'SUBSTITUTE_REJECTED';
                 const isTempTrainingReport = n.type === 'TEMP_TRAINING_REPORT';
 
-                let tagText = '📢 THÔNG BÁO';
+                const isIncidentReported = n.type === 'INCIDENT_REPORTED';
+                const isIncidentAccepted = n.type === 'INCIDENT_ACCEPTED';
+                const isIncidentResolved = n.type === 'INCIDENT_RESOLVED';
+
+                let tagText = 'THÔNG BÁO';
                 let tagBg = 'rgba(212, 175, 55, 0.15)';
                 let tagColor = 'var(--brass)';
                 let borderLeftColor = '3px solid var(--brass)';
 
-                if (isHorseDeleted) {
-                  tagText = '⚠️ XÓA CHIẾN MÃ';
+                if (isIncidentReported) {
+                  tagText = 'BÁO ĐỘNG Y TẾ';
+                  tagBg = 'rgba(239, 68, 68, 0.15)';
+                  tagColor = '#EF4444';
+                  borderLeftColor = '3px solid #EF4444';
+                } else if (isIncidentAccepted) {
+                  tagText = 'BÁC SĨ ĐANG ĐẾN KHÁM';
+                  tagBg = 'rgba(245, 158, 11, 0.18)';
+                  tagColor = '#F59E0B';
+                  borderLeftColor = '3px solid #F59E0B';
+                } else if (isIncidentResolved) {
+                  tagText = 'ĐÃ HOÀN TẤT ĐIỀU TRỊ';
+                  tagBg = 'rgba(16, 185, 129, 0.15)';
+                  tagColor = '#10B981';
+                  borderLeftColor = '3px solid #10B981';
+                } else if (isHorseDeleted) {
+                  tagText = 'XÓA CHIẾN MÃ';
                   tagBg = 'rgba(239, 68, 68, 0.15)';
                   tagColor = '#EF4444';
                   borderLeftColor = '3px solid #EF4444';
                 } else if (isTrainingRequest) {
-                  tagText = '🏇 YÊU CẦU HUẤN LUYỆN';
+                  tagText = 'YÊU CẦU HUẤN LUYỆN';
                   tagBg = 'rgba(245, 158, 11, 0.15)';
                   tagColor = '#F59E0B';
                   borderLeftColor = '3px solid #F59E0B';
                 } else if (isServiceConfirmed) {
-                  tagText = '✅ TIẾP NHẬN THÀNH CÔNG';
+                  tagText = 'TIẾP NHẬN THÀNH CÔNG';
                   tagBg = 'rgba(16, 185, 129, 0.15)';
                   tagColor = '#10B981';
                   borderLeftColor = '3px solid #10B981';
                 } else if (isSubstituteRequest) {
-                  tagText = '🤝 YÊU CẦU NHỜ TẬP THAY';
+                  tagText = 'YÊU CẦU NHỜ TẬP THAY';
                   tagBg = 'rgba(56, 189, 248, 0.15)';
                   tagColor = '#38BDF8';
                   borderLeftColor = '3px solid #38BDF8';
                 } else if (isTrainerSubstituted) {
-                  tagText = '🔄 ĐỔI HLV TẠM THỜI';
+                  tagText = 'ĐỔI HLV TẠM THỜI';
                   tagBg = 'rgba(245, 158, 11, 0.18)';
                   tagColor = '#F59E0B';
                   borderLeftColor = '3px solid #F59E0B';
                 } else if (isSubstituteAccepted) {
-                  tagText = '✓ ĐÃ ĐỒNG Ý TẬP THAY';
+                  tagText = 'ĐÃ ĐỒNG Ý TẬP THAY';
                   tagBg = 'rgba(16, 185, 129, 0.15)';
                   tagColor = '#10B981';
                   borderLeftColor = '3px solid #10B981';
                 } else if (isSubstituteRejected) {
-                  tagText = '✕ TỪ CHỐI TẬP THAY';
+                  tagText = 'TỪ CHỐI TẬP THAY';
                   tagBg = 'rgba(239, 68, 68, 0.15)';
                   tagColor = '#EF4444';
                   borderLeftColor = '3px solid #EF4444';
                 } else if (isTempTrainingReport) {
-                  tagText = '📋 BÁO CÁO TẬP TẠM THỜI';
+                  tagText = 'BÁO CÁO TẬP TẠM THỜI';
                   tagBg = 'rgba(168, 85, 247, 0.15)';
                   tagColor = '#A855F7';
                   borderLeftColor = '3px solid #A855F7';
